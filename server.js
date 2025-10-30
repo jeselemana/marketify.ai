@@ -24,7 +24,7 @@ app.post("/api/chat", async (req, res) => {
 
     // 🧠 OpenAI cavabı
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o-mini",
       messages: [{ role: "user", content: userMessage }],
     });
 
