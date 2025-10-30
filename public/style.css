@@ -1,0 +1,421 @@
+body {
+  background: #0f0f0f;
+  color: #fff;
+  font-family: "Poppins", -apple-system, BlinkMacSystemFont, sans-serif;
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.app {
+  width: 100%;
+  max-width: 800px;
+  height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* 🔹 Header */
+.header {
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  display: flex;
+  align-items: center;
+  z-index: 10;
+}
+
+.model-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #1a1a1a;
+  border: 1px solid #2c2c2c;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 15px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.model-btn:hover { background: #232323; }
+
+.brand { font-weight: 600; color: #fff; }
+.version { color: #aaa; font-weight: 500; font-size: 14px; }
+
+/* açılan menyu */
+.model-menu {
+  position: absolute;
+  top: 42px;
+  left: 0;
+  width: 220px;
+  background: #1a1a1a;
+  border: 1px solid #2c2c2c;
+  border-radius: 10px;
+  display: none;
+  flex-direction: column;
+  padding: 10px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.3);
+}
+
+.menu-title {
+  font-size: 13px;
+  color: #bbb;
+  margin-bottom: 6px;
+  padding-left: 4px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #181818;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #ccc;
+}
+.menu-item .desc {
+  flex: 1;
+  font-size: 12px;
+  color: #777;
+  margin-left: 8px;
+}
+.menu-item.active {
+  border: 1px solid #00b4d8;
+  color: #fff;
+}
+
+/* 🧹 Clear düyməsi */
+.clear-btn {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  background: #1a1a1a;
+  border: 1px solid #2c2c2c;
+  color: #9abfff;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.clear-btn:hover { background: #242424; }
+.clear-btn:active { transform: scale(0.95); }
+
+/* ... (qalan hissə eyni qalır: chat-box, input-bar, legal, typing, media query və s.) */
+/* Alt yazı (Powered by Marketify 💙) */
+
+/* ⚙️ Alt məlumat (footer yazısı) */
+.legal {
+  position: fixed;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 800px;
+  text-align: center;
+  color: #8b8b8b;
+  font-size: 12.5px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.legal p {
+  margin: 2px 0; /* iki sətir arasında yumşaq məsafə */
+}
+
+.legal strong {
+  color: #cfe2ff;
+  font-weight: 600;
+}
+
+/* 📱 Mobil üçün */
+@media (max-width: 600px) {
+  .legal {
+    font-size: 11.5px;
+    line-height: 1.3;
+    bottom: 12px; /* bir az yuxarıya qaldırıldı */
+  }
+}
+
+body {
+  background-color: #0f0f0f;
+  color: #fff;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+  max-width: 800px;
+  height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* 🧹 Clear düyməsi (sağ yuxarı) */
+.clear-btn {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  background: #1a1a1a;
+  border: 1px solid #2c2c2c;
+  color: #9abfff;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.clear-btn:hover { background: #242424; }
+.clear-btn:active { transform: scale(0.95); }
+
+.center-message {
+  position: absolute;
+  top: 35%;
+  text-align: center;
+  color: #aaa;
+  transition: opacity 0.3s ease;
+}
+
+.chat-box {
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 150px;
+  box-sizing: border-box;
+}
+
+.message {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  line-height: 1.5;
+  font-size: 16px;
+  animation: fadeIn 0.3s ease;
+}
+
+.user {
+  align-self: flex-end;
+  background: #007aff;
+  color: white;
+}
+
+.bot {
+  align-self: flex-start;
+  background: #1c1c1c;
+  border: 1px solid #2a2a2a;
+}
+
+.input-bar {
+  position: fixed;
+  bottom: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 800px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1a1a1a;
+  border: 1px solid #2c2c2c;
+  border-radius: 999px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  backdrop-filter: blur(10px);
+}
+
+input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 16px;
+  padding: 8px 2px;
+}
+
+button.send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid #2f2f2f;
+  background: #222;
+  color: #86b7ff;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.06s;
+}
+
+button.send:hover {
+  background: #262626;
+  border-color: #3a3a3a;
+}
+button.send:active { transform: scale(0.98); }
+button.send:focus-visible {
+  outline: 2px solid #2f6bd8;
+  outline-offset: 2px;
+}
+
+.legal {
+  position: fixed;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 800px;
+  text-align: center;
+  color: #8b8b8b;
+  font-size: 12px;
+  line-height: 1.3;
+  pointer-events: none;
+}
+.legal strong { color: #cfe2ff; font-weight: 600; }
+
+.typing {
+  font-style: italic;
+  color: #aaa;
+  opacity: 0.8;
+  font-size: 15px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 📱 Mobil uyğunluq */
+@media (max-width: 600px) {
+  .clear-btn {
+    top: 12px;
+    right: 12px;
+    width: 34px;
+    height: 34px;
+  }
+  .app { padding: 10px; }
+  .input-bar {
+    bottom: 64px;
+    border-radius: 20px;
+    padding: 8px 10px;
+    width: calc(100% - 20px);
+    gap: 8px;
+  }
+  input { font-size: 15px; }
+  button.send { width: 36px; height: 36px; }
+  .message { font-size: 14px; padding: 10px 12px; }
+  .chat-box { padding-bottom: 170px; }
+}
+
+/* Mərkəz hissə */
+.center-message {
+  position: absolute;
+  top: 35%;
+  text-align: center;
+  transition: opacity 0.3s ease;
+}
+
+/* Mərkəz hissə */
+.center-message {
+  position: absolute;
+  top: 35%;
+  text-align: center;
+  transition: opacity 0.3s ease;
+}
+
+/* 💼 Marketify başlıq (h1) */
+.brand-sub {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 44px;
+  color: #0732ef;
+  text-align: center;
+  letter-spacing: 0.4px;
+  margin: 0 0 18px 0; /* aşağı boşluq */
+  animation: fadeIn 0.8s ease;
+}
+
+/* ⚡️ Təsvir (p) */
+.tagline {
+  font-family: "Poppins", sans-serif;
+  font-weight: 500;
+  font-size: 22px;
+  color: #d1d1d1;
+  margin: 0;
+  animation: fadeIn 1s ease;
+}
+
+/* Fade-in animasiya */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 📱 Mobil uyğunluq */
+@media (max-width: 600px) {
+  .brand-sub {
+    font-size: 34px;
+    margin-bottom: 14px;
+  }
+
+  .tagline {
+    font-size: 18px;
+  }
+}
+
+.clear-btn {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  background: #1a1a1a;
+  border: 1px solid #2c2c2c;
+  color: #9abfff;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.1s;
+}
+
+.clear-btn:hover {
+  background: #232323;
+  color: #ffffff;
+}
+
+.clear-btn:active {
+  transform: scale(0.95);
+}
+
+.clear-btn svg {
+  pointer-events: none;
+}
