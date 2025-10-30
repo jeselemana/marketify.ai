@@ -1,6 +1,36 @@
 const chatBox = document.querySelector(".chat-box");
 const input = document.querySelector("input");
 const sendBtn = document.querySelector(".send");
+// 🟣 Hazır prompt bubble-ları
+document.querySelectorAll(".bubble").forEach((bubble) => {
+  bubble.addEventListener("click", async () => {
+    const message = bubble.innerText;
+
+    if (centerMessage) centerMessage.style.display = "none";
+    addMessage("user", message);
+
+    const typing = document.createElement("div");
+    typing.classList.add("message", "bot", "typing");
+    typing.innerText = "Marketify yazır...";
+    chatBox.appendChild(typing);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await response.json();
+      chatBox.removeChild(typing);
+      addMessage("bot", data.reply || "Cavab alınmadı 😔");
+    } catch (error) {
+      chatBox.removeChild(typing);
+      addMessage("bot", "⚠️ Bağlantı problemi. Marketify AI hazırda oflayn rejimdədir.");
+    }
+  });
+});
 const clearBtn = document.getElementById("clearChat");
 const centerMessage = document.querySelector(".center-message");
 

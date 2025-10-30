@@ -423,3 +423,67 @@ button.send:focus-visible {
 .center-message {
   transition: 0.4s ease;
 }
+
+.prompt-bubbles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 10px;
+  max-width: 95%;
+}
+
+.bubble {
+  background-color: #f4f5ff;
+  color: #0732EF;
+  border: 1px solid #0732EF;
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: center;
+  white-space: normal;
+  word-wrap: break-word;
+  flex: 1 1 45%;
+  max-width: 45%;
+}
+
+.bubble:hover {
+  background-color: #0732EF;
+  color: white;
+  transform: scale(1.05);
+}
+
+/* 🔹 Mobil uyğunlaşdırma */
+@media (max-width: 768px) {
+  .prompt-bubbles {
+    gap: 8px;
+    margin-top: 15px;
+    padding: 0 8px;
+  }
+
+  .bubble {
+    font-size: 13px;
+    padding: 8px 10px;
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .bubble {
+    font-size: 12.5px;
+    padding: 8px 12px;
+    border-radius: 16px;
+  }
+}
+
+.bubble:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
