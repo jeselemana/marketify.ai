@@ -8,28 +8,40 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public")); // frontend fayllar üçün
+app.use(express.static("public")); // Frontend fayllar (index.html, style.css, script.js)
 
+// 🔹 OpenAI müştərisini qoşuruq
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-// API endpoint
+// 🔹 Chat endpoint
 app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message;
-    const response = await openai.chat.completions.create({
+    if (!userMessage)
+      return res.status(400).json({ error: "Mesaj daxil edilməyib." });
+
+    // 🧠 OpenAI cavabı
+    const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [{ role: "user", content: userMessage }],
     });
-    res.json({ reply: response.choices[0].message.content });
+
+    const reply = completion.choices?.[0]?.message?.content || "Cavab alınmadı 😔";
+    res.json({ reply });
   } catch (error) {
-    console.error("API Error:", error);
-    res.status(500).json({ error: "Server error" });
+    console.error("OpenAI xətası:", error.message);
+    res.status(500).json({ error: "Server xətası, AI cavab vermədi." });
   }
 });
 
-// 🔹 Render üçün dinamik port
+// 🔹 Frontend üçün “catch-all” route (Render-də vacibdir)
+app.get("*", (req, res) => {
+  res.sendFile(process.cwd() + "/public/index.html");
+});
+
+// 🔹 Render port
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => {
   console.log(`✅ Marketify AI is live on port ${PORT}`);

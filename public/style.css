@@ -419,3 +419,7 @@ button.send:focus-visible {
 .clear-btn svg {
   pointer-events: none;
 }
+
+.center-message {
+  transition: 0.4s ease;
+}
