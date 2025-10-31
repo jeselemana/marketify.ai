@@ -46,3 +46,12 @@ const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => {
   console.log(`✅ Marketify AI is live on port ${PORT}`);
 });
+
+// 🟢 Serveri aktiv saxlamaq üçün "Keep Alive" sistemi
+import fetch from "node-fetch";
+
+setInterval(() => {
+  fetch("https://marketify-ai.onrender.com").catch(() =>
+    console.log("⚠️ Keep-alive ping alınmadı")
+  );
+}, 10 * 60 * 1000); // hər 10 dəqiqədən bir
