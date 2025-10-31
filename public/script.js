@@ -72,7 +72,11 @@ sendBtn.addEventListener("click", async () => {
     const data = await response.json();
 
     chatBox.removeChild(typing);
-    addMessage("bot", data.reply || "⚠️ Cavab alınmadı 😔");
+    addMessage(
+  "bot",
+  (data.reply || "⚠️ Cavab alınmadı 😔") +
+    '\n\n<div class="marketify-cta fade-in">📌 Cavab tam qane etmədi? Narahat olma — həlli Marketify-da!<br> Dərhal <a href="https://marketifym.wixstudio.com/marketify" target="_blank" class="marketify-link">Marketify saytından</a> ekspertlə məsləhətləş və peşəkar dəstək al. 💼</div>'
+);
   } catch (error) {
     console.error("Xəta:", error);
     chatBox.removeChild(typing);
