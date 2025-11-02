@@ -22,10 +22,19 @@ app.post("/api/chat", async (req, res) => {
     if (!userMessage)
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
 
-    // 🧠 OpenAI cavabı
+     // 🧠 GPT-4o-mini modelindən cavab alma
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: userMessage }],
+      messages: [
+        {
+          role: "system",
+          content:
+            "Sən Marketify AI adlanan süni intellektli marketinq köməkçisisən. Marketify Innova Group tərəfindən hazırlanıb. Marketinq, brendinq, məhsul və xidmət təşviqi üzrə peşəkar və rəsmi tonda cavab ver. Qısaca, aydın və faydalı yaz.",
+        },
+        { role: "user", content: message },
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
     });
 
     const reply = completion.choices?.[0]?.message?.content || "Cavab alınmadı 😔";
