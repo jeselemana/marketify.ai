@@ -563,3 +563,62 @@ button.send:focus-visible {
   transform: translateY(-2px);
   box-shadow: 0 0 15px rgba(0, 255, 255, 0.25);
 }
+
+/* 🧭 Ümumi layout — hər şeyi mərkəzə gətirir */
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh; /* ekran boyu */
+  text-align: center;
+  position: relative;
+}
+
+/* 💬 Marketify mərkəzi mesajı */
+.center-message {
+  margin-top: -60px; /* bir az yuxarı çəkmək üçün */
+}
+
+/* 💡 Prompt bubble-lar Marketify yazısının altında və ortada */
+.prompt-bubbles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 25px;
+  margin-bottom: 80px;
+  padding: 0 20px;
+  position: relative;
+  z-index: 2;
+}
+
+/* 🟣 Bubble-ların görünüşü */
+.bubble {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 10px 18px;
+  font-size: 14px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.05);
+}
+
+.bubble:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.25);
+}
+
+/* 📱 Mobil üçün uyğunlaşdırma */
+@media (max-width: 600px) {
+  .bubble {
+    font-size: 13px;
+    padding: 8px 14px;
+  }
+}
