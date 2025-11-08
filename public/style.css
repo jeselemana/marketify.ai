@@ -217,3 +217,23 @@ button.send:hover { background: #232323; }
 .input-bar {
   margin-bottom: 28px; /* əlavə boşluq yaradıldı */
 }
+
+/* 🧩 Footer məsafəsini tənzimləyirik */
+.legal {
+  position: fixed;
+  bottom: -10px; /* bir az daha aşağı salırıq */
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 800px;
+  text-align: center;
+  color: #8b8b8b;
+  font-size: 12.5px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+/* ✉️ Input bar ilə footer arasında məsafə */
+.input-bar {
+  margin-bottom: 45px; /* əlavə məsafə yaradıldı */
+}
