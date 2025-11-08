@@ -112,7 +112,6 @@ main {
 /* 🧭 Mərkəz hissə (TAM MƏRKƏZLƏNMİŞ) */
 .center {
   position: absolute;
-  /* Düzəliş 1: Mərkəzi məzmunu 5% yuxarı çəkirik */
   top: 45%; 
   left: 50%;
   transform: translate(-50%, -50%);
@@ -175,7 +174,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* Alt boşluq mətnin Input/Footer sahəsinə girməməsi üçün böyük saxlanılır */
+  /* Mesajların Input Barın yuxarı kənarında dayanması üçün böyük padding */
   padding: 120px 20px 280px; 
   width: 100%;
   max-width: 800px;
@@ -207,23 +206,23 @@ main {
   line-height: 1.6;
 }
 
-/* ✉️ Input bar (Semantik <form> teqi) */
+/* ✉️ Input bar (Fon bərpa edildi) */
 .input-bar {
   position: fixed;
-  /* Düzəliş 2: Input barı yerdən bir az aşağı endiririk */
-  bottom: 50px; 
+  bottom: 25px; 
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  background: rgba(26, 26, 26, 0.95);
+  /* Qara fon bərpa edildi */
+  background: rgba(26, 26, 26, 0.95); 
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   padding: 10px 16px;
   width: calc(100% - 32px);
   max-width: 800px;
   backdrop-filter: blur(10px);
-  z-index: 30;
+  z-index: 30; /* Mesajları örtür */
   gap: 10px;
 }
 .input-bar input {
@@ -239,11 +238,10 @@ main {
   color: var(--send-btn-color);
 }
 
-/* ⚙️ Footer (Qara fon SİLİNDİ) */
+/* ⚙️ Footer (Fon bərpa edildi) */
 .legal {
   position: fixed;
-  /* Düzəliş 3: Footerin də mövqeyini Input bara uyğunlaşdırırıq */
-  bottom: 15px; 
+  bottom: 5px; 
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
@@ -253,15 +251,15 @@ main {
   font-size: 12.5px;
   line-height: 1.5;
   
-  /* Fond və Kölgə silinib */
-  background: transparent; 
-  box-shadow: none;
-  backdrop-filter: none;
+  /* Qara fon bərpa edildi */
+  background: rgba(0, 0, 0, 0.85); 
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
   
   border-radius: 12px;
   padding: 8px 14px;
   pointer-events: none;
-  z-index: 20; 
+  z-index: 20; /* Mesajları örtür, amma Input Barın altında qalır */
 }
 .legal strong {
   color: var(--primary-blue-text);
@@ -280,18 +278,16 @@ main {
     padding: 8px 14px;
   }
   .chat-box {
-    /* Mobil üçün alt boşluq maksimum saxlanılır */
+    /* Mobil üçün maksimal padding */
     padding-bottom: 350px; 
   }
   .input-bar {
-    /* Input barı bir az da aşağı endiririk */
-    bottom: 60px; 
+    bottom: 30px; 
   }
   .legal {
-    bottom: 10px;
+    bottom: 5px;
   }
   .center {
-    /* Mobil üçün mərkəz məzmunu da bir az yuxarı çəkirik */
     top: 40%;
   }
 }
