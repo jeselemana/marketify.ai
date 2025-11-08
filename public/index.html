@@ -4,13 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Marketify AI</title>
-    <link rel="stylesheet" href="style.css" />
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="style.css" />
   </head>
-
   <body>
     <div class="app">
       <!-- 🔹 Başlıq -->
@@ -21,43 +20,35 @@
         </button>
       </div>
 
-      <!-- 🗑️ Təmizləmə düyməsi (ikon) -->
+      <!-- 💬 Mərkəzi hissə -->
+      <div class="center">
+        <h1 class="brand-sub">Marketify</h1>
+        <p class="tagline">Bu gün nə haqqında danışırıq? 😊</p>
+
+        <div class="prompt-bubbles">
+          <div class="bubble">Yeni il kampaniyası ideyası 🎄</div>
+          <div class="bubble">Sosial media postu üçün mətn ✨</div>
+          <div class="bubble">Reklam sloqanı tap 💡</div>
+          <div class="bubble">Brend təqdimatı yaz 🚀</div>
+        </div>
+      </div>
+
+      <!-- 🗑️ Təmizləmə düyməsi -->
       <button class="clear-btn" id="clearChat" aria-label="Təmizlə">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-        >
-          <path
-            d="M3 6h18M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6M10 10v8M14 10v8M9 3h6l1 3H8l1-3z"
-            stroke="currentColor"
-            stroke-width="1.6"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M3 6h18M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6M10 10v8M14 10v8M9 3h6l1 3H8l1-3z"
+          stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
 
       <!-- 💬 Chat qutusu -->
       <div id="chat-box" class="chat-box"></div>
 
-      <!-- ✉️ Input və göndərmə düyməsi -->
+      <!-- ✉️ Input -->
       <div class="input-bar">
-        <input
-          id="user-input"
-          type="text"
-          placeholder="Sualını yaz..."
-          autocomplete="off"
-        />
+        <input id="user-input" type="text" placeholder="Sualını yaz..." autocomplete="off" />
         <button id="send-btn" class="send" aria-label="Göndər">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-          >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path
               d="M3.4 11.1l15.2-6.8c1.1-.5 2.2.6 1.7 1.7l-6.8 15.2c-.5 1.1-2.1 1-2.4-.2l-1.2-4.6-4.6-1.2c-1.2-.3-1.3-1.9-.1-2.4z"
               fill="currentColor"
@@ -66,27 +57,13 @@
         </button>
       </div>
 
-    <!-- 💬 Marketify mərkəzi mesajı -->
-<div class="center-message">
-  <h1 class="brand-sub">Marketify</h1>
-  <p class="tagline">Bu gün nə haqqında danışırıq? 😊</p>
-</div>
+      <!-- ⚙️ Footer -->
+      <div class="legal">
+        <p><strong>Powered by Innova Group</strong></p>
+        <p>Marketify AI yanlış məlumat verə bilər. Vacib məlumatı yoxlayın.</p>
+      </div>
+    </div>
 
-<!-- 💡 Hazır prompt bubble-ları (Marketify yazısının altına köçürüldü) -->
-<div class="prompt-bubbles">
-  <div class="bubble">Yeni il kampaniyası ideyası 🎄</div>
-  <div class="bubble">Sosial media postu üçün mətn ✨</div>
-  <div class="bubble">Reklam sloqanı tap 💡</div>
-  <div class="bubble">Brend təqdimatı yaz 🚀</div>
-</div>
-
-<!-- ⚙️ Alt məlumat -->
-<div class="legal">
-  <p><strong>Powered by Innova Group</strong></p>
-  <p>Marketify AI yanlış məlumat verə bilər. Vacib məlumatı yoxlayın.</p>
-</div>
-
-    <!-- ⚙️ Scriptlər (ən sonda və düzgün sırada) -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="script.js"></script>
   </body>
