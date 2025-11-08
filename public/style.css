@@ -198,47 +198,7 @@ button.send:hover { background: #232323; }
   line-height: 1.6;
 }
 
-/* ⚙️ Footer (Legal) üçün məsafə tənzimləməsi) */
-.legal {
-  position: fixed;
-  bottom: 4px; /* əvvəlcə 8px idi, indi bir az aşağı salırıq */
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 800px;
-  text-align: center;
-  color: #8b8b8b;
-  font-size: 12.5px;
-  line-height: 1.4;
-  pointer-events: none;
-}
-
-/* 💬 Footer ilə input arasında məsafə */
-.input-bar {
-  margin-bottom: 28px; /* əlavə boşluq yaradıldı */
-}
-
-/* 🧩 Footer məsafəsini tənzimləyirik */
-.legal {
-  position: fixed;
-  bottom: -10px; /* bir az daha aşağı salırıq */
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 800px;
-  text-align: center;
-  color: #8b8b8b;
-  font-size: 12.5px;
-  line-height: 1.4;
-  pointer-events: none;
-}
-
-/* ✉️ Input bar ilə footer arasında məsafə */
-.input-bar {
-  margin-bottom: 45px; /* əlavə məsafə yaradıldı */
-}
-
-/* 📜 Chat sahəsi üçün düzəliş — footer və inputla toqquşmasın */
+/* 🧩 Chat sahəsi üçün düzəliş */
 .chat-box {
   width: 100%;
   flex: 1;
@@ -246,15 +206,15 @@ button.send:hover { background: #232323; }
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 20px 0 180px 0; /* aşağıda əlavə boşluq yaradıldı */
+  padding: 20px 16px 220px 16px; /* aşağıda 220px boşluq */
   box-sizing: border-box;
-  scroll-behavior: smooth; /* səliqəli sürüşmə */
+  scroll-behavior: smooth;
 }
 
-/* 🧩 Input bar və footer üçün məsafə */
+/* ✉️ Input bar */
 .input-bar {
   position: fixed;
-  bottom: 65px; /* yuxarıya 1 az çəkildi */
+  bottom: 70px; /* bir az yuxarı qaldırıldı */
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
@@ -268,12 +228,13 @@ button.send:hover { background: #232323; }
   padding: 10px 14px;
   box-sizing: border-box;
   backdrop-filter: blur(10px);
+  z-index: 10; /* input həmişə yuxarıda */
 }
 
-/* 🪶 Footer (legal yazı) üçün məsafə */
+/* 🪶 Footer (legal yazı) */
 .legal {
   position: fixed;
-  bottom: 10px; /* bir az daha aşağı */
+  bottom: 15px; /* footer bir az aşağıda */
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
@@ -281,6 +242,17 @@ button.send:hover { background: #232323; }
   text-align: center;
   color: #8b8b8b;
   font-size: 12.5px;
-  line-height: 1.4;
+  line-height: 1.5;
   pointer-events: none;
+  z-index: 5; /* inputun arxasında qalsın */
+}
+
+/* 📱 Mobil uyğunlaşdırma */
+@media (max-width: 600px) {
+  .chat-box {
+    padding-bottom: 260px; /* mobil üçün əlavə boşluq */
+  }
+  .input-bar {
+    bottom: 80px;
+  }
 }
