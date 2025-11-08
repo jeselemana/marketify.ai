@@ -69,11 +69,28 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 💡 Bubble klikləri
   bubbles.forEach((bubble) => {
-    bubble.addEventListener("click", () => {
-      const text = bubble.innerText.trim();
-      sendMessage(text);
-    });
+  bubble.addEventListener("click", () => {
+    const text = bubble.innerText.trim();
+
+    // 🧠 Bubble kliklənəndə hamısı gizlənsin
+    document.querySelector(".prompt-bubbles").style.display = "none";
+
+    sendMessage(text);
   });
 });
+
+// 🧹 “Təmizlə” düyməsi — həmçinin bubble-ları geri gətirir
+if (clearBtn) {
+  clearBtn.addEventListener("click", () => {
+    chatBox.innerHTML = "";
+    if (centerMessage) centerMessage.style.display = "block";
+    document.querySelector(".prompt-bubbles").style.display = "flex";
+  });
+}
+
+// 🔄 Səhifə yenilənəndə bubble-lar yenidən görünsün
+window.addEventListener("load", () => {
+  document.querySelector(".prompt-bubbles").style.display = "flex";
+});
+  });
