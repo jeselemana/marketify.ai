@@ -308,3 +308,65 @@ main {
     transform: translateY(0);
   }
 }
+/* ---------------------------------------------------- */
+/* 🆕 YENİ ƏLAVƏ: Alt Örtük Sahəsi (Məcburi Qara Fon) */
+/* ---------------------------------------------------- */
+.bottom-cover-area {
+  position: fixed;
+  
+  /* Input Barın altından başlasın (Input Bar 70px-də başlayırsa, onun hündürlüyünü də çıxırıq) */
+  /* Input Bar ~60px hündürlükdədir. 70px + 60px = 130px. 
+     Bu 130px-in altından başlayıb, ekranın ən alt kənarına qədər uzanacaq. */
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  
+  /* Footerin yuxarı kənarından (yəni bottom: 20px-dən) yuxarıda başlasın */
+  height: 100px; /* Təxminən Input və Footerin birləşmiş hündürlüyü */
+  
+  /* Z-index Input Bar və Footerin altındadır, amma çat elementlərindən yüksəkdir */
+  z-index: 80; 
+  
+  /* Fon tamamilə qara olsun ki, arxadan heç nə görünməsin */
+  background: #000; 
+}
+
+/* ✉️ Input barın Z-indexi qorunur */
+.input-bar {
+  /* Input Barın arxası Blur-lu qalır */
+  background: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(10px);
+  z-index: 100;
+  bottom: 70px; /* Əvvəlki normal pozisiya */
+}
+
+/* ⚙️ Footerin Z-indexi qorunur */
+.legal {
+  /* Footerin arxası Blur-lu qalır */
+  background: rgba(0, 0, 0, 0.85); 
+  backdrop-filter: blur(6px);
+  z-index: 90;
+  bottom: 20px; /* Əvvəlki normal pozisiya */
+}
+
+/* 💬 Chat qutusu padding-i hələ də saxlayırıq */
+.chat-box {
+  padding-bottom: 280px; 
+}
+
+/* 📱 Mobil uyğunlaşdırma */
+@media (max-width: 600px) {
+  .chat-box {
+    padding-bottom: 350px; 
+  }
+  .input-bar {
+    bottom: 80px; 
+  }
+  .legal {
+    bottom: 10px;
+  }
+  /* Yeni elementin mobil hündürlüyü */
+  .bottom-cover-area {
+    height: 120px; /* Mobil üçün bir az daha böyük əhatə dairəsi */
+  }
+}
