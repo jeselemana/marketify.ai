@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const centerMessage = document.querySelector(".center-message");
   const bubbles = document.querySelectorAll(".bubble");
 
-  // 🟢 Mesaj əlavə etmə funksiyası (Markdown dəstəyi ilə)
+  // 🧠 Mesaj əlavə etmə funksiyası (Markdown dəstəyi ilə)
   function addMessage(sender, text) {
     const msg = document.createElement("div");
     msg.classList.add("message", sender);
@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     chatBox.scrollTop = chatBox.scrollHeight;
   }
 
-  // ✉️ Mesaj göndərmə funksiyası (Göndər və bubble-lar üçün)
+  // ⚙️ Mesaj göndərmə funksiyası
   async function sendMessage(message) {
     if (!message) return;
 
@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 🟣 “Göndər” düyməsi
+  // ✉️ “Göndər” düyməsi
   sendBtn.addEventListener("click", () => {
     const message = input.value.trim();
     if (!message) return;
@@ -56,12 +56,12 @@ document.addEventListener("DOMContentLoaded", () => {
     input.value = "";
   });
 
-  // 🟢 “Enter” klavişinə tıklama
+  // 🔘 “Enter” klavişinə tıklama
   input.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendBtn.click();
   });
 
-  // 🗑️ “Təmizlə” düyməsi
+  // 🧹 “Təmizlə” düyməsi
   if (clearBtn) {
     clearBtn.addEventListener("click", () => {
       chatBox.innerHTML = "";
@@ -69,7 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 💡 Hazır prompt bubble-lar
+  // 💡 Bubble klikləri
   bubbles.forEach((bubble) => {
     bubble.addEventListener("click", () => {
       const text = bubble.innerText.trim();
