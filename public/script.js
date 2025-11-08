@@ -1,7 +1,13 @@
+// 🔹 Markdown dəstəyi üçün kitabxana
+import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+
 const chatBox = document.querySelector(".chat-box");
 const input = document.querySelector("input");
 const sendBtn = document.querySelector(".send");
-// 🟣 Hazır prompt bubble-ları
+const clearBtn = document.getElementById("clearChat");
+const centerMessage = document.querySelector(".center-message");
+
+// 🔹 Hazır prompt bubble-ları
 document.querySelectorAll(".bubble").forEach((bubble) => {
   bubble.addEventListener("click", async () => {
     const message = bubble.innerText;
@@ -27,30 +33,32 @@ document.querySelectorAll(".bubble").forEach((bubble) => {
       addMessage("bot", data.reply || "Cavab alınmadı 😔");
     } catch (error) {
       chatBox.removeChild(typing);
-      addMessage("bot", "⚠️ Bağlantı problemi. Marketify AI hazırda oflayn rejimdədir.");
+      addMessage(
+        "bot",
+        "⚠️ Bağlantı problemi. Marketify AI hazırda oflayn rejimdədir."
+      );
     }
   });
 });
-const clearBtn = document.getElementById("clearChat");
-const centerMessage = document.querySelector(".center-message");
 
-// 🟢 Mesaj əlavə etmə funksiyası
+// 🔹 Mesaj əlavə etmə funksiyası (Markdown dəstəyi ilə)
 function addMessage(sender, text) {
   const msg = document.createElement("div");
   msg.classList.add("message", sender);
-  msg.innerText = text;
+
+  // Markdown → HTML çevrilir
+  msg.innerHTML = marked.parse(text);
+
   chatBox.appendChild(msg);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// 🟣 “Göndər” düyməsi
+// 🔹 “Göndər” düyməsi
 sendBtn.addEventListener("click", async () => {
   const message = input.value.trim();
   if (!message) return;
 
-  // Center mesajı gizlət
   if (centerMessage) centerMessage.style.display = "none";
-
   addMessage("user", message);
   input.value = "";
 
@@ -67,7 +75,6 @@ sendBtn.addEventListener("click", async () => {
       body: JSON.stringify({ message }),
     });
 
-    // 🧠 Cavab yoxdursa
     if (!response.ok) throw new Error("Network response error");
     const data = await response.json();
 
@@ -76,16 +83,19 @@ sendBtn.addEventListener("click", async () => {
   } catch (error) {
     console.error("Xəta:", error);
     chatBox.removeChild(typing);
-    addMessage("bot", "⚠️ Server cavab vermədi. Marketify AI hazırda oflayn rejimdədir.");
+    addMessage(
+      "bot",
+      "⚠️ Server cavab vermədi. Marketify AI hazırda oflayn rejimdədir."
+    );
   }
 });
 
-// 🟢 “Enter” klavişinə tıklama
+// 🔹 “Enter” klavişinə tıklama
 input.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendBtn.click();
 });
 
-// 🗑️ “Təmizlə” düyməsi
+// 🔹 “Təmizlə” düyməsi
 if (clearBtn) {
   clearBtn.addEventListener("click", () => {
     chatBox.innerHTML = "";
