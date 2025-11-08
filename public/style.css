@@ -265,3 +265,36 @@ body {
     top: 52%;
   }
 }
+/* 🎯 Marketify mərkəzi hissəsini tam ekranın ortasında yerləşdiririk */
+.center {
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  width: 100%;
+  max-width: 900px;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 💬 Bubble-ların məsafəsi */
+.prompt-bubbles {
+  margin-top: 25px;
+}
+
+/* 📱 Kiçik ekranlarda balanslı mərkəzlənmə */
+@media (max-height: 800px) {
+  .center {
+    top: 54%;
+  }
+}
+
+@media (max-height: 600px) {
+  .center {
+    top: 56%;
+  }
+}
