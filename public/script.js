@@ -1,61 +1,94 @@
-/* 1. Bütün lazımi HTML elementlərini seçirik */
-const sendBtn = document.getElementById("send-btn");
-const userInput = document.getElementById("user-input");
-const chatBox = document.getElementById("chat-box");
-const centerMessage = document.querySelector(".center-message");
-const clearChatBtn = document.getElementById("clearChat");
+const chatBox = document.querySelector(".chat-box");
+const input = document.querySelector("input");
+const sendBtn = document.querySelector(".send");
+// 🟣 Hazır prompt bubble-ları
+document.querySelectorAll(".bubble").forEach((bubble) => {
+  bubble.addEventListener("click", async () => {
+    const message = bubble.innerText;
 
-/* 2. "Göndər" düyməsinə klikləmə hadisəsi təyin edirik */
-sendBtn.addEventListener("click", sendMessage);
+    if (centerMessage) centerMessage.style.display = "none";
+    addMessage("user", message);
 
-/* 3. "Enter" düyməsinə basıldıqda da işləməsi üçün hadisə təyin edirik */
-userInput.addEventListener("keydown", (event) => {
-  // Əgər basılan düymə "Enter"dirsə
-  if (event.key === "Enter") {
-    sendMessage(); // "Göndər" düyməsinə basılmış kimi et
-  }
+    const typing = document.createElement("div");
+    typing.classList.add("message", "bot", "typing");
+    typing.innerText = "Marketify yazır...";
+    chatBox.appendChild(typing);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await response.json();
+      chatBox.removeChild(typing);
+      addMessage("bot", data.reply || "Cavab alınmadı 😔");
+    } catch (error) {
+      chatBox.removeChild(typing);
+      addMessage("bot", "⚠️ Bağlantı problemi. Marketify AI hazırda oflayn rejimdədir.");
+    }
+  });
 });
+const clearBtn = document.getElementById("clearChat");
+const centerMessage = document.querySelector(".center-message");
 
-/* 4. Əsas mesaj göndərmə funksiyası */
-function sendMessage() {
-  const userMessage = userInput.value.trim(); // Yazılan mətni al və boşluqları təmizlə
-
-  // Əgər input boşdursa, heç nə etmə
-  if (userMessage === "") {
-    return;
-  }
-
-  // ---- ƏN VACİB HİSSƏ ----
-  // 1. Mərkəzdəki "Marketify" yazısını gizlət
-  centerMessage.style.display = "none";
-
-  // 2. İstifadəçinin mesajını HTML olaraq yarat
-  // (Siz marked.js qoşmusunuz, ona görə "marked.parse" istifadə edirəm)
-  const userMessageHTML = `
-    <div class="message user-message">
-      <div class="message-content">
-        ${marked.parse(userMessage)} 
-      </div>
-    </div>
-  `;
-  // Qeyd: Əgər "user-message" CSS klassınız yoxdursa, onu əlavə etməlisiniz.
-
-  // 3. Mesajı çat pəncərəsinə əlavə et
-  chatBox.insertAdjacentHTML("beforeend", userMessageHTML);
-
-  // 4. Input-un içini təmizlə
-  userInput.value = "";
-
-  // 5. Avtomatik aşağı çək (scroll)
+// 🟢 Mesaj əlavə etmə funksiyası
+function addMessage(sender, text) {
+  const msg = document.createElement("div");
+  msg.classList.add("message", sender);
+  msg.innerText = text;
+  chatBox.appendChild(msg);
   chatBox.scrollTop = chatBox.scrollHeight;
-
-  // 6. (Gələcək üçün) AI cavabını burada emal edə bilərsiniz
-  // getAiResponse(userMessage);
 }
 
-/* 5. Söhbəti təmizləmə düyməsi üçün məntiq */
-clearChatBtn.addEventListener("click", () => {
-  chatBox.innerHTML = ""; // Bütün mesajları sil
-  centerMessage.style.display = "flex"; // Mərkəzdəki yazını geri qaytar
-  // Qeyd: CSS-də .center-message-i necə mərkəzləşdirdiyinizə görə "flex" və ya "block" ola bilər.
+// 🟣 “Göndər” düyməsi
+sendBtn.addEventListener("click", async () => {
+  const message = input.value.trim();
+  if (!message) return;
+
+  // Center mesajı gizlət
+  if (centerMessage) centerMessage.style.display = "none";
+
+  addMessage("user", message);
+  input.value = "";
+
+  const typing = document.createElement("div");
+  typing.classList.add("message", "bot", "typing");
+  typing.innerText = "Marketify yazır...";
+  chatBox.appendChild(typing);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+
+    // 🧠 Cavab yoxdursa
+    if (!response.ok) throw new Error("Network response error");
+    const data = await response.json();
+
+    chatBox.removeChild(typing);
+    addMessage("bot", data.reply || "⚠️ Cavab alınmadı 😔");
+  } catch (error) {
+    console.error("Xəta:", error);
+    chatBox.removeChild(typing);
+    addMessage("bot", "⚠️ Server cavab vermədi. Marketify AI hazırda oflayn rejimdədir.");
+  }
 });
+
+// 🟢 “Enter” klavişinə tıklama
+input.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") sendBtn.click();
+});
+
+// 🗑️ “Təmizlə” düyməsi
+if (clearBtn) {
+  clearBtn.addEventListener("click", () => {
+    chatBox.innerHTML = "";
+    if (centerMessage) centerMessage.style.display = "block";
+  });
+}
