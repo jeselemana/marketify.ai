@@ -4,14 +4,19 @@ body {
   background: #000;
   color: #fff;
   font-family: "Poppins", sans-serif;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
+/* 📦 Əsas konteyner */
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  text-align: center;
+  height: 100vh;
+  width: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 /* 🔹 Başlıq */
@@ -19,7 +24,7 @@ body {
   position: fixed;
   top: 20px;
   left: 20px;
-  z-index: 10;
+  z-index: 20;
 }
 
 .model-btn {
@@ -102,23 +107,24 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 15;
+  z-index: 20;
 }
 .clear-btn:hover {
   background: #232323;
 }
 
-/* 💬 Chat qutusu */
+/* 💬 Chat qutusu (scroll hissə) */
 .chat-box {
+  flex: 1;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 120px 20px 150px; /* alt hissədə kifayət qədər boşluq */
+  box-sizing: border-box;
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
-  padding: 100px 20px 32vh; /* Dinamik alt məsafə (viewport-a əsaslanır) */
-  box-sizing: border-box;
-  overflow-y: auto;
   scroll-behavior: smooth;
 }
 
@@ -131,15 +137,11 @@ body {
   font-size: 15.5px;
   animation: fadeIn 0.25s ease;
 }
-
-/* 🧑‍💻 İstifadəçi mesajı */
 .message.user {
   align-self: flex-end;
   background: #007aff;
   color: white;
 }
-
-/* 🤖 Bot mesajı */
 .message.bot {
   align-self: flex-start;
   background: #1c1c1c;
@@ -150,10 +152,10 @@ body {
   line-height: 1.6;
 }
 
-/* ✉️ Input bar */
+/* ✉️ Input bar (sabit qalır) */
 .input-bar {
   position: fixed;
-  bottom: calc(60px + 2vh);
+  bottom: 55px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -166,10 +168,9 @@ body {
   max-width: 800px;
   box-sizing: border-box;
   backdrop-filter: blur(10px);
-  z-index: 20;
+  z-index: 30;
   gap: 10px;
 }
-
 .input-bar input {
   flex: 1;
   background: transparent;
@@ -178,7 +179,6 @@ body {
   outline: none;
   font-size: 16px;
 }
-
 .input-bar button.send {
   background: #1a1a1a;
   border: 1px solid #2c2c2c;
@@ -196,7 +196,7 @@ body {
   background: #232323;
 }
 
-/* 🪶 Footer (Legal) */
+/* 🪶 Footer (Legal sabit aşağıda) */
 .legal {
   position: fixed;
   bottom: 10px;
@@ -209,7 +209,7 @@ body {
   font-size: 12.5px;
   line-height: 1.4;
   pointer-events: none;
-  z-index: 5;
+  z-index: 10;
 }
 .legal strong {
   color: #b2cbff;
@@ -228,9 +228,9 @@ body {
     padding: 8px 14px;
   }
   .chat-box {
-    padding-bottom: 38vh; /* mobil üçün bir az çox boşluq */
+    padding-bottom: 180px;
   }
   .input-bar {
-    bottom: calc(70px + 2vh);
+    bottom: 70px;
   }
 }
