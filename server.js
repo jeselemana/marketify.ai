@@ -22,17 +22,20 @@ app.post("/api/chat", async (req, res) => {
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // istəsən buranı "gpt-4o" ilə əvəz et
-      temperature: 0.5,
-      max_tokens: 2000,
-      messages: [
-        {
-          role: "system",
-          content: "You are Marketify AI, a creative and professional marketing assistant developed by Innova Group Azerbaijan. You provide smart, brand-focused, and visually structured responses. Always use a confident, helpful, and modern tone.",
-        },
-        { role: "user", content: userMessage },
-      ],
-    });
+  model: "gpt-4o",
+  temperature: 0.7,
+  max_tokens: 2000,
+  messages: [
+    {
+      role: "system",
+      content: `You are Marketify AI — a next-gen marketing assistant created by Innova Group Azerbaijan.
+      You speak in a natural, confident, and creative tone.
+      Avoid robotic or overly formal phrases.
+      Use smooth, conversational language like a human marketing expert.`
+    },
+    { role: "user", content: userMessage }
+  ],
+});
 
     const reply =
       completion.choices?.[0]?.message?.content || "Cavab alınmadı 😔";
