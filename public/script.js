@@ -1,10 +1,15 @@
-const chatBox = document.querySelector(".chat-box");
-const input = document.querySelector("input");
-const sendBtn = document.querySelector(".send");
-// 🟣 Hazır prompt bubble-ları
+// 🔹 Əsas elementləri seçirik
+const chatBox = document.getElementById("chat-box");
+const input = document.getElementById("user-input");
+const sendBtn = document.getElementById("send-btn");
+const clearBtn = document.getElementById("clearChat");
+const centerMessage = document.querySelector(".center-message");
+
+// 🔹 Hazır prompt bubble-ları
 document.querySelectorAll(".bubble").forEach((bubble) => {
   bubble.addEventListener("click", async () => {
-    const message = bubble.innerText;
+    const message = bubble.innerText.trim();
+    if (!message) return;
 
     if (centerMessage) centerMessage.style.display = "none";
     addMessage("user", message);
@@ -26,31 +31,28 @@ document.querySelectorAll(".bubble").forEach((bubble) => {
       chatBox.removeChild(typing);
       addMessage("bot", data.reply || "Cavab alınmadı 😔");
     } catch (error) {
+      console.error("Bubble xətası:", error);
       chatBox.removeChild(typing);
       addMessage("bot", "⚠️ Bağlantı problemi. Marketify AI hazırda oflayn rejimdədir.");
     }
   });
 });
-const clearBtn = document.getElementById("clearChat");
-const centerMessage = document.querySelector(".center-message");
 
-// 🟢 Mesaj əlavə etmə funksiyası
+// 🟢 Mesaj əlavə etmə funksiyası (Markdown dəstəyi ilə)
 function addMessage(sender, text) {
   const msg = document.createElement("div");
   msg.classList.add("message", sender);
-  msg.innerText = text;
+  msg.innerHTML = marked.parse(text); // ✅ Markdown formatını HTML-ə çevir
   chatBox.appendChild(msg);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// 🟣 “Göndər” düyməsi
+// 🟣 “Göndər” düyməsi kliklənəndə
 sendBtn.addEventListener("click", async () => {
   const message = input.value.trim();
   if (!message) return;
 
-  // Center mesajı gizlət
   if (centerMessage) centerMessage.style.display = "none";
-
   addMessage("user", message);
   input.value = "";
 
@@ -67,7 +69,6 @@ sendBtn.addEventListener("click", async () => {
       body: JSON.stringify({ message }),
     });
 
-    // 🧠 Cavab yoxdursa
     if (!response.ok) throw new Error("Network response error");
     const data = await response.json();
 
@@ -85,7 +86,7 @@ input.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendBtn.click();
 });
 
-// 🗑️ “Təmizlə” düyməsi
+// 🗑️ “Təmizlə” düyməsi (ikonla)
 if (clearBtn) {
   clearBtn.addEventListener("click", () => {
     chatBox.innerHTML = "";
