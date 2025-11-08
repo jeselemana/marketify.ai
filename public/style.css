@@ -1,34 +1,38 @@
+/* ======================
+   🧠 Marketify AI - Düzgün Layout
+   ====================== */
+
 body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   background: #0f0f0f;
   color: #fff;
   font-family: "Poppins", -apple-system, BlinkMacSystemFont, sans-serif;
-  margin: 0;
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
+/* 🔹 Əsas konteyner */
 .app {
-  width: 100%;
-  max-width: 800px;
-  height: 100vh;
-  position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  padding: 20px;
+  justify-content: space-between;
+  min-height: 100vh;
+  position: relative;
+  width: 100%;
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 0 16px;
   box-sizing: border-box;
+  text-align: center;
 }
 
 /* 🔹 Header */
 .header {
   position: fixed;
-  top: 15px;
-  left: 15px;
-  display: flex;
-  align-items: center;
+  top: 18px;
+  left: 18px;
   z-index: 10;
 }
 
@@ -50,346 +54,7 @@ body {
 .brand { font-weight: 600; color: #fff; }
 .version { color: #aaa; font-weight: 500; font-size: 14px; }
 
-/* açılan menyu */
-.model-menu {
-  position: absolute;
-  top: 42px;
-  left: 0;
-  width: 220px;
-  background: #1a1a1a;
-  border: 1px solid #2c2c2c;
-  border-radius: 10px;
-  display: none;
-  flex-direction: column;
-  padding: 10px;
-  box-shadow: 0 0 15px rgba(0,0,0,0.3);
-}
-
-.menu-title {
-  font-size: 13px;
-  color: #bbb;
-  margin-bottom: 6px;
-  padding-left: 4px;
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #181818;
-  padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 14px;
-  color: #ccc;
-}
-.menu-item .desc {
-  flex: 1;
-  font-size: 12px;
-  color: #777;
-  margin-left: 8px;
-}
-.menu-item.active {
-  border: 1px solid #00b4d8;
-  color: #fff;
-}
-
-/* 🧹 Clear düyməsi */
-.clear-btn {
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  background: #1a1a1a;
-  border: 1px solid #2c2c2c;
-  color: #9abfff;
-  border-radius: 50%;
-  width: 38px;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
-}
-.clear-btn:hover { background: #242424; }
-.clear-btn:active { transform: scale(0.95); }
-
-/* ... (qalan hissə eyni qalır: chat-box, input-bar, legal, typing, media query və s.) */
-/* Alt yazı (Powered by Marketify 💙) */
-
-/* ⚙️ Alt məlumat (footer yazısı) */
-.legal {
-  position: fixed;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 800px;
-  text-align: center;
-  color: #8b8b8b;
-  font-size: 12.5px;
-  line-height: 1.5;
-  pointer-events: none;
-}
-
-.legal p {
-  margin: 2px 0; /* iki sətir arasında yumşaq məsafə */
-}
-
-.legal strong {
-  color: #cfe2ff;
-  font-weight: 600;
-}
-
-/* 📱 Mobil üçün */
-@media (max-width: 600px) {
-  .legal {
-    font-size: 11.5px;
-    line-height: 1.3;
-    bottom: 12px; /* bir az yuxarıya qaldırıldı */
-  }
-}
-
-body {
-  background-color: #0f0f0f;
-  color: #fff;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  margin: 0;
-}
-
-.app {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  width: 100%;
-  max-width: 800px;
-  height: 100vh;
-  padding: 20px;
-  box-sizing: border-box;
-  position: relative;
-}
-
 /* 🧹 Clear düyməsi (sağ yuxarı) */
-.clear-btn {
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  background: #1a1a1a;
-  border: 1px solid #2c2c2c;
-  color: #9abfff;
-  border-radius: 50%;
-  width: 38px;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
-}
-.clear-btn:hover { background: #242424; }
-.clear-btn:active { transform: scale(0.95); }
-
-.center-message {
-  position: absolute;
-  top: 35%;
-  text-align: center;
-  color: #aaa;
-  transition: opacity 0.3s ease;
-}
-
-.chat-box {
-  width: 100%;
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-bottom: 150px;
-  box-sizing: border-box;
-}
-
-.message {
-  max-width: 85%;
-  padding: 12px 16px;
-  border-radius: 16px;
-  line-height: 1.5;
-  font-size: 16px;
-  animation: fadeIn 0.3s ease;
-}
-
-.user {
-  align-self: flex-end;
-  background: #007aff;
-  color: white;
-}
-
-.bot {
-  align-self: flex-start;
-  background: #1c1c1c;
-  border: 1px solid #2a2a2a;
-}
-
-.input-bar {
-  position: fixed;
-  bottom: 56px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 800px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #1a1a1a;
-  border: 1px solid #2c2c2c;
-  border-radius: 999px;
-  padding: 10px 14px;
-  box-sizing: border-box;
-  backdrop-filter: blur(10px);
-}
-
-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: #fff;
-  font-size: 16px;
-  padding: 8px 2px;
-}
-
-button.send {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  border: 1px solid #2f2f2f;
-  background: #222;
-  color: #86b7ff;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, transform 0.06s;
-}
-
-button.send:hover {
-  background: #262626;
-  border-color: #3a3a3a;
-}
-button.send:active { transform: scale(0.98); }
-button.send:focus-visible {
-  outline: 2px solid #2f6bd8;
-  outline-offset: 2px;
-}
-
-.legal {
-  position: fixed;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 800px;
-  text-align: center;
-  color: #8b8b8b;
-  font-size: 12px;
-  line-height: 1.3;
-  pointer-events: none;
-}
-.legal strong { color: #cfe2ff; font-weight: 600; }
-
-.typing {
-  font-style: italic;
-  color: #aaa;
-  opacity: 0.8;
-  font-size: 15px;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* 📱 Mobil uyğunluq */
-@media (max-width: 600px) {
-  .clear-btn {
-    top: 12px;
-    right: 12px;
-    width: 34px;
-    height: 34px;
-  }
-  .app { padding: 10px; }
-  .input-bar {
-    bottom: 64px;
-    border-radius: 20px;
-    padding: 8px 10px;
-    width: calc(100% - 20px);
-    gap: 8px;
-  }
-  input { font-size: 15px; }
-  button.send { width: 36px; height: 36px; }
-  .message { font-size: 14px; padding: 10px 12px; }
-  .chat-box { padding-bottom: 170px; }
-}
-
-/* Mərkəz hissə */
-.center-message {
-  position: absolute;
-  top: 35%;
-  text-align: center;
-  transition: opacity 0.3s ease;
-}
-
-/* Mərkəz hissə */
-.center-message {
-  position: absolute;
-  top: 35%;
-  text-align: center;
-  transition: opacity 0.3s ease;
-}
-
-/* 💼 Marketify başlıq (h1) */
-.brand-sub {
-  font-family: "Poppins", sans-serif;
-  font-weight: 700;
-  font-size: 44px;
-  color: #0732ef;
-  text-align: center;
-  letter-spacing: 0.4px;
-  margin: 0 0 18px 0; /* aşağı boşluq */
-  animation: fadeIn 0.8s ease;
-}
-
-/* ⚡️ Təsvir (p) */
-.tagline {
-  font-family: "Poppins", sans-serif;
-  font-weight: 500;
-  font-size: 22px;
-  color: #d1d1d1;
-  margin: 0;
-  animation: fadeIn 1s ease;
-}
-
-/* Fade-in animasiya */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* 📱 Mobil uyğunluq */
-@media (max-width: 600px) {
-  .brand-sub {
-    font-size: 34px;
-    margin-bottom: 14px;
-  }
-
-  .tagline {
-    font-size: 18px;
-  }
-}
-
 .clear-btn {
   position: fixed;
   top: 18px;
@@ -405,220 +70,149 @@ button.send:focus-visible {
   justify-content: center;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, transform 0.1s;
+  z-index: 10;
 }
+.clear-btn:hover { background: #232323; color: #fff; }
+.clear-btn:active { transform: scale(0.95); }
 
-.clear-btn:hover {
-  background: #232323;
-  color: #ffffff;
-}
-
-.clear-btn:active {
-  transform: scale(0.95);
-}
-
-.clear-btn svg {
-  pointer-events: none;
-}
-
-.center-message {
-  transition: 0.4s ease;
-}
-
-.prompt-bubbles {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  margin-top: 20px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 0 10px;
-  max-width: 95%;
-}
-
-/* 🔹 Mobil uyğunlaşdırma */
-@media (max-width: 768px) {
-  .prompt-bubbles {
-    gap: 8px;
-    margin-top: 15px;
-    padding: 0 8px;
-  }
-
-  .bubble {
-    font-size: 13px;
-    padding: 8px 10px;
-    flex: 1 1 100%;
-    max-width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .bubble {
-    font-size: 12.5px;
-    padding: 8px 12px;
-    border-radius: 16px;
-  }
-}
-
-.bubble:active {
-  transform: scale(0.96);
-  opacity: 0.9;
-}
-
-/* 🟣 Prompt bubble konteyneri */
-.prompt-bubbles {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 40px;
-  padding: 0 20px;
-}
-
-/* 🟣 Hər bir bubble */
-.bubble {
-  background: rgba(255, 255, 255, 0.05); /* Şəffaf effekt */
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 20px;
-  padding: 10px 18px;
-  font-size: 14px;
-  color: #fff;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.05);
-}
-
-/* Hover effekti */
-.bubble:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-2px);
-  box-shadow: 0 0 15px rgba(0, 255, 255, 0.25);
-}
-
-/* Responsive görünüş üçün */
-@media (max-width: 600px) {
-  .bubble {
-    font-size: 13px;
-    padding: 8px 14px;
-  }
-}
-
-/* 🧩 Bubble-ları Marketify yazısının altına gətiririk */
-.prompt-bubbles {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 20px; /* yazının az altında */
-  margin-bottom: 40px;
-  padding: 0 20px;
-  position: relative;
-  z-index: 2;
-}
-
-/* 🧭 Ortada hizalama üçün ümumi layout */
-.center-message {
+/* 💬 Mərkəzi hissə */
+.center-wrapper {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  margin-top: 80px;
   text-align: center;
-  margin-top: 12vh; /* yuxarıdan bir az boşluq */
 }
 
-/* 💡 Bubble-ları Marketify yazısının altında ortada saxla */
+.brand-sub {
+  font-size: 44px;
+  font-weight: 700;
+  color: #1f6aff;
+  margin: 0;
+  animation: fadeIn 0.8s ease;
+}
+
+.tagline {
+  font-size: 20px;
+  color: #cfcfcf;
+  margin: 8px 0 20px;
+  animation: fadeIn 1s ease;
+}
+
+/* 💡 Bubble-lar */
 .prompt-bubbles {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  align-items: center;
-  gap: 10px;
-  margin-top: 20px; /* yazının az altında */
-  margin-bottom: 60px; /* inputdan məsafə */
-  padding: 0 20px;
-  position: relative;
-  z-index: 2;
+  gap: 12px;
+  margin-top: 10px;
+  margin-bottom: 70px;
+  padding: 0 16px;
 }
 
-/* 🟣 Bubble-ların görünüşü eyni qalır */
 .bubble {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 20px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 18px;
   padding: 10px 18px;
   font-size: 14px;
-  color: #fff;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
+  color: #fff;
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.05);
 }
-
 .bubble:hover {
   background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   box-shadow: 0 0 15px rgba(0, 255, 255, 0.25);
 }
 
-/* 🧭 Ümumi layout — hər şeyi mərkəzə gətirir */
-.app {
+/* 💬 Chat qutusu */
+.chat-box {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh; /* ekran boyu */
-  text-align: center;
-  position: relative;
+  gap: 12px;
+  overflow-y: auto;
+  padding-bottom: 130px;
 }
 
-/* 💬 Marketify mərkəzi mesajı */
-.center-message {
-  margin-top: -60px; /* bir az yuxarı çəkmək üçün */
-}
-
-/* 💡 Prompt bubble-lar Marketify yazısının altında və ortada */
-.prompt-bubbles {
+/* ✉️ Input sahəsi */
+.input-bar {
+  position: fixed;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
   align-items: center;
-  gap: 10px;
-  margin-top: 25px;
-  margin-bottom: 80px;
-  padding: 0 20px;
-  position: relative;
-  z-index: 2;
-}
-
-/* 🟣 Bubble-ların görünüşü */
-.bubble {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 25px;
+  padding: 8px 14px;
+  width: 90%;
+  max-width: 700px;
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 20px;
-  padding: 10px 18px;
-  font-size: 14px;
-  color: #fff;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.05);
+  gap: 10px;
 }
 
-.bubble:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-2px);
-  box-shadow: 0 0 15px rgba(0, 255, 255, 0.25);
+input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 16px;
+}
+
+button.send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #2c2c2c;
+  background: #1a1a1a;
+  color: #9abfff;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+button.send:hover { background: #232323; }
+button.send:active { transform: scale(0.95); }
+
+/* 🧾 Mesajlar */
+.message {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 15px;
+  line-height: 1.5;
+  animation: fadeIn 0.3s ease;
+}
+.user { align-self: flex-end; background: #007aff; color: #fff; }
+.bot { align-self: flex-start; background: #1a1a1a; border: 1px solid #2a2a2a; }
+
+/* 🧠 Legal */
+.legal {
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.7;
+  margin-bottom: 10px;
+}
+
+/* 🔮 Animasiya */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* 📱 Mobil üçün uyğunlaşdırma */
 @media (max-width: 600px) {
-  .bubble {
-    font-size: 13px;
-    padding: 8px 14px;
-  }
+  .brand-sub { font-size: 34px; }
+  .tagline { font-size: 18px; }
+  .bubble { font-size: 13px; padding: 8px 14px; }
 }
