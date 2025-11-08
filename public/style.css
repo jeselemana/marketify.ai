@@ -209,22 +209,21 @@ main {
 /* ✉️ Input bar (Optimal mövqe və fon) */
 .input-bar {
   position: fixed;
-  /* Mövqe: Footerin üzərində dayansın */
+  /* DÜZƏLİŞ: Mövqe sabit saxlanılır */
   bottom: 70px; 
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  /* Fon: Input Barın fonu tam qara yox, yarı-şəffaf olsun */
+  /* Fon: Yarı-şəffaf qara fon */
   background: rgba(26, 26, 26, 0.95); 
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   padding: 10px 16px;
   width: calc(100% - 32px);
   max-width: 800px;
-  /* Blur effekti bərpa edilir */
   backdrop-filter: blur(10px); 
-  /* Z-index: Ən üstdə olmalıdır ki, mesajı örtsün */
+  /* Z-index: Ən üstdə olmalıdır */
   z-index: 100; 
   gap: 10px;
 }
@@ -244,7 +243,7 @@ main {
 /* ⚙️ Footer (Optimal mövqe və fon) */
 .legal {
   position: fixed;
-  /* Mövqe: Yerdən minimal yuxarı */
+  /* DÜZƏLİŞ: Mövqe sabit saxlanılır */
   bottom: 20px; 
   left: 50%;
   transform: translateX(-50%);
@@ -255,7 +254,7 @@ main {
   font-size: 12.5px;
   line-height: 1.5;
   
-  /* Fon: Tam qara deyil, şəffaf fon olsun (brauzerlərin çoxu bunu örtür) */
+  /* Fon: Yarı-şəffaf qara fon (Mesajları örtmək üçün) */
   background: rgba(0, 0, 0, 0.85); 
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(6px);
@@ -263,7 +262,7 @@ main {
   border-radius: 12px;
   padding: 8px 14px;
   pointer-events: none;
-  /* Z-index: Input Barın altında, amma hələ də yüksək */
+  /* Z-index: Yüksəkdir, amma Input Barın altındadır */
   z-index: 90; 
 }
 .legal strong {
@@ -306,67 +305,5 @@ main {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-/* ---------------------------------------------------- */
-/* 🆕 YENİ ƏLAVƏ: Alt Örtük Sahəsi (Məcburi Qara Fon) */
-/* ---------------------------------------------------- */
-.bottom-cover-area {
-  position: fixed;
-  
-  /* Input Barın altından başlasın (Input Bar 70px-də başlayırsa, onun hündürlüyünü də çıxırıq) */
-  /* Input Bar ~60px hündürlükdədir. 70px + 60px = 130px. 
-     Bu 130px-in altından başlayıb, ekranın ən alt kənarına qədər uzanacaq. */
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  
-  /* Footerin yuxarı kənarından (yəni bottom: 20px-dən) yuxarıda başlasın */
-  height: 100px; /* Təxminən Input və Footerin birləşmiş hündürlüyü */
-  
-  /* Z-index Input Bar və Footerin altındadır, amma çat elementlərindən yüksəkdir */
-  z-index: 80; 
-  
-  /* Fon tamamilə qara olsun ki, arxadan heç nə görünməsin */
-  background: #000; 
-}
-
-/* ✉️ Input barın Z-indexi qorunur */
-.input-bar {
-  /* Input Barın arxası Blur-lu qalır */
-  background: rgba(26, 26, 26, 0.95);
-  backdrop-filter: blur(10px);
-  z-index: 100;
-  bottom: 70px; /* Əvvəlki normal pozisiya */
-}
-
-/* ⚙️ Footerin Z-indexi qorunur */
-.legal {
-  /* Footerin arxası Blur-lu qalır */
-  background: rgba(0, 0, 0, 0.85); 
-  backdrop-filter: blur(6px);
-  z-index: 90;
-  bottom: 20px; /* Əvvəlki normal pozisiya */
-}
-
-/* 💬 Chat qutusu padding-i hələ də saxlayırıq */
-.chat-box {
-  padding-bottom: 280px; 
-}
-
-/* 📱 Mobil uyğunlaşdırma */
-@media (max-width: 600px) {
-  .chat-box {
-    padding-bottom: 350px; 
-  }
-  .input-bar {
-    bottom: 80px; 
-  }
-  .legal {
-    bottom: 10px;
-  }
-  /* Yeni elementin mobil hündürlüyü */
-  .bottom-cover-area {
-    height: 120px; /* Mobil üçün bir az daha böyük əhatə dairəsi */
   }
 }
