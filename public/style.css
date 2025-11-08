@@ -112,7 +112,8 @@ main {
 /* 🧭 Mərkəz hissə (TAM MƏRKƏZLƏNMİŞ) */
 .center {
   position: absolute;
-  top: 50%;
+  /* Düzəliş 1: Mərkəzi məzmunu 5% yuxarı çəkirik */
+  top: 45%; 
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
@@ -209,7 +210,8 @@ main {
 /* ✉️ Input bar (Semantik <form> teqi) */
 .input-bar {
   position: fixed;
-  bottom: 70px; /* Yerdən yuxarı qalxmış mövqe */
+  /* Düzəliş 2: Input barı yerdən bir az aşağı endiririk */
+  bottom: 50px; 
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -240,7 +242,8 @@ main {
 /* ⚙️ Footer (Qara fon SİLİNDİ) */
 .legal {
   position: fixed;
-  bottom: 20px; /* Yerdən yuxarı qalxmış mövqe */
+  /* Düzəliş 3: Footerin də mövqeyini Input bara uyğunlaşdırırıq */
+  bottom: 15px; 
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
@@ -250,12 +253,10 @@ main {
   font-size: 12.5px;
   line-height: 1.5;
   
-  /* ************************************** */
-  /* İSTƏK ÜZRƏ FOND SİLİNDİ */
+  /* Fond və Kölgə silinib */
   background: transparent; 
   box-shadow: none;
   backdrop-filter: none;
-  /* ************************************** */
   
   border-radius: 12px;
   padding: 8px 14px;
@@ -283,7 +284,15 @@ main {
     padding-bottom: 350px; 
   }
   .input-bar {
-    bottom: 80px; 
+    /* Input barı bir az da aşağı endiririk */
+    bottom: 60px; 
+  }
+  .legal {
+    bottom: 10px;
+  }
+  .center {
+    /* Mobil üçün mərkəz məzmunu da bir az yuxarı çəkirik */
+    top: 40%;
   }
 }
 
