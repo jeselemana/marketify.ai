@@ -174,8 +174,8 @@ main {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* Boşluq artırıldı! Input bar və footer-in arxasına keçməsin deyə */
-  padding: 120px 20px 220px; 
+  /* Alt boşluq son dəfə artırıldı (280px) */
+  padding: 120px 20px 280px; 
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
@@ -209,7 +209,7 @@ main {
 /* ✉️ Input bar (Semantik <form> teqi) */
 .input-bar {
   position: fixed;
-  bottom: 55px;
+  bottom: 70px; /* Əlavə edildi: Input bar yuxarı çəkildi (55px-dən 70px-ə) */
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -240,7 +240,7 @@ main {
 /* ⚙️ Footer (Semantik <footer> teqi) */
 .legal {
   position: fixed;
-  bottom: 10px;
+  bottom: 20px; /* Əlavə edildi: Footer yuxarı çəkildi (10px-dən 20px-ə) */
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
@@ -249,13 +249,13 @@ main {
   color: var(--text-medium);
   font-size: 12.5px;
   line-height: 1.5;
-  background: rgba(0, 0, 0, 0.85); /* Qara highlight (fon) buradadır */
+  background: rgba(0, 0, 0, 0.85); 
   border-radius: 12px;
   padding: 8px 14px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(6px);
   pointer-events: none;
-  z-index: 20; /* Input-bar-dan aşağı, lakin chat-box-dan (10) yuxarıda */
+  z-index: 20; 
 }
 .legal strong {
   color: var(--primary-blue-text);
@@ -274,11 +274,11 @@ main {
     padding: 8px 14px;
   }
   .chat-box {
-    /* Mobil üçün alt boşluq artırılır. */
-    padding-bottom: 250px; 
+    /* Mobil üçün alt boşluq maksimum artırılır. */
+    padding-bottom: 350px; /* 320px-dən 350px-ə artırıldı */
   }
   .input-bar {
-    bottom: 70px;
+    bottom: 80px; /* Mobil Input barı da yuxarı qaldırıldı */
   }
 }
 
