@@ -237,3 +237,50 @@ button.send:hover { background: #232323; }
 .input-bar {
   margin-bottom: 45px; /* əlavə məsafə yaradıldı */
 }
+
+/* 📜 Chat sahəsi üçün düzəliş — footer və inputla toqquşmasın */
+.chat-box {
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 0 180px 0; /* aşağıda əlavə boşluq yaradıldı */
+  box-sizing: border-box;
+  scroll-behavior: smooth; /* səliqəli sürüşmə */
+}
+
+/* 🧩 Input bar və footer üçün məsafə */
+.input-bar {
+  position: fixed;
+  bottom: 65px; /* yuxarıya 1 az çəkildi */
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 800px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1a1a1a;
+  border: 1px solid #2c2c2c;
+  border-radius: 999px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  backdrop-filter: blur(10px);
+}
+
+/* 🪶 Footer (legal yazı) üçün məsafə */
+.legal {
+  position: fixed;
+  bottom: 10px; /* bir az daha aşağı */
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 800px;
+  text-align: center;
+  color: #8b8b8b;
+  font-size: 12.5px;
+  line-height: 1.4;
+  pointer-events: none;
+}
