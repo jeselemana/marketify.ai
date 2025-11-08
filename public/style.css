@@ -155,3 +155,45 @@ button.send:hover { background: #232323; }
   .tagline { font-size: 18px; }
   .bubble { font-size: 13px; padding: 8px 14px; }
 }
+
+/* Chat qutusu və mesajlar üçün tam hizalama */
+.chat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 100px 20px 160px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Mesajların üslubu */
+.message {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  line-height: 1.6;
+  font-size: 15.5px;
+  animation: fadeIn 0.25s ease;
+}
+
+/* İstifadəçi mesajı */
+.message.user {
+  align-self: flex-end;
+  background: #007aff;
+  color: white;
+}
+
+/* Bot mesajı */
+.message.bot {
+  align-self: flex-start;
+  background: #1c1c1c;
+  border: 1px solid #2a2a2a;
+  color: #fff;
+  white-space: pre-line;
+  text-align: left;
+  line-height: 1.6;
+}
