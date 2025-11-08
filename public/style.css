@@ -37,7 +37,7 @@ body {
   background: var(--bg-dark-1);
   color: var(--text-light);
   font-family: var(--font-main);
-  height: 100svh; /* 100vh yerinə 100svh (mobil cihazlar üçün daha yaxşı) */
+  height: 100svh;
   display: flex;
   flex-direction: column;
 }
@@ -104,17 +104,17 @@ body {
 
 /* 💬 Əsas Məzmun Sahəsi */
 main {
-  flex: 1; /* Bütün boş qalan yeri tutur */
-  overflow: hidden; /* .center və .chat-box-u saxlayır */
-  position: relative; /* .center-i mərkəzləmək üçün */
+  flex: 1;
+  overflow: hidden;
+  position: relative;
 }
 
 /* 🧭 Mərkəz hissə (TAM MƏRKƏZLƏNMİŞ) */
 .center {
   position: absolute;
-  top: 50%; /* Dəqiq ortalama */
+  top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%); /* Həm horizontal, həm vertikal mərkəzləyir */
+  transform: translate(-50%, -50%);
   text-align: center;
   width: 100%;
   max-width: 900px;
@@ -124,7 +124,7 @@ main {
   align-items: center;
   justify-content: center;
   z-index: 10;
-  transition: opacity 0.3s ease, visibility 0.3s ease; /* Gizlənmə effekti üçün */
+  transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .brand-sub {
@@ -150,7 +150,6 @@ main {
 }
 
 .bubble {
-  /* Button stillərini sıfırlayırıq */
   background: var(--bg-bubble);
   border: 1px solid var(--border-bubble);
   font-family: var(--font-main);
@@ -170,13 +169,13 @@ main {
 
 /* 💬 Chat qutusu (scroll hissə) */
 .chat-box {
-  height: 100%; /* Ana elementin (main) hündürlüyünü tam tutur */
+  height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* Başlıq və input bar qədər boşluq */
-  padding: 120px 20px 150px;
+  /* Alt hissədəki sabit elementlərə (input-bar və legal) qarışmasın deyə boşluq artırılır */
+  padding: 120px 20px 180px; 
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
@@ -236,7 +235,6 @@ main {
 }
 .input-bar button.send {
   color: var(--send-btn-color);
-  /* Stillərin çoxu .base-btn və .icon-btn-dən gəlir */
 }
 
 /* ⚙️ Footer (Semantik <footer> teqi) */
@@ -276,8 +274,8 @@ main {
     padding: 8px 14px;
   }
   .chat-box {
-    /* Mobil cihazda input bar daha yuxarıda olduğu üçün alt boşluq artırılır */
-    padding-bottom: 180px;
+    /* Alt boşluq daha da artırılır */
+    padding-bottom: 200px; 
   }
   .input-bar {
     bottom: 70px;
