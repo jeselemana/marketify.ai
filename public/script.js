@@ -1,8 +1,4 @@
 // 🔹 Markdown dəstəyi üçün kitabxana
-import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
-
-const chatBox = document.querySelector(".chat-box");
-const input = document.querySelector("input");
 const sendBtn = document.querySelector(".send");
 const clearBtn = document.getElementById("clearChat");
 const centerMessage = document.querySelector(".center-message");
@@ -41,14 +37,10 @@ document.querySelectorAll(".bubble").forEach((bubble) => {
   });
 });
 
-// 🔹 Mesaj əlavə etmə funksiyası (Markdown dəstəyi ilə)
 function addMessage(sender, text) {
   const msg = document.createElement("div");
   msg.classList.add("message", sender);
-
-  // Markdown → HTML çevrilir
-  msg.innerHTML = marked.parse(text);
-
+  msg.innerHTML = marked.parse(text); // ✅ HTML çevrilməsi
   chatBox.appendChild(msg);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
