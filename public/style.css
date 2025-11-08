@@ -1,3 +1,4 @@
+/* 🌑 Ümumi üslub */
 body {
   margin: 0;
   background: #000;
@@ -8,13 +9,12 @@ body {
 .app {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   min-height: 100vh;
-  position: relative;
   text-align: center;
+  overflow: hidden;
 }
 
-/* Başlıq */
+/* 🔹 Başlıq */
 .header {
   position: fixed;
   top: 20px;
@@ -33,18 +33,21 @@ body {
   font-size: 15px;
   padding: 6px 10px;
   cursor: pointer;
+  transition: 0.2s;
 }
-.model-btn:hover { background: #232323; }
+.model-btn:hover {
+  background: #232323;
+}
 
-/* Mərkəz hissə */
+/* 🧭 Mərkəz hissə */
 .center {
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  margin-top: 60px;
   padding: 0 16px;
+  margin-top: 60px;
 }
 
 .brand-sub {
@@ -60,7 +63,7 @@ body {
   margin-bottom: 25px;
 }
 
-/* Bubble-lar */
+/* 💡 Prompt bubble-lar */
 .prompt-bubbles {
   display: flex;
   flex-wrap: wrap;
@@ -77,52 +80,14 @@ body {
   color: #fff;
   font-size: 14px;
   transition: 0.3s;
+  cursor: pointer;
 }
 .bubble:hover {
   background: rgba(255, 255, 255, 0.15);
   transform: translateY(-2px);
 }
 
-/* Input bar */
-.input-bar {
-  position: fixed;
-  bottom: 25px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 25px;
-  padding: 8px 14px;
-  width: 90%;
-  max-width: 700px;
-}
-
-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: #fff;
-  outline: none;
-  font-size: 16px;
-}
-
-button.send {
-  background: #1a1a1a;
-  border: 1px solid #2c2c2c;
-  border-radius: 50%;
-  color: #8ab7ff;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-button.send:hover { background: #232323; }
-
-/* Clear düyməsi */
+/* 🗑️ Clear düyməsi */
 .clear-btn {
   position: fixed;
   top: 18px;
@@ -137,26 +102,13 @@ button.send:hover { background: #232323; }
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  z-index: 15;
 }
-.clear-btn:hover { background: #232323; }
-
-/* Footer */
-.legal {
-  text-align: center;
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 10px;
-}
-.legal strong { color: #b2cbff; }
-
-/* Mobil üçün */
-@media (max-width: 600px) {
-  .brand-sub { font-size: 34px; }
-  .tagline { font-size: 18px; }
-  .bubble { font-size: 13px; padding: 8px 14px; }
+.clear-btn:hover {
+  background: #232323;
 }
 
-/* Chat qutusu və mesajlar üçün tam hizalama */
+/* 💬 Chat qutusu */
 .chat-box {
   display: flex;
   flex-direction: column;
@@ -164,13 +116,13 @@ button.send:hover { background: #232323; }
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
-  padding: 100px 20px 160px;
+  padding: 100px 20px 28vh; /* aşağı hissə dinamik */
   box-sizing: border-box;
   overflow-y: auto;
-  position: relative;
+  scroll-behavior: smooth;
 }
 
-/* Mesajların üslubu */
+/* 💭 Mesajlar */
 .message {
   max-width: 80%;
   padding: 12px 16px;
@@ -180,14 +132,14 @@ button.send:hover { background: #232323; }
   animation: fadeIn 0.25s ease;
 }
 
-/* İstifadəçi mesajı */
+/* 🧑‍💻 İstifadəçi mesajı */
 .message.user {
   align-self: flex-end;
   background: #007aff;
   color: white;
 }
 
-/* Bot mesajı */
+/* 🤖 Bot mesajı */
 .message.bot {
   align-self: flex-start;
   background: #1c1c1c;
@@ -198,43 +150,56 @@ button.send:hover { background: #232323; }
   line-height: 1.6;
 }
 
-/* 🧩 Chat sahəsi üçün düzəliş */
-.chat-box {
-  width: 100%;
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 20px 16px 220px 16px; /* aşağıda 220px boşluq */
-  box-sizing: border-box;
-  scroll-behavior: smooth;
-}
-
 /* ✉️ Input bar */
 .input-bar {
   position: fixed;
-  bottom: 70px; /* bir az yuxarı qaldırıldı */
+  bottom: 75px;
   left: 50%;
   transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 800px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: #1a1a1a;
-  border: 1px solid #2c2c2c;
+  background: rgba(26, 26, 26, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
-  padding: 10px 14px;
+  padding: 10px 16px;
+  width: calc(100% - 32px);
+  max-width: 800px;
   box-sizing: border-box;
   backdrop-filter: blur(10px);
-  z-index: 10; /* input həmişə yuxarıda */
+  z-index: 20;
+  gap: 10px;
 }
 
-/* 🪶 Footer (legal yazı) */
+.input-bar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #fff;
+  outline: none;
+  font-size: 16px;
+}
+
+.input-bar button.send {
+  background: #1a1a1a;
+  border: 1px solid #2c2c2c;
+  border-radius: 50%;
+  color: #8ab7ff;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.input-bar button.send:hover {
+  background: #232323;
+}
+
+/* 🪶 Footer (Legal) */
 .legal {
   position: fixed;
-  bottom: 15px; /* footer bir az aşağıda */
+  bottom: 15px;
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
@@ -242,17 +207,30 @@ button.send:hover { background: #232323; }
   text-align: center;
   color: #8b8b8b;
   font-size: 12.5px;
-  line-height: 1.5;
+  line-height: 1.4;
   pointer-events: none;
-  z-index: 5; /* inputun arxasında qalsın */
+  z-index: 5;
+}
+.legal strong {
+  color: #b2cbff;
 }
 
 /* 📱 Mobil uyğunlaşdırma */
 @media (max-width: 600px) {
+  .brand-sub {
+    font-size: 34px;
+  }
+  .tagline {
+    font-size: 18px;
+  }
+  .bubble {
+    font-size: 13px;
+    padding: 8px 14px;
+  }
   .chat-box {
-    padding-bottom: 260px; /* mobil üçün əlavə boşluq */
+    padding-bottom: 36vh; /* mobil üçün əlavə boşluq */
   }
   .input-bar {
-    bottom: 80px;
+    bottom: 90px;
   }
 }
