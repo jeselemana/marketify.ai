@@ -206,15 +206,15 @@ main {
   line-height: 1.6;
 }
 
-/* ✉️ Input bar (Fon bərpa edildi) */
+/* ✉️ Input bar (MOVQEY DÜZƏLDİLDİ) */
 .input-bar {
   position: fixed;
-  bottom: 25px; 
+  /* MOVQEY DÜZƏLDİLDİ: Footerin üzərindən qalxır */
+  bottom: 70px; 
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  /* Qara fon bərpa edildi */
   background: rgba(26, 26, 26, 0.95); 
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
@@ -222,7 +222,7 @@ main {
   width: calc(100% - 32px);
   max-width: 800px;
   backdrop-filter: blur(10px);
-  z-index: 30; /* Mesajları örtür */
+  z-index: 30; 
   gap: 10px;
 }
 .input-bar input {
@@ -238,10 +238,11 @@ main {
   color: var(--send-btn-color);
 }
 
-/* ⚙️ Footer (Fon bərpa edildi) */
+/* ⚙️ Footer (MOVQEY DÜZƏLDİLDİ) */
 .legal {
   position: fixed;
-  bottom: 5px; 
+  /* MOVQEY DÜZƏLDİLDİ: Yerdən bir az yuxarı qalxır */
+  bottom: 20px; 
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
@@ -251,7 +252,7 @@ main {
   font-size: 12.5px;
   line-height: 1.5;
   
-  /* Qara fon bərpa edildi */
+  /* Fon bərpa edildi */
   background: rgba(0, 0, 0, 0.85); 
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(6px);
@@ -259,7 +260,7 @@ main {
   border-radius: 12px;
   padding: 8px 14px;
   pointer-events: none;
-  z-index: 20; /* Mesajları örtür, amma Input Barın altında qalır */
+  z-index: 20; 
 }
 .legal strong {
   color: var(--primary-blue-text);
@@ -282,10 +283,12 @@ main {
     padding-bottom: 350px; 
   }
   .input-bar {
-    bottom: 30px; 
+    /* MOVQEY DÜZƏLDİLDİ */
+    bottom: 80px; 
   }
   .legal {
-    bottom: 5px;
+    /* MOVQEY DÜZƏLDİLDİ */
+    bottom: 10px;
   }
   .center {
     top: 40%;
