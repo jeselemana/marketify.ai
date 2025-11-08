@@ -5,46 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Marketify AI</title>
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="app">
-      <!-- 🔹 Başlıq -->
-      <div class="header">
-        <button id="model-btn" class="model-btn">
+      <header class="header">
+        <button id="model-btn" class="model-btn base-btn">
           <span class="brand">Marketify</span>
           <span class="version">1.0</span>
         </button>
-      </div>
 
-      <!-- 💬 Mərkəzi hissə -->
-      <div class="center">
-        <h1 class="brand-sub">Marketify</h1>
-        <p class="tagline">Bu gün nə haqqında danışırıq? 😊</p>
+        <button
+          class="clear-btn base-btn icon-btn"
+          id="clearChat"
+          aria-label="Təmizlə"
+        >
+          🗑️
+        </button>
+      </header>
 
-        <div class="prompt-bubbles">
-          <div class="bubble">Yeni il kampaniyası ideyası 🎄</div>
-          <div class="bubble">Sosial media postu üçün mətn ✨</div>
-          <div class="bubble">Reklam sloqanı tap 💡</div>
-          <div class="bubble">Brend təqdimatı yaz 🚀</div>
+      <main>
+        <div class="center" id="center-view">
+          <h1 class="brand-sub">Marketify</h1>
+          <p class="tagline">Bu gün nə haqqında danışırıq? 😊</p>
+
+          <div class="prompt-bubbles">
+            <button type="button" class="bubble">
+              Yeni il kampaniyası ideyası 🎄
+            </button>
+            <button type="button" class="bubble">
+              Sosial media postu üçün mətn ✨
+            </button>
+            <button type="button" class="bubble">Reklam sloqanı tap 💡</button>
+            <button type="button" class="bubble">Brend təqdimatı yaz 🚀</button>
+          </div>
         </div>
-      </div>
 
-      <!-- 💬 Chat qutusu -->
-      <div id="chat-box" class="chat-box"></div>
+        <div id="chat-box" class="chat-box"></div>
+      </main>
 
-      <!-- ✉️ Input -->
-      <div class="input-bar">
+      <form id="chat-form" class="input-bar">
         <input
           id="user-input"
           type="text"
           placeholder="Sualını yaz..."
           autocomplete="off"
         />
-        <button id="send-btn" class="send" aria-label="Göndər">
+        <button
+          id="send-btn"
+          class="send base-btn icon-btn"
+          type="submit"
+          aria-label="Göndər"
+        >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path
               d="M3.4 11.1l15.2-6.8c1.1-.5 2.2.6 1.7 1.7l-6.8 15.2c-.5 1.1-2.1 1-2.4-.2l-1.2-4.6-4.6-1.2c-1.2-.3-1.3-1.9-.1-2.4z"
@@ -52,21 +67,14 @@
             />
           </svg>
         </button>
-      </div>
+      </form>
 
-      <!-- 🗑️ Təmizləmə düyməsi -->
-      <button class="clear-btn" id="clearChat" aria-label="Təmizlə">
-        🗑️
-      </button>
-
-      <!-- ⚙️ Footer -->
-      <div class="legal">
+      <footer class="legal">
         <p><strong>Powered by Innova Group</strong></p>
         <p>Marketify AI yanlış məlumat verə bilər. Vacib məlumatı yoxlayın.</p>
-      </div>
+      </footer>
     </div>
 
-    <!-- ⚙️ Scriptlər -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="script.js"></script>
   </body>
