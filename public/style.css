@@ -197,3 +197,23 @@ button.send:hover { background: #232323; }
   text-align: left;
   line-height: 1.6;
 }
+
+/* ⚙️ Footer (Legal) üçün məsafə tənzimləməsi) */
+.legal {
+  position: fixed;
+  bottom: 4px; /* əvvəlcə 8px idi, indi bir az aşağı salırıq */
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 800px;
+  text-align: center;
+  color: #8b8b8b;
+  font-size: 12.5px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+/* 💬 Footer ilə input arasında məsafə */
+.input-bar {
+  margin-bottom: 28px; /* əlavə boşluq yaradıldı */
+}
