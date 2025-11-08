@@ -196,7 +196,6 @@ body {
   background: #232323;
 }
 
-/* 🪶 Footer (Legal sabit aşağıda) */
 .legal {
   position: fixed;
   bottom: 10px;
@@ -205,14 +204,19 @@ body {
   width: calc(100% - 32px);
   max-width: 800px;
   text-align: center;
-  color: #8b8b8b;
+  color: #ccc;
   font-size: 12.5px;
-  line-height: 1.4;
+  line-height: 1.5;
+  background: rgba(0, 0, 0, 0.85); /* 🖤 yarı şəffaf qara fon */
+  border-radius: 12px;
+  padding: 8px 14px; /* bir az iç boşluq */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.6); /* yüngül kölgə */
+  backdrop-filter: blur(6px); /* az blur effekti */
   pointer-events: none;
-  z-index: 10;
+  z-index: 20;
 }
 .legal strong {
-  color: #b2cbff;
+  color: #b2cbff; /* Powered by Innova Group üçün vurğulu mavi */
 }
 
 /* 📱 Mobil uyğunlaşdırma */
