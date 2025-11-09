@@ -326,15 +326,31 @@ main {
     transform: translate(-50%, 0);
   }
 }
-/* ✅ Scroll zamanı input və footer ilə toqquşmanın qarşısını alır */
+/* ✅ Mesajların input və footer ilə toqquşmamasını təmin edir */
 .chat-box {
-  padding-bottom: calc(200px + env(safe-area-inset-bottom)); /* iPhone notch və footer üçün adaptiv boşluq */
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 120px 20px 220px; /* alt boşluq artırıldı */
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
   scroll-behavior: smooth;
 }
 
-/* 💡 Cavab uzun olanda, aşağı scroll zamanı yazı input və footerin arxasına girməsin */
+/* 🧩 Footer və input bar yuxarı qalxmasın deyə */
+body {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* 📱 Mobil optimizasiya */
 @media (max-width: 768px) {
   .chat-box {
-    padding-bottom: 280px; /* mobil üçün daha çox boşluq */
+    padding-bottom: 300px; /* daha çox alt boşluq, mobil klaviatura üçün */
   }
 }
