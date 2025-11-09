@@ -372,3 +372,54 @@ main {
   0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
   40% { opacity: 1; transform: translateY(-2px); }
 }
+/* 💬 Typing effekti — “Marketify yazır...” və 3 nöqtə */
+.typing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  opacity: 0.95;
+  margin-top: 4px;
+}
+
+.typing-text {
+  font-style: italic;
+  color: #bcbcbc;
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+
+.typing-dots {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  height: 10px;
+  margin-left: 2px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  background-color: #2d6bff;
+  border-radius: 50%;
+  animation: typingBlink 1.2s infinite ease-in-out;
+}
+
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingBlink {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}

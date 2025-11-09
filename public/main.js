@@ -20,7 +20,9 @@ function showTyping() {
   typingDiv.innerHTML = `
     <div class="typing-text">Marketify yazır...</div>
     <div class="typing-dots">
-      <span></span><span></span><span></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
     </div>
   `;
 
@@ -37,7 +39,6 @@ form.addEventListener("submit", async (e) => {
   addMsg("user", text);
   input.value = "";
 
-  // 🔵 Typing effekti göstər
   const typingDiv = showTyping();
 
   try {
@@ -49,7 +50,6 @@ form.addEventListener("submit", async (e) => {
 
     const data = await resp.json();
 
-    // 🟢 Typing effekti sil və cavabı göstər
     typingDiv.remove();
     addMsg("bot", data.reply);
 
