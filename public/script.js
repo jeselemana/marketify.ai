@@ -13,9 +13,10 @@ function addMessage(sender, text) {
   msg.textContent = text;
   chatBox.appendChild(msg);
   scrollToBottom();
+  return msg;
 }
 
-// 🟡 Bot typing effekti
+// 🟡 “Marketify yazır...” effekti
 function showTyping() {
   const typing = document.createElement("div");
   typing.classList.add("message", "bot", "typing");
@@ -23,6 +24,18 @@ function showTyping() {
   chatBox.appendChild(typing);
   scrollToBottom();
   return typing;
+}
+
+// ✨ Cavabı hərf-hərf yazan funksiya
+function typeText(element, text, speed = 20) {
+  element.textContent = "";
+  let i = 0;
+  const interval = setInterval(() => {
+    element.textContent += text.charAt(i);
+    i++;
+    scrollToBottom();
+    if (i >= text.length) clearInterval(interval);
+  }, speed);
 }
 
 // 🔵 Cavab göndərmə funksiyası
@@ -45,7 +58,10 @@ async function sendMessage(message) {
 
     const data = await response.json();
     chatBox.removeChild(typing);
-    addMessage("bot", data.reply || "⚠️ Cavab alınmadı 😔");
+
+    // Typing effekti ilə cavabı göstər
+    const botMsg = addMessage("bot", "");
+    typeText(botMsg, data.reply || "⚠️ Cavab alınmadı 😔", 18);
   } catch (error) {
     console.error(error);
     chatBox.removeChild(typing);
@@ -87,12 +103,10 @@ bubbles.forEach((bubble) => {
 
 // 🧹 Təmizlə düyməsi
 clearBtn.addEventListener("click", async () => {
-  // Frontend-də chat mesajlarını təmizlə
   chatBox.innerHTML = "";
   center.style.display = "flex";
   bubbles.forEach((b) => (b.style.display = "inline-block"));
 
-  // Backend-də tarixçəni sıfırla
   try {
     await fetch("/api/clear", { method: "POST" });
     console.log("🧠 Serverdəki tarixçə sıfırlandı.");
