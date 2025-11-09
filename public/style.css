@@ -394,3 +394,46 @@ body {
   justify-content: center;
   z-index: 50; /* chat-box-ın üzərində qalsın */
 }
+/* 🩵 Input görünməməsi düzəlişi */
+.input-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: rgba(30, 30, 30, 0.9);
+  backdrop-filter: blur(10px);
+  padding: 12px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: center; /* ✅ input dikey ortalansın */
+  z-index: 100;
+}
+
+.input-wrapper {
+  flex: 1;
+  border-radius: 12px;
+  padding: 2px;
+  background: linear-gradient(120deg, #0a32f0, #4c7eff, #0a32f0);
+  background-size: 200% 200%;
+  animation: borderFlow 4s ease infinite;
+  box-shadow: 0 0 10px rgba(10, 50, 240, 0.3);
+  display: flex;
+  align-items: center;
+}
+
+/* ✅ Input yenidən görünəcək və tam hündürlükdə olacaq */
+#user-input {
+  flex: 1;
+  height: 44px;
+  background: #1e1e1e;
+  border: none;
+  border-radius: 10px;
+  padding: 0 14px;
+  color: #fff;
+  font-size: 15px;
+  outline: none;
+  box-sizing: border-box;
+  display: block;
+  position: relative;
+  z-index: 2;
+}
