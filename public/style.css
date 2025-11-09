@@ -214,14 +214,20 @@ main {
   background: rgba(26, 26, 26, 0.95); 
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
-  padding: 10px 16px;
-  /* DÜZƏLİŞ BƏRPA EDİLİR: Genişlik normallaşdırılır */
+  
+  /* DÜZƏLİŞ: Padding solda daha çox, sağda daha az (düyməyə yer vermək üçün) */
+  padding: 10px 10px 10px 16px; 
+  
+  /* Genişlik normallaşdırılır */
   width: calc(100% - 32px); 
   max-width: 800px;
   backdrop-filter: blur(10px); 
   z-index: 100; 
-  gap: 10px;
+  
+  /* DÜZƏLİŞ: Daxili boşluq azaldılır */
+  gap: 5px; 
 }
+
 .input-bar input {
   flex: 1;
   background: transparent;
@@ -233,6 +239,10 @@ main {
 }
 .input-bar button.send {
   color: var(--send-btn-color);
+  /* Düymənin ölçüsü və digər xüsusiyyətləri standart qalır */
+  width: 40px; 
+  height: 40px;
+  min-width: 40px; /* Əlavə təminat */
 }
 
 /* ⚙️ Footer (Düzgün mövqe və görünüş) */
