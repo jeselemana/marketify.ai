@@ -37,7 +37,7 @@ body {
   background: var(--bg-dark-1);
   color: var(--text-light);
   font-family: var(--font-main);
-  height: 100svh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
@@ -47,7 +47,7 @@ body {
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100svh;
+  min-height: 100vh;
   width: 100%;
   overflow: hidden;
   position: relative;
@@ -105,24 +105,25 @@ body {
 /* 💬 Əsas Məzmun Sahəsi */
 main {
   flex: 1;
-  overflow-y: auto;
   position: relative;
-  padding-bottom: 200px; /* input və footer üçün yer */
+  z-index: 1;
 }
 
 /* 🧭 Mərkəz hissə (Başlanğıc ekranı) */
 .center {
-  position: relative;
-  top: 15vh;
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   text-align: center;
   width: 100%;
   max-width: 900px;
-  margin: 0 auto;
   padding: 0 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  transition: all 0.3s ease;
 }
 
 .brand-sub {
@@ -163,16 +164,22 @@ main {
   transform: translateY(-2px);
 }
 
-/* 💬 Chat qutusu */
+/* 💬 Chat qutusu (scroll + footer overlap düzəlişi ilə) */
 .chat-box {
-  flex: 1;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 800px;
+  height: calc(100vh - 180px); /* footer + input bar sahəsi çıxılır */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 120px 20px 200px;
-  max-width: 800px;
-  margin: 0 auto;
+  padding: 120px 20px 30px;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain; /* mobil scroll jitter düzəldilir */
 }
 
 /* 💭 Mesajlar */
@@ -201,7 +208,7 @@ main {
 /* 🧩 Input bar */
 .input-bar {
   position: fixed;
-  bottom: 80px; /* footer üçün yer */
+  bottom: 75px; /* footer üçün yer */
   left: 50%;
   transform: translateX(-50%);
   width: 92%;
@@ -271,6 +278,7 @@ main {
   color: #aaa;
   line-height: 1.5;
   z-index: 50;
+  pointer-events: none;
 }
 
 .legal strong {
@@ -279,82 +287,35 @@ main {
 }
 
 /* 📱 Mobil uyğunlaşdırma */
-@media (max-width: 600px) {
-  .brand-sub {
-    font-size: 34px;
-  }
-  .tagline {
-    font-size: 18px;
-  }
-  .bubble {
-    font-size: 13px;
-    padding: 8px 14px;
-  }
-  .input-bar {
-    width: 94%;
-    bottom: 85px; /* footer üçün əlavə boşluq */
-  }
-  .legal {
-    font-size: 12px;
-    bottom: 20px;
-  }
-  .center {
-    top: 20vh;
-  }
-}
-/* 💡 Mərkəz hissənin balanslı hündürlük tənzimlənməsi */
-.center {
-  position: absolute;
-  top: 45%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-  width: 100%;
-  max-width: 900px;
-  padding: 0 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-}
-
-/* 📱 Mobil cihazlarda mərkəz bir az yuxarı qalxır */
-@media (max-width: 600px) {
-  .center {
-    top: 20vh;
-    transform: translate(-50%, 0);
-  }
-}
-/* ✅ ChatGPT-style scroll davranışı */
-.chat-box {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 120px 20px 280px; /* daha çox alt boşluq — footer və input üçün */
-  width: 100%;
-  max-width: 800px;
-  margin: 0 auto;
-  scroll-behavior: smooth;
-}
-
-/* 🔹 Body-də əsas scroll aktiv olsun */
-body {
-  height: 100vh;
-  overflow-y: scroll;
-}
-
-/* 🔹 Footer və input-un content üstünü örtməməsi üçün */
-main {
-  position: relative;
-  z-index: 1;
-}
-
-/* 📱 Mobil üçün əlavə boşluq (klaviatura və footer məsafəsi) */
 @media (max-width: 768px) {
   .chat-box {
-    padding-bottom: 350px;
+    height: calc(100vh - 220px);
+    padding-bottom: 50px;
+  }
+
+  .input-bar {
+    bottom: 85px;
+    width: 94%;
+  }
+
+  .legal {
+    bottom: 20px;
+    font-size: 12px;
+  }
+
+  .center {
+    top: 40%;
+  }
+}
+
+/* 🔄 Animasiya */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
