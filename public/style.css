@@ -37,7 +37,8 @@ body {
   background: var(--bg-dark-1);
   color: var(--text-light);
   font-family: var(--font-main);
-  height: 100svh;
+  /* 100svh mobil cihazlarda naviqasiya çubuqlarını nəzərə alır */
+  height: 100svh; 
   display: flex;
   flex-direction: column;
 }
@@ -52,7 +53,7 @@ body {
   position: relative;
 }
 
-/* 🔹 Başlıq (Semantik <header> teqi) */
+/* 🔹 Başlıq */
 .header {
   position: fixed;
   top: 20px;
@@ -60,7 +61,7 @@ body {
   z-index: 20;
 }
 
-/* dry: Baza Düymə Stili (Təkrarçılığı azaldır) */
+/* dry: Baza Düymə Stili */
 .base-btn {
   background: var(--bg-dark-2);
   border: 1px solid var(--border-dark-1);
@@ -73,7 +74,7 @@ body {
   background: var(--hover-dark);
 }
 
-/* dry: İkon Düymə Stili (Yumru düymələr) */
+/* dry: İkon Düymə Stili */
 .icon-btn {
   border-radius: 50%;
   width: 40px;
@@ -83,7 +84,6 @@ body {
   justify-content: center;
 }
 
-/* .model-btn üçün xüsusi stillər */
 .model-btn {
   display: flex;
   align-items: center;
@@ -109,7 +109,7 @@ main {
   position: relative;
 }
 
-/* 🧭 Mərkəz hissə (Başlanğıc ekranı üçün) */
+/* 🧭 Mərkəz hissə (Başlanğıc ekranı) */
 .center {
   position: absolute;
   top: 45%; 
@@ -154,7 +154,6 @@ main {
   border: 1px solid var(--border-bubble);
   font-family: var(--font-main);
   color: var(--text-light);
-
   backdrop-filter: blur(12px);
   border-radius: 20px;
   padding: 10px 18px;
@@ -174,8 +173,8 @@ main {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* Mesajların görünən hissədə dayanması üçün padding */
-  padding: 120px 20px 280px; 
+  /* Düzəliş: Input və Footerin hündürlüyünə uyğun alt boşluq */
+  padding: 120px 20px 200px; /* 280px yerinə 200px (desktop üçün) */
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
@@ -206,21 +205,22 @@ main {
   line-height: 1.6;
 }
 
-/* ✉️ Input bar (Optimal mövqe və fon) */
+/* ✉️ Input bar (Düzgün mövqe və görünüş) */
 .input-bar {
   position: fixed;
-  /* DÜZƏLİŞ: Mövqe sabit saxlanılır */
-  bottom: 70px; 
+  /* DÜZƏLİŞ: Footerin üstündə yerləşmək üçün */
+  bottom: 60px; 
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  /* Fon: Yarı-şəffaf qara fon */
+  /* Fon: Mesajı örtmək üçün */
   background: rgba(26, 26, 26, 0.95); 
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   padding: 10px 16px;
-  width: calc(100% - 32px);
+  /* DÜZƏLİŞ: 32px yerinə 24px (kəsilməni aradan qaldırmaq üçün) */
+  width: calc(100% - 24px); 
   max-width: 800px;
   backdrop-filter: blur(10px); 
   /* Z-index: Ən üstdə olmalıdır */
@@ -240,11 +240,11 @@ main {
   color: var(--send-btn-color);
 }
 
-/* ⚙️ Footer (Optimal mövqe və fon) */
+/* ⚙️ Footer (Düzgün mövqe və görünüş) */
 .legal {
   position: fixed;
-  /* DÜZƏLİŞ: Mövqe sabit saxlanılır */
-  bottom: 20px; 
+  /* DÜZƏLİŞ: Input Barın altında, ən aşağıda yerləşmək üçün */
+  bottom: 10px; 
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
@@ -254,7 +254,7 @@ main {
   font-size: 12.5px;
   line-height: 1.5;
   
-  /* Fon: Yarı-şəffaf qara fon (Mesajları örtmək üçün) */
+  /* Fon: Alt məzmunu tamamilə örtmək üçün */
   background: rgba(0, 0, 0, 0.85); 
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(6px);
@@ -282,14 +282,17 @@ main {
     padding: 8px 14px;
   }
   .chat-box {
-    /* Mesajların örtülməsi üçün maksimal padding */
-    padding-bottom: 350px; 
+    /* Mobil üçün alt naviqasiya çubuğunu nəzərə alaraq böyük padding */
+    padding-bottom: 300px; 
   }
   .input-bar {
-    bottom: 80px; 
+    /* Mobil üçün bir az yuxarıda */
+    bottom: 60px; 
+    width: calc(100% - 20px); /* Mobil kəsilmə üçün düzəliş */
   }
   .legal {
-    bottom: 10px;
+    /* Mobil üçün ən aşağıda */
+    bottom: 5px;
   }
   .center {
     top: 40%;
@@ -306,134 +309,4 @@ main {
     opacity: 1;
     transform: translateY(0);
   }
-}
-/* Sadəcə stabil scroll üçün bu iki sətri əlavə et */
-.chat-box {
-  overflow-y: auto;
-  scroll-behavior: smooth;
-}
-
-/* Input bar altına düşməsin deyə */
-.input-bar {
-  position: sticky;
-  bottom: 0;
-  background: #000;
-}
-
-/* Qalan dizayn sənin öz kodundakı kimi qalır */
-
-/* 🌑 Ümumi fon tünd boz (ChatGPT tərzi) */
-body {
-  background-color: #1e1e1e;
-  color: #ffffff;
-}
-
-/* Chat qutusu tünd boz */
-.chat-box {
-  background: #2b2b2b;
-  scroll-behavior: smooth;
-}
-
-/* 🌌 Gradient border effekti */
-.input-bar {
-  background: transparent;
-  border-top: 1px solid #333;
-  justify-content: center;
-}
-
-/* Neon gradient çərçivəli input konteyner */
-.input-wrapper {
-  position: relative;
-  flex: 1;
-  border-radius: 12px;
-  padding: 2px;
-  background: linear-gradient(120deg, #0a32f0, #4c7eff, #0a32f0);
-  background-size: 200% 200%;
-  animation: borderFlow 4s ease infinite;
-}
-
-/* Input özü */
-#user-input {
-  background: #1e1e1e;
-  border-radius: 10px;
-  color: #fff;
-}
-
-/* Göndər düyməsi Marketify mavi */
-.send {
-  background: #0a32f0;
-  border: none;
-  color: white;
-  border-radius: 10px;
-  cursor: pointer;
-  padding: 0 16px;
-  transition: background 0.3s ease, box-shadow 0.3s ease;
-}
-.send:hover {
-  background: #4c7eff;
-  box-shadow: 0 0 12px rgba(74, 120, 255, 0.4);
-}
-
-/* 🔄 Gradient animasiyası */
-@keyframes borderFlow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-.input-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(10px);
-  padding: 12px 16px;
-  display: flex;
-  gap: 10px;
-  border-top: 1px solid #333;
-  justify-content: center;
-  z-index: 50; /* chat-box-ın üzərində qalsın */
-}
-/* 🩵 Input görünməməsi düzəlişi */
-.input-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(10px);
-  padding: 12px 16px;
-  display: flex;
-  gap: 10px;
-  align-items: center; /* ✅ input dikey ortalansın */
-  z-index: 100;
-}
-
-.input-wrapper {
-  flex: 1;
-  border-radius: 12px;
-  padding: 2px;
-  background: linear-gradient(120deg, #0a32f0, #4c7eff, #0a32f0);
-  background-size: 200% 200%;
-  animation: borderFlow 4s ease infinite;
-  box-shadow: 0 0 10px rgba(10, 50, 240, 0.3);
-  display: flex;
-  align-items: center;
-}
-
-/* ✅ Input yenidən görünəcək və tam hündürlükdə olacaq */
-#user-input {
-  flex: 1;
-  height: 44px;
-  background: #1e1e1e;
-  border: none;
-  border-radius: 10px;
-  padding: 0 14px;
-  color: #fff;
-  font-size: 15px;
-  outline: none;
-  box-sizing: border-box;
-  display: block;
-  position: relative;
-  z-index: 2;
 }
