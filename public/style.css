@@ -37,16 +37,17 @@ body {
   background: var(--bg-dark-1);
   color: var(--text-light);
   font-family: var(--font-main);
-  height: 100svh; 
+  height: 100svh;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 }
 
 /* 📦 Əsas konteyner */
 .app {
   display: flex;
   flex-direction: column;
-  height: 100svh;
+  min-height: 100svh;
   width: 100%;
   overflow: hidden;
   position: relative;
@@ -60,7 +61,7 @@ body {
   z-index: 20;
 }
 
-/* 🧱 Baza Düymə Stili */
+/* dry: Baza Düymə Stili */
 .base-btn {
   background: var(--bg-dark-2);
   border: 1px solid var(--border-dark-1);
@@ -73,7 +74,7 @@ body {
   background: var(--hover-dark);
 }
 
-/* 🧩 İkon Düymə Stili */
+/* dry: İkon Düymə Stili */
 .icon-btn {
   border-radius: 50%;
   width: 40px;
@@ -104,33 +105,31 @@ body {
 /* 💬 Əsas Məzmun Sahəsi */
 main {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
   position: relative;
+  padding-bottom: 200px; /* input və footer üçün yer */
 }
 
 /* 🧭 Mərkəz hissə (Başlanğıc ekranı) */
 .center {
-  position: absolute;
-  top: 45%; 
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
+  top: 15vh;
   text-align: center;
   width: 100%;
   max-width: 900px;
+  margin: 0 auto;
   padding: 0 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 10;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .brand-sub {
   font-size: 44px;
   font-weight: 700;
   color: var(--primary-blue);
-  margin-bottom: 10px;
+  margin: 0 0 10px 0;
 }
 
 .tagline {
@@ -164,18 +163,16 @@ main {
   transform: translateY(-2px);
 }
 
-/* 💬 Chat qutusu (scroll hissə) */
+/* 💬 Chat qutusu */
 .chat-box {
-  height: 100%;
+  flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 120px 20px 200px; 
-  width: 100%;
+  padding: 120px 20px 200px;
   max-width: 800px;
   margin: 0 auto;
-  scroll-behavior: smooth;
 }
 
 /* 💭 Mesajlar */
@@ -201,27 +198,25 @@ main {
   text-align: left;
 }
 
-/* 🧩 Input bar – mərkəzli və səliqəli */
+/* 🧩 Input bar */
 .input-bar {
   position: fixed;
-  bottom: 60px; /* footer üçün yer */
+  bottom: 80px; /* footer üçün yer */
   left: 50%;
   transform: translateX(-50%);
-  width: 90%;
+  width: 92%;
   max-width: 800px;
-  background: rgba(30, 30, 30, 0.92);
+  background: rgba(30, 30, 30, 0.9);
   backdrop-filter: blur(10px);
   padding: 10px 14px;
   display: flex;
   align-items: center;
   gap: 10px;
   border-radius: 16px;
-  border: 1px solid rgba(100, 100, 100, 0.35);
+  border: 1px solid rgba(80, 80, 80, 0.4);
   z-index: 100;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
 }
 
-/* ✨ Gradient border effekti */
 .input-wrapper {
   flex: 1;
   display: flex;
@@ -231,10 +226,8 @@ main {
   background: linear-gradient(120deg, #0a32f0, #4c7eff, #0a32f0);
   background-size: 200% 200%;
   animation: borderFlow 4s ease infinite;
-  box-shadow: 0 0 8px rgba(10, 50, 240, 0.25);
 }
 
-/* 🖊️ Text input */
 #user-input {
   flex: 1;
   height: 44px;
@@ -245,10 +238,8 @@ main {
   color: #fff;
   font-size: 15px;
   outline: none;
-  box-sizing: border-box;
 }
 
-/* 🚀 Göndər düyməsi */
 .send {
   height: 44px;
   min-width: 44px;
@@ -267,19 +258,18 @@ main {
   box-shadow: 0 0 12px rgba(74, 120, 255, 0.4);
 }
 
-/* 🧾 Footer – input barın altında balanslı məsafə ilə */
+/* ⚙️ Footer */
 .legal {
   position: fixed;
-  bottom: 15px; /* input barla arada 15px fərq */
+  bottom: 15px;
   left: 50%;
   transform: translateX(-50%);
-  width: 90%;
+  width: 92%;
   max-width: 800px;
   text-align: center;
   font-size: 13px;
   color: #aaa;
   line-height: 1.5;
-  pointer-events: none;
   z-index: 50;
 }
 
@@ -288,9 +278,51 @@ main {
   font-weight: 600;
 }
 
-/* 🔁 Gradient border animasiyası */
-@keyframes borderFlow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+/* 📱 Mobil uyğunlaşdırma */
+@media (max-width: 600px) {
+  .brand-sub {
+    font-size: 34px;
+  }
+  .tagline {
+    font-size: 18px;
+  }
+  .bubble {
+    font-size: 13px;
+    padding: 8px 14px;
+  }
+  .input-bar {
+    width: 94%;
+    bottom: 85px; /* footer üçün əlavə boşluq */
+  }
+  .legal {
+    font-size: 12px;
+    bottom: 20px;
+  }
+  .center {
+    top: 20vh;
+  }
+}
+/* 💡 Mərkəz hissənin balanslı hündürlük tənzimlənməsi */
+.center {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  width: 100%;
+  max-width: 900px;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+/* 📱 Mobil cihazlarda mərkəz bir az yuxarı qalxır */
+@media (max-width: 600px) {
+  .center {
+    top: 20vh;
+    transform: translate(-50%, 0);
+  }
 }
