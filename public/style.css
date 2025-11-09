@@ -326,31 +326,35 @@ main {
     transform: translate(-50%, 0);
   }
 }
-/* ✅ Mesajların input və footer ilə toqquşmamasını təmin edir */
+/* ✅ ChatGPT-style scroll davranışı */
 .chat-box {
   flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 120px 20px 220px; /* alt boşluq artırıldı */
+  padding: 120px 20px 280px; /* daha çox alt boşluq — footer və input üçün */
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
   scroll-behavior: smooth;
 }
 
-/* 🧩 Footer və input bar yuxarı qalxmasın deyə */
+/* 🔹 Body-də əsas scroll aktiv olsun */
 body {
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
   height: 100vh;
+  overflow-y: scroll;
 }
 
-/* 📱 Mobil optimizasiya */
+/* 🔹 Footer və input-un content üstünü örtməməsi üçün */
+main {
+  position: relative;
+  z-index: 1;
+}
+
+/* 📱 Mobil üçün əlavə boşluq (klaviatura və footer məsafəsi) */
 @media (max-width: 768px) {
   .chat-box {
-    padding-bottom: 300px; /* daha çox alt boşluq, mobil klaviatura üçün */
+    padding-bottom: 350px;
   }
 }
