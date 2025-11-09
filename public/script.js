@@ -4,6 +4,7 @@ const sendBtn = document.getElementById("send-btn");
 const clearBtn = document.getElementById("clearChat");
 const bubbles = document.querySelectorAll(".bubble");
 const center = document.querySelector(".center");
+const form = document.getElementById("chat-form");
 
 // 🟣 Mesaj əlavə etmə funksiyası
 function addMessage(sender, text) {
@@ -40,26 +41,34 @@ async function sendMessage(message) {
       body: JSON.stringify({ message }),
     });
 
+    if (!response.ok) throw new Error("Server error");
+
     const data = await response.json();
     chatBox.removeChild(typing);
     addMessage("bot", data.reply || "⚠️ Cavab alınmadı 😔");
   } catch (error) {
+    console.error(error);
     chatBox.removeChild(typing);
     addMessage("bot", "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.");
   }
 }
 
-// ✉️ “Göndər” düyməsi
-sendBtn.addEventListener("click", () => {
-  const message = input.value;
+// ✉️ Form göndərilməsi (refresh olmadan)
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const message = input.value.trim();
+  if (!message) return;
   sendMessage(message);
   input.value = "";
 });
 
-// ⌨️ “Enter” klavişi
-input.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") {
-    sendMessage(input.value);
+// ⌨️ Enter klavişinə dəstək
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    const message = input.value.trim();
+    if (!message) return;
+    sendMessage(message);
     input.value = "";
   }
 });
@@ -73,7 +82,8 @@ bubbles.forEach((bubble) => {
   });
 });
 
-// 🧹 Təmizlə düyməsi
+// 🧹 Təmizlə düyməsi (refresh olmadan)
 clearBtn.addEventListener("click", () => {
-  location.reload();
+  chatBox.innerHTML = "";
+  center.style.display = "flex";
 });

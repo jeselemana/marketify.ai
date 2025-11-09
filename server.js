@@ -22,20 +22,20 @@ app.post("/api/chat", async (req, res) => {
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
 
     const completion = await openai.chat.completions.create({
-  model: "gpt-4o",
-  temperature: 0.7,
-  max_tokens: 2000,
-  messages: [
-    {
-      role: "system",
-      content: `You are Marketify AI — a next-gen marketing assistant created by Innova Group Azerbaijan.
-      You speak in a natural, confident, and creative tone.
-      Avoid robotic or overly formal phrases.
-      Use smooth, conversational language like a human marketing expert.`
-    },
-    { role: "user", content: userMessage }
-  ],
-});
+      model: "gpt-4o",
+      temperature: 0.7,
+      max_tokens: 2000,
+      messages: [
+        {
+          role: "system",
+          content: `You are Marketify AI — a next-gen marketing assistant created by Innova Group Azerbaijan.
+          You speak in a natural, confident, and creative tone.
+          Avoid robotic or overly formal phrases.
+          Use smooth, conversational language like a human marketing expert.`,
+        },
+        { role: "user", content: userMessage },
+      ],
+    });
 
     const reply =
       completion.choices?.[0]?.message?.content || "Cavab alınmadı 😔";
@@ -46,6 +46,7 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
+// SPA yönləndirmə
 app.get("*", (req, res) => {
   res.sendFile(process.cwd() + "/public/index.html");
 });
@@ -55,6 +56,7 @@ app.listen(PORT, () => {
   console.log(`✅ Marketify AI is live on port ${PORT}`);
 });
 
+// Render keep-alive
 setInterval(() => {
   fetch("https://marketify-ai.onrender.com").catch(() =>
     console.log("⚠️ Keep-alive ping alınmadı")

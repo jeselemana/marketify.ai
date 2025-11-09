@@ -307,3 +307,17 @@ main {
     transform: translateY(0);
   }
 }
+/* Sadəcə stabil scroll üçün bu iki sətri əlavə et */
+.chat-box {
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* Input bar altına düşməsin deyə */
+.input-bar {
+  position: sticky;
+  bottom: 0;
+  background: #000;
+}
+
+/* Qalan dizayn sənin öz kodundakı kimi qalır */
