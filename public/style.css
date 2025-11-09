@@ -60,7 +60,7 @@ body {
   z-index: 20;
 }
 
-/* dry: Baza Düymə Stili */
+/* 🧱 Baza Düymə Stili */
 .base-btn {
   background: var(--bg-dark-2);
   border: 1px solid var(--border-dark-1);
@@ -73,7 +73,7 @@ body {
   background: var(--hover-dark);
 }
 
-/* dry: İkon Düymə Stili */
+/* 🧩 İkon Düymə Stili */
 .icon-btn {
   border-radius: 50%;
   width: 40px;
@@ -130,7 +130,7 @@ main {
   font-size: 44px;
   font-weight: 700;
   color: var(--primary-blue);
-  margin: 0 0 10px 0;
+  margin-bottom: 10px;
 }
 
 .tagline {
@@ -151,7 +151,6 @@ main {
 .bubble {
   background: var(--bg-bubble);
   border: 1px solid var(--border-bubble);
-  font-family: var(--font-main);
   color: var(--text-light);
   backdrop-filter: blur(12px);
   border-radius: 20px;
@@ -172,7 +171,6 @@ main {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* Alt boşluq Input Bar və Footerin mətnini örtməsi üçün */
   padding: 120px 20px 200px; 
   width: 100%;
   max-width: 800px;
@@ -201,24 +199,29 @@ main {
   color: var(--text-light);
   white-space: pre-line;
   text-align: left;
-  line-height: 1.6;
 }
 
+/* 🧩 Input bar – mərkəzli və səliqəli */
 .input-bar {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: rgba(30, 30, 30, 0.9);
+  bottom: 60px; /* footer üçün yer */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 800px;
+  background: rgba(30, 30, 30, 0.92);
   backdrop-filter: blur(10px);
-  padding: 12px 16px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(100, 100, 100, 0.35);
   z-index: 100;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
 }
 
+/* ✨ Gradient border effekti */
 .input-wrapper {
   flex: 1;
   display: flex;
@@ -228,9 +231,10 @@ main {
   background: linear-gradient(120deg, #0a32f0, #4c7eff, #0a32f0);
   background-size: 200% 200%;
   animation: borderFlow 4s ease infinite;
-  box-shadow: 0 0 10px rgba(10, 50, 240, 0.3);
+  box-shadow: 0 0 8px rgba(10, 50, 240, 0.25);
 }
 
+/* 🖊️ Text input */
 #user-input {
   flex: 1;
   height: 44px;
@@ -244,7 +248,7 @@ main {
   box-sizing: border-box;
 }
 
-/* 🧩 Düymə input-un yanında sabitlənsin */
+/* 🚀 Göndər düyməsi */
 .send {
   height: 44px;
   min-width: 44px;
@@ -263,10 +267,10 @@ main {
   box-shadow: 0 0 12px rgba(74, 120, 255, 0.4);
 }
 
-/* ✅ Marketify Footer - input barın dərhal altında */
+/* 🧾 Footer – input barın altında balanslı məsafə ilə */
 .legal {
   position: fixed;
-  bottom: 70px; /* 🟦 input barın altına tam hizalanır (bar ~60px hündür) */
+  bottom: 15px; /* input barla arada 15px fərq */
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
@@ -282,4 +286,11 @@ main {
 .legal strong {
   color: #6d8bff;
   font-weight: 600;
+}
+
+/* 🔁 Gradient border animasiyası */
+@keyframes borderFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
