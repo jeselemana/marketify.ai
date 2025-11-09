@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import { OpenAI } from "openai";
 import fetch from "node-fetch";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -18,15 +19,17 @@ const openai = new OpenAI({
 // 💬 Sadə sessiya yaddaşı (RAM-da saxlanır)
 let conversationHistory = [];
 
+// 🧠 Chat Endpoint
 app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
-    if (!userMessage) return res.status(400).json({ error: "Mesaj daxil edilməyib." });
+    if (!userMessage)
+      return res.status(400).json({ error: "Mesaj daxil edilməyib." });
 
     // İstifadəçinin mesajını tarixçəyə əlavə et
     conversationHistory.push({ role: "user", content: userMessage });
 
-    // Tarixçəni çox uzatmasın deyə, son 10 mesaj saxlanır
+    // Tarixçəni çox uzatmasın deyə, son 20 mesaj saxlanır
     if (conversationHistory.length > 20) {
       conversationHistory = conversationHistory.slice(-20);
     }
@@ -46,7 +49,8 @@ app.post("/api/chat", async (req, res) => {
       ],
     });
 
-    const reply = completion.choices?.[0]?.message?.content || "Cavab alınmadı 😔";
+    const reply =
+      completion.choices?.[0]?.message?.content || "Cavab alınmadı 😔";
 
     // Bot cavabını tarixçəyə əlavə et
     conversationHistory.push({ role: "assistant", content: reply });
@@ -58,19 +62,55 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-// 💡 “Söhbəti sıfırla” üçün ayrıca endpoint (Clear düyməsi üçün istəyə görə)
+// 💡 Söhbəti sıfırlama (Clear düyməsi üçün)
 app.post("/api/clear", (req, res) => {
   conversationHistory = [];
   res.json({ ok: true });
 });
 
+// 💌 Feedback endpoint
+app.post("/api/feedback", async (req, res) => {
+  const { feedback, reply } = req.body;
+  if (!feedback || !reply)
+    return res.status(400).json({ error: "Məlumat natamamdır." });
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: "marketify.ai.feedback@gmail.com", // sənin Gmail ünvanın
+      pass: process.env.EMAIL_PASS, // Gmail App Password (2FA üçün)
+    },
+  });
+
+  const mailOptions = {
+    from: "Marketify AI <marketify.ai.feedback@gmail.com>",
+    to: "sənin_adressin@example.com", // buraya öz e-poçtunu yaz
+    subject: `Yeni Marketify Rəyi (${feedback === "like" ? "👍" : "👎"})`,
+    text: `İstifadəçi bu cavabı ${
+      feedback === "like" ? "bəyəndi 👍" : "bəyənmədi 👎"
+    }:\n\n"${reply}"`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("E-poçt göndərilmədi:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+// 🌐 Frontend üçün fallback
 app.get("*", (req, res) => {
   res.sendFile(process.cwd() + "/public/index.html");
 });
 
 const PORT = process.env.PORT || 5050;
-app.listen(PORT, () => console.log(`✅ Marketify AI is live on port ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`✅ Marketify AI is live on port ${PORT}`)
+);
 
+// 🔁 Render üçün keep-alive
 setInterval(() => {
   fetch("https://marketify-ai.onrender.com").catch(() =>
     console.log("⚠️ Keep-alive ping alınmadı")

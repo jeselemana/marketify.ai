@@ -327,3 +327,22 @@ main {
 .version-label:hover {
   opacity: 1; /* Hover zamanı tam parlaq olsun */
 }
+.feedback {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.feedback button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  transition: transform 0.2s ease;
+  opacity: 0.8;
+}
+
+.feedback button:hover {
+  transform: scale(1.25);
+  opacity: 1;
+}
