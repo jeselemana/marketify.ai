@@ -342,3 +342,12 @@ main {
   border: 1px solid rgba(80, 80, 80, 0.4);
   z-index: 100;
 }
+/* 🧱 Footer üçün məsafə və düz görünüş */
+.legal {
+  position: relative;
+  text-align: center;
+  font-size: 13px;
+  color: #aaa;
+  padding: 12px 0 100px; /* ✅ alt hissədə 100px boşluq — input bar ilə toqquşmasın */
+  z-index: 1;
+}
