@@ -263,111 +263,22 @@ main {
   box-shadow: 0 0 12px rgba(74, 120, 255, 0.4);
 }
 
-/* ⚙️ Footer (Düzgün mövqe və görünüş) */
+/* ✅ Marketify Footer - input barın dərhal altında */
 .legal {
   position: fixed;
-  bottom: 10px; 
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 800px;
-  text-align: center;
-  color: var(--text-medium);
-  font-size: 12.5px;
-  line-height: 1.5;
-  background: rgba(0, 0, 0, 0.85); 
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(6px);
-  border-radius: 12px;
-  padding: 8px 14px;
-  pointer-events: none;
-  z-index: 90; 
-}
-.legal strong {
-  color: var(--primary-blue-text);
-}
-
-/* 📱 Mobil uyğunlaşdırma */
-@media (max-width: 600px) {
-  .brand-sub {
-    font-size: 34px;
-  }
-  .tagline {
-    font-size: 18px;
-  }
-  .bubble {
-    font-size: 13px;
-    padding: 8px 14px;
-  }
-  .chat-box {
-    padding-bottom: 300px; 
-  }
-  .input-bar {
-    bottom: 60px; 
-    width: calc(100% - 32px); /* Mobil genişlik normallaşdırılır */
-  }
-  .legal {
-    bottom: 5px;
-  }
-  .center {
-    top: 40%;
-  }
-}
-
-/* Keyframe animasiyası */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.input-bar {
-  position: fixed;
-  bottom: 20px; /* bir az yuxarı qaldırır, daha estetik görünür */
+  bottom: 70px; /* 🟦 input barın altına tam hizalanır (bar ~60px hündür) */
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
-  max-width: 800px; /* maksimum eni */
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(10px);
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-radius: 16px;
-  border: 1px solid rgba(80, 80, 80, 0.4);
-  z-index: 100;
-}
-/* 🧱 Footer üçün məsafə və düz görünüş */
-.legal {
-  position: relative;
-  text-align: center;
-  font-size: 13px;
-  color: #aaa;
-  padding: 12px 0 100px; /* ✅ alt hissədə 100px boşluq — input bar ilə toqquşmasın */
-  z-index: 1;
-}
-/* 🧩 Footer — input-un altına köçürülmüş versiya */
-.legal {
-  position: fixed;
-  bottom: 5px; /* input-un altından bir az məsafə */
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  font-size: 13px;
-  color: #aaa;
-  z-index: 50;
-  width: 100%;
   max-width: 800px;
-  line-height: 1.4;
-  pointer-events: none; /* kliklənməsin */
+  text-align: center;
+  font-size: 13px;
+  color: #aaa;
+  line-height: 1.5;
+  pointer-events: none;
+  z-index: 50;
 }
 
-/* Mavi vurğu (Innova Group üçün) */
 .legal strong {
   color: #6d8bff;
   font-weight: 600;
