@@ -37,7 +37,6 @@ body {
   background: var(--bg-dark-1);
   color: var(--text-light);
   font-family: var(--font-main);
-  /* 100svh mobil cihazlarda naviqasiya çubuqlarını nəzərə alır */
   height: 100svh; 
   display: flex;
   flex-direction: column;
@@ -173,8 +172,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  /* Düzəliş: Input və Footerin hündürlüyünə uyğun alt boşluq */
-  padding: 120px 20px 200px; /* 280px yerinə 200px (desktop üçün) */
+  padding: 120px 20px 200px; 
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
@@ -208,22 +206,19 @@ main {
 /* ✉️ Input bar (Düzgün mövqe və görünüş) */
 .input-bar {
   position: fixed;
-  /* DÜZƏLİŞ: Footerin üstündə yerləşmək üçün */
   bottom: 60px; 
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  /* Fon: Mesajı örtmək üçün */
   background: rgba(26, 26, 26, 0.95); 
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   padding: 10px 16px;
-  /* DÜZƏLİŞ: 32px yerinə 24px (kəsilməni aradan qaldırmaq üçün) */
-  width: calc(100% - 24px); 
+  /* DÜZƏLİŞ BƏRPA EDİLİR: Genişlik normallaşdırılır */
+  width: calc(100% - 32px); 
   max-width: 800px;
   backdrop-filter: blur(10px); 
-  /* Z-index: Ən üstdə olmalıdır */
   z-index: 100; 
   gap: 10px;
 }
@@ -243,7 +238,6 @@ main {
 /* ⚙️ Footer (Düzgün mövqe və görünüş) */
 .legal {
   position: fixed;
-  /* DÜZƏLİŞ: Input Barın altında, ən aşağıda yerləşmək üçün */
   bottom: 10px; 
   left: 50%;
   transform: translateX(-50%);
@@ -253,16 +247,12 @@ main {
   color: var(--text-medium);
   font-size: 12.5px;
   line-height: 1.5;
-  
-  /* Fon: Alt məzmunu tamamilə örtmək üçün */
   background: rgba(0, 0, 0, 0.85); 
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(6px);
-  
   border-radius: 12px;
   padding: 8px 14px;
   pointer-events: none;
-  /* Z-index: Yüksəkdir, amma Input Barın altındadır */
   z-index: 90; 
 }
 .legal strong {
@@ -282,16 +272,14 @@ main {
     padding: 8px 14px;
   }
   .chat-box {
-    /* Mobil üçün alt naviqasiya çubuğunu nəzərə alaraq böyük padding */
     padding-bottom: 300px; 
   }
   .input-bar {
-    /* Mobil üçün bir az yuxarıda */
     bottom: 60px; 
-    width: calc(100% - 20px); /* Mobil kəsilmə üçün düzəliş */
+    /* DÜZƏLİŞ BƏRPA EDİLİR: Mobil genişlik normallaşdırılır */
+    width: calc(100% - 32px); 
   }
   .legal {
-    /* Mobil üçün ən aşağıda */
     bottom: 5px;
   }
   .center {
