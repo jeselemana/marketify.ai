@@ -12,7 +12,11 @@ function addMessage(sender, text) {
   msg.classList.add("message", sender);
   msg.textContent = text;
   chatBox.appendChild(msg);
-  chatBox.scrollTop = chatBox.scrollHeight;
+
+  // Smooth scroll effekti
+  requestAnimationFrame(() => {
+    msg.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
 }
 
 // 🟡 Bot typing effekti

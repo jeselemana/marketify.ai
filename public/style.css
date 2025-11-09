@@ -321,3 +321,62 @@ main {
 }
 
 /* Qalan dizayn sənin öz kodundakı kimi qalır */
+
+/* 🌑 Ümumi fon tünd boz (ChatGPT tərzi) */
+body {
+  background-color: #1e1e1e;
+  color: #ffffff;
+}
+
+/* Chat qutusu tünd boz */
+.chat-box {
+  background: #2b2b2b;
+  scroll-behavior: smooth;
+}
+
+/* 🌌 Gradient border effekti */
+.input-bar {
+  background: transparent;
+  border-top: 1px solid #333;
+  justify-content: center;
+}
+
+/* Neon gradient çərçivəli input konteyner */
+.input-wrapper {
+  position: relative;
+  flex: 1;
+  border-radius: 12px;
+  padding: 2px;
+  background: linear-gradient(120deg, #0a32f0, #4c7eff, #0a32f0);
+  background-size: 200% 200%;
+  animation: borderFlow 4s ease infinite;
+}
+
+/* Input özü */
+#user-input {
+  background: #1e1e1e;
+  border-radius: 10px;
+  color: #fff;
+}
+
+/* Göndər düyməsi Marketify mavi */
+.send {
+  background: #0a32f0;
+  border: none;
+  color: white;
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 0 16px;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.send:hover {
+  background: #4c7eff;
+  box-shadow: 0 0 12px rgba(74, 120, 255, 0.4);
+}
+
+/* 🔄 Gradient animasiyası */
+@keyframes borderFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
