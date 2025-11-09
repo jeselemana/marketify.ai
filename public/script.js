@@ -12,8 +12,6 @@ function addMessage(sender, text) {
   msg.classList.add("message", sender);
   msg.textContent = text;
   chatBox.appendChild(msg);
-
-  // Smooth scroll effekti
   scrollToBottom();
 }
 
@@ -51,11 +49,14 @@ async function sendMessage(message) {
   } catch (error) {
     console.error(error);
     chatBox.removeChild(typing);
-    addMessage("bot", "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.");
+    addMessage(
+      "bot",
+      "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir."
+    );
   }
 }
 
-// ✉️ Form göndərilməsi (refresh olmadan)
+// ✉️ Form göndərilməsi
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   const message = input.value.trim();
@@ -85,13 +86,24 @@ bubbles.forEach((bubble) => {
 });
 
 // 🧹 Təmizlə düyməsi
-clearBtn.addEventListener("click", () => {
+clearBtn.addEventListener("click", async () => {
+  // Frontend-də chat mesajlarını təmizlə
   chatBox.innerHTML = "";
   center.style.display = "flex";
+  bubbles.forEach((b) => (b.style.display = "inline-block"));
+
+  // Backend-də tarixçəni sıfırla
+  try {
+    await fetch("/api/clear", { method: "POST" });
+    console.log("🧠 Serverdəki tarixçə sıfırlandı.");
+  } catch (err) {
+    console.warn("Serverdə təmizləmə alınmadı:", err);
+  }
+
   scrollToBottom();
 });
 
-// ✅ Avtomatik scroll funksiyası (tam ChatGPT stili)
+// ✅ Avtomatik scroll funksiyası
 function scrollToBottom() {
   requestAnimationFrame(() => {
     chatBox.scrollTo({
