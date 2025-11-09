@@ -109,9 +109,9 @@ main {
   z-index: 1;
 }
 
-/* 🧭 Mərkəz hissə (Başlanğıc ekranı) */
 .center {
-  position: absolute;
+  position: relative;
+  z-index: 200; /* 🔥 klik üçün önə gətirildi */
   top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -318,4 +318,12 @@ main {
     opacity: 1;
     transform: translateY(0);
   }
+}
+.version-label {
+  opacity: 0.6; /* 🔹 Solğun effekt */
+  transition: opacity 0.3s ease;
+}
+
+.version-label:hover {
+  opacity: 1; /* Hover zamanı tam parlaq olsun */
 }
