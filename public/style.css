@@ -172,6 +172,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* Alt boşluq Input Bar və Footerin mətnini örtməsi üçün */
   padding: 120px 20px 200px; 
   width: 100%;
   max-width: 800px;
@@ -203,46 +204,63 @@ main {
   line-height: 1.6;
 }
 
-/* ✉️ Input bar (Düzgün mövqe və görünüş) */
 .input-bar {
   position: fixed;
-  bottom: 60px; 
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: rgba(30, 30, 30, 0.9);
+  backdrop-filter: blur(10px);
+  padding: 12px 16px;
   display: flex;
   align-items: center;
-  background: rgba(26, 26, 26, 0.95); 
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  
-  /* DÜZƏLİŞ: Padding solda daha çox, sağda daha az (düyməyə yer vermək üçün) */
-  padding: 10px 10px 10px 16px; 
-  
-  /* Genişlik normallaşdırılır */
-  width: calc(100% - 32px); 
-  max-width: 800px;
-  backdrop-filter: blur(10px); 
-  z-index: 100; 
-  
-  /* DÜZƏLİŞ: Daxili boşluq azaldılır */
-  gap: 5px; 
+  justify-content: center;
+  gap: 10px;
+  z-index: 100;
 }
 
-.input-bar input {
+.input-wrapper {
   flex: 1;
-  background: transparent;
-  border: none;
-  color: var(--text-light);
-  outline: none;
-  font-size: 16px;
-  font-family: var(--font-main);
+  display: flex;
+  align-items: center;
+  border-radius: 12px;
+  padding: 2px;
+  background: linear-gradient(120deg, #0a32f0, #4c7eff, #0a32f0);
+  background-size: 200% 200%;
+  animation: borderFlow 4s ease infinite;
+  box-shadow: 0 0 10px rgba(10, 50, 240, 0.3);
 }
-.input-bar button.send {
-  color: var(--send-btn-color);
-  /* Düymənin ölçüsü və digər xüsusiyyətləri standart qalır */
-  width: 40px; 
-  height: 40px;
-  min-width: 40px; /* Əlavə təminat */
+
+#user-input {
+  flex: 1;
+  height: 44px;
+  background: #1e1e1e;
+  border: none;
+  border-radius: 10px;
+  padding: 0 14px;
+  color: #fff;
+  font-size: 15px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+/* 🧩 Düymə input-un yanında sabitlənsin */
+.send {
+  height: 44px;
+  min-width: 44px;
+  background: #0a32f0;
+  border: none;
+  color: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.send:hover {
+  background: #4c7eff;
+  box-shadow: 0 0 12px rgba(74, 120, 255, 0.4);
 }
 
 /* ⚙️ Footer (Düzgün mövqe və görünüş) */
@@ -286,8 +304,7 @@ main {
   }
   .input-bar {
     bottom: 60px; 
-    /* DÜZƏLİŞ BƏRPA EDİLİR: Mobil genişlik normallaşdırılır */
-    width: calc(100% - 32px); 
+    width: calc(100% - 32px); /* Mobil genişlik normallaşdırılır */
   }
   .legal {
     bottom: 5px;
@@ -307,4 +324,21 @@ main {
     opacity: 1;
     transform: translateY(0);
   }
+}
+.input-bar {
+  position: fixed;
+  bottom: 20px; /* bir az yuxarı qaldırır, daha estetik görünür */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 800px; /* maksimum eni */
+  background: rgba(30, 30, 30, 0.9);
+  backdrop-filter: blur(10px);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(80, 80, 80, 0.4);
+  z-index: 100;
 }
