@@ -14,9 +14,7 @@ function addMessage(sender, text) {
   chatBox.appendChild(msg);
 
   // Smooth scroll effekti
-  requestAnimationFrame(() => {
-    msg.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  });
+  scrollToBottom();
 }
 
 // 🟡 Bot typing effekti
@@ -25,7 +23,7 @@ function showTyping() {
   typing.classList.add("message", "bot", "typing");
   typing.textContent = "Marketify yazır...";
   chatBox.appendChild(typing);
-  chatBox.scrollTop = chatBox.scrollHeight;
+  scrollToBottom();
   return typing;
 }
 
@@ -86,8 +84,26 @@ bubbles.forEach((bubble) => {
   });
 });
 
-// 🧹 Təmizlə düyməsi (refresh olmadan)
+// 🧹 Təmizlə düyməsi
 clearBtn.addEventListener("click", () => {
   chatBox.innerHTML = "";
   center.style.display = "flex";
+  scrollToBottom();
 });
+
+// ✅ Avtomatik scroll funksiyası (tam ChatGPT stili)
+function scrollToBottom() {
+  requestAnimationFrame(() => {
+    chatBox.scrollTo({
+      top: chatBox.scrollHeight,
+      behavior: "smooth",
+    });
+  });
+}
+
+// 🧩 Yeni mesaj əlavə olunanda avtomatik en
+const observer = new MutationObserver(scrollToBottom);
+observer.observe(chatBox, { childList: true });
+
+// 🧠 Səhifə yüklənəndə avtomatik aşağıda başlasın
+document.addEventListener("DOMContentLoaded", scrollToBottom);
