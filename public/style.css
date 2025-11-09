@@ -351,3 +351,24 @@ main {
   padding: 12px 0 100px; /* ✅ alt hissədə 100px boşluq — input bar ilə toqquşmasın */
   z-index: 1;
 }
+/* 🧩 Footer — input-un altına köçürülmüş versiya */
+.legal {
+  position: fixed;
+  bottom: 5px; /* input-un altından bir az məsafə */
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: 13px;
+  color: #aaa;
+  z-index: 50;
+  width: 100%;
+  max-width: 800px;
+  line-height: 1.4;
+  pointer-events: none; /* kliklənməsin */
+}
+
+/* Mavi vurğu (Innova Group üçün) */
+.legal strong {
+  color: #6d8bff;
+  font-weight: 600;
+}
