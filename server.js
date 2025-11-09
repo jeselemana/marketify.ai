@@ -15,30 +15,42 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// 💬 Sadə sessiya yaddaşı (RAM-da saxlanır)
+let conversationHistory = [];
+
 app.post("/api/chat", async (req, res) => {
   try {
-    const userMessage = req.body.message;
-    if (!userMessage)
-      return res.status(400).json({ error: "Mesaj daxil edilməyib." });
+    const userMessage = req.body.message?.trim();
+    if (!userMessage) return res.status(400).json({ error: "Mesaj daxil edilməyib." });
 
+    // İstifadəçinin mesajını tarixçəyə əlavə et
+    conversationHistory.push({ role: "user", content: userMessage });
+
+    // Tarixçəni çox uzatmasın deyə, son 10 mesaj saxlanır
+    if (conversationHistory.length > 20) {
+      conversationHistory = conversationHistory.slice(-20);
+    }
+
+    // Modeli çağır
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: 1500,
       messages: [
         {
           role: "system",
           content: `You are Marketify AI — a next-gen marketing assistant created by Innova Group Azerbaijan.
-          You speak in a natural, confident, and creative tone.
-          Avoid robotic or overly formal phrases.
-          Use smooth, conversational language like a human marketing expert.`,
+          Speak like a friendly, confident marketing expert. Stay natural and creative.`,
         },
-        { role: "user", content: userMessage },
+        ...conversationHistory,
       ],
     });
 
-    const reply =
-      completion.choices?.[0]?.message?.content || "Cavab alınmadı 😔";
+    const reply = completion.choices?.[0]?.message?.content || "Cavab alınmadı 😔";
+
+    // Bot cavabını tarixçəyə əlavə et
+    conversationHistory.push({ role: "assistant", content: reply });
+
     res.json({ reply });
   } catch (error) {
     console.error("OpenAI xətası:", error.message);
@@ -46,17 +58,19 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-// SPA yönləndirmə
+// 💡 “Söhbəti sıfırla” üçün ayrıca endpoint (Clear düyməsi üçün istəyə görə)
+app.post("/api/clear", (req, res) => {
+  conversationHistory = [];
+  res.json({ ok: true });
+});
+
 app.get("*", (req, res) => {
   res.sendFile(process.cwd() + "/public/index.html");
 });
 
 const PORT = process.env.PORT || 5050;
-app.listen(PORT, () => {
-  console.log(`✅ Marketify AI is live on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`✅ Marketify AI is live on port ${PORT}`));
 
-// Render keep-alive
 setInterval(() => {
   fetch("https://marketify-ai.onrender.com").catch(() =>
     console.log("⚠️ Keep-alive ping alınmadı")
