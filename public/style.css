@@ -224,15 +224,49 @@ main {
   z-index: 100;
 }
 
+/* 🧠 Input wrapper üçün klik effekti */
 .input-wrapper {
   flex: 1;
   display: flex;
   align-items: center;
   border-radius: 12px;
   padding: 2px;
+  background: #1e1e1e; /* normal vəziyyətdə sadə fon */
+  transition: all 0.3s ease;
+}
+
+/* ✨ Fokuslandıqda mavi border + glow gəlir */
+.input-wrapper:focus-within {
   background: linear-gradient(120deg, #0a32f0, #4c7eff, #0a32f0);
   background-size: 200% 200%;
   animation: borderFlow 4s ease infinite;
+  box-shadow: 0 0 14px rgba(74, 120, 255, 0.3);
+}
+
+/* Daxili input */
+#user-input {
+  flex: 1;
+  height: 44px;
+  background: #1e1e1e;
+  border: none;
+  border-radius: 10px;
+  padding: 0 14px;
+  color: #fff;
+  font-size: 15px;
+  outline: none;
+}
+
+/* 💫 Gradient axını üçün animasiya */
+@keyframes borderFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 #user-input {
