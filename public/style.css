@@ -327,3 +327,66 @@ main {
 .version-label:hover {
   opacity: 1; /* Hover zamanı tam parlaq olsun */
 }
+
+.model-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.model-btn {
+  background: #1c1c1c;
+  border: 1px solid #2a2a2a;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.25s ease;
+}
+
+.model-btn:hover {
+  background: #252525;
+  color: #fff;
+}
+
+/* ▼ AÇILAN MENYU */
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 45px;
+  left: 0;
+  background: #121212;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  min-width: 200px;
+  padding: 10px 0;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+}
+
+.dropdown-menu .model-item,
+.dropdown-menu .feedback-link {
+  display: block;
+  padding: 10px 15px;
+  font-size: 14px;
+  color: #ccc;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.dropdown-menu .model-item.selected {
+  background: rgba(45, 107, 255, 0.15);
+  color: #8ab7ff;
+  font-weight: 600;
+}
+
+.dropdown-menu .feedback-link:hover {
+  background: rgba(45, 107, 255, 0.1);
+  color: #fff;
+}
+
+/* Aktiv olarkən görünür */
+.dropdown-menu.show {
+  display: block;
+}

@@ -133,3 +133,18 @@ observer.observe(chatBox, { childList: true });
 
 // 🧠 Səhifə yüklənəndə avtomatik aşağıda başlasın
 document.addEventListener("DOMContentLoaded", scrollToBottom);
+
+// ▼ AÇILAN MENYU FUNKSİYASI
+const modelButton = document.getElementById("modelButton");
+const dropdownMenu = document.getElementById("dropdownMenu");
+
+modelButton.addEventListener("click", () => {
+  dropdownMenu.classList.toggle("show");
+});
+
+// Ekranın kənarına kliklənəndə menyunu bağla
+document.addEventListener("click", (e) => {
+  if (!modelButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+    dropdownMenu.classList.remove("show");
+  }
+});
