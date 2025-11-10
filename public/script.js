@@ -101,22 +101,6 @@ bubbles.forEach((bubble) => {
   });
 });
 
-// 🧹 Təmizlə düyməsi
-clearBtn.addEventListener("click", async () => {
-  chatBox.innerHTML = "";
-  center.style.display = "flex";
-  bubbles.forEach((b) => (b.style.display = "inline-block"));
-
-  try {
-    await fetch("/api/clear", { method: "POST" });
-    console.log("🧠 Serverdəki tarixçə sıfırlandı.");
-  } catch (err) {
-    console.warn("Serverdə təmizləmə alınmadı:", err);
-  }
-
-  scrollToBottom();
-});
-
 // ✅ Avtomatik scroll funksiyası
 function scrollToBottom() {
   requestAnimationFrame(() => {
@@ -138,13 +122,44 @@ document.addEventListener("DOMContentLoaded", scrollToBottom);
 const modelButton = document.getElementById("modelButton");
 const dropdownMenu = document.getElementById("dropdownMenu");
 
-modelButton.addEventListener("click", () => {
-  dropdownMenu.classList.toggle("show");
-});
+if (modelButton && dropdownMenu) {
+  modelButton.addEventListener("click", () => {
+    dropdownMenu.classList.toggle("show");
+  });
 
-// Ekranın kənarına kliklənəndə menyunu bağla
-document.addEventListener("click", (e) => {
-  if (!modelButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
-    dropdownMenu.classList.remove("show");
-  }
-});
+  // Ekranın kənarına kliklənəndə menyunu bağla
+  document.addEventListener("click", (e) => {
+    if (!modelButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+      dropdownMenu.classList.remove("show");
+    }
+  });
+}
+
+// ⚠️ Təsdiq popup üçün
+const confirmPopup = document.getElementById("confirmPopup");
+const confirmYes = document.getElementById("confirmYes");
+const confirmNo = document.getElementById("confirmNo");
+
+if (clearBtn) {
+  clearBtn.addEventListener("click", () => {
+    confirmPopup.classList.add("show");
+  });
+}
+
+if (confirmNo) {
+  confirmNo.addEventListener("click", () => {
+    confirmPopup.classList.remove("show");
+  });
+}
+
+if (confirmYes) {
+  confirmYes.addEventListener("click", async () => {
+    confirmPopup.classList.remove("show");
+
+    // 💬 Söhbəti təmizləyir
+    await fetch("/api/clear", { method: "POST" });
+    chatBox.innerHTML = "";
+    center.style.display = "flex";
+    bubbles.forEach((b) => (b.style.display = "inline-block"));
+  });
+}
