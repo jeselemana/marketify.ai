@@ -59,19 +59,21 @@ async function sendMessage(message) {
     const data = await response.json();
     chatBox.removeChild(typing);
 
-    const botMsg = addMessage("bot", "");
-const replyText = data.reply || "⚠️ Cavab alınmadı 😔";
-typeText(botMsg, replyText, 18);
+    // 🎨 Marketify Style tonu tətbiq et
+    let reply = data.reply || "⚠️ Cavab alınmadı 😔";
+    reply = reply
+      .replaceAll("İlk olaraq,", "Başlayaq belə:")
+      .replaceAll("Bu addımları izləyə bilərsən", "Gəlin birlikdə baxaq 👇")
+      .replaceAll("Nəticədə", "Sonda isə")
+      .replaceAll("Bu, sizə kömək edəcək", "Bu sənə real fərq yaradacaq 💡")
+      .replaceAll("Uğurlar!", "Uğurlar, sən artıq fərqlisən 🚀");
 
-// typing bitəndən bir az sonra copy düyməsini əlavə et
-setTimeout(() => attachCopyButton(botMsg, replyText), replyText.length * 20 + 200);
+    const botMsg = addMessage("bot", "");
+    typeText(botMsg, reply, 18);
   } catch (error) {
     console.error(error);
     chatBox.removeChild(typing);
-    addMessage(
-      "bot",
-      "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir."
-    );
+    addMessage("bot", "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.");
   }
 }
 
@@ -114,13 +116,11 @@ function scrollToBottom() {
   });
 }
 
-// 🧩 Yeni mesaj əlavə olunanda avtomatik en
 const observer = new MutationObserver(scrollToBottom);
 observer.observe(chatBox, { childList: true });
-
-// 🧠 Səhifə yüklənəndə avtomatik aşağıda başlasın
 document.addEventListener("DOMContentLoaded", scrollToBottom);
-// ▼ AÇILAN MENYU FUNKSİYASI
+
+// ▼ Model dropdown
 const modelButton = document.getElementById("modelButton");
 const dropdownMenu = document.getElementById("dropdownMenu");
 
@@ -128,8 +128,6 @@ if (modelButton && dropdownMenu) {
   modelButton.addEventListener("click", () => {
     dropdownMenu.classList.toggle("show");
   });
-
-  // Ekranın kənarına kliklənəndə menyunu bağla
   document.addEventListener("click", (e) => {
     if (!modelButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
       dropdownMenu.classList.remove("show");
@@ -137,43 +135,75 @@ if (modelButton && dropdownMenu) {
   });
 }
 
-// ⚠️ Təsdiq popup üçün
+// ⚠️ Popup və düymələr
 const confirmPopup = document.getElementById("confirmPopup");
 const confirmYes = document.getElementById("confirmYes");
 const confirmNo = document.getElementById("confirmNo");
 
+// 💬 Əsas “Təmizlə” kliklənəndə popup açılsın
 if (clearBtn) {
-  clearBtn.addEventListener("click", () => {
+  clearBtn.addEventListener("click", (e) => {
+    e.preventDefault();
     confirmPopup.classList.add("show");
   });
 }
 
+// ❌ “Xeyr, ləğv et” kliklənəndə sadəcə popup bağlanır (ekran dəyişməsin)
 if (confirmNo) {
-  confirmNo.addEventListener("click", () => {
+  confirmNo.onclick = (e) => {
+    e.preventDefault();
     confirmPopup.classList.remove("show");
-  });
+    // Center görünməsin, çünki söhbət hələ qalır
+    center.style.display = "none";
+    bubbles.forEach((b) => (b.style.display = "none"));
+  };
 }
 
+// ✅ “Təsdiqlə” kliklənəndə real təmizləmə
 if (confirmYes) {
-  confirmYes.addEventListener("click", async () => {
+  confirmYes.onclick = async (e) => {
+    e.preventDefault();
     confirmPopup.classList.remove("show");
 
-    // ✨ Təmizlənmə animasiyası
-    chatBox.style.transition = "opacity 0.4s ease";
-    chatBox.style.opacity = "0.3";
-
-    // 💬 Söhbəti təmizləyir
-    setTimeout(async () => {
+    try {
       await fetch("/api/clear", { method: "POST" });
-      chatBox.innerHTML = "";
-      chatBox.style.opacity = "1";
-      center.style.display = "flex";
-      bubbles.forEach((b) => (b.style.display = "inline-block"));
-    }, 400);
-  });
+    } catch (err) {
+      console.error("Clear error:", err);
+    }
+
+    chatBox.innerHTML = "";
+    center.style.display = "flex";
+    bubbles.forEach((b) => (b.style.display = "inline-block"));
+
+    // 🎉 Bildiriş (Marketify tonda)
+    const notice = document.createElement("div");
+    notice.innerHTML = "💬 Yeni söhbət üçün hazırsan 😎";
+    Object.assign(notice.style, {
+      position: "fixed",
+      bottom: "100px",
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: "linear-gradient(135deg, #2d6bff, #60a5ff)",
+      color: "#fff",
+      padding: "12px 20px",
+      borderRadius: "12px",
+      boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
+      fontSize: "14px",
+      fontFamily: "'Poppins', sans-serif",
+      zIndex: "999",
+      opacity: "0",
+      transition: "opacity 0.4s ease",
+    });
+    document.body.appendChild(notice);
+    setTimeout(() => (notice.style.opacity = "1"), 80);
+    setTimeout(() => {
+      notice.style.opacity = "0";
+      setTimeout(() => notice.remove(), 600);
+    }, 2200);
+  };
 }
 
-// 💡 SMART SUGGESTIONS (təkrarsız variant)
+// 💡 SMART SUGGESTIONS (təkrarsız)
 document.addEventListener("DOMContentLoaded", () => {
   const ideas = [
     "AI ilə sosial media post ideyası ✨",
@@ -187,78 +217,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const bubbles = document.querySelectorAll(".bubble");
   if (!bubbles.length) return;
-
-  // Təkrarsız ideyalar üçün kopya yaradılır
   const ideasCopy = [...ideas];
-
   bubbles.forEach((bubble) => {
     if (ideasCopy.length === 0) return;
     const randomIndex = Math.floor(Math.random() * ideasCopy.length);
-    const randomIdea = ideasCopy.splice(randomIndex, 1)[0]; // seç + sil
+    const randomIdea = ideasCopy.splice(randomIndex, 1)[0];
     bubble.textContent = randomIdea;
   });
 });
-// 💬 Typing indicator göstər/gizlət
-const typingIndicator = document.getElementById("typing-indicator");
 
-// cavab göndərilərkən göstər
-function showTypingIndicator() {
-  typingIndicator.style.display = "flex";
-}
-// cavab gəldikdə gizlə
-function hideTypingIndicator() {
-  typingIndicator.style.display = "none";
-}
-
-// mövcud sendMessage funksiyasında dəyişiklik et:
-async function sendMessage(message) {
-  if (!message.trim()) return;
-
-  center.style.display = "none";
-  addMessage("user", message);
-
-  showTypingIndicator();
-
-  try {
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
-    });
-
-    const data = await response.json();
-    hideTypingIndicator();
-
-    const botMsg = addMessage("bot", "");
-    typeText(botMsg, data.reply || "⚠️ Cavab alınmadı 😔", 18);
-  } catch (error) {
-    hideTypingIndicator();
-    addMessage("bot", "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.");
-  }
-  // 🎨 Marketify Style Tonu tətbiq et
-let reply = data.reply || "⚠️ Cavab alınmadı 😔";
-
-// Uzun akademik cümlələri bir az səmimiləşdir
-reply = reply
-  .replaceAll("İlk olaraq,", "Başlayaq belə:")
-  .replaceAll("Bu addımları izləyə bilərsən", "Gəlin birlikdə baxaq 👇")
-  .replaceAll("Nəticədə", "Sonda isə")
-  .replaceAll("Bu, sizə kömək edəcək", "Bu sənə real fərq yaradacaq 💡")
-  .replaceAll("Uğurlar!", "Uğurlar, sən artıq fərqlisən 🚀")
-  .replaceAll("Məhsul", "məhsul")
-  .replaceAll("Təqdimat", "təqdimat");
-
-// 💬 Cavabı yaz
-chatBox.removeChild(typing);
-const botMsg = addMessage("bot", "");
-typeText(botMsg, reply, 18);
-
-}
 // 💡 Dinamik Tagline
 document.addEventListener("DOMContentLoaded", () => {
   const tagline = document.querySelector(".tagline");
   if (!tagline) return;
-
   const taglines = [
     "Bu gün nə haqqında danışırıq? 😊",
     "Marketinq ideyaları ilə dolu bir günə hazırsan? 🚀",
@@ -267,25 +238,15 @@ document.addEventListener("DOMContentLoaded", () => {
     "Reklam dünyasında inqilab buradan başlayır 🌍",
     "Bir az ilham, bir az AI 💬",
   ];
-
   let lastTagline = "";
-
-function updateTagline() {
-  let random;
-  do {
-    random = taglines[Math.floor(Math.random() * taglines.length)];
-  } while (random === lastTagline); // eyni cümlə olmasın
-  lastTagline = random;
-  tagline.textContent = random;
-}
-
-  updateTagline(); // səhifə açıldıqda
-  setInterval(updateTagline, 10000); // 10 saniyədən bir dəyişsin
-});
-clearBtn.addEventListener("click", () => {
-  chatBox.style.opacity = "0.5";
-  setTimeout(() => {
-    chatBox.innerHTML = "";
-    chatBox.style.opacity = "1";
-  }, 300);
+  function updateTagline() {
+    let random;
+    do {
+      random = taglines[Math.floor(Math.random() * taglines.length)];
+    } while (random === lastTagline);
+    lastTagline = random;
+    tagline.textContent = random;
+  }
+  updateTagline();
+  setInterval(updateTagline, 10000);
 });
