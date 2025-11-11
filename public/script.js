@@ -59,10 +59,12 @@ async function sendMessage(message) {
     const data = await response.json();
     chatBox.removeChild(typing);
 
-    // Typing effekti ilə cavabı göstər
     const botMsg = addMessage("bot", "");
-    attachCopyButton(botMsg);
-    typeText(botMsg, data.reply || "⚠️ Cavab alınmadı 😔", 18);
+const replyText = data.reply || "⚠️ Cavab alınmadı 😔";
+typeText(botMsg, replyText, 18);
+
+// typing bitəndən bir az sonra copy düyməsini əlavə et
+setTimeout(() => attachCopyButton(botMsg, replyText), replyText.length * 20 + 200);
   } catch (error) {
     console.error(error);
     chatBox.removeChild(typing);
@@ -118,7 +120,26 @@ observer.observe(chatBox, { childList: true });
 
 // 🧠 Səhifə yüklənəndə avtomatik aşağıda başlasın
 document.addEventListener("DOMContentLoaded", scrollToBottom);
+// 📋 Copy düyməsini əlavə edən funksiya
+function attachCopyButton(msgEl, text) {
+  if (!msgEl || msgEl.querySelector(".copy-btn")) return; // təkrar olmasın
+  const btn = document.createElement("button");
+  btn.className = "copy-btn";
+  btn.textContent = "📋";
 
+  btn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = "✅";
+      setTimeout(() => (btn.textContent = "📋"), 1200);
+    } catch (err) {
+      console.error("Kopyalama xətası:", err);
+    }
+  });
+
+  msgEl.appendChild(btn);
+}
 // ▼ AÇILAN MENYU FUNKSİYASI
 const modelButton = document.getElementById("modelButton");
 const dropdownMenu = document.getElementById("dropdownMenu");
