@@ -34,19 +34,30 @@ app.post("/api/chat", async (req, res) => {
       conversationHistory = conversationHistory.slice(-20);
     }
 
+    // 💬 Marketify Style təlimatı əlavə edirik
+    const systemPrompt = {
+      role: "system",
+      content: `
+      Sən Marketify AI adlanan enerjili və yaradıcı brendin süni intellektisən.
+      Marketify, Innova Group Azerbaijan tərəfindən yaradılmışdır.
+      Tonun: isti, səmimi, pozitiv və motivasiya doludur.
+      Sadəcə cavab vermə — qarşıdakı ilə insan kimi danış.
+      Emoji-lərdən təbii şəkildə istifadə et (amma çox yox).
+      Yazı tərzin dostyana və yaradıcı olmalıdır.
+      Formal yox, brend tonunda yaz (Apple, Notion, Marketify üslubunda).
+      Hər cavabda yaradıcı enerji və “biz bunu bacararıq” ruhu hiss olunsun.
+      Əgər mövzu çox akademikdirsə, onu insaniləşdir və emosional tonda təqdim et.
+      Nümunə ton:
+      “Gəlin belə edək 💡” və ya “Bu ideya sənlikdi 😎” kimi.
+      `,
+    };
+
     // Modeli çağır
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
-      temperature: 0.7,
+      temperature: 0.85,
       max_tokens: 1500,
-      messages: [
-        {
-          role: "system",
-          content: `You are Marketify AI — a next-gen marketing assistant created by Innova Group Azerbaijan.
-          Speak like a friendly, confident marketing expert. Stay natural and creative.`,
-        },
-        ...conversationHistory,
-      ],
+      messages: [systemPrompt, ...conversationHistory],
     });
 
     const reply =
@@ -77,8 +88,8 @@ app.post("/api/feedback", async (req, res) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: "marketify.ai.feedback@gmail.com", // sənin Gmail ünvanın
-      pass: process.env.EMAIL_PASS, // Gmail App Password (2FA üçün)
+      user: "marketify.ai.feedback@gmail.com",
+      pass: process.env.EMAIL_PASS,
     },
   });
 
