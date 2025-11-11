@@ -120,26 +120,6 @@ observer.observe(chatBox, { childList: true });
 
 // 🧠 Səhifə yüklənəndə avtomatik aşağıda başlasın
 document.addEventListener("DOMContentLoaded", scrollToBottom);
-// 📋 Copy düyməsini əlavə edən funksiya
-function attachCopyButton(msgEl, text) {
-  if (!msgEl || msgEl.querySelector(".copy-btn")) return; // təkrar olmasın
-  const btn = document.createElement("button");
-  btn.className = "copy-btn";
-  btn.textContent = "📋";
-
-  btn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      btn.textContent = "✅";
-      setTimeout(() => (btn.textContent = "📋"), 1200);
-    } catch (err) {
-      console.error("Kopyalama xətası:", err);
-    }
-  });
-
-  msgEl.appendChild(btn);
-}
 // ▼ AÇILAN MENYU FUNKSİYASI
 const modelButton = document.getElementById("modelButton");
 const dropdownMenu = document.getElementById("dropdownMenu");
@@ -178,13 +158,21 @@ if (confirmYes) {
   confirmYes.addEventListener("click", async () => {
     confirmPopup.classList.remove("show");
 
+    // ✨ Təmizlənmə animasiyası
+    chatBox.style.transition = "opacity 0.4s ease";
+    chatBox.style.opacity = "0.3";
+
     // 💬 Söhbəti təmizləyir
-    await fetch("/api/clear", { method: "POST" });
-    chatBox.innerHTML = "";
-    center.style.display = "flex";
-    bubbles.forEach((b) => (b.style.display = "inline-block"));
+    setTimeout(async () => {
+      await fetch("/api/clear", { method: "POST" });
+      chatBox.innerHTML = "";
+      chatBox.style.opacity = "1";
+      center.style.display = "flex";
+      bubbles.forEach((b) => (b.style.display = "inline-block"));
+    }, 400);
   });
 }
+
 // 💡 SMART SUGGESTIONS (təkrarsız variant)
 document.addEventListener("DOMContentLoaded", () => {
   const ideas = [
@@ -276,64 +264,10 @@ function updateTagline() {
   updateTagline(); // səhifə açıldıqda
   setInterval(updateTagline, 10000); // 10 saniyədən bir dəyişsin
 });
-// 📋 Copy-Response düyməsi (Marketify AI 2.0)
-document.addEventListener("click", async (e) => {
-  if (e.target.classList.contains("copy-btn")) {
-    const message = e.target.closest(".message").innerText;
-    try {
-      await navigator.clipboard.writeText(message);
-      e.target.textContent = "✅";
-      setTimeout(() => (e.target.textContent = "📋"), 1500);
-    } catch (err) {
-      console.error("Kopyalama xətası:", err);
-    }
-  }
+clearBtn.addEventListener("click", () => {
+  chatBox.style.opacity = "0.5";
+  setTimeout(() => {
+    chatBox.innerHTML = "";
+    chatBox.style.opacity = "1";
+  }, 300);
 });
-
-// 📋 Copy düyməsi üçün funksionallıq (stabil versiya)
-function addMessage(sender, text) {
-  const msg = document.createElement("div");
-  msg.classList.add("message", sender);
-  msg.textContent = text;
-  chatBox.appendChild(msg);
-
-  // 🔹 Əgər botdursa, copy düyməsini əlavə et
-  if (sender === "bot") {
-    const copyBtn = document.createElement("button");
-    copyBtn.classList.add("copy-btn");
-    copyBtn.innerHTML = "📋";
-    copyBtn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      try {
-        await navigator.clipboard.writeText(text);
-        copyBtn.innerHTML = "✅";
-        setTimeout(() => (copyBtn.innerHTML = "📋"), 1500);
-      } catch (err) {
-        console.error("Kopyalama xətası:", err);
-      }
-    });
-    msg.appendChild(copyBtn);
-  }
-
-  scrollToBottom();
-  return msg;
-}
-// 📋 Bot cavabına Copy düyməsi ilişdirən helper
-function attachCopyButton(msgEl) {
-  if (!msgEl || msgEl.querySelector(".copy-btn")) return; // təkrar olmasın
-  const btn = document.createElement("button");
-  btn.className = "copy-btn";
-  btn.textContent = "📋";
-  btn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    const text = msgEl.innerText.replace("📋", "").trim(); // yalnız mətn
-    try {
-      await navigator.clipboard.writeText(text);
-      btn.textContent = "✅";
-      setTimeout(() => (btn.textContent = "📋"), 1200);
-    } catch (err) {
-      console.error("Kopyalama xətası:", err);
-    }
-  });
-  msgEl.appendChild(btn);
-}
