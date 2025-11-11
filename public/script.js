@@ -153,9 +153,7 @@ if (confirmNo) {
   confirmNo.onclick = (e) => {
     e.preventDefault();
     confirmPopup.classList.remove("show");
-    // Center görünməsin, çünki söhbət hələ qalır
-    center.style.display = "none";
-    bubbles.forEach((b) => (b.style.display = "none"));
+    // Burada heç nə gizlətmirik!
   };
 }
 
