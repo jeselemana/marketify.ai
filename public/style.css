@@ -597,10 +597,10 @@ main {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(28, 28, 28, 0.95);
+  background: rgba(26, 26, 26, 0.96);
   border: 1px solid rgba(45, 107, 255, 0.4);
-  border-radius: 14px;
-  padding: 22px 24px;
+  border-radius: 16px;
+  padding: 24px;
   color: #fff;
   font-family: "Poppins", sans-serif;
   font-size: 15px;
@@ -610,13 +610,14 @@ main {
   width: 85%;
   max-width: 320px;
   animation: fadeInPopup 0.3s ease;
+  backdrop-filter: blur(8px);
 }
 
 .shake-actions {
   display: flex;
   justify-content: center;
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
 .shake-actions button {
@@ -625,16 +626,14 @@ main {
   font-weight: 600;
   border: none;
   border-radius: 8px;
-  padding: 8px 16px;
+  padding: 8px 18px;
   cursor: pointer;
   transition: all 0.25s ease;
 }
-
 .shake-actions button:hover {
   background: #4c8dff;
   box-shadow: 0 0 10px rgba(45, 107, 255, 0.5);
 }
-
 .shake-actions #shakeNo {
   background: #333;
   color: #ccc;
@@ -645,12 +644,28 @@ main {
 }
 
 @keyframes fadeInPopup {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -45%);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%);
-  }
+  from { opacity: 0; transform: translate(-50%, -45%); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* 🔔 Info popup (kiçik xəbərdarlıq) */
+.info-popup {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(45, 107, 255, 0.9);
+  color: #fff;
+  font-family: "Poppins", sans-serif;
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  box-shadow: 0 0 12px rgba(45, 107, 255, 0.5);
+  z-index: 999;
+  animation: fadeInOut 3s ease;
+}
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(10px) translateX(-50%); }
+  10%, 90% { opacity: 1; transform: translateY(0) translateX(-50%); }
+  100% { opacity: 0; transform: translateY(10px) translateX(-50%); }
 }

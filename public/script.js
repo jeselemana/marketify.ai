@@ -251,40 +251,46 @@ document.addEventListener("DOMContentLoaded", () => {
   setInterval(updateTagline, 10000);
 });
 
-// Hərəkət icazəsini aktivləşdirmək üçün
-function enableMotionAccess() {
+// 💡 Marketify Shake Detection (v2.1 – iPhone + Android uyumlu)
+function requestMotionAccess() {
   if (typeof DeviceMotionEvent.requestPermission === "function") {
+    // iOS 13+
     DeviceMotionEvent.requestPermission()
       .then((response) => {
         if (response === "granted") {
           initShakeDetection();
+          showInfoPopup("✅ Silkələmə aktivdir!");
         } else {
-          alert("⚠️ Hərəkət icazəsi verilmədi. Shake funksiyası aktiv deyil.");
+          showInfoPopup("⚠️ Hərəkət icazəsi verilmədi!");
         }
       })
-      .catch(console.error);
+      .catch(() => showInfoPopup("⚠️ İcazə alınarkən xəta baş verdi."));
   } else {
     // Android və ya köhnə iOS
     initShakeDetection();
+    showInfoPopup("✅ Silkələmə aktivdir!");
   }
 }
 
-// İcazəni aktivləşdirmək üçün klik tələb olunur
-window.addEventListener("click", enableMotionAccess, { once: true });
+// 👇 Başlatmaq üçün istifadəçi klik gözləyir (təhlükəsizlik səbəbi ilə)
+window.addEventListener("click", () => {
+  requestMotionAccess();
+}, { once: true });
 
-// Shake detection
+// 💫 Əsas Shake Detection
 function initShakeDetection() {
   let lastX = null, lastY = null, lastZ = null, lastTime = 0, shakeTimeout = null;
 
   window.addEventListener("devicemotion", (event) => {
     const acc = event.accelerationIncludingGravity;
-    const currentTime = new Date().getTime();
+    const currentTime = Date.now();
 
     if ((currentTime - lastTime) > 200) {
       const deltaX = Math.abs(acc.x - (lastX || 0));
       const deltaY = Math.abs(acc.y - (lastY || 0));
       const deltaZ = Math.abs(acc.z - (lastZ || 0));
 
+      // Həssaslıq – 35 orta, 25 daha həssas
       if ((deltaX + deltaY + deltaZ) > 35) {
         if (!shakeTimeout) {
           showShakePrompt();
@@ -300,7 +306,7 @@ function initShakeDetection() {
   });
 }
 
-// 💬 Popup
+// 💬 Shake popup
 function showShakePrompt() {
   if (document.querySelector(".shake-popup")) return;
 
@@ -322,6 +328,14 @@ function showShakePrompt() {
   });
 
   document.getElementById("shakeNo").addEventListener("click", () => popup.remove());
-
   setTimeout(() => popup.remove(), 8000);
+}
+
+// 💬 Kiçik info popup (icazə statusu üçün)
+function showInfoPopup(text) {
+  const info = document.createElement("div");
+  info.className = "info-popup";
+  info.textContent = text;
+  document.body.appendChild(info);
+  setTimeout(() => info.remove(), 3000);
 }
