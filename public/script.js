@@ -268,15 +268,31 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-// 💬 Cavab mesajı yaradıldıqda copy düyməsini əlavə et
-const originalAddMessage = addMessage;
-addMessage = function (sender, text) {
-  const msg = originalAddMessage(sender, text);
+// 📋 Copy düyməsi üçün funksionallıq (stabil versiya)
+function addMessage(sender, text) {
+  const msg = document.createElement("div");
+  msg.classList.add("message", sender);
+  msg.textContent = text;
+  chatBox.appendChild(msg);
+
+  // 🔹 Əgər botdursa, copy düyməsini əlavə et
   if (sender === "bot") {
     const copyBtn = document.createElement("button");
     copyBtn.classList.add("copy-btn");
-    copyBtn.textContent = "📋";
+    copyBtn.innerHTML = "📋";
+    copyBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(text);
+        copyBtn.innerHTML = "✅";
+        setTimeout(() => (copyBtn.innerHTML = "📋"), 1500);
+      } catch (err) {
+        console.error("Kopyalama xətası:", err);
+      }
+    });
     msg.appendChild(copyBtn);
   }
+
+  scrollToBottom();
   return msg;
-};
+}

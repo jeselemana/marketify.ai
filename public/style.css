@@ -594,3 +594,24 @@ main {
   justify-content: space-between;
   gap: 6px;
 }
+.message.bot {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.copy-btn {
+  background: transparent;
+  border: none;
+  color: #8ab7ff;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.25s ease, transform 0.2s ease;
+}
+.copy-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
