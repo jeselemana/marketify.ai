@@ -250,3 +250,65 @@ document.addEventListener("DOMContentLoaded", () => {
   updateTagline();
   setInterval(updateTagline, 10000);
 });
+
+// Shake detection dəyişənləri
+let lastX = null, lastY = null, lastZ = null, lastTime = 0;
+let shakeTimeout = null;
+
+// 📱 Silkələnməni dinlə
+window.addEventListener("devicemotion", (event) => {
+  const acc = event.accelerationIncludingGravity;
+  const currentTime = new Date().getTime();
+
+  if ((currentTime - lastTime) > 200) {
+    const deltaX = Math.abs(acc.x - (lastX || 0));
+    const deltaY = Math.abs(acc.y - (lastY || 0));
+    const deltaZ = Math.abs(acc.z - (lastZ || 0));
+
+    // Həssaslıq səviyyəsi (35 orta, 25 çox həssas)
+    if ((deltaX + deltaY + deltaZ) > 35) {
+      // 5 saniyə ərzində ikinci dəfə silkələməyə icazə vermə
+      if (!shakeTimeout) {
+        showShakePrompt();
+        shakeTimeout = setTimeout(() => (shakeTimeout = null), 5000);
+      }
+    }
+
+    lastTime = currentTime;
+    lastX = acc.x;
+    lastY = acc.y;
+    lastZ = acc.z;
+  }
+});
+
+// 💬 Popup təklifi göstər
+function showShakePrompt() {
+  // Əgər artıq açıqdırsa təzə yaratma
+  if (document.querySelector(".shake-popup")) return;
+
+  const popup = document.createElement("div");
+  popup.className = "shake-popup";
+  popup.innerHTML = `
+    <p>💡 Saytdakı xəta haqqında məlumat vermək istəyirsən?</p>
+    <div class="shake-actions">
+      <button id="shakeYes">Bəli</button>
+      <button id="shakeNo">Xeyr</button>
+    </div>
+  `;
+  document.body.appendChild(popup);
+
+  // Bəli → Email aç
+  document.getElementById("shakeYes").addEventListener("click", () => {
+    popup.remove();
+    window.location.href =
+      "mailto:supp.marketifym@gmail.com?subject=Marketify%202.0%20Xəta&body=Salam,%20saytda%20qarşılaşdığım%20xəta%20barədə:%20";
+  });
+
+  // Xeyr → Bağla
+  document.getElementById("shakeNo").addEventListener("click", () => {
+    popup.remove();
+  });
+
+  // Avtomatik 8 saniyəyə bağlansın
+  setTimeout(() => popup.remove(), 8000);
+}
