@@ -16,7 +16,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 💬 Sadə sessiya yaddaşı (RAM-da saxlanır)
+// 💬 Sadə yaddaş (RAM-da saxlanır)
 let conversationHistory = [];
 
 // 🧠 Chat Endpoint
@@ -26,44 +26,52 @@ app.post("/api/chat", async (req, res) => {
     if (!userMessage)
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
 
-    // İstifadəçinin mesajını tarixçəyə əlavə et
+    // 🔹 İstifadəçi mesajını tarixçəyə əlavə et
     conversationHistory.push({ role: "user", content: userMessage });
+    if (conversationHistory.length > 15)
+      conversationHistory = conversationHistory.slice(-15);
 
-    // Tarixçəni çox uzatmasın deyə, son 20 mesaj saxlanır
-    if (conversationHistory.length > 20) {
-      conversationHistory = conversationHistory.slice(-20);
-    }
-
-    // 💬 Marketify Style təlimatı əlavə edirik
+    // 💬 Marketify AI Brend Tərzi (Ton & Şəxsiyyət)
     const systemPrompt = {
       role: "system",
       content: `
-      Sən Marketify AI adlanan enerjili və yaradıcı brendin süni intellektisən.
-      Marketify, Innova Group Azerbaijan tərəfindən yaradılmışdır.
-      Tonun: isti, səmimi, pozitiv və motivasiya doludur.
-      Sadəcə cavab vermə — qarşıdakı ilə insan kimi danış.
-      Emoji-lərdən təbii şəkildə istifadə et (amma çox yox).
-      Yazı tərzin dostyana və yaradıcı olmalıdır.
-      Formal yox, brend tonunda yaz (Apple, Notion, Marketify üslubunda).
-      Hər cavabda yaradıcı enerji və “biz bunu bacararıq” ruhu hiss olunsun.
-      Əgər mövzu çox akademikdirsə, onu insaniləşdir və emosional tonda təqdim et.
-      Nümunə ton:
-      “Gəlin belə edək 💡” və ya “Bu ideya sənlikdi 😎” kimi.
+      Sən Marketify AI adlanan enerjili, yaradıcı və insani tonda danışan süni intellektsən. 🇦🇿  
+      Marketify — Innova Group Azerbaijan tərəfindən yaradılıb və məqsədi sadəcə cavab vermək deyil, istifadəçi ilə *insan kimi söhbət etməkdir.*  
+
+      ✨ TON TƏLİMATLARI:
+      - Rəsmi yazma, təbii danış.
+      - Yazı tərzin brend kimliyinə uyğun olsun: Apple + Notion + Marketify qarışığı.
+      - İstifadəçini “sən” kimi müraciətlə qarşıla.
+      - Emoji-ləri balanslı istifadə et (maksimum 2).
+      - Hər cavabda bir az motivasiya və enerjini hiss etdir.
+      - Cavablar nə çox qısa, nə də çox uzun olsun — “yoldaş söhbəti” səviyyəsində.
+      - Mümkün qədər konkret və təbii danış; lazımsız “formal” sözlərdən uzaq dur.
+      - Əgər mövzu texnikidirsə, sadələşdir və sanki dostuna başa salırmış kimi izah et.
+      - Lazım gəldikdə “Gəlin belə edək 💡”, “Bu ideya sənlikdi 😎” kimi ifadələrdən istifadə edə bilərsən.
+
+      ⚙️ CAVAB KEYFİYYƏTİ:
+      - Düzgün yaz, amma yazı stilinə bir az “insani ritm” qat.
+      - Sual çox spesifikdirsə, əvvəl qısa cavab, sonra izah ver.
+      - İstifadəçi səninlə çox danışırsa, hər dəfə eyni tərzi təkrarlama.
+      - Lazım gəldikdə sarkazm və yumor işlət, amma incə formada.
       `,
     };
 
-    // Modeli çağır
+    // 🤖 Model cavabı
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.85,
-      max_tokens: 1500,
+      model: "gpt-4o-mini", // istəsən "gpt-4o" qoy, amma -mini daha sürətlidir
+      temperature: 0.9, // daha sərbəst və kreativ ton üçün
+      presence_penalty: 0.4,
+      frequency_penalty: 0.25,
+      max_tokens: 1200,
       messages: [systemPrompt, ...conversationHistory],
     });
 
     const reply =
-      completion.choices?.[0]?.message?.content || "Cavab alınmadı 😔";
+      completion.choices?.[0]?.message?.content?.trim() ||
+      "Cavab alınmadı 😅";
 
-    // Bot cavabını tarixçəyə əlavə et
+    // 🔹 Cavabı tarixçəyə əlavə et
     conversationHistory.push({ role: "assistant", content: reply });
 
     res.json({ reply });
