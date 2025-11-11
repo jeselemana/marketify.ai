@@ -210,7 +210,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "Yeni kampaniya sloqanı tap 💡",
     "Marketify AI ilə reklam mətni hazırla 🚀",
     "Brend üçün email mətni 💌",
-    "Sosial media caption yarad 🤳",
+    "Sosial media caption yarat 🤳",
     "Satış üçün təsirli bio mətni 📈",
     "Yeni məhsul təqdimatı üçün plan 🧠",
   ];
@@ -259,7 +259,9 @@ function requestMotionAccess() {
       .then((response) => {
         if (response === "granted") {
           initShakeDetection();
-          showInfoPopup("✅ Silkələmə aktivdir!");
+          if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            showInfoPopup("✅ Silkələmə aktivdir!");
+          }
         } else {
           showInfoPopup("⚠️ Hərəkət icazəsi verilmədi!");
         }
@@ -268,10 +270,11 @@ function requestMotionAccess() {
   } else {
     // Android və ya köhnə iOS
     initShakeDetection();
-    showInfoPopup("✅ Silkələmə aktivdir!");
+    if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      showInfoPopup("✅ Silkələmə aktivdir!");
+    }
   }
 }
-
 // 👇 Başlatmaq üçün istifadəçi klik gözləyir (təhlükəsizlik səbəbi ilə)
 window.addEventListener("click", () => {
   requestMotionAccess();
