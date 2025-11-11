@@ -163,3 +163,120 @@ if (confirmYes) {
     bubbles.forEach((b) => (b.style.display = "inline-block"));
   });
 }
+// 💡 SMART SUGGESTIONS (təkrarsız variant)
+document.addEventListener("DOMContentLoaded", () => {
+  const ideas = [
+    "AI ilə sosial media post ideyası ✨",
+    "Yeni kampaniya sloqanı tap 💡",
+    "Marketify AI ilə reklam mətni hazırla 🚀",
+    "Brend üçün email mətni 💌",
+    "Sosial media caption yarad 🤳",
+    "Satış üçün təsirli bio mətni 📈",
+    "Yeni məhsul təqdimatı üçün plan 🧠",
+  ];
+
+  const bubbles = document.querySelectorAll(".bubble");
+  if (!bubbles.length) return;
+
+  // Təkrarsız ideyalar üçün kopya yaradılır
+  const ideasCopy = [...ideas];
+
+  bubbles.forEach((bubble) => {
+    if (ideasCopy.length === 0) return;
+    const randomIndex = Math.floor(Math.random() * ideasCopy.length);
+    const randomIdea = ideasCopy.splice(randomIndex, 1)[0]; // seç + sil
+    bubble.textContent = randomIdea;
+  });
+});
+// 💬 Typing indicator göstər/gizlət
+const typingIndicator = document.getElementById("typing-indicator");
+
+// cavab göndərilərkən göstər
+function showTypingIndicator() {
+  typingIndicator.style.display = "flex";
+}
+// cavab gəldikdə gizlə
+function hideTypingIndicator() {
+  typingIndicator.style.display = "none";
+}
+
+// mövcud sendMessage funksiyasında dəyişiklik et:
+async function sendMessage(message) {
+  if (!message.trim()) return;
+
+  center.style.display = "none";
+  addMessage("user", message);
+
+  showTypingIndicator();
+
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+
+    const data = await response.json();
+    hideTypingIndicator();
+
+    const botMsg = addMessage("bot", "");
+    typeText(botMsg, data.reply || "⚠️ Cavab alınmadı 😔", 18);
+  } catch (error) {
+    hideTypingIndicator();
+    addMessage("bot", "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.");
+  }
+}
+// 💡 Dinamik Tagline
+document.addEventListener("DOMContentLoaded", () => {
+  const tagline = document.querySelector(".tagline");
+  if (!tagline) return;
+
+  const taglines = [
+    "Bu gün nə haqqında danışırıq? 😊",
+    "Marketinq ideyaları ilə dolu bir günə hazırsan? 🚀",
+    "Sən yaz, AI düşünsün 💡",
+    "Yaradıcı gücünü AI ilə birləşdir ✨",
+    "Reklam dünyasında inqilab buradan başlayır 🌍",
+    "Bir az ilham, bir az AI 💬",
+  ];
+
+  let lastTagline = "";
+
+function updateTagline() {
+  let random;
+  do {
+    random = taglines[Math.floor(Math.random() * taglines.length)];
+  } while (random === lastTagline); // eyni cümlə olmasın
+  lastTagline = random;
+  tagline.textContent = random;
+}
+
+  updateTagline(); // səhifə açıldıqda
+  setInterval(updateTagline, 10000); // 10 saniyədən bir dəyişsin
+});
+// 📋 Copy-Response düyməsi (Marketify AI 2.0)
+document.addEventListener("click", async (e) => {
+  if (e.target.classList.contains("copy-btn")) {
+    const message = e.target.closest(".message").innerText;
+    try {
+      await navigator.clipboard.writeText(message);
+      e.target.textContent = "✅";
+      setTimeout(() => (e.target.textContent = "📋"), 1500);
+    } catch (err) {
+      console.error("Kopyalama xətası:", err);
+    }
+  }
+});
+
+// 💬 Cavab mesajı yaradıldıqda copy düyməsini əlavə et
+const originalAddMessage = addMessage;
+addMessage = function (sender, text) {
+  const msg = originalAddMessage(sender, text);
+  if (sender === "bot") {
+    const copyBtn = document.createElement("button");
+    copyBtn.classList.add("copy-btn");
+    copyBtn.textContent = "📋";
+    msg.appendChild(copyBtn);
+  }
+  return msg;
+};
