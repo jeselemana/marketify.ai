@@ -235,6 +235,24 @@ async function sendMessage(message) {
     hideTypingIndicator();
     addMessage("bot", "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.");
   }
+  // 🎨 Marketify Style Tonu tətbiq et
+let reply = data.reply || "⚠️ Cavab alınmadı 😔";
+
+// Uzun akademik cümlələri bir az səmimiləşdir
+reply = reply
+  .replaceAll("İlk olaraq,", "Başlayaq belə:")
+  .replaceAll("Bu addımları izləyə bilərsən", "Gəlin birlikdə baxaq 👇")
+  .replaceAll("Nəticədə", "Sonda isə")
+  .replaceAll("Bu, sizə kömək edəcək", "Bu sənə real fərq yaradacaq 💡")
+  .replaceAll("Uğurlar!", "Uğurlar, sən artıq fərqlisən 🚀")
+  .replaceAll("Məhsul", "məhsul")
+  .replaceAll("Təqdimat", "təqdimat");
+
+// 💬 Cavabı yaz
+chatBox.removeChild(typing);
+const botMsg = addMessage("bot", "");
+typeText(botMsg, reply, 18);
+
 }
 // 💡 Dinamik Tagline
 document.addEventListener("DOMContentLoaded", () => {
