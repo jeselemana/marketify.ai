@@ -61,6 +61,7 @@ async function sendMessage(message) {
 
     // Typing effekti ilə cavabı göstər
     const botMsg = addMessage("bot", "");
+    attachCopyButton(botMsg);
     typeText(botMsg, data.reply || "⚠️ Cavab alınmadı 😔", 18);
   } catch (error) {
     console.error(error);
@@ -295,4 +296,23 @@ function addMessage(sender, text) {
 
   scrollToBottom();
   return msg;
+}
+// 📋 Bot cavabına Copy düyməsi ilişdirən helper
+function attachCopyButton(msgEl) {
+  if (!msgEl || msgEl.querySelector(".copy-btn")) return; // təkrar olmasın
+  const btn = document.createElement("button");
+  btn.className = "copy-btn";
+  btn.textContent = "📋";
+  btn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const text = msgEl.innerText.replace("📋", "").trim(); // yalnız mətn
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = "✅";
+      setTimeout(() => (btn.textContent = "📋"), 1200);
+    } catch (err) {
+      console.error("Kopyalama xətası:", err);
+    }
+  });
+  msgEl.appendChild(btn);
 }
