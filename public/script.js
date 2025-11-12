@@ -9,6 +9,17 @@ const form = document.getElementById("chat-form");
 const input = document.getElementById("user-input");
 const center = document.getElementById("center-view");
 
+// ✅ Yalnız mobil üçün kartların görünməsi (CSS-də .show lazımdır)
+let shouldHideCardsOnSend = false; // yalnız kart klikindən gələn göndərişlərdə gizlətmək üçün flaq
+
+document.addEventListener("DOMContentLoaded", () => {
+  const cards = document.querySelector(".prompt-cards");
+  // yalnız mobil ekranda (<=768px) görünüş animasiyasını aç
+  if (cards && window.matchMedia("(max-width: 768px)").matches) {
+    cards.classList.add("show"); // CSS-də .prompt-cards.show görünür
+  }
+});
+
 // 🔽 Model menyusu
 if (modelBtn && dropdownMenu && arrow) {
   modelBtn.addEventListener("click", (e) => {
@@ -70,14 +81,8 @@ async function sendMessage(message) {
   if (!message.trim()) return;
 
   // Əsas başlıq (center) gizlənsin, amma kartlar yox
-  const center = document.querySelector(".center");
-  if (center) center.style.display = "none";
-
-  // ✅ Tövsiyələri yalnız mesaj göndəriləndə gizlət (düzəliş)
-  const cards = document.querySelector(".prompt-cards");
-  if (cards && message.trim() !== "") {
-    cards.style.display = "none";
-  }
+  const centerEl = document.querySelector(".center");
+  if (centerEl) centerEl.style.display = "none";
 
   addMessage("user", message);
   const typing = showTyping();
@@ -107,6 +112,18 @@ async function sendMessage(message) {
     console.error(err);
     chatBox.removeChild(typing);
     addMessage("bot", "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.");
+  } finally {
+    // ✅ Kartları YALNIZ kart klikindən sonra göndərilən mesajda gizlət
+    const cards = document.querySelector(".prompt-cards");
+    if (cards && window.matchMedia("(max-width: 768px)").matches) {
+      if (shouldHideCardsOnSend) {
+        cards.style.display = "none";
+        cards.classList.remove("show");
+        shouldHideCardsOnSend = false; // reset
+      } else {
+        // adi yazılı mesajdırsa, kartlar qalır (heç nə etmirik)
+      }
+    }
   }
 }
 
@@ -162,18 +179,18 @@ if (confirmYes) {
     e.preventDefault();
     confirmPopup.classList.remove("show");
     chatBox.innerHTML = "";
-    center.style.display = "flex";
+    if (center) center.style.display = "flex";
     bubbles.forEach((b) => (b.style.display = "inline-block"));
 
+    // 🧹 Təmizlə sonrası kartları geri gətir (yalnız mobil)
     const cards = document.querySelector(".prompt-cards");
-    if (cards) {
+    if (cards && window.matchMedia("(max-width: 768px)").matches) {
       cards.style.display = "flex";
-      cards.style.opacity = "0";
-      cards.style.transform = "translateY(15px)";
+      // animasiya üçün:
+      cards.classList.remove("show");
+      // kiçik gecikmə ilə show əlavə edək ki, transition işləsin
       setTimeout(() => {
-        cards.style.transition = "all 0.4s ease";
-        cards.style.opacity = "1";
-        cards.style.transform = "translateY(0)";
+        cards.classList.add("show");
       }, 50);
     }
 
@@ -297,7 +314,7 @@ function showShakePrompt() {
   setTimeout(() => popup.remove(), 8000);
 }
 
-// 💬 Kiçik info popup
+// 💬 Kiçik info popup (yalnız mobil)
 function showInfoPopup(text) {
   const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (!isMobile) return;
@@ -323,8 +340,11 @@ document.querySelectorAll(".prompt-cards .card").forEach((card) => {
       " — " +
       card.querySelector("p").textContent;
 
+    // Kartdan göndəriş → yalnız bu halda kartları gizlədəcəyik
+    shouldHideCardsOnSend = true;
+
     input.value = message.trim();
-    cards.style.display = "none";
+    // dərhal göndər
     form.dispatchEvent(new Event("submit"));
   });
 });
