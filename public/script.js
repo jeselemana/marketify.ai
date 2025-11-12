@@ -68,7 +68,15 @@ function typeText(el, text, speed = 18) {
 // 🔵 Cavab göndərmə
 async function sendMessage(message) {
   if (!message.trim()) return;
-  center.style.display = "none";
+
+  // Əsas başlıq (center) gizlənsin, amma kartlar yox
+  const center = document.querySelector(".center");
+  if (center) center.style.display = "none";
+
+  // Əgər prompt kartlar varsa, onları gizlət (yalnız mesaj göndəriləndə)
+  const cards = document.querySelector(".prompt-cards");
+  if (cards) cards.style.display = "none";
+
   addMessage("user", message);
   const typing = showTyping();
 
@@ -154,6 +162,16 @@ if (confirmYes) {
     chatBox.innerHTML = "";
     center.style.display = "flex";
     bubbles.forEach((b) => (b.style.display = "inline-block"));
+if (cards) {
+  cards.style.display = "flex";
+  cards.style.opacity = "0";
+  cards.style.transform = "translateY(15px)";
+  setTimeout(() => {
+    cards.style.transition = "all 0.4s ease";
+    cards.style.opacity = "1";
+    cards.style.transform = "translateY(0)";
+  }, 50);
+}
     const notice = document.createElement("div");
     notice.textContent = "💬 Yeni söhbət üçün hazırsan 😎";
     Object.assign(notice.style, {

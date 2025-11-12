@@ -771,9 +771,9 @@ main {
   }
 }
 
-/* 🌟 Default olaraq (desktop) gizli */
+/* 🌟 Default olaraq görünən, amma yalnız mobil üçün tənzimlənəcək */
 .prompt-cards {
-  display: none;
+  display: flex;
 }
 
 /* 📱 Yalnız mobil versiyada aktivləşsin */
