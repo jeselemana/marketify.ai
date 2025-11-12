@@ -53,11 +53,17 @@ body {
   position: relative;
 }
 
-/* 🔹 Başlıq */
+/* 🔹 Başlıq (DÜZƏLİŞ 1: Mərkəzləşdirildi və eni təyin edildi) */
 .header {
   position: fixed;
-  top: 20px;
-  left: 20px;
+  top: 18px; /* Yuxarı boşluq */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 92%; /* Mobil uyğunluq üçün en */
+  max-width: 800px;
+  display: flex;
+  justify-content: space-between; /* Elementləri aralamaq üçün */
+  align-items: center;
   z-index: 20;
 }
 
@@ -81,10 +87,9 @@ body {
 
 .model-btn { display: flex; align-items: center; gap: 6px; border-radius: 8px; font-size: 15px; padding: 6px 10px; }
 
-/* 🧹 Yeni Təmizlə düyməsi */
+/* 🧹 Yeni Təmizlə düyməsi (DÜZƏLİŞ 2: Position stilləri ləğv edildi, çünki header onu idarə edir) */
 .clear-btn {
-  position: fixed;
-  top: 18px; right: 18px;
+  /* top: 18px; right: 18px; position: fixed; stilləri silindi */
   width: 46px; height: 46px; border-radius: 50%;
   background: #141414;
   border: 1px solid rgba(255,255,255,.08);
@@ -248,7 +253,7 @@ main { flex: 1; position: relative; z-index: 1; }
     display: flex;
     gap: 12px;
     overflow-x: auto;
-    padding: 10px 14px;
+    padding: 10px 16px; /* DÜZƏLİŞ 3: 14px-dən 16px-ə dəyişdirildi */
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     justify-content: flex-start;
