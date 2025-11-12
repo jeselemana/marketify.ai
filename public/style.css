@@ -670,11 +670,11 @@ main {
   100% { opacity: 0; transform: translateY(10px) translateX(-50%); }
 }
 
-/* 📱 Mobil üçün horizontal scroll suggestions (final versiya) */
+/* 📱 Mobil üçün horizontal scroll suggestions */
 @media (max-width: 768px) {
   .prompt-bubbles {
     position: fixed;
-    bottom: 140px;
+    bottom: 140px; /* input-un bir az yuxarısında */
     left: 0;
     width: 100%;
     padding: 12px 14px;
@@ -690,6 +690,7 @@ main {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     z-index: 120;
     border-radius: 16px 16px 0 0;
+    justify-content: flex-start; /* soldan başlasın */
   }
 
   .prompt-bubbles::-webkit-scrollbar {
@@ -714,6 +715,7 @@ main {
     transform: translateY(-2px);
   }
 
+  /* Ortadakı versiyanı mobil üçün gizlət */
   .center .prompt-bubbles {
     display: none !important;
   }
