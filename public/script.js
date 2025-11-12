@@ -1,4 +1,4 @@
-// 🎯 Elementlər
+ // 🎯 Elementlər
 const modelBtn = document.getElementById("model-btn");
 const dropdownMenu = document.getElementById("dropdownMenu");
 const arrow = document.querySelector(".arrow-down");
@@ -7,8 +7,7 @@ const chatBox = document.getElementById("chat-box");
 const bubbles = document.querySelectorAll(".bubble");
 const form = document.getElementById("chat-form");
 const input = document.getElementById("user-input");
-// ✅ center-view elementini sabitlə
-const centerView = document.getElementById("center-view");
+const center = document.getElementById("center-view");
 
 // 🔽 Model menyusu
 if (modelBtn && dropdownMenu && arrow) {
@@ -26,7 +25,7 @@ if (modelBtn && dropdownMenu && arrow) {
   });
 }
 
-// 💡 Smart suggestions (köhnə bubbles üçün)
+// 💡 Smart suggestions
 bubbles.forEach((b) => {
   b.addEventListener("click", () => {
     input.value = b.textContent.trim();
@@ -69,14 +68,7 @@ function typeText(el, text, speed = 18) {
 // 🔵 Cavab göndərmə
 async function sendMessage(message) {
   if (!message.trim()) return;
-
-  // ✅ Başlıq sahəsini gizlət
-  if (centerView) centerView.style.display = "none";
-
-  // ✅ Kartları gizlət (xüsusilə mobil)
-  const cards = document.querySelector(".prompt-cards");
-  if (cards) cards.style.display = "none";
-
+  center.style.display = "none";
   addMessage("user", message);
   const typing = showTyping();
 
@@ -159,36 +151,9 @@ if (confirmYes) {
   confirmYes.addEventListener("click", async (e) => {
     e.preventDefault();
     confirmPopup.classList.remove("show");
-    // ✅ chat sahəsini boşalt
     chatBox.innerHTML = "";
-
-    // ✅ başlıq (center) geri gəlsin
-    if (centerView) centerView.style.display = "flex";
-
-    // ✅ “bubbles” varsa, yenə görünsün
+    center.style.display = "flex";
     bubbles.forEach((b) => (b.style.display = "inline-block"));
-
-    // ✅ Kartları yalnız MOBİL-də geri gətir (desktopda center-də onsuz da görünəcək)
-    const cards = document.querySelector(".prompt-cards");
-    const isMobile = window.matchMedia("(max-width: 768px)").matches;
-    if (cards) {
-      if (isMobile) {
-        cards.style.display = "flex";
-      } else {
-        // Desktop: center görünür və kartlar center daxilində qalır (display:flex)
-        cards.style.display = "flex";
-      }
-      // kiçik yumşaq animasiya
-      cards.style.opacity = "0";
-      cards.style.transform = "translateY(15px)";
-      setTimeout(() => {
-        cards.style.transition = "all 0.4s ease";
-        cards.style.opacity = "1";
-        cards.style.transform = "translateY(0)";
-      }, 50);
-    }
-
-    // kiçik info toast
     const notice = document.createElement("div");
     notice.textContent = "💬 Yeni söhbət üçün hazırsan 😎";
     Object.assign(notice.style, {
@@ -242,6 +207,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // 💡 Shake Detection (v2.1 – iPhone + Android uyumlu)
 function requestMotionAccess() {
   if (typeof DeviceMotionEvent.requestPermission === "function") {
+    // iOS 13+
     DeviceMotionEvent.requestPermission()
       .then((response) => {
         if (response === "granted") {
@@ -253,6 +219,7 @@ function requestMotionAccess() {
       })
       .catch(() => showInfoPopup("⚠️ İcazə alınarkən xəta baş verdi."));
   } else {
+    // Android və ya köhnə iOS
     initShakeDetection();
     showInfoPopup("✅ Silkələmə aktivdir!");
   }
@@ -309,8 +276,9 @@ function showShakePrompt() {
   setTimeout(() => popup.remove(), 8000);
 }
 
-// 💬 Kiçik info popup (yalnız mobil)
+// 💬 Kiçik info popup (icazə statusu üçün, yalnız mobil cihazlarda)
 function showInfoPopup(text) {
+  // Yalnız mobil cihazlarda göstər
   const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (!isMobile) return;
 
@@ -322,26 +290,3 @@ function showInfoPopup(text) {
 }
 
 console.log("✅ Marketify 2.0 JS tam aktivdir (Shake + Popup + Chat)");
-
-// 📱 Kart kliklənəndə: mesajı dərhal göndər + kartları gizlət
-document.querySelectorAll(".prompt-cards .card").forEach((card) => {
-  card.addEventListener("click", () => {
-    const msg =
-      card.querySelector("h3").textContent +
-      " — " +
-      card.querySelector("p").textContent;
-
-    // input-a yaz
-    input.value = msg.trim();
-
-    // başlığı gizlət
-    if (centerView) centerView.style.display = "none";
-
-    // kartları gizlət (xüsusilə mobil)
-    const cards = document.querySelector(".prompt-cards");
-    if (cards) cards.style.display = "none";
-
-    // mesajı göndər
-    form.dispatchEvent(new Event("submit"));
-  });
-});
