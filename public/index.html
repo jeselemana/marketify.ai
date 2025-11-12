@@ -8,7 +8,7 @@
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="/style.css" />
     <style>
       /* ▼ AÇILAN MENYU */
       .model-dropdown {
@@ -173,7 +173,6 @@
             <button type="button" class="bubble">Brend təqdimatı yaz 🚀</button>
           <span></span><span></span><span></span>
           </div>
-          </div>
         </div>
 
         <div id="chat-box" class="chat-box"></div>
@@ -202,7 +201,6 @@
           </svg>
         </button>
       </form>
-<!-- 🔔 Təsdiq popup -->
 <div id="confirmPopup" class="confirm-popup hidden">
   <div class="confirm-box">
     <p>⚠️ Təsdiqləsəniz söhbət tarixçəsi silinəcək.<br>
@@ -215,35 +213,11 @@
 
       <footer class="legal">
         <p>Cavabların dəqiqliyinə zəmanət verilmir. Məlumatları yoxla.</p>
-        <p>⚡ Powered by <strong>Innova Group</strong> | Marketify AI v2.0
+        <p>⚡ Powered by <strong>Innova Group</strong> | Marketify AI v2.0</p>
       </footer>
-</script>
-</script>
-</script>
-<script>
-</script>
 
-<!-- 💾 Mövcud scriptlər -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="script.js"></script>
-
-    <script>
-      const modelBtn = document.getElementById("model-btn");
-      const dropdown = document.getElementById("dropdownMenu");
-      const arrow = document.querySelector(".arrow-down");
-
-      modelBtn.addEventListener("click", () => {
-        dropdown.classList.toggle("show");
-        arrow.classList.toggle("open");
-      });
-
-      document.addEventListener("click", (e) => {
-        if (!modelBtn.contains(e.target) && !dropdown.contains(e.target)) {
-          dropdown.classList.remove("show");
-          arrow.classList.remove("open");
-        }
-      });
       
-    </script>
   </body>
 </html>

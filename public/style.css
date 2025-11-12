@@ -37,11 +37,10 @@ body {
   background: var(--bg-dark-1);
   color: var(--text-light);
   font-family: var(--font-main);
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* iPhone üçün vacib */
+  overflow-x: hidden;
 }
 
 /* 📦 Əsas konteyner */
@@ -50,8 +49,7 @@ body {
   flex-direction: column;
   min-height: 100vh;
   width: 100%;
-  overflow-y: auto;
-  flex-grow: 1;
+  overflow: hidden;
   position: relative;
 }
 
@@ -130,9 +128,9 @@ main {
 }
 
 .center {
-  position: relative;
-  z-index: 200; /* 🔥 klik üçün önə gətirildi */
-  top: 45%;
+  position: absolute;
+  z-index: 10;
+  top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
@@ -189,17 +187,20 @@ main {
 
 /* 💬 Chat qutusu (scroll + footer overlap düzəlişi ilə) */
 .chat-box {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
   max-width: 800px;
-  flex-grow: 1;
+  height: calc(100vh - 180px); /* footer + input bar sahəsi çıxılır */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 120px 20px 30px;
   scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; /* mobil scroll jitter düzəldilir */
 }
 
 /* 💭 Mesajlar */
@@ -362,7 +363,6 @@ main {
   }
 }
 
-/* 🔄 Animasiya */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -371,7 +371,10 @@ main {
   to {
     opacity: 1;
     transform: translateY(0);
-    /* 💬 Typing indicator (Marketify 2.1 üçün) */
+  }
+}
+
+/* 💬 Typing indicator (Marketify 2.1 üçün) */
 .typing-indicator {
   display: flex;
   gap: 4px;
@@ -391,8 +394,6 @@ main {
 @keyframes blink {
   0%, 80%, 100% { opacity: 0; }
   40% { opacity: 1; }
-}
-  }
 }
 .version-label {
   opacity: 0.6; /* 🔹 Solğun effekt */
