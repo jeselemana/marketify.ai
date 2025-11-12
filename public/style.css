@@ -223,21 +223,6 @@ main { flex: 1; position: relative; z-index: 1; }
 .confirm-btn.yes:hover { background:#5c7aff; }
 .confirm-btn.no:hover { background:#3a3a3a; }
 
-/* 📱 Mobil horizontal suggestion BUBBLES (əgər saxlayırsansa) */
-@media (max-width: 768px) {
-  .prompt-bubbles {
-    position: fixed; bottom: 140px; left:0; width:100%;
-    padding:12px 14px; display:flex; overflow-x:auto; gap:10px; white-space:nowrap;
-    scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
-    background: rgba(18,18,18,.85); backdrop-filter: blur(8px);
-    border-top:1px solid rgba(255,255,255,.08); border-bottom:1px solid rgba(255,255,255,.05);
-    z-index:120; border-radius:16px 16px 0 0;
-    justify-content:flex-start;
-  }
-  .prompt-bubbles::-webkit-scrollbar { display:none; }
-  .center .prompt-bubbles { display:none !important; }
-}
-
 /* 🌟 Kartlar: Default desktop görünüşü (mərkəzdə) */
 .prompt-cards {
   display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin-top: 30px;
@@ -253,11 +238,11 @@ main { flex: 1; position: relative; z-index: 1; }
 .card p  { font-size: 13px; color: rgba(255,255,255,.7); }
 .card:active { transform: scale(.98); background: rgba(255,255,255,.12); }
 
-/* 📱 Yalnız mobil versiyada kartlar input barın üzərində çıxsın */
+/* ✅ Mobil versiyada kartlar input barın üzərində */
 @media (max-width: 768px) {
   .prompt-cards {
     position: fixed;
-    bottom: calc(85px + 65px); /* input barla arada məsafə */
+    bottom: 110px;
     left: 0;
     width: 100%;
     display: flex;
@@ -266,55 +251,26 @@ main { flex: 1; position: relative; z-index: 1; }
     padding: 10px 14px;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
-    z-index: 120;
     justify-content: flex-start;
-    background: rgba(0, 0, 0, 0.4); /* istəsən şəffaf fon */
+    background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(8px);
-  }
-
-  .prompt-cards::-webkit-scrollbar {
-    display: none;
-  }
-}
-
-/* 📱 Mobil görünüşdə prompt kartlarını input barın yuxarısına gətir */
-@media (max-width: 768px) {
-  .prompt-cards {
-    position: fixed;
-    bottom: 100px; /* input barın yuxarısı */
-    left: 0;
-    right: 0;
-    width: 100%;
-    padding: 10px 16px;
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    justify-content: flex-start;
-    background: rgba(0, 0, 0, 0.5); /* şəffaf fon */
-    backdrop-filter: blur(10px);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
     z-index: 150;
   }
 
-  .prompt-cards::-webkit-scrollbar {
-    display: none;
-  }
+  .prompt-cards::-webkit-scrollbar { display: none; }
 
   .prompt-cards .card {
     flex: 0 0 auto;
+    min-width: 200px;
     scroll-snap-align: start;
-    padding: 10px 16px;
+    padding: 10px 14px;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: #fff;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
     text-align: center;
   }
 
-  /* Mərkəzdəki başlıq mobil ekranlarda bir az yuxarı qalxsın */
-  #center-view {
-    margin-bottom: 200px;
-  }
+  #center-view { margin-bottom: 200px; }
 }
