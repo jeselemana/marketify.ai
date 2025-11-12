@@ -106,12 +106,25 @@ bubbles.forEach((bubble) => {
   });
 });
 
-// ✅ Daha ağıllı scroll funksiyası (mobil üçün də problemsiz)
 function scrollToBottom() {
-  const nearBottom =
-    chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 100;
+  chatBox.scrollTo({
+    top: chatBox.scrollHeight,
+    behavior: "smooth",
+  });
+}
 
-  if (nearBottom) {
+// 🧠 Daha ağıllı scroll müşahidəçisi (mobil üçün sabit)
+let autoScrollEnabled = true;
+
+// İstifadəçi manual yuxarı scroll edibsə, auto-scroll deaktiv et
+chatBox.addEventListener("scroll", () => {
+  const atBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 100;
+  autoScrollEnabled = atBottom;
+});
+
+// Cavab gəldikdə yalnız istifadəçi altdadırsa scroll et
+const observer = new MutationObserver(() => {
+  if (autoScrollEnabled) {
     requestAnimationFrame(() => {
       chatBox.scrollTo({
         top: chatBox.scrollHeight,
@@ -119,11 +132,9 @@ function scrollToBottom() {
       });
     });
   }
-}
+});
 
-const observer = new MutationObserver(scrollToBottom);
 observer.observe(chatBox, { childList: true });
-document.addEventListener("DOMContentLoaded", scrollToBottom);
 
 // ▼ Model dropdown
 const modelButton = document.getElementById("modelButton");
