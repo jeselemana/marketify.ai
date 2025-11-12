@@ -669,24 +669,27 @@ main {
   10%, 90% { opacity: 1; transform: translateY(0) translateX(-50%); }
   100% { opacity: 0; transform: translateY(10px) translateX(-50%); }
 }
-/* 📱 Mobil üçün horizontal scroll suggestions */
+
+/* 📱 Mobil üçün horizontal scroll suggestions (final versiya) */
 @media (max-width: 768px) {
   .prompt-bubbles {
     position: fixed;
-    bottom: 115px; /* input-un bir az yuxarısında */
+    bottom: 140px;
     left: 0;
     width: 100%;
-    padding: 10px 12px;
+    padding: 12px 14px;
     display: flex;
     overflow-x: auto;
     gap: 10px;
     white-space: nowrap;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
-    background: rgba(0, 0, 0, 0.25);
-    backdrop-filter: blur(6px);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    z-index: 95;
+    background: rgba(18, 18, 18, 0.85);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 120;
+    border-radius: 16px 16px 0 0;
   }
 
   .prompt-bubbles::-webkit-scrollbar {
@@ -711,10 +714,7 @@ main {
     transform: translateY(-2px);
   }
 
-  /* Desktop görünüşü üçün override */
   .center .prompt-bubbles {
-    position: static;
-    background: none;
-    border: none;
+    display: none !important;
   }
 }
