@@ -787,7 +787,7 @@ main {
     position: fixed;
     left: 0;
     width: 100%;
-    bottom: calc(85px + 55px); /* input bar ilə arada məsafə */
+    bottom: calc(85px + 90px); /* input bar ilə arada məsafə */
     display: flex;
     gap: 12px;
     overflow-x: auto;
@@ -831,4 +831,15 @@ main {
     font-size: 13px;
     color: rgba(255, 255, 255, 0.7);
   }
+}
+
+.prompt-cards {
+  opacity: 0;
+  transform: translateY(15px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.prompt-cards.show {
+  opacity: 1;
+  transform: translateY(0);
 }

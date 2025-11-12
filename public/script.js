@@ -1,4 +1,4 @@
- // 🎯 Elementlər
+// 🎯 Elementlər
 const modelBtn = document.getElementById("model-btn");
 const dropdownMenu = document.getElementById("dropdownMenu");
 const arrow = document.querySelector(".arrow-down");
@@ -176,6 +176,19 @@ if (confirmYes) {
       notice.style.opacity = "0";
       setTimeout(() => notice.remove(), 600);
     }, 2200);
+
+    // 🧹 Təmizlə sonrası kartların animasiyalı geri gəlməsi
+    const cards = document.querySelector(".prompt-cards");
+    setTimeout(() => {
+      cards.style.display = "flex";
+      cards.style.opacity = "0";
+      cards.style.transform = "translateY(15px)";
+      setTimeout(() => {
+        cards.style.transition = "all 0.4s ease";
+        cards.style.opacity = "1";
+        cards.style.transform = "translateY(0)";
+      }, 50);
+    }, 500);
   });
 }
 
@@ -291,15 +304,21 @@ function showInfoPopup(text) {
 
 console.log("✅ Marketify 2.0 JS tam aktivdir (Shake + Popup + Chat)");
 
-// 📱 Mobil kart klikləri
+// 📱 Kart kliklənəndə mesaj göndər + kartları gizlət
 document.querySelectorAll(".prompt-cards .card").forEach((card) => {
   card.addEventListener("click", () => {
     const input = document.getElementById("user-input");
-    const text =
+    const form = document.getElementById("chat-form");
+    const cards = document.querySelector(".prompt-cards");
+
+    const message =
       card.querySelector("h3").textContent +
       " — " +
       card.querySelector("p").textContent;
-    input.value = text.trim();
-    input.focus();
+
+    // Input-a yaz + avtomatik göndər
+    input.value = message.trim();
+    cards.style.display = "none"; // Kartları gizlət
+    form.dispatchEvent(new Event("submit")); // Mesajı göndər
   });
 });
