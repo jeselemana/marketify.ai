@@ -253,15 +253,26 @@ main { flex: 1; position: relative; z-index: 1; }
 .card p  { font-size: 13px; color: rgba(255,255,255,.7); }
 .card:active { transform: scale(.98); background: rgba(255,255,255,.12); }
 
-/* 📱 Yalnız mobil versiyada kartlar aşağı hissədə slider kimi */
+/* 📱 Yalnız mobil versiyada kartlar input barın üzərində çıxsın */
 @media (max-width: 768px) {
   .prompt-cards {
     position: fixed;
-    left: 0; width: 100%;
-    bottom: calc(85px + 55px); /* input bar ilə məsafə */
-    display: flex; gap: 12px; overflow-x: auto; padding: 10px 14px;
-    scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; z-index: 120;
-    margin-top: 0;
+    bottom: calc(85px + 65px); /* input barla arada məsafə */
+    left: 0;
+    width: 100%;
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 10px 14px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    z-index: 120;
+    justify-content: flex-start;
+    background: rgba(0, 0, 0, 0.4); /* istəsən şəffaf fon */
+    backdrop-filter: blur(8px);
   }
-  .prompt-cards::-webkit-scrollbar { display: none; }
+
+  .prompt-cards::-webkit-scrollbar {
+    display: none;
+  }
 }
