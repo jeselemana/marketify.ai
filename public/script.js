@@ -290,3 +290,16 @@ function showInfoPopup(text) {
 }
 
 console.log("✅ Marketify 2.0 JS tam aktivdir (Shake + Popup + Chat)");
+
+// 📱 Mobil kart klikləri
+document.querySelectorAll(".prompt-cards .card").forEach((card) => {
+  card.addEventListener("click", () => {
+    const input = document.getElementById("user-input");
+    const text =
+      card.querySelector("h3").textContent +
+      " — " +
+      card.querySelector("p").textContent;
+    input.value = text.trim();
+    input.focus();
+  });
+});

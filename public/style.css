@@ -770,3 +770,65 @@ main {
     background: rgba(255, 255, 255, 0.12);
   }
 }
+
+/* 🌟 Default olaraq (desktop) gizli */
+.prompt-cards {
+  display: none;
+}
+
+/* 📱 Yalnız mobil versiyada aktivləşsin */
+@media (max-width: 768px) {
+  /* Köhnə "prompt-bubbles" görünməsin */
+  .prompt-bubbles {
+    display: none !important;
+  }
+
+  .prompt-cards {
+    position: fixed;
+    left: 0;
+    width: 100%;
+    bottom: calc(85px + 55px); /* input bar ilə arada məsafə */
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 10px 14px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    z-index: 120;
+  }
+
+  .prompt-cards::-webkit-scrollbar {
+    display: none;
+  }
+
+  .card {
+    flex: 0 0 auto;
+    min-width: 230px;
+    max-width: 260px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(10px);
+    scroll-snap-align: center;
+    text-align: left;
+    transition: all 0.25s ease;
+  }
+
+  .card:active {
+    transform: scale(0.97);
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .card h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .card p {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+  }
+}
