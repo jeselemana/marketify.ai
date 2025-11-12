@@ -212,9 +212,9 @@ function requestMotionAccess() {
       .then((response) => {
         if (response === "granted") {
           initShakeDetection();
-          showInfoPopup("✅ Aktiv: Xəta haqqında məlumat vermək üçün telefonu silkələ 📳");
+          showInfoPopup("✅ Silkələmə aktivdir!");
         } else {
-          showInfoPopup("⚠️ Hərəkət icazəsi verilmədi! Brauzerinizdən icazələr bölməsini yoxlayın.");
+          showInfoPopup("⚠️ Hərəkət icazəsi verilmədi!");
         }
       })
       .catch(() => showInfoPopup("⚠️ İcazə alınarkən xəta baş verdi."));
