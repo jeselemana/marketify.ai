@@ -179,8 +179,13 @@ if (confirmYes) {
     e.preventDefault();
     confirmPopup.classList.remove("show");
     chatBox.innerHTML = "";
-    if (center) center.style.display = "flex";
+
+    // 🟢 Center hissəsini yenidən göstər
+    const centerView = document.getElementById("center-view");
+    if (centerView) centerView.style.display = "flex";
+
     bubbles.forEach((b) => (b.style.display = "inline-block"));
+    // burdan aşağı sənin qalan kodun olduğu kimi davam etsin
 
     // 🧹 Təmizlə sonrası kartları geri gətir (yalnız mobil)
     const cards = document.querySelector(".prompt-cards");
