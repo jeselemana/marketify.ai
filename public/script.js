@@ -1,46 +1,42 @@
-  const modelBtn = document.getElementById("model-btn");
-  const dropdown = document.getElementById("dropdownMenu");
-  const arrow = document.querySelector(".arrow-down");
-  const clearBtn = document.getElementById("clearChat");
-  const chatBox = document.getElementById("chat-box");
-  const bubbles = document.querySelectorAll(".bubble");
+ // 🎯 Elementlər
+const modelBtn = document.getElementById("model-btn");
+const dropdownMenu = document.getElementById("dropdownMenu");
+const arrow = document.querySelector(".arrow-down");
+const clearBtn = document.getElementById("clearChat");
+const chatBox = document.getElementById("chat-box");
+const bubbles = document.querySelectorAll(".bubble");
+const form = document.getElementById("chat-form");
+const input = document.getElementById("user-input");
+const center = document.getElementById("center-view");
 
-  // 🔽 Model menyusu
-  if (modelBtn && dropdown && arrow) {
-    modelBtn.addEventListener("click", () => {
-      dropdown.classList.toggle("show");
-      arrow.classList.toggle("open");
-    });
-
-    document.addEventListener("click", (e) => {
-      if (!modelBtn.contains(e.target) && !dropdown.contains(e.target)) {
-        dropdown.classList.remove("show");
-        arrow.classList.remove("open");
-      }
-    });
-  }
-
-  // 🧹 Təmizlə düyməsi
-  if (clearBtn && chatBox) {
-    clearBtn.addEventListener("click", () => {
-      chatBox.innerHTML = "";
-      console.log("💬 Söhbət təmizləndi");
-    });
-  }
-
-  // 💡 Smart suggestions
-  bubbles.forEach((b) => {
-    b.addEventListener("click", () => {
-      const input = document.getElementById("user-input");
-      input.value = b.textContent.trim();
-      input.focus();
-    });
+// 🔽 Model menyusu
+if (modelBtn && dropdownMenu && arrow) {
+  modelBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdownMenu.classList.toggle("show");
+    arrow.classList.toggle("open");
   });
 
-// 🟣 Mesaj əlavə etmə funksiyası
-function addMessage(sender, text) {
+  document.addEventListener("click", (e) => {
+    if (!modelBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
+      dropdownMenu.classList.remove("show");
+      arrow.classList.remove("open");
+    }
+  });
+}
+
+// 💡 Smart suggestions
+bubbles.forEach((b) => {
+  b.addEventListener("click", () => {
+    input.value = b.textContent.trim();
+    input.focus();
+  });
+});
+
+// 🟣 Mesaj əlavə etmə
+function addMessage(role, text) {
   const msg = document.createElement("div");
-  msg.classList.add("message", sender);
+  msg.classList.add("message", role);
   msg.textContent = text;
   chatBox.appendChild(msg);
   scrollToBottom();
@@ -50,47 +46,43 @@ function addMessage(sender, text) {
 // 🟡 “Marketify yazır...” effekti
 function showTyping() {
   const typing = document.createElement("div");
-  typing.classList.add("message", "bot", "typing");
+  typing.classList.add("message", "bot");
   typing.textContent = "Marketify yazır...";
   chatBox.appendChild(typing);
   scrollToBottom();
   return typing;
 }
 
-// ✨ Cavabı hərf-hərf yazan funksiya
-function typeText(element, text, speed = 20) {
-  element.textContent = "";
+// ✨ Hərf-hərf yazma effekti
+function typeText(el, text, speed = 18) {
+  el.textContent = "";
   let i = 0;
   const interval = setInterval(() => {
-    element.textContent += text.charAt(i);
+    el.textContent += text.charAt(i);
     i++;
     scrollToBottom();
     if (i >= text.length) clearInterval(interval);
   }, speed);
 }
 
-// 🔵 Cavab göndərmə funksiyası
+// 🔵 Cavab göndərmə
 async function sendMessage(message) {
   if (!message.trim()) return;
-
   center.style.display = "none";
   addMessage("user", message);
-
   const typing = showTyping();
 
   try {
-    const response = await fetch("/api/chat", {
+    const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message }),
     });
+    if (!res.ok) throw new Error("Server error");
 
-    if (!response.ok) throw new Error("Server error");
-
-    const data = await response.json();
+    const data = await res.json();
     chatBox.removeChild(typing);
 
-    // 🎨 Marketify Style tonu tətbiq et
     let reply = data.reply || "⚠️ Cavab alınmadı 😔";
     reply = reply
       .replaceAll("İlk olaraq,", "Başlayaq belə:")
@@ -100,78 +92,47 @@ async function sendMessage(message) {
       .replaceAll("Uğurlar!", "Uğurlar, sən artıq fərqlisən 🚀");
 
     const botMsg = addMessage("bot", "");
-    typeText(botMsg, reply, 18);
-  } catch (error) {
-    console.error(error);
+    typeText(botMsg, reply);
+  } catch (err) {
+    console.error(err);
     chatBox.removeChild(typing);
     addMessage("bot", "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.");
   }
 }
 
 // ✉️ Form göndərilməsi
-form.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const message = input.value.trim();
-  if (!message) return;
-  sendMessage(message);
-  input.value = "";
-});
-
-// ⌨️ Enter klavişinə dəstək
-input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
+if (form && input) {
+  form.addEventListener("submit", (e) => {
     e.preventDefault();
-    const message = input.value.trim();
-    if (!message) return;
-    sendMessage(message);
+    const msg = input.value.trim();
+    if (!msg) return;
+    sendMessage(msg);
     input.value = "";
-  }
-});
-
-// 💡 Bubble klikləri
-bubbles.forEach((bubble) => {
-  bubble.addEventListener("click", () => {
-    const message = bubble.innerText;
-    bubbles.forEach((b) => (b.style.display = "none"));
-    sendMessage(message);
   });
-});
 
-// ✅ Avtomatik scroll funksiyası
-function scrollToBottom() {
-  requestAnimationFrame(() => {
-    chatBox.scrollTo({
-      top: chatBox.scrollHeight,
-      behavior: "smooth",
-    });
-  });
-}
-
-const observer = new MutationObserver(scrollToBottom);
-observer.observe(chatBox, { childList: true });
-document.addEventListener("DOMContentLoaded", scrollToBottom);
-
-// ▼ Model dropdown
-const modelButton = document.getElementById("modelButton");
-const dropdownMenu = document.getElementById("dropdownMenu");
-
-if (modelButton && dropdownMenu) {
-  modelButton.addEventListener("click", () => {
-    dropdownMenu.classList.toggle("show");
-  });
-  document.addEventListener("click", (e) => {
-    if (!modelButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
-      dropdownMenu.classList.remove("show");
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const msg = input.value.trim();
+      if (!msg) return;
+      sendMessage(msg);
+      input.value = "";
     }
   });
 }
 
-// ⚠️ Popup və düymələr
+// ✅ Scroll aşağı
+function scrollToBottom() {
+  requestAnimationFrame(() => {
+    chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: "smooth" });
+  });
+}
+
+// ⚠️ Popup və təmizlə
 const confirmPopup = document.getElementById("confirmPopup");
 const confirmYes = document.getElementById("confirmYes");
 const confirmNo = document.getElementById("confirmNo");
 
-// 💬 Əsas “Təmizlə” kliklənəndə popup açılsın
 if (clearBtn) {
   clearBtn.addEventListener("click", (e) => {
     e.preventDefault();
@@ -179,46 +140,32 @@ if (clearBtn) {
   });
 }
 
-// ❌ “Xeyr, ləğv et” kliklənəndə sadəcə popup bağlanır (ekran dəyişməsin)
 if (confirmNo) {
-  confirmNo.onclick = (e) => {
+  confirmNo.addEventListener("click", (e) => {
     e.preventDefault();
     confirmPopup.classList.remove("show");
-    // Burada heç nə gizlətmirik!
-  };
+  });
 }
 
-// ✅ “Təsdiqlə” kliklənəndə real təmizləmə
 if (confirmYes) {
-  confirmYes.onclick = async (e) => {
+  confirmYes.addEventListener("click", async (e) => {
     e.preventDefault();
     confirmPopup.classList.remove("show");
-
-    try {
-      await fetch("/api/clear", { method: "POST" });
-    } catch (err) {
-      console.error("Clear error:", err);
-    }
-
     chatBox.innerHTML = "";
     center.style.display = "flex";
     bubbles.forEach((b) => (b.style.display = "inline-block"));
-
-    // 🎉 Bildiriş (Marketify tonda)
     const notice = document.createElement("div");
-    notice.innerHTML = "💬 Yeni söhbət üçün hazırsan 😎";
+    notice.textContent = "💬 Yeni söhbət üçün hazırsan 😎";
     Object.assign(notice.style, {
       position: "fixed",
       bottom: "100px",
       left: "50%",
       transform: "translateX(-50%)",
-      background: "linear-gradient(135deg, #2d6bff, #60a5ff)",
+      background: "linear-gradient(135deg,#2d6bff,#60a5ff)",
       color: "#fff",
       padding: "12px 20px",
       borderRadius: "12px",
-      boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
-      fontSize: "14px",
-      fontFamily: "'Poppins', sans-serif",
+      fontFamily: "'Poppins',sans-serif",
       zIndex: "999",
       opacity: "0",
       transition: "opacity 0.4s ease",
@@ -229,33 +176,10 @@ if (confirmYes) {
       notice.style.opacity = "0";
       setTimeout(() => notice.remove(), 600);
     }, 2200);
-  };
+  });
 }
 
-// 💡 SMART SUGGESTIONS (təkrarsız)
-document.addEventListener("DOMContentLoaded", () => {
-  const ideas = [
-    "AI ilə sosial media post ideyası ✨",
-    "Yeni kampaniya sloqanı tap 💡",
-    "Marketify AI ilə reklam mətni hazırla 🚀",
-    "Brend üçün email mətni 💌",
-    "Sosial media caption yarat 🤳",
-    "Satış üçün təsirli bio mətni 📈",
-    "Yeni məhsul təqdimatı üçün plan 🧠",
-  ];
-
-  const bubbles = document.querySelectorAll(".bubble");
-  if (!bubbles.length) return;
-  const ideasCopy = [...ideas];
-  bubbles.forEach((bubble) => {
-    if (ideasCopy.length === 0) return;
-    const randomIndex = Math.floor(Math.random() * ideasCopy.length);
-    const randomIdea = ideasCopy.splice(randomIndex, 1)[0];
-    bubble.textContent = randomIdea;
-  });
-});
-
-// 💡 Dinamik Tagline
+// 🌟 Dinamik tagline
 document.addEventListener("DOMContentLoaded", () => {
   const tagline = document.querySelector(".tagline");
   if (!tagline) return;
@@ -267,20 +191,20 @@ document.addEventListener("DOMContentLoaded", () => {
     "Reklam dünyasında inqilab buradan başlayır 🌍",
     "Bir az ilham, bir az AI 💬",
   ];
-  let lastTagline = "";
-  function updateTagline() {
-    let random;
+  let last = "";
+  function updateTag() {
+    let r;
     do {
-      random = taglines[Math.floor(Math.random() * taglines.length)];
-    } while (random === lastTagline);
-    lastTagline = random;
-    tagline.textContent = random;
+      r = taglines[Math.floor(Math.random() * taglines.length)];
+    } while (r === last);
+    last = r;
+    tagline.textContent = r;
   }
-  updateTagline();
-  setInterval(updateTagline, 10000);
+  updateTag();
+  setInterval(updateTag, 10000);
 });
 
-// 💡 Marketify Shake Detection (v2.1 – iPhone + Android uyumlu)
+// 💡 Shake Detection (v2.1 – iPhone + Android uyumlu)
 function requestMotionAccess() {
   if (typeof DeviceMotionEvent.requestPermission === "function") {
     // iOS 13+
@@ -288,9 +212,7 @@ function requestMotionAccess() {
       .then((response) => {
         if (response === "granted") {
           initShakeDetection();
-          if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-            showInfoPopup("✅ Silkələmə aktivdir!");
-          }
+          showInfoPopup("✅ Silkələmə aktivdir!");
         } else {
           showInfoPopup("⚠️ Hərəkət icazəsi verilmədi!");
         }
@@ -299,12 +221,11 @@ function requestMotionAccess() {
   } else {
     // Android və ya köhnə iOS
     initShakeDetection();
-    if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-      showInfoPopup("✅ Silkələmə aktivdir!");
-    }
+    showInfoPopup("✅ Silkələmə aktivdir!");
   }
 }
-// 👇 Başlatmaq üçün istifadəçi klik gözləyir (təhlükəsizlik səbəbi ilə)
+
+// 👇 Başlatmaq üçün istifadəçi klik gözləyir
 window.addEventListener("click", () => {
   requestMotionAccess();
 }, { once: true });
@@ -312,24 +233,19 @@ window.addEventListener("click", () => {
 // 💫 Əsas Shake Detection
 function initShakeDetection() {
   let lastX = null, lastY = null, lastZ = null, lastTime = 0, shakeTimeout = null;
-
   window.addEventListener("devicemotion", (event) => {
     const acc = event.accelerationIncludingGravity;
     const currentTime = Date.now();
-
     if ((currentTime - lastTime) > 200) {
       const deltaX = Math.abs(acc.x - (lastX || 0));
       const deltaY = Math.abs(acc.y - (lastY || 0));
       const deltaZ = Math.abs(acc.z - (lastZ || 0));
-
-      // Həssaslıq – 35 orta, 25 daha həssas
       if ((deltaX + deltaY + deltaZ) > 35) {
         if (!shakeTimeout) {
           showShakePrompt();
           shakeTimeout = setTimeout(() => (shakeTimeout = null), 5000);
         }
       }
-
       lastTime = currentTime;
       lastX = acc.x;
       lastY = acc.y;
@@ -341,7 +257,6 @@ function initShakeDetection() {
 // 💬 Shake popup
 function showShakePrompt() {
   if (document.querySelector(".shake-popup")) return;
-
   const popup = document.createElement("div");
   popup.className = "shake-popup";
   popup.innerHTML = `
@@ -349,16 +264,14 @@ function showShakePrompt() {
     <div class="shake-actions">
       <button id="shakeYes">Bəli</button>
       <button id="shakeNo">Xeyr</button>
-    </div>
-  `;
+    </div>`;
   document.body.appendChild(popup);
 
   document.getElementById("shakeYes").addEventListener("click", () => {
     popup.remove();
     window.location.href =
-      "mailto:supp.marketifym@gmail.com?subject=Marketify%202.0%20Xəta&body=Salam,%20saytda%20qarşılaşdığım%20xəta%20barədə:%20";
+      "mailto:supp.marketifym@gmail.com?subject=Marketify%202.0%20Xəta&body=Salam,%20saytda%20qarşılaşdığım%20xəta%20barədə:";
   });
-
   document.getElementById("shakeNo").addEventListener("click", () => popup.remove());
   setTimeout(() => popup.remove(), 8000);
 }
@@ -372,47 +285,4 @@ function showInfoPopup(text) {
   setTimeout(() => info.remove(), 3000);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("✅ Marketify JS hazırdır");
-
-  const clearBtn = document.getElementById("clearBtn");
-  const modelBtn = document.getElementById("modelBtn");
-  const dropdown = document.querySelector(".dropdown-menu");
-  const bubbles = document.querySelectorAll(".bubble");
-  const chatBox = document.querySelector(".chat-box");
-
-  // 🧹 "Təmizlə" düyməsi
-  if (clearBtn) {
-    clearBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      chatBox.innerHTML = "";
-      console.log("💬 Söhbət təmizləndi");
-    });
-  } else {
-    console.warn("⚠️ clearBtn tapılmadı!");
-  }
-
-  // ⚙️ Model dropdown
-  if (modelBtn && dropdown) {
-    modelBtn.addEventListener("click", () => {
-      dropdown.classList.toggle("show");
-      console.log("📦 Model menyusu açılıb/bağlanıb");
-    });
-  } else {
-    console.warn("⚠️ modelBtn və ya dropdown tapılmadı!");
-  }
-
-  // 💡 Smart suggestions (bubble click)
-  if (bubbles.length > 0) {
-    bubbles.forEach((b) => {
-      b.addEventListener("click", () => {
-        const input = document.getElementById("user-input");
-        input.value = b.textContent.trim();
-        input.focus();
-        console.log("💡 Bubble seçildi:", input.value);
-      });
-    });
-  }
-
-  console.log("🚀 Bütün event-lər aktivləşdirildi!");
-});
+console.log("✅ Marketify 2.0 JS tam aktivdir (Shake + Popup + Chat)");
