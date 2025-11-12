@@ -212,9 +212,9 @@ function requestMotionAccess() {
       .then((response) => {
         if (response === "granted") {
           initShakeDetection();
-          showInfoPopup("✅ Silkələmə aktivdir!");
+          showInfoPopup("✅ Aktiv: Xəta haqqında məlumat vermək üçün telefonu silkələ 📳");
         } else {
-          showInfoPopup("⚠️ Hərəkət icazəsi verilmədi!");
+          showInfoPopup("⚠️ Hərəkət icazəsi verilmədi! Brauzerinizdən icazələr bölməsini yoxlayın.");
         }
       })
       .catch(() => showInfoPopup("⚠️ İcazə alınarkən xəta baş verdi."));
@@ -276,8 +276,12 @@ function showShakePrompt() {
   setTimeout(() => popup.remove(), 8000);
 }
 
-// 💬 Kiçik info popup (icazə statusu üçün)
+// 💬 Kiçik info popup (icazə statusu üçün, yalnız mobil cihazlarda)
 function showInfoPopup(text) {
+  // Yalnız mobil cihazlarda göstər
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!isMobile) return;
+
   const info = document.createElement("div");
   info.className = "info-popup";
   info.textContent = text;
