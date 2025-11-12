@@ -73,9 +73,11 @@ async function sendMessage(message) {
   const center = document.querySelector(".center");
   if (center) center.style.display = "none";
 
-  // Əgər prompt kartlar varsa, onları gizlət (yalnız mesaj göndəriləndə)
+  // ✅ Tövsiyələri yalnız mesaj göndəriləndə gizlət (düzəliş)
   const cards = document.querySelector(".prompt-cards");
-  if (cards) cards.style.display = "none";
+  if (cards && message.trim() !== "") {
+    cards.style.display = "none";
+  }
 
   addMessage("user", message);
   const typing = showTyping();
@@ -162,16 +164,19 @@ if (confirmYes) {
     chatBox.innerHTML = "";
     center.style.display = "flex";
     bubbles.forEach((b) => (b.style.display = "inline-block"));
-if (cards) {
-  cards.style.display = "flex";
-  cards.style.opacity = "0";
-  cards.style.transform = "translateY(15px)";
-  setTimeout(() => {
-    cards.style.transition = "all 0.4s ease";
-    cards.style.opacity = "1";
-    cards.style.transform = "translateY(0)";
-  }, 50);
-}
+
+    const cards = document.querySelector(".prompt-cards");
+    if (cards) {
+      cards.style.display = "flex";
+      cards.style.opacity = "0";
+      cards.style.transform = "translateY(15px)";
+      setTimeout(() => {
+        cards.style.transition = "all 0.4s ease";
+        cards.style.opacity = "1";
+        cards.style.transform = "translateY(0)";
+      }, 50);
+    }
+
     const notice = document.createElement("div");
     notice.textContent = "💬 Yeni söhbət üçün hazırsan 😎";
     Object.assign(notice.style, {
@@ -194,19 +199,6 @@ if (cards) {
       notice.style.opacity = "0";
       setTimeout(() => notice.remove(), 600);
     }, 2200);
-
-    // 🧹 Təmizlə sonrası kartların animasiyalı geri gəlməsi
-    const cards = document.querySelector(".prompt-cards");
-    setTimeout(() => {
-      cards.style.display = "flex";
-      cards.style.opacity = "0";
-      cards.style.transform = "translateY(15px)";
-      setTimeout(() => {
-        cards.style.transition = "all 0.4s ease";
-        cards.style.opacity = "1";
-        cards.style.transform = "translateY(0)";
-      }, 50);
-    }, 500);
   });
 }
 
@@ -238,7 +230,6 @@ document.addEventListener("DOMContentLoaded", () => {
 // 💡 Shake Detection (v2.1 – iPhone + Android uyumlu)
 function requestMotionAccess() {
   if (typeof DeviceMotionEvent.requestPermission === "function") {
-    // iOS 13+
     DeviceMotionEvent.requestPermission()
       .then((response) => {
         if (response === "granted") {
@@ -250,7 +241,6 @@ function requestMotionAccess() {
       })
       .catch(() => showInfoPopup("⚠️ İcazə alınarkən xəta baş verdi."));
   } else {
-    // Android və ya köhnə iOS
     initShakeDetection();
     showInfoPopup("✅ Silkələmə aktivdir!");
   }
@@ -307,9 +297,8 @@ function showShakePrompt() {
   setTimeout(() => popup.remove(), 8000);
 }
 
-// 💬 Kiçik info popup (icazə statusu üçün, yalnız mobil cihazlarda)
+// 💬 Kiçik info popup
 function showInfoPopup(text) {
-  // Yalnız mobil cihazlarda göstər
   const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (!isMobile) return;
 
@@ -334,9 +323,8 @@ document.querySelectorAll(".prompt-cards .card").forEach((card) => {
       " — " +
       card.querySelector("p").textContent;
 
-    // Input-a yaz + avtomatik göndər
     input.value = message.trim();
-    cards.style.display = "none"; // Kartları gizlət
-    form.dispatchEvent(new Event("submit")); // Mesajı göndər
+    cards.style.display = "none";
+    form.dispatchEvent(new Event("submit"));
   });
 });
