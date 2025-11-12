@@ -37,10 +37,11 @@ body {
   background: var(--bg-dark-1);
   color: var(--text-light);
   font-family: var(--font-main);
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* iPhone üçün vacib */
 }
 
 /* 📦 Əsas konteyner */
@@ -49,7 +50,8 @@ body {
   flex-direction: column;
   min-height: 100vh;
   width: 100%;
-  overflow: hidden;
+  overflow-y: auto;
+  flex-grow: 1;
   position: relative;
 }
 
@@ -187,20 +189,17 @@ main {
 
 /* 💬 Chat qutusu (scroll + footer overlap düzəlişi ilə) */
 .chat-box {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
   width: 100%;
   max-width: 800px;
-  height: calc(100vh - 180px); /* footer + input bar sahəsi çıxılır */
+  flex-grow: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 120px 20px 30px;
   scroll-behavior: smooth;
-  overscroll-behavior: contain; /* mobil scroll jitter düzəldilir */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* 💭 Mesajlar */
