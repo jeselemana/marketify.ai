@@ -106,14 +106,19 @@ bubbles.forEach((bubble) => {
   });
 });
 
-// ✅ Avtomatik scroll funksiyası
+// ✅ Daha ağıllı scroll funksiyası (mobil üçün də problemsiz)
 function scrollToBottom() {
-  requestAnimationFrame(() => {
-    chatBox.scrollTo({
-      top: chatBox.scrollHeight,
-      behavior: "smooth",
+  const nearBottom =
+    chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 100;
+
+  if (nearBottom) {
+    requestAnimationFrame(() => {
+      chatBox.scrollTo({
+        top: chatBox.scrollHeight,
+        behavior: "smooth",
+      });
     });
-  });
+  }
 }
 
 const observer = new MutationObserver(scrollToBottom);
