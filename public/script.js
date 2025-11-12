@@ -7,18 +7,8 @@ const chatBox = document.getElementById("chat-box");
 const bubbles = document.querySelectorAll(".bubble");
 const form = document.getElementById("chat-form");
 const input = document.getElementById("user-input");
-const center = document.getElementById("center-view");
-
-// ✅ Yalnız mobil üçün kartların görünməsi (CSS-də .show lazımdır)
-let shouldHideCardsOnSend = false; // yalnız kart klikindən gələn göndərişlərdə gizlətmək üçün flaq
-
-document.addEventListener("DOMContentLoaded", () => {
-  const cards = document.querySelector(".prompt-cards");
-  // yalnız mobil ekranda (<=768px) görünüş animasiyasını aç
-  if (cards && window.matchMedia("(max-width: 768px)").matches) {
-    cards.classList.add("show"); // CSS-də .prompt-cards.show görünür
-  }
-});
+// ✅ center-view elementini sabitlə
+const centerView = document.getElementById("center-view");
 
 // 🔽 Model menyusu
 if (modelBtn && dropdownMenu && arrow) {
@@ -36,7 +26,7 @@ if (modelBtn && dropdownMenu && arrow) {
   });
 }
 
-// 💡 Smart suggestions
+// 💡 Smart suggestions (köhnə bubbles üçün)
 bubbles.forEach((b) => {
   b.addEventListener("click", () => {
     input.value = b.textContent.trim();
@@ -80,9 +70,12 @@ function typeText(el, text, speed = 18) {
 async function sendMessage(message) {
   if (!message.trim()) return;
 
-  // Əsas başlıq (center) gizlənsin, amma kartlar yox
-  const centerEl = document.querySelector(".center");
-  if (centerEl) centerEl.style.display = "none";
+  // ✅ Başlıq sahəsini gizlət
+  if (centerView) centerView.style.display = "none";
+
+  // ✅ Kartları gizlət (xüsusilə mobil)
+  const cards = document.querySelector(".prompt-cards");
+  if (cards) cards.style.display = "none";
 
   addMessage("user", message);
   const typing = showTyping();
@@ -112,18 +105,6 @@ async function sendMessage(message) {
     console.error(err);
     chatBox.removeChild(typing);
     addMessage("bot", "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.");
-  } finally {
-    // ✅ Kartları YALNIZ kart klikindən sonra göndərilən mesajda gizlət
-    const cards = document.querySelector(".prompt-cards");
-    if (cards && window.matchMedia("(max-width: 768px)").matches) {
-      if (shouldHideCardsOnSend) {
-        cards.style.display = "none";
-        cards.classList.remove("show");
-        shouldHideCardsOnSend = false; // reset
-      } else {
-        // adi yazılı mesajdırsa, kartlar qalır (heç nə etmirik)
-      }
-    }
   }
 }
 
@@ -178,27 +159,36 @@ if (confirmYes) {
   confirmYes.addEventListener("click", async (e) => {
     e.preventDefault();
     confirmPopup.classList.remove("show");
+    // ✅ chat sahəsini boşalt
     chatBox.innerHTML = "";
 
-    // 🟢 Center hissəsini yenidən göstər
-    const centerView = document.getElementById("center-view");
+    // ✅ başlıq (center) geri gəlsin
     if (centerView) centerView.style.display = "flex";
 
+    // ✅ “bubbles” varsa, yenə görünsün
     bubbles.forEach((b) => (b.style.display = "inline-block"));
-    // burdan aşağı sənin qalan kodun olduğu kimi davam etsin
 
-    // 🧹 Təmizlə sonrası kartları geri gətir (yalnız mobil)
+    // ✅ Kartları yalnız MOBİL-də geri gətir (desktopda center-də onsuz da görünəcək)
     const cards = document.querySelector(".prompt-cards");
-    if (cards && window.matchMedia("(max-width: 768px)").matches) {
-      cards.style.display = "flex";
-      // animasiya üçün:
-      cards.classList.remove("show");
-      // kiçik gecikmə ilə show əlavə edək ki, transition işləsin
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    if (cards) {
+      if (isMobile) {
+        cards.style.display = "flex";
+      } else {
+        // Desktop: center görünür və kartlar center daxilində qalır (display:flex)
+        cards.style.display = "flex";
+      }
+      // kiçik yumşaq animasiya
+      cards.style.opacity = "0";
+      cards.style.transform = "translateY(15px)";
       setTimeout(() => {
-        cards.classList.add("show");
+        cards.style.transition = "all 0.4s ease";
+        cards.style.opacity = "1";
+        cards.style.transform = "translateY(0)";
       }, 50);
     }
 
+    // kiçik info toast
     const notice = document.createElement("div");
     notice.textContent = "💬 Yeni söhbət üçün hazırsan 😎";
     Object.assign(notice.style, {
@@ -333,23 +323,25 @@ function showInfoPopup(text) {
 
 console.log("✅ Marketify 2.0 JS tam aktivdir (Shake + Popup + Chat)");
 
-// 📱 Kart kliklənəndə mesaj göndər + kartları gizlət
+// 📱 Kart kliklənəndə: mesajı dərhal göndər + kartları gizlət
 document.querySelectorAll(".prompt-cards .card").forEach((card) => {
   card.addEventListener("click", () => {
-    const input = document.getElementById("user-input");
-    const form = document.getElementById("chat-form");
-    const cards = document.querySelector(".prompt-cards");
-
-    const message =
+    const msg =
       card.querySelector("h3").textContent +
       " — " +
       card.querySelector("p").textContent;
 
-    // Kartdan göndəriş → yalnız bu halda kartları gizlədəcəyik
-    shouldHideCardsOnSend = true;
+    // input-a yaz
+    input.value = msg.trim();
 
-    input.value = message.trim();
-    // dərhal göndər
+    // başlığı gizlət
+    if (centerView) centerView.style.display = "none";
+
+    // kartları gizlət (xüsusilə mobil)
+    const cards = document.querySelector(".prompt-cards");
+    if (cards) cards.style.display = "none";
+
+    // mesajı göndər
     form.dispatchEvent(new Event("submit"));
   });
 });
