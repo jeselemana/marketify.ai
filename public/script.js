@@ -345,3 +345,21 @@ document.querySelectorAll(".prompt-cards .card").forEach((card) => {
     form.dispatchEvent(new Event("submit"));
   });
 });
+
+// ... [script.js kodunun qalan hissəsi]
+
+// 🚀 Səhifə yüklənəndə mobil cihazlarda mərkəzi kontenti gizlət
+document.addEventListener("DOMContentLoaded", () => {
+  const isMobile = window.matchMedia("(max-width: 768px)").matches;
+  
+  if (isMobile) {
+    if (centerView) {
+      // center-view divini (Marketify AI və kartları ehtiva edir) gizlət, 
+      // çünki kartlar artıq fixed çubuq vasitəsilə görünür
+      centerView.style.display = 'none'; 
+    }
+  } else {
+    // Desktopda mərkəzi görünüşü göstər
+    if (centerView) centerView.style.display = 'flex';
+  }
+});
