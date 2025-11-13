@@ -822,3 +822,19 @@ main {
   box-shadow: var(--liq-edge), var(--liq-shadow) !important;
   border-radius: 20px !important;
 }
+
+.clear-btn::before {
+  border-radius: inherit;
+  border: 1.5px solid transparent;
+  background: 
+    linear-gradient(var(--liq-bg), var(--liq-bg)) padding-box,
+    linear-gradient(135deg, #2d6bff, #8ab7ff) border-box !important;
+}
+
+.dropdown-menu::before {
+  border-radius: inherit;
+  border: 1.5px solid transparent;
+  background: 
+    linear-gradient(var(--liq-bg), var(--liq-bg)) padding-box,
+    linear-gradient(135deg, #2d6bff, #8ab7ff) border-box !important;
+}
