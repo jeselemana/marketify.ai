@@ -875,3 +875,23 @@ main {
   z-index: -1;
   pointer-events: none;
 }
+
+.chat-box {
+  position: fixed !important;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 800px;
+  bottom: 160px; /* input bar + footer üçün yer */
+  height: auto !important;
+  padding: 120px 20px 20px !important;
+  overflow-y: auto !important;
+}
+
+@media (max-width: 768px) {
+  .chat-box {
+    bottom: 180px !important; /* mobil input + footer spacing */
+    padding-bottom: 40px !important;
+  }
+}
