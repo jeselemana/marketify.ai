@@ -718,3 +718,107 @@ main {
     border: none;
   }
 }
+
+/* ============================================================
+   🌬️ iOS 26 LIQUID GLASS OVERRIDE — ONLY SPECIFIED COMPONENTS
+   ============================================================ */
+
+/* Universal glass variables */
+:root {
+  --liq-bg: rgba(190, 210, 255, 0.06);
+  --liq-blur: blur(28px) brightness(135%);
+  --liq-shadow: 0 2px 12px rgba(0,0,0,0.28);
+  --liq-edge: inset 0 0 0 0.5px rgba(255,255,255,0.22);
+}
+
+/* ================
+   1) HEADER BUTTONS
+   ================ */
+
+.model-btn,
+.clear-btn {
+  background: var(--liq-bg) !important;
+  backdrop-filter: var(--liq-blur) !important;
+  -webkit-backdrop-filter: var(--liq-blur) !important;
+  border: none !important;
+  box-shadow: var(--liq-edge), var(--liq-shadow) !important;
+  border-radius: 18px !important;
+  transition: 0.25s !important;
+}
+.model-btn:hover,
+.clear-btn:hover {
+  transform: translateY(-2px) !important;
+}
+
+/* ================
+   2) SUGGESTIONS (.bubble)
+   ================ */
+
+.prompt-bubbles .bubble {
+  background: var(--liq-bg) !important;
+  backdrop-filter: var(--liq-blur) !important;
+  -webkit-backdrop-filter: var(--liq-blur) !important;
+
+  border: none !important;
+  box-shadow: var(--liq-edge), var(--liq-shadow) !important;
+
+  border-radius: 26px !important;
+  padding: 12px 22px !important;
+  color: #fff !important;
+  font-weight: 500 !important;
+
+  transition: 0.25s !important;
+}
+.prompt-bubbles .bubble:hover {
+  transform: translateY(-2px) !important;
+}
+
+/* ==================
+   3) INPUT BAR
+   ================== */
+
+.input-bar {
+  background: var(--liq-bg) !important;
+  backdrop-filter: var(--liq-blur) !important;
+  -webkit-backdrop-filter: var(--liq-blur) !important;
+
+  border: none !important;
+  box-shadow: var(--liq-edge), var(--liq-shadow) !important;
+  border-radius: 26px !important;
+  padding: 14px 18px !important;
+}
+
+.input-wrapper {
+  background: rgba(0,0,0,0.25) !important;
+  backdrop-filter: blur(12px) !important;
+  border-radius: 14px !important;
+}
+
+/* ==================
+   4) DROPDOWN MENU
+   ================== */
+
+.dropdown-menu {
+  background: var(--liq-bg) !important;
+  backdrop-filter: var(--liq-blur) !important;
+  -webkit-backdrop-filter: var(--liq-blur) !important;
+
+  border: none !important;
+  box-shadow: var(--liq-edge), var(--liq-shadow) !important;
+  border-radius: 20px !important;
+}
+
+/* ==================
+   5) POPUP BOXES
+   ================== */
+
+.confirm-box,
+.shake-popup {
+  background: var(--liq-bg) !important;
+  backdrop-filter: var(--liq-blur) !important;
+  -webkit-backdrop-filter: var(--liq-blur) !important;
+
+  border: none !important;
+  box-shadow: var(--liq-edge), var(--liq-shadow) !important;
+  border-radius: 20px !important;
+}
