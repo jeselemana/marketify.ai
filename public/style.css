@@ -895,3 +895,22 @@ main {
     padding-bottom: 40px !important;
   }
 }
+
+/* 📌 FINAL FIX — message bubble clipping fix */
+.message,
+.message.user,
+.message.bot {
+  overflow: visible !important;
+  position: relative !important;
+  min-height: auto !important;
+}
+
+/* Glass overlay layout fix */
+.message.user::before,
+.message.bot::before {
+  position: absolute !important;
+  inset: 0;
+  z-index: -1 !important;
+  pointer-events: none !important;
+  border-radius: inherit !important;
+}
