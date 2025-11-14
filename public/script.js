@@ -9,21 +9,38 @@ const form = document.getElementById("chat-form");
 const input = document.getElementById("user-input");
 const center = document.getElementById("center-view");
 
-// 🔽 Model menyusu
-if (modelBtn && dropdownMenu && arrow) {
-  modelBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    dropdownMenu.classList.toggle("show");
-    arrow.classList.toggle("open");
-  });
+// 🧠 MODEL SEÇİMİ
+let selectedModel = "gpt-4o-mini";
 
-  document.addEventListener("click", (e) => {
-    if (!modelBtn.contains(e.target) && !dropdownMenu.contains(e.target)) {
-      dropdownMenu.classList.remove("show");
-      arrow.classList.remove("open");
+document.querySelectorAll(".model-item").forEach((item) => {
+  item.addEventListener("click", () => {
+    // Bütün item-lərdən selected-i sil
+    document.querySelectorAll(".model-item")
+      .forEach((m) => m.classList.remove("selected"));
+
+    // Kliklənən item-i selected elə
+    item.classList.add("selected");
+
+    // Model-i götür
+    selectedModel = item.dataset.model;
+
+    // UI-də brend adını dəyiş
+    const brand = document.querySelector(".brand");
+    const version = document.querySelector(".version");
+
+    if (selectedModel === "local") {
+      brand.textContent = "Marketify Brain";
+      version.textContent = "Beta";
+    } else {
+      brand.textContent = "Marketify AI";
+      version.textContent = "2.0";
     }
+
+    // Menyunu bağla
+    dropdownMenu.classList.remove("show");
+    arrow.classList.remove("open");
   });
-}
+});
 
 // 💡 Smart suggestions
 bubbles.forEach((b) => {
