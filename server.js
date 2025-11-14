@@ -177,10 +177,12 @@ function learnFromGPT(userMessage, gptReply) {
 // 💬 Sadə yaddaş (RAM-da saxlanır)
 let conversationHistory = [];
 
-// 🧠 Chat Endpoint
+// 🧠 Chat Endpoint (MODEL SEÇİMİ İLƏ)
 app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
+    const selectedModel = req.body.model || "gpt-4o-mini"; // 👈 MODEL BURADA OXUNUR
+
     if (!userMessage)
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
 
@@ -189,36 +191,45 @@ app.post("/api/chat", async (req, res) => {
     if (conversationHistory.length > 15)
       conversationHistory = conversationHistory.slice(-15);
 
+    // 👇👇👇 LOCAL MODEL BURADA İŞƏ DÜŞÜR 👇👇👇
+    if (selectedModel === "local") {
+      console.log("🤖 Local (Marketify Brain) cavabı göndərildi.");
+
+      const intent = detectIntent(userMessage);
+      const base = safeLoadJSON(BASE_PATH, {});
+      const templates = base[intent] || [];
+
+      if (templates.length === 0) {
+        return res.json({
+          reply:
+            "Bu mövzu hələ Marketify Brain-də tam öyrənilməyib 🤖💛\n\nAmma yenə də kömək edə bilərəm! Mövzunu bir az daha dəqiq izah etsən, çalışım yaradıcı fikir verim ✨",
+        });
+      }
+
+      // Sadə şablon seçimi
+      const random = templates[Math.floor(Math.random() * templates.length)];
+
+      const finalText = random.template
+        .replace("{topic}", userMessage)
+        .replace("{platform}", "Instagram");
+
+      return res.json({ reply: finalText });
+    }
+
+    // 👇👇👇 BURADAN AŞAĞI SADECE GPT-4o mini ÜÇÜN 👇👇👇
+
     const systemPrompt = {
       role: "system",
       content: `
-  Sən Marketify AI adlanan enerjili, səmimi və az rəsmi tonda danışan süni intellektsən. 🇦🇿  
-  **Sən özün Marketify AI platformasının əsas modelisən**, Marketify isə səni yaradan brenddir (Innova Group Azerbaijan).  
-  Yəni sən istifadəçilərlə Marketify AI adından danışırsan, onları Marketify kimi qəbul etmə.
-
-  💬 TON QAYDALARI:
-  - Rəsmi yazma, amma düzgün Azərbaycan dilində danış.
-  - Yazı tərzin müasir, rahat və yaradıcı olsun.
-  - Emoji-lərdən təbii və lazım olduqda istifadə et 😊
-  - Cavabların çox uzun olmasın, sanki dostunla danışırsan.
-  - Mövzunu izah edərkən, Azərbaycan istifadəçisinə yönəl: yerli nümunələr, yerli brendlər və ifadələrdən istifadə et.
-  - “Marketify ruhu” saxla: enerjili, müasir, texnoloji və bir az zarafatcıl 😎
-
-  ❌ Heç vaxt Türkiyə türkcəsindəki ifadələri işlətmə (örnək: ‘sen’, ‘ama’, ‘biraz’, ‘şey’, ‘çok’).
-
-  💡 Məsələn:
-  - “Bu ideya sənlikdi 😎”
-  - “Bax, bu məsələni belə sadə izah edim 💡”
-  - “Əla düşünmüsən, gəl belə yanaşaq!”
-
-  Sənin məqsədin: Marketify AI platformasında istifadəçilərə sanki real azərbaycanlı gənc kimi, brend ruhunda cavab verməkdir.
-  `,
+Sən Marketify AI adlanan enerjili, səmimi və yaradıcı tonda danışan süni intellektsən...
+(tezliklə olduğu kimi qalsın)
+      `,
     };
 
-    // 🤖 Model cavabı
+    // 🤖 OpenAI cavabı
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // istəsən "gpt-4o" qoy, amma -mini daha sürətlidir
-      temperature: 0.9, // daha sərbəst və kreativ ton üçün
+      model: "gpt-4o-mini",
+      temperature: 0.9,
       presence_penalty: 0.4,
       frequency_penalty: 0.25,
       max_tokens: 1200,
@@ -229,10 +240,9 @@ app.post("/api/chat", async (req, res) => {
       completion.choices?.[0]?.message?.content?.trim() ||
       "Cavab alınmadı 😅";
 
-    // 🔹 Cavabı tarixçəyə əlavə et
     conversationHistory.push({ role: "assistant", content: reply });
 
-    // 🧠 Burada Marketify Brain öyrənir (limitdən asılı deyil, həmişə)
+    // 🧠 Local Brain öyrənir
     learnFromGPT(userMessage, reply);
 
     res.json({ reply });
@@ -242,44 +252,11 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
+
 // 💡 Söhbəti sıfırlama (Clear düyməsi üçün)
 app.post("/api/clear", (req, res) => {
   conversationHistory = [];
   res.json({ ok: true });
-});
-
-// 💌 Feedback endpoint (mövcud funksiyan dəyişmədən saxlayıram)
-app.post("/api/feedback", async (req, res) => {
-  const { feedback, reply } = req.body;
-
-  if (!feedback || !reply) {
-    return res.status(400).json({ success: false, error: "Məlumat çatışmır" });
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: "marketify.ai.feedback@gmail.com",
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  const mailOptions = {
-    from: "Marketify AI <marketify.ai.feedback@gmail.com>",
-    to: "sənin_adressin@example.com", // buraya öz e-poçtunu yaz
-    subject: `Yeni Marketify Rəyi (${feedback === "like" ? "👍" : "👎"})`,
-    text: `İstifadəçi bu cavabı ${
-      feedback === "like" ? "bəyəndi 👍" : "bəyənmədi 👎"
-    }:\n\n"${reply}"`,
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true });
-  } catch (err) {
-    console.error("E-poçt göndərilmədi:", err);
-    res.status(500).json({ success: false });
-  }
 });
 
 //
