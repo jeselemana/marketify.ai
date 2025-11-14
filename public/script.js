@@ -65,7 +65,6 @@ function typeText(el, text, speed = 18) {
   }, speed);
 }
 
-// 🔵 Cavab göndərmə
 async function sendMessage(message) {
   if (!message.trim()) return;
   center.style.display = "none";
@@ -76,14 +75,19 @@ async function sendMessage(message) {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({
+        message,
+        model: selectedModel // 💥 LOCAL / GPT seçimi buradan backend-ə gedir
+      }),
     });
+
     if (!res.ok) throw new Error("Server error");
 
     const data = await res.json();
     chatBox.removeChild(typing);
 
     let reply = data.reply || "⚠️ Cavab alınmadı 😔";
+
     reply = reply
       .replaceAll("İlk olaraq,", "Başlayaq belə:")
       .replaceAll("Bu addımları izləyə bilərsən", "Gəlin birlikdə baxaq 👇")
