@@ -70,36 +70,12 @@ function safeSaveJSON(filePath, data) {
 
 // 🧠 Sadə intent detektoru (GPT istifadə ETMİR)
 function detectIntent(message) {
-  const msg = message.toLowerCase();
-
-  if (msg.includes("instagram") || msg.includes("insta") || msg.includes("caption")) {
-    return "insta_caption";
-  }
-  if (msg.includes("linkedin")) {
-    return "linkedin_post";
-  }
-  if (msg.includes("tiktok")) {
-    return "tiktok_idea";
-  }
-  if (msg.includes("email") || msg.includes("e-poçt") || msg.includes("məktub")) {
-    return "email_template";
-  }
-  if (msg.includes("strategiya") || msg.includes("strategy")) {
-    return "marketing_strategy";
-  }
-  if (msg.includes("seo")) {
-    return "seo_tip";
-  }
-  if (msg.includes("blog") || msg.includes("məqalə")) {
-    return "blog_post";
-  }
-
-  return "unknown";
+  return "general";
 }
 
 // 🧩 GPT cavabından şablon çıxarma (sadə versiya)
 function extractTemplate(answer, userMessage) {
-  if (!answer || answer.length < 200) return null;
+   if (!answer) return null;
 
   let template = answer;
 
