@@ -70,31 +70,52 @@ function safeSaveJSON(filePath, data) {
 
 // 🧠 Sadə intent detektoru (GPT istifadə ETMİR)
 function detectIntent(message) {
+  const msg = message.toLowerCase();
+
+  if (msg.includes("instagram") || msg.includes("insta") || msg.includes("caption")) {
+    return "insta_caption";
+  }
+  if (msg.includes("linkedin")) {
+    return "linkedin_post";
+  }
+  if (msg.includes("tiktok")) {
+    return "tiktok_idea";
+  }
+  if (msg.includes("email") || msg.includes("e-poçt") || msg.includes("məktub")) {
+    return "email_template";
+  }
+  if (msg.includes("strategiya") || msg.includes("strategy")) {
+    return "marketing_strategy";
+  }
+  if (msg.includes("seo")) {
+    return "seo_tip";
+  }
+  if (msg.includes("blog") || msg.includes("məqalə")) {
+    return "blog_post";
+  }
+
   return "general";
 }
 
-// 🧩 GPT cavabından şablon çıxarma (sadə versiya)
+// 🧩 GPT cavabından şablon çıxarma – hər mesajdan öyrənmək üçün
 function extractTemplate(answer, userMessage) {
-   if (!answer) return null;
+  if (!answer) return null;
 
   let template = answer;
 
-  // İstifadəçi mesajını {topic} ilə əvəz et (əgər daxilidirsə)
+  // İstifadəçi inputunu generikləşdir → {topic}
   const cleanUser = userMessage.trim();
-  if (cleanUser.length > 10 && template.toLowerCase().includes(cleanUser.toLowerCase())) {
+  if (
+    cleanUser.length > 3 &&
+    template.toLowerCase().includes(cleanUser.toLowerCase())
+  ) {
     template = template.replace(new RegExp(cleanUser, "gi"), "{topic}");
   }
 
-  // Bəzi konkret yerləri generikləşdir
+  // Platform adlarını generikləşdir
   template = template.replace(/Instagram/gi, "{platform}");
   template = template.replace(/LinkedIn/gi, "{platform}");
   template = template.replace(/TikTok/gi, "{platform}");
-
-  // Çox ümumi və ya qısa şeylərdən qaç
-  if (!template.includes("{topic}") && !template.includes("{platform}")) {
-    // Şablonlaşmağa uyğun deyil → boş qaytar
-    return null;
-  }
 
   return template.trim();
 }
@@ -113,13 +134,12 @@ function learnFromGPT(userMessage, gptReply) {
       timestamp: Date.now(),
     });
 
-    // Son 1000 log saxlayırıq ki, fayl çox böyüməsin
+    // Son 1000 log saxla ki, fayl şişməsin
     const trimmedLog = log.slice(-1000);
     safeSaveJSON(KNOWLEDGE_LOG_PATH, trimmedLog);
 
     // 2) Intent tap
     const intent = detectIntent(userMessage);
-    if (intent === "unknown") return; // bu dəfəlik öyrənmirik
 
     // 3) Şablon çıxart
     const template = extractTemplate(gptReply, userMessage);
@@ -157,20 +177,23 @@ let conversationHistory = [];
 app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
-    const selectedModel = req.body.model || "gpt-4o-mini"; // 👈 MODEL BURADA OXUNUR
+    const selectedModel = req.body.model || "gpt-4o-mini"; // 👈 Frontend-dən gəlir: "local" və ya default
 
-    if (!userMessage)
+    if (!userMessage) {
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
+    }
 
     // 🔹 İstifadəçi mesajını tarixçəyə əlavə et
     conversationHistory.push({ role: "user", content: userMessage });
-    if (conversationHistory.length > 15)
+    if (conversationHistory.length > 15) {
       conversationHistory = conversationHistory.slice(-15);
+    }
 
     // 👇👇👇 LOCAL MODEL BURADA İŞƏ DÜŞÜR 👇👇👇
     if (selectedModel === "local") {
       console.log("🤖 Local (Marketify Brain) cavabı göndərildi.");
 
+      ensureDataFiles();
       const intent = detectIntent(userMessage);
       const base = safeLoadJSON(BASE_PATH, {});
       const templates = base[intent] || [];
@@ -185,9 +208,9 @@ app.post("/api/chat", async (req, res) => {
       // Sadə şablon seçimi
       const random = templates[Math.floor(Math.random() * templates.length)];
 
-      const finalText = random.template
-        .replace("{topic}", userMessage)
-        .replace("{platform}", "Instagram");
+      let finalText = random.template;
+      finalText = finalText.replace("{topic}", userMessage);
+      finalText = finalText.replace("{platform}", "Instagram");
 
       return res.json({ reply: finalText });
     }
@@ -197,8 +220,26 @@ app.post("/api/chat", async (req, res) => {
     const systemPrompt = {
       role: "system",
       content: `
-Sən Marketify AI adlanan enerjili, səmimi və yaradıcı tonda danışan süni intellektsən...
-(tezliklə olduğu kimi qalsın)
+Sən Marketify AI adlanan enerjili, səmimi və az rəsmi tonda danışan süni intellektsən. 🇦🇿  
+**Sən özün Marketify AI platformasının əsas modelisən**, Marketify isə səni yaradan brenddir (Innova Group Azerbaijan).  
+Yəni sən istifadəçilərlə Marketify AI adından danışırsan, onları Marketify kimi qəbul etmə.
+
+💬 TON QAYDALARI:
+- Rəsmi yazma, amma düzgün Azərbaycan dilində danış.
+- Yazı tərzin müasir, rahat və yaradıcı olsun.
+- Emoji-lərdən təbii və lazım olduqda istifadə et 😊
+- Cavabların çox uzun olmasın, sanki dostunla danışırsan.
+- Mövzunu izah edərkən, Azərbaycan istifadəçisinə yönəl: yerli nümunələr, yerli brendlər və ifadələrdən istifadə et.
+- “Marketify ruhu” saxla: enerjili, müasir, texnoloji və bir az zarafatcıl 😎
+
+❌ Heç vaxt Türkiyə türkcəsindəki ifadələri işlətmə (örnək: “sen”, “ama”, “biraz”, “şey”, “çok”).
+
+💡 Məsələn:
+- “Bu ideya sənlikdi 😎”
+- “Bax, bu məsələni belə sadə izah edim 💡”
+- “Əla düşünmüsən, gəl belə yanaşaq!”
+
+Sənin məqsədin: Marketify AI platformasında istifadəçilərə sanki real azərbaycanlı gənc kimi, brend ruhunda cavab verməkdir.
       `,
     };
 
@@ -218,7 +259,7 @@ Sən Marketify AI adlanan enerjili, səmimi və yaradıcı tonda danışan süni
 
     conversationHistory.push({ role: "assistant", content: reply });
 
-    // 🧠 Local Brain öyrənir
+    // 🧠 Local Brain öyrənir (hər GPT cavabından)
     learnFromGPT(userMessage, reply);
 
     res.json({ reply });
@@ -228,11 +269,44 @@ Sən Marketify AI adlanan enerjili, səmimi və yaradıcı tonda danışan süni
   }
 });
 
-
 // 💡 Söhbəti sıfırlama (Clear düyməsi üçün)
 app.post("/api/clear", (req, res) => {
   conversationHistory = [];
   res.json({ ok: true });
+});
+
+// 💌 Feedback endpoint (əvvəlki kimi saxlayıram – istəsən istifadə edərsən)
+app.post("/api/feedback", async (req, res) => {
+  const { feedback, reply } = req.body;
+
+  if (!feedback || !reply) {
+    return res.status(400).json({ success: false, error: "Məlumat çatışmır" });
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: "marketify.ai.feedback@gmail.com",
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: "Marketify AI <marketify.ai.feedback@gmail.com>",
+    to: "sənin_adressin@example.com", // buraya öz e-poçtunu yaz
+    subject: `Yeni Marketify Rəyi (${feedback === "like" ? "👍" : "👎"})`,
+    text: `İstifadəçi bu cavabı ${
+      feedback === "like" ? "bəyəndi 👍" : "bəyənmədi 👎"
+    }:\n\n"${reply}"`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("E-poçt göndərilmədi:", err);
+    res.status(500).json({ success: false });
+  }
 });
 
 //
@@ -366,16 +440,15 @@ app.get("/admin/api/logs", (req, res) => {
   }
 });
 
+// Admin UI
 app.get("/admin", (req, res) => {
   const adminPath = path.join(__dirname, "public", "admin", "index.html");
   const altPath = path.join(__dirname, "public", "index_admin.html");
 
-  // əgər admin/index.html VARSA → onu aç
   if (fs.existsSync(adminPath)) {
     return res.sendFile(adminPath);
   }
 
-  // əgər admin/index.html YOXDURSA → public/index_admin.html aç
   if (fs.existsSync(altPath)) {
     return res.sendFile(altPath);
   }
@@ -389,9 +462,9 @@ app.get("*", (req, res) => {
 });
 
 const PORT = process.env.PORT || 5050;
-app.listen(PORT, () =>
-  console.log(`✅ Marketify AI is live on port ${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`✅ Marketify AI is live on port ${PORT}`);
+});
 
 // 🔁 Render üçün keep-alive
 setInterval(() => {
