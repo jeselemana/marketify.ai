@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="az">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Marketify Brain Admin</title>
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Marketify Brain Admin</h1>
+        <p class="subtitle">
+          GPT cavablarından öyrənən lokal bazanı buradan izləyə və idarə edə
+          bilərsən. 🧠
+        </p>
+      </header>
+
+      <section class="card" id="stats-card">
+        <h2>Ümumi statistika</h2>
+        <div class="stats-grid">
+          <div class="stat">
+            <span class="label">Şablon sayı</span>
+            <span class="value" id="stat-templates">–</span>
+          </div>
+          <div class="stat">
+            <span class="label">Intent sayı</span>
+            <span class="value" id="stat-intents">–</span>
+          </div>
+          <div class="stat">
+            <span class="label">Log entry sayı</span>
+            <span class="value" id="stat-logs">–</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="templates-card">
+        <h2>Şablonlar</h2>
+        <p class="hint">
+          Hər intent üçün öyrənilən şablonları görə, silə və ya trash-dən geri
+          qaytara bilərsən.
+        </p>
+        <div id="templates-container"></div>
+      </section>
+
+      <section class="card" id="logs-card">
+        <h2>Son log-lar</h2>
+        <p class="hint">
+          Bu hissədə GPT-dən gələn cavablardan hansı intent kimi qeyd olunduğunu
+          və bazaya necə düşdüyünü görürsən.
+        </p>
+        <div id="logs-container"></div>
+      </section>
+    </div>
+
+    <script src="admin.js" defer></script>
+  </body>
+</html>
