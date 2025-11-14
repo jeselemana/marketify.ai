@@ -9,22 +9,35 @@ const form = document.getElementById("chat-form");
 const input = document.getElementById("user-input");
 const center = document.getElementById("center-view");
 
-// 🧠 MODEL SEÇİMİ
+// 🟣 MODEL DROPDOWN (100% stabil versiya)
 let selectedModel = "gpt-4o-mini";
 
+modelBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  dropdownMenu.classList.toggle("show");
+  arrow.classList.toggle("open");
+});
+
+// Dropdown-u çöldə kliklədikdə bağlamaq
+document.addEventListener("click", (e) => {
+  if (!dropdownMenu.contains(e.target) && !modelBtn.contains(e.target)) {
+    dropdownMenu.classList.remove("show");
+    arrow.classList.remove("open");
+  }
+});
+
+// Model seçimi
 document.querySelectorAll(".model-item").forEach((item) => {
-  item.addEventListener("click", () => {
-    // Bütün item-lərdən selected-i sil
+  item.addEventListener("click", (e) => {
+    e.stopPropagation();
+
     document.querySelectorAll(".model-item")
       .forEach((m) => m.classList.remove("selected"));
 
-    // Kliklənən item-i selected elə
     item.classList.add("selected");
-
-    // Model-i götür
     selectedModel = item.dataset.model;
 
-    // UI-də brend adını dəyiş
+    // UI brand text
     const brand = document.querySelector(".brand");
     const version = document.querySelector(".version");
 
@@ -36,7 +49,6 @@ document.querySelectorAll(".model-item").forEach((item) => {
       version.textContent = "2.0";
     }
 
-    // Menyunu bağla
     dropdownMenu.classList.remove("show");
     arrow.classList.remove("open");
   });
