@@ -413,9 +413,21 @@ app.get("/admin/api/logs", (req, res) => {
   }
 });
 
-// Admin panel UI
 app.get("/admin", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "admin", "index.html"));
+  const adminPath = path.join(__dirname, "public", "admin", "index.html");
+  const altPath = path.join(__dirname, "public", "index_admin.html");
+
+  // əgər admin/index.html VARSA → onu aç
+  if (fs.existsSync(adminPath)) {
+    return res.sendFile(adminPath);
+  }
+
+  // əgər admin/index.html YOXDURSA → public/index_admin.html aç
+  if (fs.existsSync(altPath)) {
+    return res.sendFile(altPath);
+  }
+
+  return res.status(404).send("Admin panel tapılmadı.");
 });
 
 // 🌐 Frontend üçün fallback
