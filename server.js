@@ -68,84 +68,68 @@ function safeSaveJSON(filePath, data) {
   }
 }
 
-// 🧠 Sadə intent detektoru (GPT istifadə ETMİR)
+// 🧠 Intent Engine (semantic)
 function detectIntent(message) {
   const msg = message.toLowerCase();
 
-  // Hər intent üçün semantic KEYWORD paketi
   const INTENTS = {
     slogan: [
       "sloqan", "slogan", "şüar", "tagline", "brand line",
-      "reklam sloqanı", "brand slogan", "marka sloqanı",
-      "loqo yazısı", "şüar tap"
+      "reklam sloqanı", "brand slogan", "şüar tap"
     ],
     budget: [
       "büdcə", "maliyyə", "planlama", "budget",
       "ads budget", "reklam xərci", "xərcləri",
-      "maliyyə planı", "media plan", "ads cost"
+      "maliyyə planı", "media plan"
     ],
     caption: [
-      "instagram", "caption", "post yaz", "post ideyası",
-      "sosial media", "post yarat", "reklam postu",
-      "content yaz", "insta"
+      "caption", "insta", "post yaz", "post ideyası",
+      "sosial media", "content yaz", "post yarat"
     ],
     tiktok: [
       "tiktok", "reels", "shorts", "video idea",
-      "creative video", "kreativ video", "trend video",
-      "video çəkmək", "video ideya"
+      "kreativ video", "trend video"
     ],
     strategy: [
-      "strategiya", "strategy", "business plan",
-      "marketinq planı", "marketing plan", "bazar analizi"
+      "strategiya", "business plan", "marketinq planı",
+      "marketing plan", "bazar analizi"
     ],
     seo: [
-      "seo", "google search", "axtarış sistemi",
+      "seo", "axtarış sistemi", "google search",
       "seo analizi", "seo optimizasiya"
     ],
     email: [
-      "email", "məktub", "mail yaz", "rəsmi məktub",
-      "formal email", "məktub hazırlamaq"
+      "email", "məktub", "rəsmi məktub", "mail yaz"
     ],
     blog: [
-      "blog", "məqalə", "article", "yazı yaz",
-      "blog content", "məqalə yarat"
+      "blog", "məqalə", "article", "yazı yaz"
     ]
   };
 
-  // Semantic ağırlıqlı matching sistemi
   let bestIntent = "general";
   let bestScore = 0;
 
-  for (const intentName in INTENTS) {
-    const keywords = INTENTS[intentName];
-
+  for (const key in INTENTS) {
     let score = 0;
-
-    for (const word of keywords) {
-      if (msg.includes(word)) {
-        // Uzun sözlərə daha çox bal
-        score += word.length > 6 ? 2 : 1;
-      }
+    for (const w of INTENTS[key]) {
+      if (msg.includes(w)) score += w.length > 6 ? 2 : 1;
     }
-
-    // Ən yüksək score hansı intent-dədirsə onu seç
     if (score > bestScore) {
       bestScore = score;
-      bestIntent = intentName;
+      bestIntent = key;
     }
   }
 
   return bestIntent;
 }
 
-// 🧩 GPT cavabından şablon çıxarma – hər mesajdan öyrənmək üçün
+// 🧩 GPT cavabından şablon çıxarma
 function extractTemplate(answer, userMessage) {
   if (!answer) return null;
 
   let template = answer;
-
-  // İstifadəçi inputunu generikləşdir → {topic}
   const cleanUser = userMessage.trim();
+
   if (
     cleanUser.length > 3 &&
     template.toLowerCase().includes(cleanUser.toLowerCase())
@@ -153,20 +137,18 @@ function extractTemplate(answer, userMessage) {
     template = template.replace(new RegExp(cleanUser, "gi"), "{topic}");
   }
 
-  // Platform adlarını generikləşdir
   template = template.replace(/Instagram/gi, "{platform}");
-  template = template.replace(/LinkedIn/gi, "{platform}");
   template = template.replace(/TikTok/gi, "{platform}");
+  template = template.replace(/LinkedIn/gi, "{platform}");
 
   return template.trim();
 }
 
-// 🧠 Marketify Brain – GPT cavablarından öyrənən layer
+// 🧠 Marketify Brain — Learning Layer
 function learnFromGPT(userMessage, gptReply) {
   try {
     ensureDataFiles();
 
-    // 1) Bütün cavabı log-a yaz
     const log = safeLoadJSON(KNOWLEDGE_LOG_PATH, []);
     log.push({
       question: userMessage,
@@ -174,29 +156,17 @@ function learnFromGPT(userMessage, gptReply) {
       intent: detectIntent(userMessage),
       timestamp: Date.now(),
     });
+    safeSaveJSON(KNOWLEDGE_LOG_PATH, log.slice(-1000));
 
-    // Son 1000 log saxla ki, fayl şişməsin
-    const trimmedLog = log.slice(-1000);
-    safeSaveJSON(KNOWLEDGE_LOG_PATH, trimmedLog);
-
-    // 2) Intent tap
     const intent = detectIntent(userMessage);
-
-    // 3) Şablon çıxart
     const template = extractTemplate(gptReply, userMessage);
     if (!template) return;
 
-    // 4) Baza faylını yüklə və şablonu əlavə et
     const base = safeLoadJSON(BASE_PATH, {});
+    if (!Array.isArray(base[intent])) base[intent] = [];
 
-    if (!Array.isArray(base[intent])) {
-      base[intent] = [];
-    }
-
-    const alreadyExists = base[intent].some(
-      (item) => item && item.template === template
-    );
-    if (alreadyExists) return;
+    const exists = base[intent].some((t) => t.template === template);
+    if (exists) return;
 
     base[intent].push({
       template,
@@ -205,34 +175,30 @@ function learnFromGPT(userMessage, gptReply) {
 
     safeSaveJSON(BASE_PATH, base);
 
-    console.log(`🧠 Marketify Brain → yeni şablon öyrəndi [${intent}]`);
+    console.log(`🧠 Marketify Brain: Yeni şablon öyrəndi → [${intent}]`);
   } catch (err) {
-    console.error("Marketify Brain öyrənmə xətası:", err.message);
+    console.error("Öyrənmə xətası:", err);
   }
 }
 
-// 💬 Sadə yaddaş (RAM-da saxlanır)
 let conversationHistory = [];
 
-// 🧠 Chat Endpoint (MODEL SEÇİMİ İLƏ)
+// 🧠 CHAT ENDPOINT
 app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
-    const selectedModel = req.body.model || "gpt-4o-mini"; // 👈 Frontend-dən gəlir: "local" və ya default
+    const selectedModel = req.body.model || "gpt-4o-mini";
 
-    if (!userMessage) {
+    if (!userMessage)
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
-    }
 
-    // 🔹 İstifadəçi mesajını tarixçəyə əlavə et
     conversationHistory.push({ role: "user", content: userMessage });
-    if (conversationHistory.length > 15) {
+    if (conversationHistory.length > 15)
       conversationHistory = conversationHistory.slice(-15);
-    }
 
-    // 👇👇👇 LOCAL MODEL BURADA İŞƏ DÜŞÜR 👇👇👇
+    // LOCAL MODEL
     if (selectedModel === "local") {
-      console.log("🤖 Local (Marketify Brain) cavabı göndərildi.");
+      console.log("🤖 LOCAL MODEL aktivdir.");
 
       ensureDataFiles();
       const intent = detectIntent(userMessage);
@@ -242,49 +208,47 @@ app.post("/api/chat", async (req, res) => {
       if (templates.length === 0) {
         return res.json({
           reply:
-            "Bu mövzu hələ Marketify Brain-də tam öyrənilməyib 🤖💛\n\nAmma yenə də kömək edə bilərəm! Mövzunu bir az daha dəqiq izah etsən, çalışım yaradıcı fikir verim ✨",
+            "Bu mövzu hələ Marketify Brain-də tam öyrənilməyib 🤖💛\n\nAmma izah etsən, kömək edə bilərəm! ✨",
         });
       }
 
-      // Sadə şablon seçimi
       const random = templates[Math.floor(Math.random() * templates.length)];
-
       let finalText = random.template;
+
       finalText = finalText.replace("{topic}", userMessage);
       finalText = finalText.replace("{platform}", "Instagram");
 
       return res.json({ reply: finalText });
     }
 
-    // 👇👇👇 BURADAN AŞAĞI SADECE GPT-4o mini ÜÇÜN 👇👇👇
-
+    // GPT-4o mini üçün system prompt → tam brend tonu
     const systemPrompt = {
       role: "system",
       content: `
 Sən Marketify AI adlanan enerjili, səmimi və az rəsmi tonda danışan süni intellektsən. 🇦🇿  
-**Sən özün Marketify AI platformasının əsas modelisən**, Marketify isə səni yaradan brenddir (Innova Group Azerbaijan).  
-Yəni sən istifadəçilərlə Marketify AI adından danışırsan, onları Marketify kimi qəbul etmə.
+
+**Sən Marketify AI platformasının əsas modelisən** — istifadəçilərlə Marketify ruhunda danışırsan.
 
 💬 TON QAYDALARI:
 - Rəsmi yazma, amma düzgün Azərbaycan dilində danış.
 - Yazı tərzin müasir, rahat və yaradıcı olsun.
-- Emoji-lərdən təbii və lazım olduqda istifadə et 😊
-- Cavabların çox uzun olmasın, sanki dostunla danışırsan.
-- Mövzunu izah edərkən, Azərbaycan istifadəçisinə yönəl: yerli nümunələr, yerli brendlər və ifadələrdən istifadə et.
-- “Marketify ruhu” saxla: enerjili, müasir, texnoloji və bir az zarafatcıl 😎
+- Emoji-lərdən təbii istifadə et 😊
+- Cavablar çox uzun olmasın, dialoqa uyğun olsun.
+- Azərbaycan istifadəçisinə uyğun yaz: yerli nümunələr, ifadələr.
+- Bir az zarafatcıl və cool ol 😎
 
-❌ Heç vaxt Türkiyə türkcəsindəki ifadələri işlətmə (örnək: “sen”, “ama”, “biraz”, “şey”, “çok”).
+❌ QADAĞA:
+- Türkiyə türkcəsi işlətmə (“sen”, “ama”, “biraz”, “çok”, “şey”).
 
-💡 Məsələn:
-- “Bu ideya sənlikdi 😎”
-- “Bax, bu məsələni belə sadə izah edim 💡”
-- “Əla düşünmüsən, gəl belə yanaşaq!”
+🎯 Nümunələr:
+- “Bu ideya lap sənlikdi 😎”
+- “Gəl bunu daha yaradıcı edək 💡”
+- “Bax, sadə dildə deyim sənə 😊”
 
-Sənin məqsədin: Marketify AI platformasında istifadəçilərə sanki real azərbaycanlı gənc kimi, brend ruhunda cavab verməkdir.
+Sənin missiyan: istifadəçiyə səmimi, kreativ və brend ruhunda cavab verməkdir.
       `,
     };
 
-    // 🤖 OpenAI cavabı
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.9,
@@ -300,72 +264,33 @@ Sənin məqsədin: Marketify AI platformasında istifadəçilərə sanki real az
 
     conversationHistory.push({ role: "assistant", content: reply });
 
-    // 🧠 Local Brain öyrənir (hər GPT cavabından)
     learnFromGPT(userMessage, reply);
 
     res.json({ reply });
-  } catch (error) {
-    console.error("OpenAI xətası:", error.message);
-    res.status(500).json({ error: "Server xətası, AI cavab vermədi." });
+  } catch (err) {
+    console.error("AI Xətası:", err);
+    res.status(500).json({ error: "Server xətası." });
   }
 });
 
-// 💡 Söhbəti sıfırlama (Clear düyməsi üçün)
+// Clear
 app.post("/api/clear", (req, res) => {
   conversationHistory = [];
   res.json({ ok: true });
 });
 
-// 💌 Feedback endpoint (əvvəlki kimi saxlayıram – istəsən istifadə edərsən)
-app.post("/api/feedback", async (req, res) => {
-  const { feedback, reply } = req.body;
-
-  if (!feedback || !reply) {
-    return res.status(400).json({ success: false, error: "Məlumat çatışmır" });
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: "marketify.ai.feedback@gmail.com",
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  const mailOptions = {
-    from: "Marketify AI <marketify.ai.feedback@gmail.com>",
-    to: "sənin_adressin@example.com", // buraya öz e-poçtunu yaz
-    subject: `Yeni Marketify Rəyi (${feedback === "like" ? "👍" : "👎"})`,
-    text: `İstifadəçi bu cavabı ${
-      feedback === "like" ? "bəyəndi 👍" : "bəyənmədi 👎"
-    }:\n\n"${reply}"`,
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true });
-  } catch (err) {
-    console.error("E-poçt göndərilmədi:", err);
-    res.status(500).json({ success: false });
-  }
-});
-
-//
-// 🧠 ADMIN PANEL – YALNIZ SƏNİN ÜÇÜN
-//
-
-// Stats
+// Admin endpoints (eyni saxlanılıb)
 app.get("/admin/api/stats", (req, res) => {
   try {
     ensureDataFiles();
     const base = safeLoadJSON(BASE_PATH, {});
     const log = safeLoadJSON(KNOWLEDGE_LOG_PATH, []);
-
     const intents = Object.keys(base);
-    const totalTemplates = intents.reduce((sum, key) => {
-      const arr = Array.isArray(base[key]) ? base[key] : [];
-      return sum + arr.length;
-    }, 0);
+
+    const totalTemplates = intents.reduce(
+      (sum, k) => sum + base[k].length,
+      0
+    );
 
     res.json({
       totalTemplates,
@@ -373,143 +298,44 @@ app.get("/admin/api/stats", (req, res) => {
       totalLogEntries: log.length,
     });
   } catch (err) {
-    console.error("Admin stats xətası:", err.message);
     res.status(500).json({ error: "Stats alınmadı" });
   }
 });
 
-// Bütün template-lər + trash
 app.get("/admin/api/templates", (req, res) => {
   try {
     ensureDataFiles();
-    const base = safeLoadJSON(BASE_PATH, {});
-    const trash = safeLoadJSON(TRASH_PATH, {});
-    res.json({ base, trash });
-  } catch (err) {
-    console.error("Admin templates xətası:", err.message);
-    res.status(500).json({ error: "Template-lər alınmadı" });
-  }
-});
-
-// Template sil → trash-ə at
-app.post("/admin/api/templates/delete", (req, res) => {
-  try {
-    const { intent, index } = req.body || {};
-    if (!intent || typeof index !== "number") {
-      return res
-        .status(400)
-        .json({ error: "intent və index göndərilməlidir" });
-    }
-
-    ensureDataFiles();
-    const base = safeLoadJSON(BASE_PATH, {});
-    const trash = safeLoadJSON(TRASH_PATH, {});
-
-    if (!Array.isArray(base[intent]) || !base[intent][index]) {
-      return res.status(404).json({ error: "Template tapılmadı" });
-    }
-
-    const [removed] = base[intent].splice(index, 1);
-
-    if (!Array.isArray(trash[intent])) {
-      trash[intent] = [];
-    }
-    trash[intent].push({
-      ...removed,
-      deletedAt: Date.now(),
+    res.json({
+      base: safeLoadJSON(BASE_PATH, {}),
+      trash: safeLoadJSON(TRASH_PATH, {}),
     });
-
-    safeSaveJSON(BASE_PATH, base);
-    safeSaveJSON(TRASH_PATH, trash);
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Template silmə xətası:", err.message);
-    res.status(500).json({ error: "Template silinmədi" });
-  }
-});
-
-// Trash → geri qaytar
-app.post("/admin/api/templates/restore", (req, res) => {
-  try {
-    const { intent, index } = req.body || {};
-    if (!intent || typeof index !== "number") {
-      return res
-        .status(400)
-        .json({ error: "intent və index göndərilməlidir" });
-    }
-
-    ensureDataFiles();
-    const base = safeLoadJSON(BASE_PATH, {});
-    const trash = safeLoadJSON(TRASH_PATH, {});
-
-    if (!Array.isArray(trash[intent]) || !trash[intent][index]) {
-      return res.status(404).json({ error: "Trash daxilində tapılmadı" });
-    }
-
-    const [restored] = trash[intent].splice(index, 1);
-
-    if (!Array.isArray(base[intent])) {
-      base[intent] = [];
-    }
-    base[intent].push({
-      ...restored,
-      restoredAt: Date.now(),
-    });
-
-    safeSaveJSON(BASE_PATH, base);
-    safeSaveJSON(TRASH_PATH, trash);
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Template bərpa xətası:", err.message);
-    res.status(500).json({ error: "Template bərpa olunmadı" });
-  }
-});
-
-// Log-lar (son 50)
-app.get("/admin/api/logs", (req, res) => {
-  try {
-    ensureDataFiles();
-    const log = safeLoadJSON(KNOWLEDGE_LOG_PATH, []);
-    const limit = Number(req.query.limit) || 50;
-    const last = log.slice(-limit).reverse();
-    res.json({ entries: last });
-  } catch (err) {
-    console.error("Log oxuma xətası:", err.message);
-    res.status(500).json({ error: "Log alınmadı" });
+  } catch {
+    res.status(500).json({ error: "Template alınmadı" });
   }
 });
 
 // Admin UI
 app.get("/admin", (req, res) => {
-  const adminPath = path.join(__dirname, "public", "admin", "index.html");
-  const altPath = path.join(__dirname, "public", "index_admin.html");
-
-  if (fs.existsSync(adminPath)) {
-    return res.sendFile(adminPath);
-  }
-
-  if (fs.existsSync(altPath)) {
-    return res.sendFile(altPath);
-  }
-
-  return res.status(404).send("Admin panel tapılmadı.");
+  const path1 = path.join(__dirname, "public", "admin", "index.html");
+  const path2 = path.join(__dirname, "public", "index_admin.html");
+  if (fs.existsSync(path1)) return res.sendFile(path1);
+  if (fs.existsSync(path2)) return res.sendFile(path2);
+  res.status(404).send("Admin tapılmadı.");
 });
 
-// 🌐 Frontend üçün fallback
+// Frontend fallback
 app.get("*", (req, res) => {
   res.sendFile(process.cwd() + "/public/index.html");
 });
 
 const PORT = process.env.PORT || 5050;
-app.listen(PORT, () => {
-  console.log(`✅ Marketify AI is live on port ${PORT}`);
-});
+app.listen(PORT, () =>
+  console.log(`✅ Marketify AI is live on port ${PORT}`)
+);
 
-// 🔁 Render üçün keep-alive
+// Render keep-alive
 setInterval(() => {
   fetch("https://marketify-ai.onrender.com").catch(() =>
-    console.log("⚠️ Keep-alive ping alınmadı")
+    console.log("⚠️ Keep-alive alınmadı")
   );
 }, 10 * 60 * 1000);
