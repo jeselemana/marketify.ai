@@ -69,79 +69,106 @@ function safeSaveJSON(filePath, data) {
 }
 
 // 🧠 Intent Engine (semantic)
-function detectIntent(message) {
+// 🧠 Hybrid Intent Detection Engine
+async function detectIntent(message) {
   const msg = message.toLowerCase();
 
+  // 1) — FAST KEYWORD ENGINE (balans xərci = 0)
   const INTENTS = {
     slogan: [
       "sloqan", "slogan", "şüar", "tagline", "brand line",
-      "reklam sloqanı", "brand slogan", "şüar tap"
+      "reklam sloqanı", "brand slogan", "marka sloqanı",
+      "loqo yazısı", "şüar tap"
     ],
     budget: [
       "büdcə", "maliyyə", "planlama", "budget",
       "ads budget", "reklam xərci", "xərcləri",
-      "maliyyə planı", "media plan"
+      "maliyyə planı", "media plan", "ads cost"
     ],
     caption: [
-      "caption", "insta", "post yaz", "post ideyası",
-      "sosial media", "content yaz", "post yarat"
+      "instagram", "caption", "post yaz", "post ideyası",
+      "sosial media", "post yarat", "reklam postu",
+      "content yaz", "insta"
     ],
     tiktok: [
       "tiktok", "reels", "shorts", "video idea",
-      "kreativ video", "trend video"
+      "creative video", "kreativ video", "trend video",
+      "video çəkmək", "video ideya"
     ],
     strategy: [
-      "strategiya", "business plan", "marketinq planı",
-      "marketing plan", "bazar analizi"
+      "strategiya", "strategy", "business plan",
+      "marketinq planı", "marketing plan", "bazar analizi"
     ],
     seo: [
-      "seo", "axtarış sistemi", "google search",
+      "seo", "google search", "axtarış sistemi",
       "seo analizi", "seo optimizasiya"
     ],
     email: [
-      "email", "məktub", "rəsmi məktub", "mail yaz"
+      "email", "məktub", "mail yaz", "rəsmi məktub",
+      "formal email", "məktub hazırlamaq"
     ],
     blog: [
-      "blog", "məqalə", "article", "yazı yaz"
+      "blog", "məqalə", "article", "yazı yaz",
+      "blog content", "məqalə yarat"
     ]
   };
 
   let bestIntent = "general";
   let bestScore = 0;
 
-  for (const key in INTENTS) {
+  for (const intentName in INTENTS) {
+    const keywords = INTENTS[intentName];
     let score = 0;
-    for (const w of INTENTS[key]) {
-      if (msg.includes(w)) score += w.length > 6 ? 2 : 1;
+
+    for (const word of keywords) {
+      if (msg.includes(word)) {
+        score += word.length > 6 ? 2 : 1;
+      }
     }
+
     if (score > bestScore) {
       bestScore = score;
-      bestIntent = key;
+      bestIntent = intentName;
     }
   }
 
-  return bestIntent;
-}
-
-// 🧩 GPT cavabından şablon çıxarma
-function extractTemplate(answer, userMessage) {
-  if (!answer) return null;
-
-  let template = answer;
-  const cleanUser = userMessage.trim();
-
-  if (
-    cleanUser.length > 3 &&
-    template.toLowerCase().includes(cleanUser.toLowerCase())
-  ) {
-    template = template.replace(new RegExp(cleanUser, "gi"), "{topic}");
+  // Əgər açıq-aşkar intent tapılıbsa → dərhal qaytar ✨
+  if (bestScore > 0) {
+    return bestIntent;
   }
 
-  template = template.replace(/Instagram/gi, "{platform}");
-  template = template.replace(/TikTok/gi, "{platform}");
-  template = template.replace(/LinkedIn/gi, "{platform}");
+  // 2) — GPT FALLBACK ENGINE (yalnız lazım olanda çağırılır)
+  try {
+    const ai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  return template.trim();
+    const gptIntent = await ai.chat.completions.create({
+      model: "gpt-4o-mini",
+      max_tokens: 60,
+      temperature: 0,
+      messages: [
+        {
+          role: "system",
+          content: `
+Mesajı analiz edib aşağıdakılardan birini yalnız JSON formatında qaytar:
+"slogan", "budget", "caption", "tiktok", "strategy", "seo", "email", "blog", "general".
+
+Cavab forması:
+{"intent":"caption"}
+           `
+        },
+        { role: "user", content: message }
+      ]
+    });
+
+    const json = JSON.parse(gptIntent.choices[0].message.content);
+
+    if (json.intent) return json.intent;
+  } catch (err) {
+    console.log("⚠️ GPT intent fallback xətası:", err.message);
+  }
+
+  // Əgər hər ehtimala qarşı heç nə tapılmasa → general
+  return "general";
 }
 
 // 🧠 Marketify Brain — Learning Layer
