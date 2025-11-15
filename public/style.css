@@ -914,12 +914,3 @@ main {
   pointer-events: none !important;
   border-radius: inherit !important;
 }
-
-/* 🌟 NAVBAR LOGO FIX */
-.nav-logo {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-  display: inline-block;
-  margin-right: 6px;
-}
