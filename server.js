@@ -72,29 +72,70 @@ function safeSaveJSON(filePath, data) {
 function detectIntent(message) {
   const msg = message.toLowerCase();
 
-  if (msg.includes("instagram") || msg.includes("insta") || msg.includes("caption")) {
-    return "insta_caption";
-  }
-  if (msg.includes("linkedin")) {
-    return "linkedin_post";
-  }
-  if (msg.includes("tiktok")) {
-    return "tiktok_idea";
-  }
-  if (msg.includes("email") || msg.includes("e-poçt") || msg.includes("məktub")) {
-    return "email_template";
-  }
-  if (msg.includes("strategiya") || msg.includes("strategy")) {
-    return "marketing_strategy";
-  }
-  if (msg.includes("seo")) {
-    return "seo_tip";
-  }
-  if (msg.includes("blog") || msg.includes("məqalə")) {
-    return "blog_post";
+  // Hər intent üçün semantic KEYWORD paketi
+  const INTENTS = {
+    slogan: [
+      "sloqan", "slogan", "şüar", "tagline", "brand line",
+      "reklam sloqanı", "brand slogan", "marka sloqanı",
+      "loqo yazısı", "şüar tap"
+    ],
+    budget: [
+      "büdcə", "maliyyə", "planlama", "budget",
+      "ads budget", "reklam xərci", "xərcləri",
+      "maliyyə planı", "media plan", "ads cost"
+    ],
+    caption: [
+      "instagram", "caption", "post yaz", "post ideyası",
+      "sosial media", "post yarat", "reklam postu",
+      "content yaz", "insta"
+    ],
+    tiktok: [
+      "tiktok", "reels", "shorts", "video idea",
+      "creative video", "kreativ video", "trend video",
+      "video çəkmək", "video ideya"
+    ],
+    strategy: [
+      "strategiya", "strategy", "business plan",
+      "marketinq planı", "marketing plan", "bazar analizi"
+    ],
+    seo: [
+      "seo", "google search", "axtarış sistemi",
+      "seo analizi", "seo optimizasiya"
+    ],
+    email: [
+      "email", "məktub", "mail yaz", "rəsmi məktub",
+      "formal email", "məktub hazırlamaq"
+    ],
+    blog: [
+      "blog", "məqalə", "article", "yazı yaz",
+      "blog content", "məqalə yarat"
+    ]
+  };
+
+  // Semantic ağırlıqlı matching sistemi
+  let bestIntent = "general";
+  let bestScore = 0;
+
+  for (const intentName in INTENTS) {
+    const keywords = INTENTS[intentName];
+
+    let score = 0;
+
+    for (const word of keywords) {
+      if (msg.includes(word)) {
+        // Uzun sözlərə daha çox bal
+        score += word.length > 6 ? 2 : 1;
+      }
+    }
+
+    // Ən yüksək score hansı intent-dədirsə onu seç
+    if (score > bestScore) {
+      bestScore = score;
+      bestIntent = intentName;
+    }
   }
 
-  return "general";
+  return bestIntent;
 }
 
 // 🧩 GPT cavabından şablon çıxarma – hər mesajdan öyrənmək üçün
