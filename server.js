@@ -209,7 +209,7 @@ announcement, general
     `;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: [
         { role: "system", content: "Sən yalnız intent təyin edən sistemsən." },
         { role: "user", content: prompt }
@@ -370,7 +370,7 @@ app.post("/api/chat", async (req, res) => {
       return res.json({ reply: finalText });
     }
 
-    // 👇 GPT-4o mini üçün system prompt → brend tonu
+    // 👇 GPT-4o üçün system prompt → brend tonu
     const systemPrompt = {
       role: "system",
       content: `
@@ -400,7 +400,7 @@ Sənin missiyan: istifadəçiyə səmimi, kreativ və brend ruhunda cavab vermə
 
     // 🤖 OpenAI cavabı
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       temperature: 0.9,
       presence_penalty: 0.4,
       frequency_penalty: 0.25,
