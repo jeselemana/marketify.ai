@@ -339,8 +339,8 @@ app.post("/api/chat", async (req, res) => {
 
     // 🔹 Mesajı tarixçəyə əlavə et
     conversationHistory.push({ role: "user", content: userMessage });
-    if (conversationHistory.length > 15) {
-      conversationHistory = conversationHistory.slice(-15);
+    if (conversationHistory.length > 3) {
+      conversationHistory = conversationHistory.slice(-3);
     }
 
     // 🔍 Intent-i bir dəfə hesablayırıq (həm local, həm learning üçün istifadə ediləcək)
@@ -393,24 +393,71 @@ app.post("/api/chat", async (req, res) => {
 
 
 ❌ QADAĞA:
-— Format pozuntuları etmə: "###", "**" və lazımsız markdown istifadə etmə.
 - Cavabları çox uzatma
 - Akademik ton istifadə etmə
-- Türkçe ifadələr istifadə etmə: "Çok", "İyi", "Hadi", "Haydi" və hər zaman cavabların Türkçe ifadələrlə qarışmaması üçün onları diqqətlə nəzərdən keçir.
+- Türkçe ifadələr istifadə etmə: "Çok", "İyi", "Hadi", "Haydi", "Merakla", "Fakat", "İşletme" və hər zaman cavabların Türkçe ifadələrlə qarışmaması üçün onları diqqətlə nəzərdən keçir.
 
 Sənin missiyan: istifadəçiyə səmimi, kreativ və brend ruhunda cavab verməkdir.
       `,
     };
 
-    // 🤖 OpenAI cavabı
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.9,
-      presence_penalty: 0.4,
-      frequency_penalty: 0.25,
-      max_tokens: 1200,
-      messages: [systemPrompt, ...conversationHistory],
-    });
+    // 🔥 SYSTEM PROMPT seçimi
+let finalSystemPrompt = systemPrompt;
+
+// 🔥 Mesaj strukturu
+let messagesToSend = [];
+
+// 🔥 Model konfiqurasiyası
+let settings = {
+  model: "gpt-4o",
+  temperature: 0.35,
+  presence_penalty: 0.1,
+  frequency_penalty: 0.1,
+  max_tokens: 350,
+};
+
+// 🔥 ANALYTICS MODU
+if (intent === "analysis" || intent === "strategy" || intent === "seo") {
+  
+  finalSystemPrompt = {
+    role: "system",
+    content: `
+Sən Marketify AI Analitika modulusan.
+
+— Cavabları maksimum 3–5 cümlə arasında saxla.
+— Emoji istifadə edə bilərsən, amma çox yox 😊
+— Ton: səliqəli, fokuslanmış, çox yığcam və dərin.
+— Faktlara söykən, səthi danışma.
+— lazımsız giriş/uzatma/şablon cümlələr yazma.
+
+❌ QADAĞA:
+- Cavabları çox uzatma
+- Cavabların rəsmi tonda olsun, amma tam akademik ton istifadə etmə
+- Türkçe ifadələr istifadə etmə: "Çok", "İyi", "Hadi", "Haydi", "Merakla", "Fakat", "İşletme" və hər zaman cavabların Türkçe ifadələrlə qarışmaması üçün onları diqqətlə nəzərdən keçir.
+
+Məqsəd: qısa, aydın və yüksək səviyyəli analitik cavab verməkdir.
+`
+  };
+
+  // Tarixçə qalır — sadəcə systemPrompt dəyişir
+  messagesToSend = [finalSystemPrompt, ...conversationHistory];
+
+  // Analitik setting-lər
+  settings.temperature = 0.25;
+  settings.presence_penalty = 0;
+  settings.frequency_penalty = 0;
+  settings.max_tokens = 250;
+
+} else {
+  // Kreativ mod (default Marketify tone)
+  messagesToSend = [finalSystemPrompt, ...conversationHistory];
+}
+
+// 🔥 OPENAI REQUEST
+const completion = await openai.chat.completions.create({
+  ...settings,
+  messages: messagesToSend,
+});
 
     const reply =
       completion.choices?.[0]?.message?.content?.trim() ||
@@ -432,42 +479,6 @@ Sənin missiyan: istifadəçiyə səmimi, kreativ və brend ruhunda cavab vermə
 app.post("/api/clear", (req, res) => {
   conversationHistory = [];
   res.json({ ok: true });
-});
-
-// 💌 Feedback endpoint (istəsən aktiv istifadə edərsən)
-app.post("/api/feedback", async (req, res) => {
-  const { feedback, reply } = req.body;
-
-  if (!feedback || !reply) {
-    return res
-      .status(400)
-      .json({ success: false, error: "Məlumat çatışmır" });
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: "marketify.ai.feedback@gmail.com",
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  const mailOptions = {
-    from: "Marketify AI <marketify.ai.feedback@gmail.com>",
-    to: "sənin_adressin@example.com", // buraya öz e-poçtunu yaz
-    subject: `Yeni Marketify Rəyi (${feedback === "like" ? "👍" : "👎"})`,
-    text: `İstifadəçi bu cavabı ${
-      feedback === "like" ? "bəyəndi 👍" : "bəyənmədi 👎"
-    }:\n\n"${reply}"`,
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true });
-  } catch (err) {
-    console.error("E-poçt göndərilmədi:", err);
-    res.status(500).json({ success: false });
-  }
 });
 
 //
