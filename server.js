@@ -10,6 +10,36 @@ import { fileURLToPath } from "url";
 
 dotenv.config();
 
+// 🟦 GPT-5 limit sistemi — gündə 50 cavab
+const gpt5Limits = {};
+const GPT5_MAX_DAILY = 50;
+
+// Limitin hər gün sıfırlanacağı saat (00:00)
+const RESET_HOUR = "00:00";
+
+// 🟩 İstifadəçi identifikasiyası (IP əsaslı)
+function getUserId(req) {
+  return req.ip;
+}
+
+// 🟨 Limitlərin sıfırlanma vaxtını yoxlayan funksiya
+function shouldResetLimit(lastResetDate) {
+  const now = new Date();
+  const today = now.toDateString();
+
+  // Gün dəyişibsə birbaşa sıfırla
+  if (lastResetDate !== today) return true;
+
+  // Saat sıfırlama nöqtəsini keçibsə sıfırla
+  const [resetHour, resetMinute] = RESET_HOUR.split(":").map(Number);
+  const resetTime = new Date();
+  resetTime.setHours(resetHour, resetMinute, 0, 0);
+
+  if (now >= resetTime) return true;
+
+  return false;
+}
+
 // ES module üçün __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -209,7 +239,7 @@ announcement, general
     `;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: selectedModel === "gpt-5" ? "gpt-5" : "gpt-4o",
       messages: [
         { role: "system", content: "Sən yalnız intent təyin edən sistemsən." },
         { role: "user", content: prompt }
@@ -328,7 +358,36 @@ function learnFromGPT(userMessage, gptReply, intent) {
 let conversationHistory = [];
 
 // 🧠 CHAT ENDPOINT
-app.post("/api/chat", async (req, res) => {
+app.post("/api/chat", async (req, res) => {    const userId = getUserId(req);
+
+    // 🟥 YALNIZ GPT-5 üçün limit yoxlaması
+    if (selectedModel === "gpt-5") {
+
+      // İlk dəfə istifadə edən üçün obyekt yarat
+      if (!gpt5Limits[userId]) {
+        gpt5Limits[userId] = {
+          count: 0,
+          lastReset: new Date().toDateString()
+        };
+      }
+
+      // Limiti sıfırlamaq lazımdırsa
+      if (shouldResetLimit(gpt5Limits[userId].lastReset)) {
+        gpt5Limits[userId].count = 0;
+        gpt5Limits[userId].lastReset = new Date().toDateString();
+      }
+
+      // Limit keçilibsə → GPT-4o cavab versin
+      if (gpt5Limits[userId].count >= GPT5_MAX_DAILY) {
+        return res.json({
+          reply: "⚠️ GPT-5 gündəlik limitini keçdin. Bu cavab GPT-4o ilə verildi.",
+        });
+      }
+
+      // Əgər keçməyibsə → limiti artırırıq
+      gpt5Limits[userId].count++;
+    }
+
   try {
     const userMessage = req.body.message?.trim();
     const selectedModel = req.body.model || "gpt-4o-mini";
@@ -400,7 +459,7 @@ Sənin missiyan: istifadəçiyə səmimi, kreativ və brend ruhunda cavab vermə
 
     // 🤖 OpenAI cavabı
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: selectedModel === "gpt-5" ? "gpt-5" : "gpt-4o",
       temperature: 0.9,
       presence_penalty: 0.4,
       frequency_penalty: 0.25,
