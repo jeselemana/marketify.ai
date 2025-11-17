@@ -413,7 +413,6 @@ let settings = {
   temperature: 0.35,
   presence_penalty: 0.1,
   frequency_penalty: 0.1,
-  max_tokens: 350,
 };
 
 // 🔥 ANALYTICS MODU
@@ -446,7 +445,6 @@ Məqsəd: qısa, aydın və yüksək səviyyəli analitik cavab verməkdir.
   settings.temperature = 0.25;
   settings.presence_penalty = 0;
   settings.frequency_penalty = 0;
-  settings.max_tokens = 250;
 
 } else {
   // Kreativ mod (default Marketify tone)
