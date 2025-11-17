@@ -10,36 +10,6 @@ import { fileURLToPath } from "url";
 
 dotenv.config();
 
-// 🟦 GPT-5 limit sistemi — gündə 50 cavab
-const gpt5Limits = {};
-const GPT5_MAX_DAILY = 50;
-
-// Limitin hər gün sıfırlanacağı saat (00:00)
-const RESET_HOUR = "00:00";
-
-// 🟩 İstifadəçi identifikasiyası (IP əsaslı)
-function getUserId(req) {
-  return req.ip;
-}
-
-// 🟨 Limitlərin sıfırlanma vaxtını yoxlayan funksiya
-function shouldResetLimit(lastResetDate) {
-  const now = new Date();
-  const today = now.toDateString();
-
-  // Gün dəyişibsə birbaşa sıfırla
-  if (lastResetDate !== today) return true;
-
-  // Saat sıfırlama nöqtəsini keçibsə sıfırla
-  const [resetHour, resetMinute] = RESET_HOUR.split(":").map(Number);
-  const resetTime = new Date();
-  resetTime.setHours(resetHour, resetMinute, 0, 0);
-
-  if (now >= resetTime) return true;
-
-  return false;
-}
-
 // ES module üçün __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -239,7 +209,6 @@ announcement, general
     `;
 
     const completion = await openai.chat.completions.create({
-      // Burada həmişə sabit modeldən istifadə edirik, selectedModel yoxdur
       model: "gpt-4o",
       messages: [
         { role: "system", content: "Sən yalnız intent təyin edən sistemsən." },
@@ -362,39 +331,10 @@ let conversationHistory = [];
 app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
-    const selectedModel = req.body.model || "gpt-4o-mini";
+    const selectedModel = req.body.model || "gpt-4o";
 
     if (!userMessage) {
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
-    }
-
-    // 🟦 GPT-5 limit sistemi — istifadəçi ID
-    const userId = getUserId(req);
-
-    // 🟥 YALNIZ GPT-5 üçün limit yoxlaması
-    if (selectedModel === "gpt-5") {
-      if (!gpt5Limits[userId]) {
-        gpt5Limits[userId] = {
-          count: 0,
-          lastReset: new Date().toDateString()
-        };
-      }
-
-      // Limiti sıfırlamaq lazımdırsa
-      if (shouldResetLimit(gpt5Limits[userId].lastReset)) {
-        gpt5Limits[userId].count = 0;
-        gpt5Limits[userId].lastReset = new Date().toDateString();
-      }
-
-      // Limit keçilibsə → GPT-4o cavab versin (amma hazırda sadəcə info veririk)
-      if (gpt5Limits[userId].count >= GPT5_MAX_DAILY) {
-        return res.json({
-          reply: "⚠️ GPT-5 gündəlik limitini keçdin. Bu cavab GPT-4o ilə verildi.",
-        });
-      }
-
-      // Əgər keçməyibsə → limiti artırırıq
-      gpt5Limits[userId].count++;
     }
 
     // 🔹 Mesajı tarixçəyə əlavə et
@@ -403,7 +343,7 @@ app.post("/api/chat", async (req, res) => {
       conversationHistory = conversationHistory.slice(-15);
     }
 
-    // 🔍 Intent-i bir dəfə hesablayırıq
+    // 🔍 Intent-i bir dəfə hesablayırıq (həm local, həm learning üçün istifadə ediləcək)
     const intent = await detectIntent(userMessage);
 
     // 👇 LOCAL MODEL (Marketify Brain) MODU
@@ -430,37 +370,29 @@ app.post("/api/chat", async (req, res) => {
       return res.json({ reply: finalText });
     }
 
-    // 👇 GPT system prompt → brend tonu
+    // 👇 GPT-4o üçün system prompt → brend tonu
     const systemPrompt = {
       role: "system",
       content: `
-Sən Marketify AI adlanan enerjili, səmimi və az rəsmi tonda danışan süni intellektsən. 🇦🇿  
+Sən Marketify AI adlanan yüksək intellektli süni intellekt asistentsən. Cavab tərzin ChatGPT keyfiyyətində olmalıdır:
 
-**Sən Marketify AI platformasının əsas modelisən** — istifadəçilərlə Marketify ruhunda danışırsan.
+— Səliqəli, təmiz, başa düşülən.
+— Struktur varsa, çox səliqəli və balanslı olsun.
+— Lazımsız detallara girib cavabı uzatma, amma istifadəçini söhbətə davam etməsi üçün təşviq et.
+— Ton: nə rəsmi, nə də çox sərbəst — müasir, intellektual, peşəkar.
+— Azərbaycan dilində yaz
+— Emojilərdən yalnız uyğun olanda istifadə et.
+— Cavablar həmişə aydın, məntiqli və ardıcıllı olsun.
+— Format pozuntuları etmə: "###", "**" və gereksiz markdown istifadə etmə.
+— Cavablarını süni intellekt kimi yox, real mütəxəssis kimi formalaşdır.
 
-💬 TON QAYDALARI:
-- Rəsmi yazma, amma düzgün Azərbaycan dilində danış.
-- Yazı tərzin müasir, rahat və yaradıcı olsun.
-- Emoji-lərdən təbii istifadə et 😊
-- Cavablar çox uzun olmasın, dialoqa uyğun olsun.
-- Azərbaycan istifadəçisinə uyğun yaz: yerli nümunələr, ifadələr.
-- Bir az zarafatcıl və cool ol 😎
-
-❌ QADAĞA:
-- Türkiyə türkcəsi işlətmə (“sen”, “ama”, “biraz”, “çok”, “şey”).
-
-🎯 Nümunələr:
-- “Bu ideya lap sənlikdi 😎”
-- “Gəl bunu daha yaradıcı edək 💡”
-- “Bax, sadə dildə deyim sənə 😊”
-
-Sənin missiyan: istifadəçiyə səmimi, kreativ və brend ruhunda cavab verməkdir.
+Sənin əsas məqsədin: istifadəçiyə yüksək səviyyəli, dəqiq, düşünülmüş və ChatGPT keyfiyyətində cavab verməkdir.
       `,
     };
 
     // 🤖 OpenAI cavabı
     const completion = await openai.chat.completions.create({
-      model: selectedModel === "gpt-5" ? "gpt-5" : "gpt-4o",
+      model: "gpt-4o",
       temperature: 0.9,
       presence_penalty: 0.4,
       frequency_penalty: 0.25,
