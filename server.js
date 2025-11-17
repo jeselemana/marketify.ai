@@ -239,7 +239,8 @@ announcement, general
     `;
 
     const completion = await openai.chat.completions.create({
-      model: selectedModel === "gpt-5" ? "gpt-5" : "gpt-4o",
+      // Burada həmişə sabit modeldən istifadə edirik, selectedModel yoxdur
+      model: "gpt-4o",
       messages: [
         { role: "system", content: "Sən yalnız intent təyin edən sistemsən." },
         { role: "user", content: prompt }
@@ -358,12 +359,20 @@ function learnFromGPT(userMessage, gptReply, intent) {
 let conversationHistory = [];
 
 // 🧠 CHAT ENDPOINT
-app.post("/api/chat", async (req, res) => {    const userId = getUserId(req);
+app.post("/api/chat", async (req, res) => {
+  try {
+    const userMessage = req.body.message?.trim();
+    const selectedModel = req.body.model || "gpt-4o-mini";
+
+    if (!userMessage) {
+      return res.status(400).json({ error: "Mesaj daxil edilməyib." });
+    }
+
+    // 🟦 GPT-5 limit sistemi — istifadəçi ID
+    const userId = getUserId(req);
 
     // 🟥 YALNIZ GPT-5 üçün limit yoxlaması
     if (selectedModel === "gpt-5") {
-
-      // İlk dəfə istifadə edən üçün obyekt yarat
       if (!gpt5Limits[userId]) {
         gpt5Limits[userId] = {
           count: 0,
@@ -377,7 +386,7 @@ app.post("/api/chat", async (req, res) => {    const userId = getUserId(req);
         gpt5Limits[userId].lastReset = new Date().toDateString();
       }
 
-      // Limit keçilibsə → GPT-4o cavab versin
+      // Limit keçilibsə → GPT-4o cavab versin (amma hazırda sadəcə info veririk)
       if (gpt5Limits[userId].count >= GPT5_MAX_DAILY) {
         return res.json({
           reply: "⚠️ GPT-5 gündəlik limitini keçdin. Bu cavab GPT-4o ilə verildi.",
@@ -388,21 +397,13 @@ app.post("/api/chat", async (req, res) => {    const userId = getUserId(req);
       gpt5Limits[userId].count++;
     }
 
-  try {
-    const userMessage = req.body.message?.trim();
-    const selectedModel = req.body.model || "gpt-4o-mini";
-
-    if (!userMessage) {
-      return res.status(400).json({ error: "Mesaj daxil edilməyib." });
-    }
-
     // 🔹 Mesajı tarixçəyə əlavə et
     conversationHistory.push({ role: "user", content: userMessage });
     if (conversationHistory.length > 15) {
       conversationHistory = conversationHistory.slice(-15);
     }
 
-    // 🔍 Intent-i bir dəfə hesablayırıq (həm local, həm learning üçün istifadə ediləcək)
+    // 🔍 Intent-i bir dəfə hesablayırıq
     const intent = await detectIntent(userMessage);
 
     // 👇 LOCAL MODEL (Marketify Brain) MODU
@@ -429,7 +430,7 @@ app.post("/api/chat", async (req, res) => {    const userId = getUserId(req);
       return res.json({ reply: finalText });
     }
 
-    // 👇 GPT-4o üçün system prompt → brend tonu
+    // 👇 GPT system prompt → brend tonu
     const systemPrompt = {
       role: "system",
       content: `
