@@ -914,3 +914,24 @@ main {
   pointer-events: none !important;
   border-radius: inherit !important;
 }
+
+/* ===============================
+   🎬 PREMIUM FADE-UP BUBBLE ANIMATION
+   =============================== */
+
+.animated-bubble {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: bubbleFadeUp 0.55s ease forwards;
+}
+
+@keyframes bubbleFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

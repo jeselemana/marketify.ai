@@ -76,7 +76,7 @@ function addMessage(role, text) {
 function showTyping() {
   const typing = document.createElement("div");
   typing.classList.add("message", "bot");
-  typing.textContent = "Marketify yazır...";
+  typing.textContent = "Bir dəqiqə, Marketify düşünür...";
   chatBox.appendChild(typing);
   scrollToBottom();
   return typing;
@@ -212,30 +212,7 @@ if (confirmYes) {
   });
 }
 
-// 🌟 Dinamik tagline
-document.addEventListener("DOMContentLoaded", () => {
-  const tagline = document.querySelector(".tagline");
-  if (!tagline) return;
-  const taglines = [
-    "Bu gün nə haqqında danışırıq? 😊",
-    "Marketinq ideyaları ilə dolu bir günə hazırsan? 🚀",
-    "Sən yaz, AI düşünsün 💡",
-    "Yaradıcı gücünü AI ilə birləşdir ✨",
-    "Reklam dünyasında inqilab buradan başlayır 🌍",
-    "Bir az ilham, bir az AI 💬",
-  ];
-  let last = "";
-  function updateTag() {
-    let r;
-    do {
-      r = taglines[Math.floor(Math.random() * taglines.length)];
-    } while (r === last);
-    last = r;
-    tagline.textContent = r;
-  }
-  updateTag();
-  setInterval(updateTag, 10000);
-});
+
 
 // 💡 Shake Detection (v2.1 – iPhone + Android uyumlu)
 function requestMotionAccess() {
@@ -323,3 +300,113 @@ function showInfoPopup(text) {
 }
 
 console.log("✅ Marketify 2.0 JS tam aktivdir (Shake + Popup + Chat)");
+
+/* 🔄 Tagline – Non-repeating until exhausted (bubble sync) */
+
+const taglineElement = document.querySelector(".tagline");
+
+const allTaglines = [
+  "Bu gün nə haqqında danışırıq? 😊",
+  "Marketinq ideyaları ilə dolu bir günə hazırsan? 🚀",
+  "Sən yaz, AI düşünsün 💡",
+  "Yaradıcı gücünü AI ilə birləşdir ✨",
+  "Reklam dünyasında inqilab buradan başlayır 🌍",
+  "Bir az sən, bir az AI 💬",
+  "Brendini AI ilə gücləndir ⚡️",
+  "Marketinq gələcəyini bu gündən yarat 🌟",
+  "Mətnlər gəlsin, ideyalar axsın ✍️",
+  "AI sənə lazım olan tərəfdaşdır 💙",
+  "Sovetin dövründə belə şey yox idi – amma indi var 😉",
+  "Az olsun, saz olsun – Marketify AI ilə mükəmməl olsun 💡"
+];
+
+let taglinePool = [...allTaglines];
+
+function rotateTagline() {
+  if (taglinePool.length === 0) {
+    taglinePool = [...allTaglines];
+  }
+
+  const index = Math.floor(Math.random() * taglinePool.length);
+  const newTagline = taglinePool[index];
+  taglinePool.splice(index, 1);
+
+  taglineElement.style.opacity = 0;
+  setTimeout(() => {
+    taglineElement.textContent = newTagline;
+    taglineElement.style.opacity = 1;
+  }, 250);
+}
+
+/* ==========================================================
+   🔄 PREMIUM DİNAMİK PROMPT BUBBLES (NO REPEAT + ANIMATED)
+   ========================================================== */
+
+const bubbleContainer = document.querySelector(".prompt-bubbles");
+
+const dynamicPrompts = [
+  // Sənin mövcud promptların
+  "Yeni il kampaniyası ideyası 🎄",
+  "Sosial media postu üçün mətn ✨",
+  "Reklam sloqanı tap 💡",
+  "LinkedIn-də keyfiyyətli məzmun yarat 💼",
+  "Landing page üçün mətn yaz 📝",
+  "Brend tonu yarat 🔊",
+  "Google Ads üçün başlıq tap 🔥",
+  "Marketinq planı qur 🚀",
+  "💸 Reklamlarım üçün maliyyə planlaması",
+
+  // 🔥 Yeni — High-Level Pro istifadəçilər üçün
+  "Brendin ICP (Ideal Customer Profile) analizini et 🎯",
+  "Sifirdan GTM (Go-To-Market) strategiyası hazırla 📊",
+  "A/B test hipotezləri yarat (Pro) 🧪",
+  "Funnel optimizasiya planı qur (Awareness→Action) 🔥",
+  "Marketinq avtomatizasiya ardıcıllığı yarat (Flow) ⚡",
+  "B2B satış mesajlaşdırması strukturu qur (Pro) 🏢",
+  "SEO üçün yüksək niyyətli keyword klasterləri yarat 🔍",
+  "Brendin mövqeləndirmə xəritəsini çıxart 🧭",
+  "Rəqiblər üzrə qısa SWOT analiz çıxart 📈",
+];
+
+// 🔁 Rotation üçün pool
+let pool = [...dynamicPrompts];
+
+function loadRandomBubbles() {
+  bubbleContainer.innerHTML = "";
+
+  rotateTagline();
+
+  // Pool-da 4-dən az prompt qalıbsa → yenidən başla
+  if (pool.length < 4) {
+    pool = [...dynamicPrompts];
+  }
+
+  // 4 random seçirik və pool-dan çıxarırıq
+  const selected = [];
+  for (let i = 0; i < 4; i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    selected.push(pool[idx]);
+    pool.splice(idx, 1);
+  }
+
+  // UI-yə bir-bir əlavə edirik (animasiya ilə)
+  selected.forEach((text, i) => {
+    const btn = document.createElement("button");
+    btn.className = "bubble animated-bubble";
+    btn.style.animationDelay = `${0.12 * i}s`; // delay-chain
+    btn.textContent = text;
+
+    btn.addEventListener("click", () => {
+      input.value = text;
+      input.focus();
+    });
+
+    bubbleContainer.appendChild(btn);
+  });
+}
+
+// İlk dəfə yüklə
+loadRandomBubbles();
+
+// Hər 9 saniyədə bir dəyişsin
+setInterval(loadRandomBubbles, 9000);
