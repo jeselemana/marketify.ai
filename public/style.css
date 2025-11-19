@@ -669,26 +669,20 @@ main {
   10%, 90% { opacity: 1; transform: translateY(0) translateX(-50%); }
   100% { opacity: 0; transform: translateY(10px) translateX(-50%); }
 }
-/* 📱 Mobil üçün horizontal scroll suggestions — FIXED */
+/* 📱 Mobil üçün horizontal scroll suggestions */
 @media (max-width: 768px) {
   .prompt-bubbles {
     position: fixed;
-    bottom: 115px;
+    bottom: 115px; /* input-un bir az yuxarısında */
     left: 0;
     width: 100%;
     padding: 10px 12px;
-
     display: flex;
-    flex-wrap: nowrap;
     overflow-x: auto;
     gap: 10px;
-
-    /* 🔥 Problem yaradan nowrap silindi */
-    white-space: normal !important;
-
+    white-space: nowrap;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
-
     background: rgba(0, 0, 0, 0.25);
     backdrop-filter: blur(6px);
     border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -699,28 +693,18 @@ main {
     display: none;
   }
 
-  .prompt-bubbles .bubble {
-    /* 🔥 Bubble artıq ekranı daşırmır */
-    max-width: 75% !important;
-
-    /* 🔥 Uzun mətn sıxılmır, normal sətirə düşür */
-    white-space: normal !important;
-    line-height: 1.35 !important;
-
-    /* Mobil üçün ideal ölçü */
-    flex: 0 0 auto !important;
-    padding: 12px 20px !important;
-    border-radius: 22px !important;
-    font-size: 14px !important;
-
-    color: #fff !important;
+  .bubble {
+    flex: 0 0 auto;
+    scroll-snap-align: center;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-family: "Poppins", sans-serif;
+    color: #fff;
     transition: all 0.2s ease;
   }
-
-  .prompt-bubbles .bubble:hover {
-    transform: translateY(-2px);
-  }
-}
 
   .bubble:hover {
     background: rgba(255, 255, 255, 0.18);
@@ -733,6 +717,7 @@ main {
     background: none;
     border: none;
   }
+}
 
 /* ============================================================
    🌬️ iOS 26 LIQUID GLASS OVERRIDE — ONLY SPECIFIED COMPONENTS
@@ -928,25 +913,4 @@ main {
   z-index: -1 !important;
   pointer-events: none !important;
   border-radius: inherit !important;
-}
-
-/* ===============================
-   🎬 PREMIUM FADE-UP BUBBLE ANIMATION
-   =============================== */
-
-.animated-bubble {
-  opacity: 0;
-  transform: translateY(10px);
-  animation: bubbleFadeUp 0.55s ease forwards;
-}
-
-@keyframes bubbleFadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
