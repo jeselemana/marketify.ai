@@ -1,4 +1,4 @@
- // 🎯 Elementlər
+// 🎯 Elementlər
 const modelBtn = document.getElementById("model-btn");
 const dropdownMenu = document.getElementById("dropdownMenu");
 const arrow = document.querySelector(".arrow-down");
@@ -9,24 +9,88 @@ const form = document.getElementById("chat-form");
 const input = document.getElementById("user-input");
 const center = document.getElementById("center-view");
 
-// 🟣 MODEL DROPDOWN (100% stabil versiya)
+/* ============================================
+   DYNAMIC TWO-LINE PROMPT BUBBLES
+============================================ */
+
+const promptSuggestions = [
+  // Marketinq & Biznes
+  { title: "Yeni il kampaniyası", sub: "üçün kreativ strategiya" },
+  { title: "Satışları artırmaq", sub: "üçün 5 psixoloji üsul" },
+  { title: "Brend hekayəsi", sub: "yazmaqda kömək et" },
+  { title: "Email marketinq", sub: "üçün başlıq ideyaları" },
+  { title: "Müştəri rəyləri", sub: "üçün cavab şablonu" },
+  
+  // Sosial Media
+  { title: "Instagram Reels", sub: "üçün viral ssenari" },
+  { title: "TikTok trendləri", sub: "biznesimə necə uyğunlaşdırım?" },
+  { title: "LinkedIn postu", sub: "peşəkar üslubda yaz" },
+  { title: "Youtube videosu", sub: "üçün SEO təsviri" },
+
+  // Yaradıcılıq & İdeya
+  { title: "Reklam sloqanı", sub: "qısa və yaddaqalan olsun" },
+  { title: "Logo dizaynı", sub: "üçün prompt hazırla" },
+  { title: "Məhsul adı", sub: "tapmaqda kömək et" },
+  { title: "Startap ideyası", sub: "üçün SWOT analizi" },
+  
+  // Texniki & Digər
+  { title: "SEO açar sözlər", sub: "bu mövzu üçün tap" },
+  { title: "Blog yazısı", sub: "giriş hissəsi yaz" },
+  { title: "Müsahibə sualları", sub: "SMM meneceri üçün" }
+];
+
+function loadDynamicBubbles() {
+  const container = document.querySelector(".prompt-bubbles");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  // Qarışdır və ilk 4-nü götür
+  const selected = promptSuggestions
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 4);
+
+  selected.forEach(item => {
+    const btn = document.createElement("button");
+    btn.className = "bubble";
+    
+    btn.innerHTML = `
+      <div class="bubble-content">
+        <span class="bubble-title">${item.title}</span>
+        <span class="bubble-sub">${item.sub}</span>
+      </div>
+    `;
+
+    btn.addEventListener("click", () => {
+      const input = document.getElementById("user-input");
+      input.value = `${item.title} ${item.sub}`;
+      input.focus();
+    });
+
+    container.appendChild(btn);
+  });
+}
+
+document.addEventListener("DOMContentLoaded", loadDynamicBubbles);
+
+// 🟣 MODEL DROPDOWN
 let selectedModel = "gpt-4o-mini";
 
-modelBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  dropdownMenu.classList.toggle("show");
-  arrow.classList.toggle("open");
-});
+if (modelBtn) {
+  modelBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdownMenu.classList.toggle("show");
+    arrow.classList.toggle("open");
+  });
+}
 
-// Dropdown-u çöldə kliklədikdə bağlamaq
 document.addEventListener("click", (e) => {
-  if (!dropdownMenu.contains(e.target) && !modelBtn.contains(e.target)) {
+  if (dropdownMenu && !dropdownMenu.contains(e.target) && !modelBtn.contains(e.target)) {
     dropdownMenu.classList.remove("show");
-    arrow.classList.remove("open");
+    if(arrow) arrow.classList.remove("open");
   }
 });
 
-// Model seçimi
 document.querySelectorAll(".model-item").forEach((item) => {
   item.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -37,7 +101,6 @@ document.querySelectorAll(".model-item").forEach((item) => {
     item.classList.add("selected");
     selectedModel = item.dataset.model;
 
-    // UI brand text
     const brand = document.querySelector(".brand");
     const version = document.querySelector(".version");
 
@@ -51,14 +114,6 @@ document.querySelectorAll(".model-item").forEach((item) => {
 
     dropdownMenu.classList.remove("show");
     arrow.classList.remove("open");
-  });
-});
-
-// 💡 Smart suggestions
-bubbles.forEach((b) => {
-  b.addEventListener("click", () => {
-    input.value = b.textContent.trim();
-    input.focus();
   });
 });
 
@@ -94,9 +149,16 @@ function typeText(el, text, speed = 18) {
   }, speed);
 }
 
+// 🚀 SEND MESSAGE FUNKSİYASI (Düzəldilmiş Versiya)
 async function sendMessage(message) {
   if (!message.trim()) return;
+  
+  // Mərkəzi görünüşü gizlət
   center.style.display = "none";
+  
+  // ✅ DÜYMƏNİ GÖSTƏR (Fade-in)
+  if (clearBtn) clearBtn.classList.add("show");
+
   addMessage("user", message);
   const typing = showTyping();
 
@@ -106,7 +168,7 @@ async function sendMessage(message) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message,
-        model: selectedModel // 💥 LOCAL / GPT seçimi buradan backend-ə gedir
+        model: selectedModel
       }),
     });
 
@@ -184,9 +246,19 @@ if (confirmYes) {
   confirmYes.addEventListener("click", async (e) => {
     e.preventDefault();
     confirmPopup.classList.remove("show");
+    
+    // Çatı təmizlə
     chatBox.innerHTML = "";
+    
+    // Ana ekranı qaytar
     center.style.display = "flex";
-    bubbles.forEach((b) => (b.style.display = "inline-block"));
+    
+    // ✅ DÜYMƏNİ GİZLƏT (Fade-out)
+    if (clearBtn) clearBtn.classList.remove("show");
+
+    // Bubbles-ları yenidən yüklə
+    loadDynamicBubbles();
+
     const notice = document.createElement("div");
     notice.textContent = "💬 Yeni söhbət üçün hazırsan 😎";
     Object.assign(notice.style, {
@@ -212,39 +284,28 @@ if (confirmYes) {
   });
 }
 
-
-
-// 💡 Shake Detection (v2.1 – iPhone + Android uyumlu)
+// 💡 Shake Detection (v2.1)
 function requestMotionAccess() {
-  if (typeof DeviceMotionEvent.requestPermission === "function") {
-    // iOS 13+
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === "function") {
     DeviceMotionEvent.requestPermission()
       .then((response) => {
-        if (response === "granted") {
-          initShakeDetection();
-          showInfoPopup("✅ Silkələmə aktivdir!");
-        } else {
-          showInfoPopup("⚠️ Hərəkət icazəsi verilmədi!");
-        }
+        if (response === "granted") initShakeDetection();
       })
-      .catch(() => showInfoPopup("⚠️ İcazə alınarkən xəta baş verdi."));
+      .catch(() => {});
   } else {
-    // Android və ya köhnə iOS
     initShakeDetection();
-    showInfoPopup("✅ Silkələmə aktivdir!");
   }
 }
 
-// 👇 Başlatmaq üçün istifadəçi klik gözləyir
 window.addEventListener("click", () => {
   requestMotionAccess();
 }, { once: true });
 
-// 💫 Əsas Shake Detection
 function initShakeDetection() {
   let lastX = null, lastY = null, lastZ = null, lastTime = 0, shakeTimeout = null;
   window.addEventListener("devicemotion", (event) => {
     const acc = event.accelerationIncludingGravity;
+    if(!acc) return;
     const currentTime = Date.now();
     if ((currentTime - lastTime) > 200) {
       const deltaX = Math.abs(acc.x - (lastX || 0));
@@ -264,7 +325,6 @@ function initShakeDetection() {
   });
 }
 
-// 💬 Shake popup
 function showShakePrompt() {
   if (document.querySelector(".shake-popup")) return;
   const popup = document.createElement("div");
@@ -286,12 +346,9 @@ function showShakePrompt() {
   setTimeout(() => popup.remove(), 8000);
 }
 
-// 💬 Kiçik info popup (icazə statusu üçün, yalnız mobil cihazlarda)
 function showInfoPopup(text) {
-  // Yalnız mobil cihazlarda göstər
   const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (!isMobile) return;
-
   const info = document.createElement("div");
   info.className = "info-popup";
   info.textContent = text;
@@ -301,112 +358,41 @@ function showInfoPopup(text) {
 
 console.log("✅ Marketify 2.0 JS tam aktivdir (Shake + Popup + Chat)");
 
-/* 🔄 Tagline – Non-repeating until exhausted (bubble sync) */
+/* ============================================
+   🔄 AUTO-ROTATING TAGLINE (FIXED)
+============================================ */
 
-const taglineElement = document.querySelector(".tagline");
-
-const allTaglines = [
+const rotatingTaglines = [
   "Bu gün nə haqqında danışırıq? 😊",
   "Marketinq ideyaları ilə dolu bir günə hazırsan? 🚀",
   "Sən yaz, AI düşünsün 💡",
   "Yaradıcı gücünü AI ilə birləşdir ✨",
   "Reklam dünyasında inqilab buradan başlayır 🌍",
-  "Bir az sən, bir az AI 💬",
-  "Brendini AI ilə gücləndir ⚡️",
+  "Bir az sən, bir az AI... Mükəmməl nəticə 💬",
+  "Brendini Marketify AI ilə gücləndir ⚡️",
   "Marketinq gələcəyini bu gündən yarat 🌟",
   "Mətnlər gəlsin, ideyalar axsın ✍️",
-  "AI sənə lazım olan tərəfdaşdır 💙",
+  "Az olsun, saz olsun – Marketify AI ilə mükəmməl olsun 👌",
   "Sovetin dövründə belə şey yox idi – amma indi var 😉",
-  "Az olsun, saz olsun – Marketify AI ilə mükəmməl olsun 💡"
+  "Atalar üçdən deyib – sualını yaz, göndər və cavab al ✌️"
 ];
 
-let taglinePool = [...allTaglines];
+function initTaglineRotator() {
+  const taglineEl = document.querySelector(".tagline");
+  if (!taglineEl) return;
 
-function rotateTagline() {
-  if (taglinePool.length === 0) {
-    taglinePool = [...allTaglines];
-  }
+  // İlkini göstər
+  let currentIndex = Math.floor(Math.random() * rotatingTaglines.length);
+  taglineEl.textContent = rotatingTaglines[currentIndex];
 
-  const index = Math.floor(Math.random() * taglinePool.length);
-  const newTagline = taglinePool[index];
-  taglinePool.splice(index, 1);
-
-  taglineElement.style.opacity = 0;
-  setTimeout(() => {
-    taglineElement.textContent = newTagline;
-    taglineElement.style.opacity = 1;
-  }, 250);
+  setInterval(() => {
+    taglineEl.style.opacity = "0";
+    setTimeout(() => {
+      currentIndex = (currentIndex + 1) % rotatingTaglines.length;
+      taglineEl.textContent = rotatingTaglines[currentIndex];
+      taglineEl.style.opacity = "1";
+    }, 500); 
+  }, 6000);
 }
 
-/* ==========================================================
-   🔄 PREMIUM DİNAMİK PROMPT BUBBLES (NO REPEAT + ANIMATED)
-   ========================================================== */
-
-const bubbleContainer = document.querySelector(".prompt-bubbles");
-
-const dynamicPrompts = [
-  // Sənin mövcud promptların
-  "Yeni il kampaniyası ideyası 🎄",
-  "Sosial media postu üçün mətn ✨",
-  "Reklam sloqanı tap 💡",
-  "LinkedIn-də keyfiyyətli məzmun yarat 💼",
-  "Landing page üçün mətn yaz 📝",
-  "Brend tonu yarat 🔊",
-  "Google Ads üçün başlıq tap 🔥",
-  "Marketinq planı qur 🚀",
-  "💸 Reklamlarım üçün maliyyə planlaması",
-
-  // 🔥 Yeni — High-Level Pro istifadəçilər üçün
-  "Brendin ICP (Ideal Customer Profile) analizini et 🎯",
-  "Sifirdan GTM (Go-To-Market) strategiyası hazırla 📊",
-  "A/B test hipotezləri yarat (Pro) 🧪",
-  "Funnel optimizasiya planı qur (Awareness→Action) 🔥",
-  "Marketinq avtomatizasiya ardıcıllığı yarat (Flow) ⚡",
-  "B2B satış mesajlaşdırması strukturu qur (Pro) 🏢",
-  "SEO üçün yüksək niyyətli keyword klasterləri yarat 🔍",
-  "Brendin mövqeləndirmə xəritəsini çıxart 🧭",
-  "Rəqiblər üzrə qısa SWOT analiz çıxart 📈",
-];
-
-// 🔁 Rotation üçün pool
-let pool = [...dynamicPrompts];
-
-function loadRandomBubbles() {
-  bubbleContainer.innerHTML = "";
-
-  rotateTagline();
-
-  // Pool-da 4-dən az prompt qalıbsa → yenidən başla
-  if (pool.length < 4) {
-    pool = [...dynamicPrompts];
-  }
-
-  // 4 random seçirik və pool-dan çıxarırıq
-  const selected = [];
-  for (let i = 0; i < 4; i++) {
-    const idx = Math.floor(Math.random() * pool.length);
-    selected.push(pool[idx]);
-    pool.splice(idx, 1);
-  }
-
-  // UI-yə bir-bir əlavə edirik (animasiya ilə)
-  selected.forEach((text, i) => {
-    const btn = document.createElement("button");
-    btn.className = "bubble animated-bubble";
-    btn.style.animationDelay = `${0.12 * i}s`; // delay-chain
-    btn.textContent = text;
-
-    btn.addEventListener("click", () => {
-      input.value = text;
-      input.focus();
-    });
-
-    bubbleContainer.appendChild(btn);
-  });
-}
-
-// İlk dəfə yüklə
-loadRandomBubbles();
-
-// Hər 9 saniyədə bir dəyişsin
-setInterval(loadRandomBubbles, 9000);
+document.addEventListener("DOMContentLoaded", initTaglineRotator);
