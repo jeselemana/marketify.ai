@@ -343,6 +343,21 @@ app.post("/api/chat", async (req, res) => {
       conversationHistory = conversationHistory.slice(-3);
     }
 
+      // 🏷️ İntentlərin İstifadəçi Dostu Adları
+const INTENT_LABELS = {
+  slogan: "✍️ Sloqan və Şüarlar",
+  budget: "💰 Büdcə və Maliyyə",
+  caption: "📸 Instagram Postları",
+  tiktok: "🎥 TikTok və Reels",
+  strategy: "🚀 Marketinq Strategiyası",
+  seo: "🔎 SEO və Axtarış",
+  email: "📧 Email Marketinq",
+  blog: "📝 Blog və Məqalələr",
+  sales: "📈 Satış Taktikaları",
+  branding: "🎨 Brendinq",
+  general: "💡 Ümumi İdeyalar"
+};
+
     // 🔍 Intent-i bir dəfə hesablayırıq (həm local, həm learning üçün istifadə ediləcək)
     const intent = await detectIntent(userMessage);
 
@@ -354,12 +369,34 @@ app.post("/api/chat", async (req, res) => {
       const base = safeLoadJSON(BASE_PATH, {});
       const templates = base[intent] || [];
 
+// ⚠️ DƏYİŞİKLİK EDİLƏN HİSSƏ: Əgər şablon yoxdursa, təkliflər ver
       if (templates.length === 0) {
+        
+        // 1. Bazada içində məlumat olan mövzuları tapırıq
+        const availableTopics = Object.keys(base).filter(
+          (key) => Array.isArray(base[key]) && base[key].length > 0
+        );
+
+        // 2. Siyahı hazırlayırıq (Maksimum 6 dənə, qarışıq)
+        let suggestionsText = "";
+        
+        if (availableTopics.length > 0) {
+          // Təsadüfi qarışdırıb ilk 6-nı götürürük
+          const randomTopics = availableTopics.sort(() => 0.5 - Math.random()).slice(0, 6);
+          
+          const list = randomTopics
+            .map((topic) => `🔹 ${INTENT_LABELS[topic] || topic}`) // Adı yuxarıdakı siyahıdan götürür
+            .join("\n");
+            
+          suggestionsText = `\n\n✨ Kömək edə biləcəyim mövzulardan:\n${list}`;
+        }
+
         return res.json({
           reply:
-            "Bu mövzu hələ Marketify Brain-də tam öyrənilməyib 🤖💛\n\nAmma izah etsən, kömək edə bilərəm! ✨",
+            "Bu mövzu hələ Marketify Brain-də tam öyrənilməyib 🤖💛\n\nAmma izah etsən, kömək edə bilərəm! ✨" + suggestionsText,
         });
       }
+      // ⚠️ DƏYİŞİKLİK BİTDİ
 
       const random = templates[Math.floor(Math.random() * templates.length)];
       let finalText = random.template;
