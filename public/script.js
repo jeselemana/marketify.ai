@@ -131,7 +131,7 @@ function addMessage(role, text) {
 function showTyping() {
   const typing = document.createElement("div");
   typing.classList.add("message", "bot");
-  typing.textContent = "Bir dəqiqə, Marketify düşünür...";
+  typing.textContent = "Mesajını nəzərdən keçirirəm...";
   chatBox.appendChild(typing);
   scrollToBottom();
   return typing;
@@ -377,22 +377,29 @@ const rotatingTaglines = [
   "Atalar üçdən deyib – sualını yaz, göndər və cavab al ✌️"
 ];
 
+// script.js - faylın ən sonundakı funksiya
+
 function initTaglineRotator() {
   const taglineEl = document.querySelector(".tagline");
   if (!taglineEl) return;
 
-  // İlkini göstər
+  // Başlanğıc mətn
   let currentIndex = Math.floor(Math.random() * rotatingTaglines.length);
   taglineEl.textContent = rotatingTaglines[currentIndex];
 
   setInterval(() => {
-    taglineEl.style.opacity = "0";
+    // 1. Animasiyanı başlat (Gizlət)
+    taglineEl.classList.add("hide");
+
+    // 2. CSS-dəki 0.6s (600ms) bitdikdən sonra mətni dəyiş
     setTimeout(() => {
       currentIndex = (currentIndex + 1) % rotatingTaglines.length;
       taglineEl.textContent = rotatingTaglines[currentIndex];
-      taglineEl.style.opacity = "1";
-    }, 500); 
-  }, 6000);
+      
+      // 3. Mətn dəyişdi, indi yenidən göstər
+      taglineEl.classList.remove("hide");
+    }, 600); // CSS transition müddəti ilə eyni olmalıdır
+  }, 5000); // Hər 5 saniyədən bir dəyişsin
 }
 
 document.addEventListener("DOMContentLoaded", initTaglineRotator);

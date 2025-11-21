@@ -153,10 +153,26 @@ main {
 }
 
 
+/* style.css - təxminən sətir 135 */
+
 .tagline {
   color: var(--text-medium);
   font-size: 20px;
   margin-bottom: 25px;
+  min-height: 30px; /* Mətn dəyişəndə hoppanmaması üçün yer saxlayırıq */
+  
+  /* ✨ Animasiya parametrləri */
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+  transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Yazı dəyişən zaman bu sinif aktiv olacaq */
+.tagline.hide {
+  opacity: 0;
+  transform: translateY(10px) scale(0.95); /* Aşağı sürüşür və kiçilir */
+  filter: blur(10px); /* Bulanıqlaşır */
 }
 
 /* 💡 Prompt bubble-lar */
