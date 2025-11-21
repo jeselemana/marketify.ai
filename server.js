@@ -393,7 +393,7 @@ const INTENT_LABELS = {
 
         return res.json({
           reply:
-            "Bu mövzu hələ Marketify Brain-də tam öyrənilməyib 🤖💛\n\nAmma izah etsən, kömək edə bilərəm! ✨" + suggestionsText,
+            "Bu mövzu hələ Marketify Brain-in məlumat bazasında yoxdur. 😞 Amma izah etsən, kömək etməyə çalışaram. İstəsən, sol üst menyudan modeli dəyişərək söhbəti davam etdirə bilərsən." + suggestionsText,
         });
       }
       // ⚠️ DƏYİŞİKLİK BİTDİ
