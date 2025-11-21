@@ -127,11 +127,20 @@ function addMessage(role, text) {
   return msg;
 }
 
-// 🟡 “Marketify yazır...” effekti
+// 🟡 “Marketify yazır...” effekti (Düzəldilmiş - V3)
 function showTyping() {
   const typing = document.createElement("div");
-  typing.classList.add("message", "bot");
-  typing.textContent = "Mesajını nəzərdən keçirirəm...";
+  typing.classList.add("message", "bot", "typing-message"); // Xüsusi klas əlavə etdik
+  
+  typing.innerHTML = `
+    <span class="typing-text">Mesajını nəzərdən keçirirəm</span>
+    <div class="typing-indicator">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  `;
+  
   chatBox.appendChild(typing);
   scrollToBottom();
   return typing;

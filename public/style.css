@@ -373,14 +373,6 @@ main {
     transform: translateY(0);
   }
 }
-
-/* 💬 Typing indicator (Marketify 2.1 üçün) */
-.typing-indicator {
-  display: flex;
-  gap: 4px;
-  margin-left: 12px;
-  margin-top: 6px;
-}
 .typing-indicator span {
   width: 6px;
   height: 6px;
@@ -554,13 +546,24 @@ main {
     transform: translateY(0);
   }
 }
-/* 💭 Typing Indicator Effekt */
-.typing-indicator {
-  display: none;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  margin: 10px auto;
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background: #8ab7ff; /* Daha açıq mavi */
+  border-radius: 50%;
+  animation: blink 1.4s infinite both;
+  opacity: 0.6;
+}
+
+.typing-indicator span:nth-child(1) { animation-delay: 0s; }
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.1); }
+
 }
 .typing-indicator span {
   width: 8px;
@@ -1191,4 +1194,62 @@ main {
   box-shadow: 0 0 10px rgba(45, 107, 255, 0.4);
   transform: rotate(90deg) scale(1.1); /* Hover-da fırlanma */
   color: #a4c9ff;
+}
+
+/* =========================================
+   ✨ PERFECT TYPING INDICATOR (V3)
+   ========================================= */
+
+/* Mesaj qutusunun özü üçün xüsusi tənzimləmə */
+.message.bot.typing-message {
+  display: flex;
+  flex-direction: column; /* Alt-alta düzür */
+  align-items: flex-start;
+  gap: 4px; /* Mətn və nöqtələr arası məsafə (azaldıldı) */
+  padding: 12px 18px; /* Bir az daha yığcam padding */
+  width: fit-content;
+}
+
+/* Mətn stili */
+.typing-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+
+/* Nöqtələrin konteyneri */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* Nöqtələr arası məsafə */
+  height: 14px; /* Hündürlüyü sabitləyirik */
+  margin-top: 2px; /* Mətnə daha yaxın olsun */
+}
+
+/* Nöqtələrin özü */
+.typing-indicator span {
+  display: block;
+  width: 6px;
+  height: 6px;
+  background-color: #8ab7ff; /* Daha açıq, parlaq mavi */
+  border-radius: 50%;
+  animation: bounceWave 1.4s infinite ease-in-out both;
+}
+
+/* Animasiya gecikmələri (Dalğa effekti üçün) */
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0s; }
+
+/* 🌊 Dalğa Animasiyası (Yuxarı-aşağı) */
+@keyframes bounceWave {
+  0%, 80%, 100% { 
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% { 
+    transform: scale(1.2) translateY(-4px); /* Yuxarı hoppanır və böyüyür */
+    opacity: 1;
+    background-color: #fff; /* Hoppananda ağarır */
+  }
 }
