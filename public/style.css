@@ -1308,36 +1308,3 @@ main {
   /* 45 dərəcə fırladaraq ox formasına salırıq */
   transform: rotate(45deg);
 }
-
-/* ChatGPT-style divider */
-.message.bot {
-  white-space: pre-line;
-}
-
-.message.bot::before,
-.message.bot::after {
-  content: "";
-  display: block;
-  width: 100%;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08); /* çox solğun xətt */
-  margin: 18px 0;
-}
-
-.message.bot {
-  white-space: pre-line;
-}
-
-.message.bot {
-  /* Divider mətni ekranda görünməsin */
-}
-.message.bot {
-  /* Divider-in özünü display:none edə bilmərik, buna görə script-də onu real dividerə çeviririk */
-}
-
-.divider {
-  width: 100%;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 20px 0;
-}
