@@ -198,7 +198,7 @@ async function sendMessage(message) {
       .replace(/^-\s+/gm, "");
 
     // Divider
-    reply = reply.replace(/\n{2,}/g, "\n──────────\n");
+    reply = reply.replace(/\n{2,}/g, "\n<div class='divider'></div>\n");
 
 
     reply = reply
