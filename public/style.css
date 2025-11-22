@@ -1253,3 +1253,58 @@ main {
     background-color: #fff; /* Hoppananda ağarır */
   }
 }
+
+/* ✨ Model Tooltip (Glass Style) */
+.model-tooltip {
+  position: absolute;
+  top: 55px; /* Button-dan məsafə */
+  left: 4px;
+  
+  /* 🧊 Şəffaf Şüşə Effekti */
+  background: rgba(30, 30, 30, 0.6); /* Yarımşəffaf tünd fon */
+  backdrop-filter: blur(12px);        /* Arxa fonu bulandırır */
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15); /* İncə ağ çərçivə */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);   /* Kölgə */
+  
+  color: rgba(255, 255, 255, 0.9);
+  padding: 10px 16px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 90;
+  
+  /* Animasiya */
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Görünən halı */
+.model-tooltip.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 🔼 Şüşə Ox (Arrow) */
+.model-tooltip::before {
+  content: "";
+  position: absolute;
+  top: -6px; /* Yuxarı çıxır */
+  left: 24px;
+  width: 12px;
+  height: 12px;
+  
+  /* Eyni şüşə effekti */
+  background: rgba(30, 30, 30, 0.6); 
+  backdrop-filter: blur(12px);
+  
+  /* Sadəcə yuxarı və sol tərəfə çərçivə veririk */
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  
+  /* 45 dərəcə fırladaraq ox formasına salırıq */
+  transform: rotate(45deg);
+}

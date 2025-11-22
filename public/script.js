@@ -412,3 +412,67 @@ function initTaglineRotator() {
 }
 
 document.addEventListener("DOMContentLoaded", initTaglineRotator);
+
+// 💡 Tooltip Məntiqi
+document.addEventListener("DOMContentLoaded", () => {
+  const tooltip = document.getElementById("model-tooltip");
+  const modelBtn = document.getElementById("model-btn");
+
+  if (tooltip && modelBtn) {
+    // 1. Sayt açılandan 1.5 saniyə sonra göstər
+    setTimeout(() => {
+      // Əgər menyu hələ açılmayıbsa göstər
+      if (!document.getElementById("dropdownMenu").classList.contains("show")) {
+        tooltip.classList.add("show");
+      }
+    }, 1500);
+
+    // 2. 6 saniyə sonra avtomatik gizlət
+    setTimeout(() => {
+      tooltip.classList.remove("show");
+    }, 7500);
+
+    // 3. Buttona klikləyəndə dərhal gizlət
+    modelBtn.addEventListener("click", () => {
+      tooltip.classList.remove("show");
+    });
+  }
+});
+
+// 💡 Tooltip Göstərmə Funksiyası (Reusable)
+function triggerModelTooltip() {
+  const tooltip = document.getElementById("model-tooltip");
+  const dropdownMenu = document.getElementById("dropdownMenu");
+  
+  if (tooltip && dropdownMenu) {
+    // Əgər menyu artıq açıqdırsa, tooltip-ə ehtiyac yoxdur
+    if (dropdownMenu.classList.contains("show")) return;
+
+    tooltip.classList.add("show");
+
+    // 6 saniyə sonra gizlət
+    setTimeout(() => {
+      tooltip.classList.remove("show");
+    }, 6000);
+  }
+}
+
+// Sayt yüklənəndə işə düşən hissə
+document.addEventListener("DOMContentLoaded", () => {
+  // ... digər yüklənmə kodları ...
+
+  // 1. Sayt açılandan 1.5 saniyə sonra göstər
+  setTimeout(() => {
+    triggerModelTooltip();
+  }, 1500);
+
+  // Buttona klikləyəndə dərhal gizlət
+  const modelBtn = document.getElementById("model-btn");
+  const tooltip = document.getElementById("model-tooltip");
+  
+  if (modelBtn && tooltip) {
+    modelBtn.addEventListener("click", () => {
+      tooltip.classList.remove("show");
+    });
+  }
+});
