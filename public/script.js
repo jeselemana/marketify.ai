@@ -188,6 +188,19 @@ async function sendMessage(message) {
 
     let reply = data.reply || "⚠️ Cavab alınmadı 😔";
 
+    // MARKDOWN təmizləmə
+    reply = reply
+      .replace(/\*\*/g, "")
+      .replace(/##+/g, "")
+      .replace(/[\*_]{1,3}/g, "")
+      .replace(/`+/g, "")
+      .replace(/^>\s?/gm, "")
+      .replace(/^-\s+/gm, "");
+
+    // Divider
+    reply = reply.replace(/\n{2,}/g, "\n──────────\n");
+
+
     reply = reply
       .replaceAll("İlk olaraq,", "Başlayaq belə:")
       .replaceAll("Bu addımları izləyə bilərsən", "Gəlin birlikdə baxaq 👇")
