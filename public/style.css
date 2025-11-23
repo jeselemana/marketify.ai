@@ -1361,3 +1361,42 @@ hr.custom-divider::after {
   background: linear-gradient(90deg, transparent, rgba(74, 120, 255, 0.5), transparent);
   opacity: 0.5;
 }
+
+/* 📱 Mobil üçün (Standart) - Kiçik və yığcam qalır */
+.bubble-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: #fff;
+  display: block;
+}
+
+.bubble-sub {
+  font-weight: 400;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6); /* Solğun qalır ki, gözü yormasın */
+  display: block;
+}
+
+/* 💻 Desktop üçün Balans - Opacity Versiyası */
+@media (min-width: 769px) {
+  .bubble-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #ffffff;          /* Başlıq: Tam Ağ */
+    margin-bottom: 2px;
+  }
+
+  .bubble-sub {
+    font-size: 13px;
+    font-weight: 400;
+    /* Rəng ağdır, amma 75% görünürlülük veririk */
+    color: rgba(255, 255, 255, 0.75); 
+    line-height: 1.4;
+    transition: color 0.3s ease;
+  }
+  
+  /* Hover effekti: Üstünə gələndə tam ağ olsun */
+  .bubble:hover .bubble-sub {
+    color: rgba(255, 255, 255, 1);
+  }
+}
