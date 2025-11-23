@@ -146,15 +146,39 @@ function showTyping() {
   return typing;
 }
 
-// ✨ Hərf-hərf yazma effekti
+// ✨ Hərf-hərf yazma effekti (Smart HTML - Kodları gizlədərək yazır)
 function typeText(el, text, speed = 18) {
-  el.textContent = "";
+  el.innerHTML = ""; 
   let i = 0;
+  
   const interval = setInterval(() => {
-    el.textContent += text.charAt(i);
-    i++;
+    if (i >= text.length) {
+      clearInterval(interval);
+      return;
+    }
+    
+    const char = text.charAt(i);
+    
+    // Əgər simvol '<' işarəsidirsə, deməli HTML teqi başlayır
+    if (char === '<') {
+      // Teqin bitdiyi yeri ('>') tapırıq
+      const tagEnd = text.indexOf('>', i);
+      
+      if (tagEnd !== -1) {
+        // Bütün teqi (məs: <hr class='...'>) birdəfəyə əlavə edirik
+        el.innerHTML += text.substring(i, tagEnd + 1);
+        i = tagEnd + 1; // İndeksi teqin sonuna atırıq
+      } else {
+        el.innerHTML += char;
+        i++;
+      }
+    } else {
+      // Adi mətndirsə, hərf-hərf yaz
+      el.innerHTML += char;
+      i++;
+    }
+    
     scrollToBottom();
-    if (i >= text.length) clearInterval(interval);
   }, speed);
 }
 
@@ -196,9 +220,6 @@ async function sendMessage(message) {
       .replace(/`+/g, "")
       .replace(/^>\s?/gm, "")
       .replace(/^-\s+/gm, "");
-
-    // Divider
-    reply = reply.replace(/\n{2,}/g, "\n──────────\n");
 
 
     reply = reply

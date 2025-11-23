@@ -1339,3 +1339,25 @@ main {
   border-radius: 4px;
   color: #aaa;
 }
+
+/* ✨ Yeni İncə Ayırıcı (Divider) */
+hr.custom-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1); /* Çox solğun ağ xətt */
+  margin: 24px auto; /* Yuxarı-aşağı məsafə */
+  width: 100%; /* Mesajın eni qədər */
+  opacity: 0.6;
+  position: relative;
+}
+
+/* İstəyə bağlı: Xəttin ortasında kiçik parıltı effekti */
+hr.custom-divider::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(74, 120, 255, 0.5), transparent);
+  opacity: 0.5;
+}
