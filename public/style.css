@@ -1308,3 +1308,34 @@ main {
   /* 45 dərəcə fırladaraq ox formasına salırıq */
   transform: rotate(45deg);
 }
+
+/* --- Analitika Rejimi (Deaktiv) Üslubları --- */
+
+/* Deaktiv menyu elementi */
+.dropdown-menu .model-item.disabled {
+  opacity: 0.5;                /* Yarımşəffaf görüntü */
+  cursor: not-allowed;         /* Üzərinə gələndə qadağan işarəsi */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;        /* Kliklənməni tamamilə bağlayır */
+}
+
+/* Deaktiv elementin üzərinə gələndə fon dəyişməsin */
+.dropdown-menu .model-item.disabled:hover {
+  background: transparent;
+  color: #ccc;
+}
+
+/* "Tezliklə" yazısının dizaynı */
+.badge-soon {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #aaa;
+}
