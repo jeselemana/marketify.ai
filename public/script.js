@@ -20,23 +20,41 @@ const promptSuggestions = [
   { title: "Brend hekayəsi", sub: "yazmaqda kömək et" },
   { title: "Email marketinq", sub: "üçün başlıq ideyaları" },
   { title: "Müştəri rəyləri", sub: "üçün cavab şablonu" },
-  
+  { title: "Landing page", sub: "üçün dönüşüm artıran variant" },
+  { title: "Reklam büdcəsi", sub: "üçün aylıq plan hazırlamağa kömək et" },
+  { title: "SMM strategiyası", sub: "3 aylıq mini plan ver" },
+  { title: "Biznes audit", sub: "qısa təhlil et" },
+
   // Sosial Media
   { title: "Instagram Reels", sub: "üçün viral ssenari" },
   { title: "TikTok trendləri", sub: "biznesimə necə uyğunlaşdırım?" },
   { title: "LinkedIn postu", sub: "peşəkar üslubda yaz" },
   { title: "Youtube videosu", sub: "üçün SEO təsviri" },
+  { title: "Caption ideyası", sub: "qısa və kreativ olsun" },
+  { title: "Trend audiosu", sub: "bu sahəyə uyğun tap" },
 
-  // Yaradıcılıq & İdeya
+  // Yaradıcılıq & Branding
   { title: "Reklam sloqanı", sub: "qısa və yaddaqalan olsun" },
   { title: "Logo dizaynı", sub: "üçün prompt hazırla" },
   { title: "Məhsul adı", sub: "tapmaqda kömək et" },
   { title: "Startap ideyası", sub: "üçün SWOT analizi" },
-  
+  { title: "Brand voice", sub: "təklif et" },
+
+  // Yerli (Azərbaycan) mövzular
+  { title: "Yerli auditoriyanı", sub: "cəlb edəcək reklam kampaniyası" },
+  { title: "Azərbaycanda SMM", sub: "üçün düzgün ton" },
+  { title: "Endirim aksiyası", sub: "Azərbaycan bazarına uyğun yaz" },
+
+  // AI & Texnoloji
+  { title: "AI ilə kontent", sub: "yaratma planı hazırla" },
+  { title: "Prompt optimallaşdırma", sub: "üçün ipucları ver" },
+
   // Texniki & Digər
   { title: "SEO açar sözlər", sub: "bu mövzu üçün tap" },
   { title: "Blog yazısı", sub: "giriş hissəsi yaz" },
-  { title: "Müsahibə sualları", sub: "SMM meneceri üçün" }
+  { title: "Müsahibə sualları", sub: "SMM meneceri üçün" },
+  { title: "Press-reliz", sub: "üçün professional mətn yaz" },
+  { title: "Böhran vəziyyətində", sub: "bilməli olduqlarım" }
 ];
 
 function loadDynamicBubbles() {
@@ -61,11 +79,21 @@ function loadDynamicBubbles() {
       </div>
     `;
 
-    btn.addEventListener("click", () => {
-      const input = document.getElementById("user-input");
-      input.value = `${item.title} ${item.sub}`;
-      input.focus();
-    });
+   btn.addEventListener("click", () => {
+  const input = document.getElementById("user-input");
+  input.value = `${item.title} ${item.sub}`;
+  input.focus();
+
+  // 🔥 input event tetiklə (elə bil user yazıb)
+  input.dispatchEvent(new Event("input"));
+
+  // 🔥 center elementləri gizlə
+  hideCenterElements();
+
+  // 🔥 Yeni söhbət overlay göstər
+  showNewChat();
+});
+
 
     container.appendChild(btn);
   });
@@ -652,3 +680,159 @@ window.addEventListener("DOMContentLoaded", () => {
     hideCenterElements();
   }
 });
+
+/* ============================================
+   YENİ SÖHBƏT — BRAND-SUB REPLACEMENT SYSTEM
+============================================ */
+
+const newChat = document.getElementById("newChat");
+const brandMainTitle = document.querySelector(".brand-sub");
+
+// 🟦 FUNKSIYA: “Yeni söhbət” göstər
+function showNewChat() {
+  if (!newChat) return;
+
+  newChat.style.display = "block";
+  setTimeout(() => newChat.classList.add("show"), 10);
+
+  // Marketify AI gizlət
+  brandMainTitle.style.opacity = "0";
+  brandMainTitle.style.transform = "scale(0.9) translateY(6px)";
+}
+
+// 🟥 FUNKSIYA: “Yeni söhbət” gizlət
+function hideNewChat() {
+  if (!newChat) return;
+
+  newChat.classList.remove("show");
+  setTimeout(() => (newChat.style.display = "none"), 200);
+}
+
+// Input yazıldıqda aktiv olsun
+input.addEventListener("input", () => {
+  if (input.value.trim().length > 0) {
+    showNewChat();
+  } else {
+    hideNewChat();
+
+    // Chat boşdursa — Marketify AI geri qayıtsın
+    if (chatBox.children.length === 0) {
+      brandMainTitle.style.opacity = "1";
+      brandMainTitle.style.transform = "scale(1) translateY(0)";
+    }
+  }
+});
+
+// Mesaj göndəriləndə “Yeni söhbət” tam yox olsun
+const _originalSend = sendMessage;
+sendMessage = function(msg) {
+  hideNewChat();
+  brandMainTitle.style.opacity = "0";
+  _originalSend(msg);
+};
+
+// Chat təmizlənəndə — hər şey sıfırlansın
+if (confirmYes) {
+  confirmYes.addEventListener("click", () => {
+    setTimeout(() => {
+      hideNewChat();
+      brandMainTitle.style.opacity = "1";
+      brandMainTitle.style.transform = "scale(1)";
+    }, 80);
+  });
+}
+
+const newTitle = document.querySelector(".new-dynamic-title");
+const newDynamic = document.getElementById("newDynamicWord");
+const dynamicWords = [
+  "Söhbət", "Başlanğıc", "İdeyalar", "Fikirlər", "Strategiya",
+  "Kontent", "Dövr", "İdarəçilik", "Müzakirə", "Yaradıcılıq"
+];
+
+let dynamicIndex = 0;
+
+/* SHOW/HIDE */
+input.addEventListener("input", () => {
+  if (input.value.trim().length > 0) {
+    newTitle.classList.add("show");
+
+    brandTitle.style.opacity = "0";
+    tagline.style.opacity = "0";
+  } else {
+    newTitle.classList.remove("show");
+
+    // yalnız chat boşdursa Marketify AI geri qayıdır
+    if (chatBox.children.length === 0) {
+      brandTitle.style.opacity = "1";
+      tagline.style.opacity = "1";
+    }
+  }
+});
+
+/* Dynamic word rotation */
+setInterval(() => {
+  dynamicIndex = (dynamicIndex + 1) % dynamicWords.length;
+
+  newDynamic.classList.add("fade");
+  setTimeout(() => {
+    newDynamic.textContent = dynamicWords[dynamicIndex];
+    newDynamic.classList.remove("fade");
+  }, 400);
+}, 3000);
+
+/* Chat göndəriləndə daim gizli qalsın */
+const originalSend = sendMessage;
+sendMessage = function(msg) {
+  newTitle.classList.remove("show");
+  brandTitle.style.opacity = "0";
+  tagline.style.opacity = "0";
+  originalSend(msg);
+};
+
+/* Chat təmizlənəndə sıfırlansın */
+confirmYes.addEventListener("click", () => {
+  setTimeout(() => {
+    newTitle.classList.remove("show");
+    brandTitle.style.opacity = "1";
+    tagline.style.opacity = "1";
+  }, 50);
+});
+
+// 🎯 SEND BUTTON DİNAMİK TƏNZİMİ
+const sendBtn = document.getElementById("send-btn");
+const userInput = document.getElementById("user-input");
+
+// Başlanğıcda deaktiv et
+disableSendBtn();
+
+// Inputa yazılanda rəngi dəyişsin
+userInput.addEventListener("input", () => {
+  if (userInput.value.trim().length > 0) {
+    enableSendBtn();
+  } else {
+    disableSendBtn();
+  }
+});
+
+// Mesaj göndəriləndə yenidən deaktiv et
+form.addEventListener("submit", () => {
+  disableSendBtn();
+});
+
+// Çat təmizlənəndə (clearChat → confirmYes)
+if (confirmYes) {
+  confirmYes.addEventListener("click", () => {
+    disableSendBtn();
+  });
+}
+
+// Funksiyalar
+function enableSendBtn() {
+  sendBtn.classList.remove("disabled");
+  sendBtn.disabled = false;
+}
+
+function disableSendBtn() {
+  sendBtn.classList.add("disabled");
+  sendBtn.disabled = true;
+}
