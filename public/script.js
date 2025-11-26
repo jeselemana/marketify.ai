@@ -20,23 +20,41 @@ const promptSuggestions = [
   { title: "Brend hekayəsi", sub: "yazmaqda kömək et" },
   { title: "Email marketinq", sub: "üçün başlıq ideyaları" },
   { title: "Müştəri rəyləri", sub: "üçün cavab şablonu" },
-  
+  { title: "Landing page", sub: "üçün dönüşüm artıran variant" },
+  { title: "Reklam büdcəsi", sub: "üçün aylıq plan hazırlamağa kömək et" },
+  { title: "SMM strategiyası", sub: "3 aylıq mini plan ver" },
+  { title: "Biznes audit", sub: "qısa təhlil et" },
+
   // Sosial Media
   { title: "Instagram Reels", sub: "üçün viral ssenari" },
   { title: "TikTok trendləri", sub: "biznesimə necə uyğunlaşdırım?" },
   { title: "LinkedIn postu", sub: "peşəkar üslubda yaz" },
   { title: "Youtube videosu", sub: "üçün SEO təsviri" },
+  { title: "Caption ideyası", sub: "qısa və kreativ olsun" },
+  { title: "Trend audiosu", sub: "bu sahəyə uyğun tap" },
 
-  // Yaradıcılıq & İdeya
+  // Yaradıcılıq & Branding
   { title: "Reklam sloqanı", sub: "qısa və yaddaqalan olsun" },
   { title: "Logo dizaynı", sub: "üçün prompt hazırla" },
   { title: "Məhsul adı", sub: "tapmaqda kömək et" },
   { title: "Startap ideyası", sub: "üçün SWOT analizi" },
-  
+  { title: "Brand voice", sub: "təklif et" },
+
+  // Yerli (Azərbaycan) mövzular
+  { title: "Yerli auditoriyanı", sub: "cəlb edəcək reklam kampaniyası" },
+  { title: "Azərbaycanda SMM", sub: "üçün düzgün ton" },
+  { title: "Endirim aksiyası", sub: "Azərbaycan bazarına uyğun yaz" },
+
+  // AI & Texnoloji
+  { title: "AI ilə kontent", sub: "yaratma planı hazırla" },
+  { title: "Prompt optimallaşdırma", sub: "üçün ipucları ver" },
+
   // Texniki & Digər
   { title: "SEO açar sözlər", sub: "bu mövzu üçün tap" },
   { title: "Blog yazısı", sub: "giriş hissəsi yaz" },
-  { title: "Müsahibə sualları", sub: "SMM meneceri üçün" }
+  { title: "Müsahibə sualları", sub: "SMM meneceri üçün" },
+  { title: "Press-reliz", sub: "üçün professional mətn yaz" },
+  { title: "Böhran vəziyyətində", sub: "bilməli olduqlarım" }
 ];
 
 function loadDynamicBubbles() {
@@ -61,11 +79,18 @@ function loadDynamicBubbles() {
       </div>
     `;
 
-    btn.addEventListener("click", () => {
-      const input = document.getElementById("user-input");
-      input.value = `${item.title} ${item.sub}`;
-      input.focus();
-    });
+   btn.addEventListener("click", () => {
+  const input = document.getElementById("user-input");
+  input.value = `${item.title} ${item.sub}`;
+  input.focus();
+
+  // 🟣 SEND BUTTON-U GÖRÜNƏN ET
+  updateSendButton();
+
+  // 🟣 EKRAN MƏRKƏZİNİ TAM GİZLƏ
+  hideCenterElements();
+});
+
 
     container.appendChild(btn);
   });
@@ -293,6 +318,17 @@ if (confirmNo) {
   });
 }
 
+function getPopupPosition() {
+  const inputBar = document.querySelector(".input-area, .input-bar, #chat-form");
+
+  if (!inputBar) return 120; // fallback dəyər
+
+  const rect = inputBar.getBoundingClientRect();
+  const popupBottom = window.innerHeight - rect.top + 12;
+
+  return popupBottom;
+}
+
 /* script.js - Təxminən sətir 280 civarı */
 
 if (confirmYes) {
@@ -316,30 +352,66 @@ if (confirmYes) {
     // Bubbles-ları yenidən yüklə
     loadDynamicBubbles();
 
+    // Ana ekran tam bərpə edilsin
+showCenterElements();
+
+// Input-u tam sıfırla
+input.value = "";
+input.style.height = "44px";
+input.style.overflowY = "hidden";
+
+// Send düyməsi gizlensin, default görünüş qayıtsın
+if (sendBtn) sendBtn.style.display = "none";
+
     // ... (kodun qalan hissəsi eynilə qalır)
 
     const notice = document.createElement("div");
-    notice.textContent = "💬 Yeni söhbət üçün hazırsan 😎";
-    Object.assign(notice.style, {
-      position: "fixed",
-      bottom: "100px",
-      left: "50%",
-      transform: "translateX(-50%)",
-      background: "linear-gradient(135deg,#2d6bff,#60a5ff)",
-      color: "#fff",
-      padding: "12px 20px",
-      borderRadius: "12px",
-      fontFamily: "'Poppins',sans-serif",
-      zIndex: "999",
-      opacity: "0",
-      transition: "opacity 0.4s ease",
-    });
+    notice.textContent = "💬 İndi keçək digər mövzuya 😎";
+Object.assign(notice.style, {
+  position: "fixed",
+  bottom: getPopupPosition() + "px",
+  left: "50%",
+  transform: "translateX(-50%)",
+
+  /* 🧊 Liquid Glass Background */
+  background: "rgba(28, 60, 130, 0.35)",
+  backdropFilter: "blur(14px) saturate(180%)",
+  WebkitBackdropFilter: "blur(14px) saturate(180%)",
+
+  /* ✨ Subtle Blue Glow */
+  boxShadow:
+    "0 6px 22px rgba(45,107,255,0.38), inset 0 0 0 1px rgba(255,255,255,0.22)",
+
+  border: "1px solid rgba(255,255,255,0.18)",
+
+  /* 🎨 Typography */
+  color: "#fff",
+  padding: "14px 24px",
+  borderRadius: "22px",
+  fontFamily: "'Poppins', sans-serif",
+  fontWeight: "500",
+  fontSize: "15px",
+  letterSpacing: "0.2px",
+
+  /* 🎬 Animation */
+  opacity: "0",
+  transformOrigin: "center",
+  transition: "all 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
+  zIndex: "999"
+});
+
     document.body.appendChild(notice);
-    setTimeout(() => (notice.style.opacity = "1"), 80);
     setTimeout(() => {
-      notice.style.opacity = "0";
-      setTimeout(() => notice.remove(), 600);
-    }, 2200);
+  notice.style.opacity = "1";
+  notice.style.transform = "translateX(-50%) translateY(-4px)";
+}, 60);
+
+setTimeout(() => {
+  notice.style.opacity = "0";
+  notice.style.transform = "translateX(-50%) translateY(6px)";
+  setTimeout(() => notice.remove(), 450);
+}, 2400);
+
   });
 }
 
@@ -652,3 +724,24 @@ window.addEventListener("DOMContentLoaded", () => {
     hideCenterElements();
   }
 });
+
+const userInput = document.getElementById("user-input");
+const sendBtn = document.getElementById("send-btn");
+
+function updateSendButton() {
+  const text = userInput.value.trim();
+
+  if (text.length > 0) {
+    // ✨ İstifadəçi nəsə yazır → send button görünür
+    sendBtn.style.display = "flex";
+  } else {
+    // ✨ Yazı boşdur → send button gizlənir
+    sendBtn.style.display = "none";
+  }
+}
+
+// 🔥 Input dəyişdikcə UI yenilənir
+userInput.addEventListener("input", updateSendButton);
+
+// 🔄 Səhifə yenilənəndə də yoxlanır (send default olaraq gizli qalır)
+document.addEventListener("DOMContentLoaded", updateSendButton);
