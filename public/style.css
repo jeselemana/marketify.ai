@@ -1400,3 +1400,184 @@ hr.custom-divider::after {
     color: rgba(255, 255, 255, 1);
   }
 }
+
+/* style.css */
+
+/* Gizlədilmiş Bubbles üçün sinif */
+.prompt-bubbles.hidden-bubbles {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px); /* Aşağı sürüşərək itir */
+  pointer-events: none; /* Kliklənməni ləğv edir */
+}
+
+/* Bubbles üçün keçid effektini təmin etmək üçün mövcud koda əlavə */
+.prompt-bubbles {
+  /* Mövcud kodların qalır, sadəcə bu sətri əlavə et və ya yoxla: */
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
+}
+
+/* style.css */
+
+/* 1. Input bar-da elementləri aşağıya (bottom) hizalayırıq */
+.input-bar {
+  align-items: flex-end; /* Düymə həmişə aşağıda qalsın */
+  padding: 10px 14px; /* Padding-i sabit saxlayırıq */
+  transition: all 0.2s ease;
+}
+
+/* 2. Textarea üçün yeni stil */
+#user-input {
+  flex: 1;
+  background: transparent !important;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 15px;
+  font-family: "Poppins", sans-serif;
+  
+  resize: none; /* İstifadəçi əli ilə dartıb uzada bilməsin */
+  overflow-y: hidden; /* Scrollbar görünməsin */
+  min-height: 24px; /* Başlanğıc hündürlük */
+  max-height: 120px; /* Maksimum uzanma hündürlüyü (çox böyük olmasın) */
+  line-height: 1.5;
+  padding: 0; /* Padding-i wrapper həll edir */
+  margin-bottom: 2px; /* Mətni vizual mərkəzləşdirmək üçün */
+}
+
+/* Scrollbar yalnız max-height keçiləndə görünsün */
+#user-input.scrolling {
+  overflow-y: auto;
+}
+
+/* Düyməni bir az qaldıraq ki, tək sətirdə tam mərkəz görünsün */
+.send {
+  margin-bottom: 2px;
+}
+
+/* --- MULTI-LINE INPUT FIX --- */
+
+/* 1. Input bar elementlərini aşağıya hizalayırıq */
+.input-bar {
+  align-items: flex-end !important; /* Düymə həmişə aşağıda qalsın */
+  padding: 10px 14px; /* Padding-i qoruyuruq */
+  transition: all 0.2s ease;
+  min-height: 66px; /* Orijinal hündürlüyü qorumaq üçün */
+}
+
+/* 2. Textarea tənzimləmələri */
+#user-input {
+  flex: 1;
+  background: transparent !important;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 15px;
+  font-family: "Poppins", sans-serif;
+  
+  resize: none; /* İstifadəçi əli ilə dartıb uzada bilməsin */
+  overflow-y: hidden; /* Scrollbar əvvəlcə gizli olsun */
+  
+  min-height: 24px; /* Başlanğıc mətn hündürlüyü */
+  max-height: 140px; /* Maksimum uzanma hündürlüyü (təxminən 5-6 sətir) */
+  line-height: 1.5;
+  
+  padding: 10px 0 2px 0; /* Mətni vizual mərkəzləşdirmək üçün */
+  margin-bottom: 0;
+}
+
+/* 3. Göndər düyməsini vizual olaraq aşağıda mərkəzləşdiririk */
+.send {
+  margin-bottom: 2px; /* Textarea-nın son sətri ilə eyni səviyyədə olması üçün */
+  height: 44px; /* Orijinal hündürlük */
+}
+
+/* --- FIXED INPUT BAR --- */
+
+.input-bar {
+  display: flex;
+  align-items: flex-end; /* Elementləri aşağıdan hizalayırıq */
+  padding: 10px 14px;
+  background: rgba(30, 30, 30, 0.9); /* Orijinal fon */
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 1px solid rgba(80, 80, 80, 0.4);
+  min-height: 64px; /* Sabit minimal hündürlük */
+  transition: all 0.2s ease;
+}
+
+#user-input {
+  flex: 1;
+  background: transparent !important;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 15px;
+  font-family: "Poppins", sans-serif;
+  
+  resize: none; 
+  overflow-y: hidden;
+  
+  /* ✅ ƏSAS DÜZƏLİŞ: Hündürlüyü düymə (44px) ilə eyniləşdiririk */
+  height: 44px; 
+  min-height: 44px;
+  max-height: 140px; 
+  
+  /* Mətni şaquli mərkəzləşdirmək üçün padding */
+  padding: 10px 4px; 
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+
+/* Düymənin yerini sabit saxlayırıq */
+.send {
+  height: 44px;
+  width: 44px;
+  margin-bottom: 0; /* Aşağıdan yapışdırırıq */
+  flex-shrink: 0; /* Düymə sıxılmasın */
+}
+
+/* --- FIXED ALIGNMENT --- */
+
+.input-bar {
+  display: flex;
+  align-items: flex-end; /* Elementləri aşağıda saxlayır */
+  justify-content: space-between;
+  
+  /* Padding-i bir az tənzimləyirik */
+  padding: 10px 14px 10px 14px; 
+  
+  background: rgba(30, 30, 30, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 1px solid rgba(80, 80, 80, 0.4);
+  min-height: 64px;
+  transition: all 0.2s ease;
+}
+
+.send {
+  height: 44px;
+  width: 44px;
+  
+  /* ✅ ƏSAS HƏLL: Düyməni 3px yuxarı qaldırırıq */
+  margin-bottom: 3px; 
+  
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* Digər stillər olduğu kimi qalır */
+  background: #0a32f0;
+  border: none;
+  color: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Hover effekti */
+.send:hover {
+  background: #4c7eff;
+  box-shadow: 0 0 12px rgba(74, 120, 255, 0.4);
+}

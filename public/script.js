@@ -238,14 +238,18 @@ async function sendMessage(message) {
   }
 }
 
-// ✉️ Form göndərilməsi
+// Mövcud Form Submit Kodunuzu bu şəkildə yeniləyin:
 if (form && input) {
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const msg = input.value.trim();
     if (!msg) return;
     sendMessage(msg);
+    
+    // ✅ YENİ: Mesaj göndəriləndə inputu əvvəlki halına qaytar
     input.value = "";
+    input.style.height = "auto"; 
+    input.style.overflowY = "hidden";
   });
 
   input.addEventListener("keydown", (e) => {
@@ -254,7 +258,11 @@ if (form && input) {
       const msg = input.value.trim();
       if (!msg) return;
       sendMessage(msg);
+      
+      // ✅ YENİ: Enter basılanda da sıfırla
       input.value = "";
+      input.style.height = "auto";
+      input.style.overflowY = "hidden";
     }
   });
 }
@@ -285,6 +293,8 @@ if (confirmNo) {
   });
 }
 
+/* script.js - Təxminən sətir 280 civarı */
+
 if (confirmYes) {
   confirmYes.addEventListener("click", async (e) => {
     e.preventDefault();
@@ -295,12 +305,18 @@ if (confirmYes) {
     
     // Ana ekranı qaytar
     center.style.display = "flex";
+
+    // ✅ BU SƏTRİ ƏLAVƏ ET: Bubbles gizlidirsə, mütləq görünsün
+    const pContainer = document.querySelector(".prompt-bubbles");
+    if(pContainer) pContainer.classList.remove("hidden-bubbles");
     
-    // ✅ DÜYMƏNİ GİZLƏT (Fade-out)
+    // Düyməni gizlət
     if (clearBtn) clearBtn.classList.remove("show");
 
     // Bubbles-ları yenidən yüklə
     loadDynamicBubbles();
+
+    // ... (kodun qalan hissəsi eynilə qalır)
 
     const notice = document.createElement("div");
     notice.textContent = "💬 Yeni söhbət üçün hazırsan 😎";
@@ -508,5 +524,131 @@ document.addEventListener("DOMContentLoaded", () => {
     modelBtn.addEventListener("click", () => {
       tooltip.classList.remove("show");
     });
+  }
+});
+
+/* script.js */
+
+// 1. Elementləri seçirik
+const promptContainer = document.querySelector(".prompt-bubbles");
+const userInputField = document.getElementById("user-input");
+
+// 2. Input sahəsini dinləyirik
+if (userInputField && promptContainer) {
+  userInputField.addEventListener("input", () => {
+    // Əgər inputda boşluqdan başqa simvol varsa, bubbles gizlənsin
+    if (userInputField.value.trim().length > 0) {
+      promptContainer.classList.add("hidden-bubbles");
+    } else {
+      // Input boşdursa, bubbles geri qayıtsın
+      promptContainer.classList.remove("hidden-bubbles");
+    }
+  });
+}
+
+/* ============================================
+   🔄 INPUT RESET FIX (script.js - mövcud hissəni yeniləyin)
+============================================ */
+
+if (form && input) {
+  // 1. Submit (Göndər düyməsi)
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const msg = input.value.trim();
+    if (!msg) return;
+    sendMessage(msg);
+    
+    // ✅ DÜZƏLİŞ: Inputu təmizlə və hündürlüyü standart (44px) hala qaytar
+    input.value = "";
+    input.style.height = "44px"; 
+    input.style.overflowY = "hidden";
+  });
+
+  // 2. Enter düyməsi
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const msg = input.value.trim();
+      if (!msg) return;
+      sendMessage(msg);
+      
+      // ✅ DÜZƏLİŞ: Burda da eyni qaydanı tətbiq edirik
+      input.value = "";
+      input.style.height = "44px";
+      input.style.overflowY = "hidden";
+    }
+  });
+
+  // 3. Avto-böyümə funksiyası (Bunu olduğu kimi saxlayın və ya əlavə edin)
+  input.addEventListener("input", function() {
+    this.style.height = "44px"; // Öncə sıfırlayırıq ki, azaldanda kiçilsin
+    this.style.height = (this.scrollHeight) + "px"; // Sonra mətnə görə böyüdürük
+    
+    if (this.scrollHeight > 140) {
+      this.style.overflowY = "auto";
+    } else {
+      this.style.overflowY = "hidden";
+    }
+  });
+}
+
+/* ============================================
+   BRAND + TAGLINE + BUBBLES AUTO-HIDE SYSTEM
+============================================ */
+
+// Elementlər
+const brandTitle = document.querySelector(".brand-sub");  // Marketify AI
+const tagline = document.querySelector(".tagline");        // Tagline
+const promptBubbles = document.querySelector(".prompt-bubbles"); // Bubbles
+
+// Funksiya: Hamısını gizlət
+function hideCenterElements() {
+  if (brandTitle) brandTitle.style.display = "none";
+  if (tagline) tagline.style.display = "none";
+  if (promptBubbles) promptBubbles.style.display = "none";
+}
+
+// Funksiya: Hamısını göstər
+function showCenterElements() {
+  if (brandTitle) brandTitle.style.display = "block";
+  if (tagline) tagline.style.display = "block";
+  if (promptBubbles) {
+    promptBubbles.style.display = "flex";
+    loadDynamicBubbles(); // yenidən bubble-lar gəlir
+  }
+}
+
+// 1) İstifadəçi inputa yazanda gizlənsin
+input.addEventListener("input", () => {
+  if (input.value.trim().length > 0) {
+    hideCenterElements();
+  } else {
+    // input boşdursa göstər
+    if (chatBox.children.length === 0) {
+      showCenterElements();
+    }
+  }
+});
+
+// 2) Mesaj göndəriləndə gizli qalsın
+form.addEventListener("submit", () => {
+  hideCenterElements();
+});
+
+// 3) Chat təmizlənəndə yenidən görünsün  (clearChat artıq var – bunu genişləndiririk)
+if (confirmYes) {
+  confirmYes.addEventListener("click", () => {
+    setTimeout(() => {
+      showCenterElements();
+    }, 50);
+  });
+}
+
+// 4) Səhifə yenilənəndə – əgər chat boşdursa, göstər
+window.addEventListener("DOMContentLoaded", () => {
+  if (chatBox.children.length === 0) {
+    showCenterElements();
+  } else {
+    hideCenterElements();
   }
 });
