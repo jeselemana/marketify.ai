@@ -427,7 +427,7 @@ function showShakePrompt() {
   document.getElementById("shakeYes").addEventListener("click", () => {
     popup.remove();
     window.location.href =
-      "mailto:supp.marketifym@gmail.com?subject=Marketify%202.0%20Xəta&body=Salam,%20saytda%20qarşılaşdığım%20xəta%20barədə:";
+      "mailto:contact@marketify-ai.com?subject=Marketify%202.0%20Xəta&body=Salam,%20saytda%20qarşılaşdığım%20xəta%20barədə:";
   });
   document.getElementById("shakeNo").addEventListener("click", () => popup.remove());
   setTimeout(() => popup.remove(), 8000);
