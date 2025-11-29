@@ -836,3 +836,83 @@ function disableSendBtn() {
   sendBtn.classList.add("disabled");
   sendBtn.disabled = true;
 }
+
+window.addEventListener("load", async function () {
+  // 1. Clerk-i yoxla (Kitabxana yüklənibmi?)
+  if (!window.Clerk) {
+    console.error("Clerk kitabxanası tapılmadı! HTML-də script teqini yoxla.");
+    return;
+  }
+
+  // ▼ AZƏRBAYCAN DİLİ TƏRCÜMƏLƏRİ 🇦🇿
+  const azLocal = {
+    socialButtonsBlockButton: "{{provider|titleize}} ilə davam et",
+    dividerText: "və ya",
+    formFieldLabel__emailAddress: "Email ünvanı",
+    formFieldLabel__password: "Şifrə",
+    formFieldInputPlaceholder__emailAddress: "nümunə@mail.com",
+    formButtonPrimary: "Davam et",
+    
+    signIn: {
+      start: {
+        title: "Daxil ol",
+        subtitle: "Marketify AI-a xoş gəldin! 👋",
+        actionText: "Hesabın yoxdur?",
+        actionLink: "Qeydiyyatdan keç",
+      },
+      password: {
+        title: "Şifrəni daxil et",
+        subtitle: "Giriş etmək üçün şifrəni yaz",
+      }
+    },
+    signUp: {
+      start: {
+        title: "Qeydiyyat",
+        subtitle: "Yeni hesab yarat və başla 🚀",
+        actionText: "Artıq hesabın var?",
+        actionLink: "Daxil ol",
+      },
+    },
+    userProfile: {
+        mobileButton__signOut: "Çıxış et",
+        navbar: {
+            title: "Profil",
+            description: "Hesabını idarə et",
+            security: "Təhlükəsizlik",
+        }
+    }
+  };
+
+  // 2. Clerk-i YÜKLƏ (Dil paketi ilə birlikdə)
+  await Clerk.load({
+    localization: azLocal
+  });
+
+  // 3. Yoxla: Adam giriş edib, yoxsa yox?
+  if (Clerk.user) {
+    // 🟢 Adam giriş edib!
+    console.log("İstifadəçi: ", Clerk.user.firstName);
+    
+    // Login düyməsini gizlət
+    const authBtnDiv = document.getElementById("auth-button-div");
+    if(authBtnDiv) authBtnDiv.innerHTML = ""; 
+
+    // Profil düyməsini göstər
+    const userBtnDiv = document.getElementById("user-button-div");
+    if(userBtnDiv) Clerk.mountUserButton(userBtnDiv);
+
+  } else {
+    // 🔴 Adam giriş etməyib
+    const userBtnDiv = document.getElementById("user-button-div");
+    if(userBtnDiv) userBtnDiv.innerHTML = "";
+
+    // "Daxil ol" düyməsini yarat və qoy
+    const authBtnDiv = document.getElementById("auth-button-div");
+    if (authBtnDiv) {
+      const btn = document.createElement("button");
+      btn.innerText = "Daxil ol"; // Düymənin üzərindəki yazı
+      btn.onclick = () => Clerk.openSignIn(); 
+      authBtnDiv.appendChild(btn);
+    }
+  }
+});

@@ -1703,3 +1703,90 @@ hr.custom-divider::after {
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
+
+/* 🌐 Social Pill Container (Yenilənmiş - Daha yığcam) */
+.social-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  
+  /* 👇 ENİ AZALDIRIQ: Kənarlardan 45px boşluq veririk */
+  margin: 12px 45px 8px 45px; 
+  
+  /* 👇 HÜNDÜRLÜYÜ AZALDIRIQ: Daha nazik olsun */
+  padding: 6px 0;
+  
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px; /* Küncləri biraz daha yumşaltdım */
+  backdrop-filter: blur(10px);
+}
+
+/* İkonların özü */
+.social-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: rgba(255, 255, 255, 0.6); /* Default rəng (boz) */
+  transition: all 0.3s ease;
+  border-radius: 8px;
+}
+
+.social-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Hover Effektləri (Marketify Blue Glow) */
+.social-icon:hover {
+  color: #fff;
+  background: rgba(45, 107, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(45, 107, 255, 0.3);
+}
+
+/* Aradakı şaquli xətlər (Separators) */
+.social-sep {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1); /* Çox solğun xətt */
+}
+
+/* ▼ CLERK AUTH - EKRANIN SAĞ KÜNCÜNƏ MIXLAMAQ */
+#auth-wrapper {
+  position: fixed; /* Ekranın özünə görə yerləşir */
+  top: 20px;       /* Yuxarıdan 20px aşağı */
+  right: 20px;     /* Sağdan 20px sola */
+  z-index: 9999;   /* Hər şeyin, hətta header-in də üstündə olsun */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Əgər Zibil qabı (Clear button) düymənin altında qalırsa,
+   Zibil qabını bir az sola çəkək: */
+.clear-btn {
+  margin-right: 120px; /* Login düyməsinə yer açırıq */
+  /* Əgər clear-btn-də position: absolute varsa, right: 140px; elə */
+}
+
+/* Login düyməsinin dizaynı (Dəyişmir) */
+#auth-button-div button {
+  background: #2D6BFF;
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(45, 107, 255, 0.4);
+  font-family: 'Poppins', sans-serif;
+  transition: all 0.2s ease;
+}
+
+#auth-button-div button:hover {
+  background: #1a54e0;
+  transform: translateY(-2px);
+}
