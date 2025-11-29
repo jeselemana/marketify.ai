@@ -210,7 +210,7 @@ function typeText(el, text, speed = 18) {
   }, speed);
 }
 
-// 🚀 SEND MESSAGE FUNKSİYASI (Düzəldilmiş Versiya)
+// 🚀 SEND MESSAGE FUNKSİYASI (YADDAŞ INTEQRASİYASI İLƏ 🧠)
 async function sendMessage(message) {
   if (!message.trim()) return;
   
@@ -223,12 +223,22 @@ async function sendMessage(message) {
   addMessage("user", message);
   const typing = showTyping();
 
+  // ▼ ▼ ▼ YADDAŞ MƏNTİQİ (YENİ HİSSƏ) ▼ ▼ ▼
+  const savedMemory = localStorage.getItem('marketify_memory');
+  let finalMessageToSend = message;
+
+  // Əgər istifadəçi yaddaşa nəsə yazıbsa, onu mesajın əvvəlinə gizli şəkildə əlavə edirik
+  if (savedMemory && savedMemory.trim() !== "") {
+    finalMessageToSend = `[Sistem Təlimatı / İstifadəçi Konteksti: ${savedMemory}]\n\nİstifadəçinin Mesajı: ${message}`;
+  }
+  // ▲ ▲ ▲ ▲ ▲ ▲
+
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        message,
+        message: finalMessageToSend, // Bura artıq "yaddaşlı" mesaj gedir
         model: selectedModel
       }),
     });
@@ -249,7 +259,7 @@ async function sendMessage(message) {
       .replace(/^>\s?/gm, "")
       .replace(/^-\s+/gm, "");
 
-
+    // Azərbaycan dilində kiçik düzəlişlər (Tone of Voice)
     reply = reply
       .replaceAll("İlk olaraq,", "Başlayaq belə:")
       .replaceAll("Bu addımları izləyə bilərsən", "Gəlin birlikdə baxaq 👇")
@@ -915,4 +925,28 @@ window.addEventListener("load", async function () {
       authBtnDiv.appendChild(btn);
     }
   }
+});
+
+// ▼ YADDAŞ SİSTEMİ (MEMORY SYSTEM)
+const memoryBtn = document.getElementById('memoryBtn');
+const memoryModal = document.getElementById('memoryModal');
+const closeMemory = document.getElementById('closeMemory');
+const saveMemoryBtn = document.getElementById('saveMemoryBtn');
+const memoryInput = document.getElementById('memoryInput');
+
+// 1. Modalı açanda köhnə yaddaşı gətir
+memoryBtn.addEventListener('click', () => {
+    const savedMemory = localStorage.getItem('marketify_memory') || "";
+    memoryInput.value = savedMemory;
+    memoryModal.classList.add('show');
+});
+
+// 2. Modalı bağla
+closeMemory.addEventListener('click', () => memoryModal.classList.remove('show'));
+
+// 3. Yadda saxla düyməsi
+saveMemoryBtn.addEventListener('click', () => {
+    localStorage.setItem('marketify_memory', memoryInput.value);
+    memoryModal.classList.remove('show');
+    // İstifadəçiyə kiçik bir "yadda saxlandı" mesajı da verə bilərsən (alert və ya toast)
 });
