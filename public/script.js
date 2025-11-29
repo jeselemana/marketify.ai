@@ -848,13 +848,13 @@ function disableSendBtn() {
 }
 
 window.addEventListener("load", async function () {
-  // 1. Clerk-i yoxla (Kitabxana yüklənibmi?)
+  // 1. Clerk-i yoxla
   if (!window.Clerk) {
-    console.error("Clerk kitabxanası tapılmadı! HTML-də script teqini yoxla.");
+    console.error("Clerk tapılmadı!");
     return;
   }
 
-  // ▼ AZƏRBAYCAN DİLİ TƏRCÜMƏLƏRİ 🇦🇿
+  // Azərbaycan dili paketi
   const azLocal = {
     socialButtonsBlockButton: "{{provider|titleize}} ilə davam et",
     dividerText: "və ya",
@@ -862,91 +862,58 @@ window.addEventListener("load", async function () {
     formFieldLabel__password: "Şifrə",
     formFieldInputPlaceholder__emailAddress: "nümunə@mail.com",
     formButtonPrimary: "Davam et",
-    
     signIn: {
-      start: {
-        title: "Daxil ol",
-        subtitle: "Marketify AI-a xoş gəldin! 👋",
-        actionText: "Hesabın yoxdur?",
-        actionLink: "Qeydiyyatdan keç",
-      },
-      password: {
-        title: "Şifrəni daxil et",
-        subtitle: "Giriş etmək üçün şifrəni yaz",
-      }
+      start: { title: "Daxil ol", subtitle: "Marketify AI-a xoş gəldin! 👋", actionText: "Hesabın yoxdur?", actionLink: "Qeydiyyatdan keç" },
+      password: { title: "Şifrəni daxil et", subtitle: "Giriş etmək üçün şifrəni yaz" }
     },
     signUp: {
-      start: {
-        title: "Qeydiyyat",
-        subtitle: "Yeni hesab yarat və başla 🚀",
-        actionText: "Artıq hesabın var?",
-        actionLink: "Daxil ol",
-      },
+      start: { title: "Qeydiyyat", subtitle: "Yeni hesab yarat və başla 🚀", actionText: "Artıq hesabın var?", actionLink: "Daxil ol" }
     },
     userProfile: {
         mobileButton__signOut: "Çıxış et",
-        navbar: {
-            title: "Profil",
-            description: "Hesabını idarə et",
-            security: "Təhlükəsizlik",
-        }
+        navbar: { title: "Profil", description: "Hesabını idarə et", security: "Təhlükəsizlik" }
     }
   };
 
-  // 2. Clerk-i YÜKLƏ (Dil paketi ilə birlikdə)
-  await Clerk.load({
-    localization: azLocal
-  });
+  // 2. Clerk-i Yüklə
+  await Clerk.load({ localization: azLocal });
 
-  // 3. Yoxla: Adam giriş edib, yoxsa yox?
+  // Yaddaş düyməsini seçirik
+  const memoryBtn = document.getElementById('memoryBtn');
+
+  // 3. Yoxla: Adam giriş edib?
   if (Clerk.user) {
-    // 🟢 Adam giriş edib!
+    // 🟢 GİRİŞ EDİB
     console.log("İstifadəçi: ", Clerk.user.firstName);
     
-    // Login düyməsini gizlət
+    // 1. Yaddaş düyməsini GÖSTƏR 🔥
+    if(memoryBtn) memoryBtn.style.display = "flex";
+
+    // 2. Login düyməsini gizlət
     const authBtnDiv = document.getElementById("auth-button-div");
     if(authBtnDiv) authBtnDiv.innerHTML = ""; 
 
-    // Profil düyməsini göstər
+    // 3. Profil düyməsini göstər
     const userBtnDiv = document.getElementById("user-button-div");
     if(userBtnDiv) Clerk.mountUserButton(userBtnDiv);
 
   } else {
-    // 🔴 Adam giriş etməyib
+    // 🔴 GİRİŞ ETMƏYİB (Qonaq)
+    
+    // 1. Yaddaş düyməsini GİZLƏT 🚫
+    if(memoryBtn) memoryBtn.style.display = "none";
+
+    // 2. Profil yerini təmizlə
     const userBtnDiv = document.getElementById("user-button-div");
     if(userBtnDiv) userBtnDiv.innerHTML = "";
 
-    // "Daxil ol" düyməsini yarat və qoy
+    // 3. Login düyməsini qoy
     const authBtnDiv = document.getElementById("auth-button-div");
     if (authBtnDiv) {
       const btn = document.createElement("button");
-      btn.innerText = "Daxil ol"; // Düymənin üzərindəki yazı
+      btn.innerText = "Daxil ol"; 
       btn.onclick = () => Clerk.openSignIn(); 
       authBtnDiv.appendChild(btn);
     }
   }
-});
-
-// ▼ YADDAŞ SİSTEMİ (MEMORY SYSTEM)
-const memoryBtn = document.getElementById('memoryBtn');
-const memoryModal = document.getElementById('memoryModal');
-const closeMemory = document.getElementById('closeMemory');
-const saveMemoryBtn = document.getElementById('saveMemoryBtn');
-const memoryInput = document.getElementById('memoryInput');
-
-// 1. Modalı açanda köhnə yaddaşı gətir
-memoryBtn.addEventListener('click', () => {
-    const savedMemory = localStorage.getItem('marketify_memory') || "";
-    memoryInput.value = savedMemory;
-    memoryModal.classList.add('show');
-});
-
-// 2. Modalı bağla
-closeMemory.addEventListener('click', () => memoryModal.classList.remove('show'));
-
-// 3. Yadda saxla düyməsi
-saveMemoryBtn.addEventListener('click', () => {
-    localStorage.setItem('marketify_memory', memoryInput.value);
-    memoryModal.classList.remove('show');
-    // İstifadəçiyə kiçik bir "yadda saxlandı" mesajı da verə bilərsən (alert və ya toast)
 });
