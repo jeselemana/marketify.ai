@@ -752,14 +752,34 @@ if (confirmYes) {
   });
 }
 
+/* ============================================
+   STATİK YENİ SÖHBƏT BAŞLIĞI
+============================================ */
 const newTitle = document.querySelector(".new-dynamic-title");
-const newDynamic = document.getElementById("newDynamicWord");
-const dynamicWords = [
-  "Söhbət", "Başlanğıc", "İdeyalar", "Fikirlər", "Strategiya",
-  "Kontent", "Dövr", "İdarəçilik", "Müzakirə", "Yaradıcılıq"
-];
 
-let dynamicIndex = 0;
+/* SHOW/HIDE Məntiqi */
+if (input && newTitle) {
+  input.addEventListener("input", () => {
+    if (input.value.trim().length > 0) {
+      // Yazı yazılanda "Yeni Söhbət" çıxır
+      newTitle.classList.add("show");
+
+      // Digər elementləri gizlədirik
+      if(brandTitle) brandTitle.style.opacity = "0";
+      if(tagline) tagline.style.opacity = "0";
+    } else {
+      // Yazı silinəndə "Yeni Söhbət" gizlənir
+      newTitle.classList.remove("show");
+
+      // Chat boşdursa Marketify AI geri qayıdır
+      if (chatBox.children.length === 0) {
+        if(brandTitle) brandTitle.style.opacity = "1";
+        if(tagline) tagline.style.opacity = "1";
+      }
+    }
+  });
+}
+
 
 /* SHOW/HIDE */
 input.addEventListener("input", () => {
