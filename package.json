@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^4.13.23",
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.84.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
