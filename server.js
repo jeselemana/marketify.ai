@@ -2,7 +2,6 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import { OpenAI } from "openai";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import fetch from "node-fetch";
 import nodemailer from "nodemailer";
 import fs from "fs";
@@ -23,9 +22,6 @@ app.use(express.static("public"));
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-// Gemini Client
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // 🧠 Data qovluğu və fayllar
 const DATA_DIR = path.join(__dirname, "data");
@@ -410,94 +406,42 @@ const INTENT_LABELS = {
 
       return res.json({ reply: finalText });
     }
-// ... (Yuxarıda Local Model kodu qalır) ...
 
-    // 👇 Ümumi System Prompt (Hər iki model üçün)
-    const systemInstructionText = `
+    // 👇 GPT-4o üçün system prompt → brend tonu
+     const systemPrompt = {
+      role: "system",
+      content: `
+
 **Sən Innova Group adlı SaaS-a məxsus Marketify AI platformasının əsas modelisən.**
 
-🌍 DİL STRATEGİYASI:
-1. İstifadəçinin dilini təyin et (AZ, TR, EN, RU).
-2. Cavabları həmin dildə ver.
+🌍 DİL STRATEGİYASI (ÇOX VACİB):
+1. **Dili Təyin Et:** İstifadəçinin yazdığı dili dərhal müəyyən et (AZ, TR, EN, RU və s.).
+2. **Dili Uyğunlaşdır:** Bütün cavabları (hətta özün haqqında məlumatı da) MÜTLƏQ istifadəçinin dilində ver.
+3. **Özünü Təqdimat:** Əgər istifadəçi "Sən kimsən?", "Nə edirsən?" soruşsa, bu cavabı onun dilinə tərcümə et:
+   - 🇦🇿 AZ: "Mən Innova Group adlı SaaS-a məxsus Marketify AI platformasının əsas modeliyəm..."
+   - 🇹🇷 TR: "Ben Innova Group adlı SaaS şirketine ait Marketify AI platformunun ana modeliyim..."
+   - 🇬🇧 EN: "I am the main model of the Marketify AI platform, which belongs to a SaaS company called Innova Group..."
+   - 🇷🇺 RU: "Я являюсь основной моделью платформы Marketify AI, которая принадлежит SaaS-компании Innova Group..."
 
 💬 TON VƏ ÜSLUB:
-- Səmimi, müasir, "cool" 😎
-- Emojilərdən istifadə et.
-- Marketinq terminlərini düzgün işlət.
+- Səmimi, "cool" və müasir ol 😎
+- Rəsmiyyətdən uzaq dur, amma səviyyəni qoru.
+- Emojilərdən yerində istifadə et 😊
 
-⚠️ NÜANSLAR:
-- 🇦🇿 AZ: Təmiz Azərbaycan dili (Türkcə qatışdırma).
-- 🇹🇷 TR: Axıcı İstanbul türkcəsi.
-    `;
+⚠️ DİLƏ ÖZƏL NÜANSLAR:
+- **Azərbaycan dili:** Təmiz Azərbaycan dili. Türkiyə türkcəsi qatışdırma (Xüsusilə "yapıyor", "ediyor" kimi sözlər olmaz ❌).
+- **Türk dili:** Təbii, axıcı İstanbul türkcəsi (Səmimi: "Aynen", "Süper", "Hallederiz" ✅).
+- **English/Russian:** Friendly, creative, concise.
 
-    // ---------------------------------------------------------
-    // 💎 GEMINI MODEL INTEQRASIYASI (YENİ)
-    // ---------------------------------------------------------
-    if (selectedModel.startsWith("gemini")) {
-      console.log("💎 Gemini Model aktivdir:", selectedModel);
-
-      try {
-        // 1. Modeli seçirik (gemini-1.5-pro və ya flash)
-        // QEYD: API-da hələ "gemini-3.0" adı rəsmi olmaya bilər, 
-        // ona görə ən güclü versiya olan 'gemini-1.5-pro-latest' işlədirik.
-        // Google 3.0-ı buraxanda burdakı adı dəyişəcəyik.
-        // 🔥 YENİ: Gemini 3.0 Pro Preview
-const model = genAI.getGenerativeModel({ 
-    model: "gemini-3-pro-preview", 
-    systemInstruction: systemInstructionText 
-});
-
-        // 2. Tarixçəni Gemini formatına çeviririk (OpenAI formatı fərqlidir)
-        // OpenAI: { role: 'user'/'assistant' } 
-        // Gemini: { role: 'user'/'model' }
-        const geminiHistory = conversationHistory.map(msg => ({
-            role: msg.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: msg.content }]
-        }));
-
-        // 3. Çatı başladırıq
-        const chat = model.startChat({
-            history: geminiHistory,
-            generationConfig: {
-                maxOutputTokens: 1000,
-                temperature: 0.4,
-            },
-        });
-
-        // 4. Mesajı göndəririk
-        const result = await chat.sendMessage(userMessage);
-        const responseText = result.response.text();
-
-        // Tarixçəni serverdə yeniləyirik
-        conversationHistory.push({ role: "assistant", content: responseText });
-        
-        // Brain-i öyrədirik
-        learnFromGPT(userMessage, responseText, intent);
-
-        return res.json({ reply: responseText });
-
-      } catch (geminiError) {
-        console.error("Gemini API Error:", geminiError);
-        return res.json({ reply: "Gemini serverində xəta oldu, amma mən burdayam! 😅" });
-      }
-    }
-
-    // ---------------------------------------------------------
-    // 🟢 OPENAI (GPT) KODU (MÖVCUD OLAN)
-    // ---------------------------------------------------------
-    
-    // System Prompt Obyekti
-    const systemPrompt = {
-      role: "system",
-      content: systemInstructionText
+Missiya: İstifadəçinin dilində danışan, kreativ və ağıllı köməkçi olmaq.
+      `,
     };
-
-    let messagesToSend = [systemPrompt, ...conversationHistory];
-
-    // ... (GPT-4o sorğu kodu olduğu kimi qalır) ...
 
     // 🔥 SYSTEM PROMPT seçimi
 let finalSystemPrompt = systemPrompt;
+
+// 🔥 Mesaj strukturu
+let messagesToSend = [];
 
 // 🔥 Model konfiqurasiyası
 let settings = {
