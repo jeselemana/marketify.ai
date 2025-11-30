@@ -441,10 +441,11 @@ const INTENT_LABELS = {
         // QEYD: API-da hələ "gemini-3.0" adı rəsmi olmaya bilər, 
         // ona görə ən güclü versiya olan 'gemini-1.5-pro-latest' işlədirik.
         // Google 3.0-ı buraxanda burdakı adı dəyişəcəyik.
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-pro", 
-            systemInstruction: systemInstructionText 
-        });
+        // 🔥 YENİ: Gemini 3.0 Pro Preview
+const model = genAI.getGenerativeModel({ 
+    model: "gemini-3-pro-preview", 
+    systemInstruction: systemInstructionText 
+});
 
         // 2. Tarixçəni Gemini formatına çeviririk (OpenAI formatı fərqlidir)
         // OpenAI: { role: 'user'/'assistant' } 
