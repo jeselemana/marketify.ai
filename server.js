@@ -9,7 +9,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 // ====== ANALYTICS RATE LIMIT (20 requests/day per user) ======
-const analyticsLimits = new Map(); 
+const analyticsLimits = new Map();
 
 function canUseAnalytics(userId) {
   const today = new Date().toDateString();
@@ -91,7 +91,7 @@ function safeSaveJSON(filePath, data) {
   }
 }
 
-// 🧠 HİBRİD INTENT ENGINE — əvvəl local semantic, tapmasa GPT
+// 🧠 HİBRİD INTENT ENGINE — əvvəl local semantic, tapmasa GPT-4o-mini
 async function detectIntent(message) {
   const msg = message.toLowerCase();
 
@@ -106,7 +106,7 @@ async function detectIntent(message) {
       "reklam sloqanı",
       "brand slogan",
       "marka sloqanı",
-      "şüar tap"
+      "şüar tap",
     ],
     budget: [
       "büdcə",
@@ -118,7 +118,7 @@ async function detectIntent(message) {
       "xərcləri",
       "maliyyə planı",
       "media plan",
-      "ads cost"
+      "ads cost",
     ],
     caption: [
       "instagram",
@@ -129,7 +129,7 @@ async function detectIntent(message) {
       "post yarat",
       "reklam postu",
       "content yaz",
-      "insta"
+      "insta",
     ],
     tiktok: [
       "tiktok",
@@ -140,7 +140,7 @@ async function detectIntent(message) {
       "kreativ video",
       "trend video",
       "video çəkmək",
-      "video ideya"
+      "video ideya",
     ],
     strategy: [
       "strategiya",
@@ -148,14 +148,14 @@ async function detectIntent(message) {
       "business plan",
       "marketinq planı",
       "marketing plan",
-      "bazar analizi"
+      "bazar analizi",
     ],
     seo: [
       "seo",
       "google search",
       "axtarış sistemi",
       "seo analizi",
-      "seo optimizasiya"
+      "seo optimizasiya",
     ],
     email: [
       "email",
@@ -163,7 +163,7 @@ async function detectIntent(message) {
       "mail yaz",
       "rəsmi məktub",
       "formal email",
-      "məktub hazırlamaq"
+      "məktub hazırlamaq",
     ],
     blog: [
       "blog",
@@ -171,22 +171,17 @@ async function detectIntent(message) {
       "article",
       "yazı yaz",
       "blog content",
-      "məqalə yarat"
+      "məqalə yarat",
     ],
-    sales: [
-      "satış",
-      "konversiya",
-      "satış artırmaq",
-      "satış funneli"
-    ],
+    sales: ["satış", "konversiya", "satış artırmaq", "satış funneli"],
     branding: [
       "brend",
       "brand",
       "kimlik",
       "brand identity",
       "brend kimliyi",
-      "marka kimliyi"
-    ]
+      "marka kimliyi",
+    ],
   };
 
   // 2️⃣ Lokal semantic score sistemi
@@ -215,8 +210,8 @@ async function detectIntent(message) {
     return bestIntent;
   }
 
-  // 4️⃣ Semantic tapa bilmədisə → GPT-ə sorğu göndər
-  console.log("🤖 Semantic tapmadı → GPT intent engine aktiv oldu");
+  // 4️⃣ Semantic tapa bilmədisə → GPT-4o-mini-yə sorğu göndər
+  console.log("🤖 Semantic tapmadı → GPT-4o-mini intent engine aktiv oldu");
 
   try {
     const prompt = `
@@ -232,13 +227,13 @@ announcement, general
     `;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: "Sən yalnız intent təyin edən sistemsən." },
-        { role: "user", content: prompt }
+        { role: "user", content: prompt },
       ],
       temperature: 0.0,
-      max_tokens: 10
+      max_tokens: 10,
     });
 
     let intent =
@@ -260,14 +255,14 @@ announcement, general
       "story",
       "product",
       "announcement",
-      "general"
+      "general",
     ];
 
     if (!intent || !allowed.includes(intent)) {
       intent = "general";
     }
 
-    console.log("🎯 GPT final intent:", intent);
+    console.log("🎯 GPT-mini final intent:", intent);
     return intent;
   } catch (err) {
     console.error("GPT intent engine xətası:", err.message);
@@ -329,9 +324,7 @@ function learnFromGPT(userMessage, gptReply, intent) {
       base[intent] = [];
     }
 
-    const exists = base[intent].some(
-      (t) => t && t.template === template
-    );
+    const exists = base[intent].some((t) => t && t.template === template);
     if (exists) return;
 
     base[intent].push({
@@ -355,15 +348,18 @@ app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
     const selectedModel = req.body.model || "gpt-4o";
-    if (selectedModel === "gpt-5.1-analytics") {
-  const userId = (req.auth?.userId) || req.ip;
 
-  if (!canUseAnalytics(userId)) {
-    return res.json({
-      reply: "⚠️ Bu gün üçün Analitika Rejimi limitinə çatdın. Sabah yenidən cəhd et!"
-    });
-  }
-}
+    // ===== ANALYTICS MODE LIMIT (gpt-5.1-analytics üçün) =====
+    if (selectedModel === "gpt-5.1-analytics") {
+      const userId = req.auth?.userId || req.ip;
+
+      if (!canUseAnalytics(userId)) {
+        return res.json({
+          reply:
+            "⚠️ Bu gün üçün Analitika Rejimi limitinə çatdın. Sabah yenidən cəhd et!",
+        });
+      }
+    }
 
     if (!userMessage) {
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
@@ -375,20 +371,20 @@ app.post("/api/chat", async (req, res) => {
       conversationHistory = conversationHistory.slice(-3);
     }
 
-      // 🏷️ İntentlərin İstifadəçi Dostu Adları
-const INTENT_LABELS = {
-  slogan: "✍️ Sloqan və Şüarlar",
-  budget: "💰 Büdcə və Maliyyə",
-  caption: "📸 Instagram Postları",
-  tiktok: "🎥 TikTok və Reels",
-  strategy: "🚀 Marketinq Strategiyası",
-  seo: "🔎 SEO və Axtarış",
-  email: "📧 Email Marketinq",
-  blog: "📝 Blog və Məqalələr",
-  sales: "📈 Satış Taktikaları",
-  branding: "🎨 Brendinq",
-  general: "💡 Ümumi İdeyalar"
-};
+    // 🏷️ İntentlərin İstifadəçi Dostu Adları (hazırda yalnız suggestion üçün idi, amma qalsın)
+    const INTENT_LABELS = {
+      slogan: "✍️ Sloqan və Şüarlar",
+      budget: "💰 Büdcə və Maliyyə",
+      caption: "📸 Instagram Postları",
+      tiktok: "🎥 TikTok və Reels",
+      strategy: "🚀 Marketinq Strategiyası",
+      seo: "🔎 SEO və Axtarış",
+      email: "📧 Email Marketinq",
+      blog: "📝 Blog və Məqalələr",
+      sales: "📈 Satış Taktikaları",
+      branding: "🎨 Brendinq",
+      general: "💡 Ümumi İdeyalar",
+    };
 
     // 🔍 Intent-i bir dəfə hesablayırıq (həm local, həm learning üçün istifadə ediləcək)
     const intent = await detectIntent(userMessage);
@@ -401,46 +397,27 @@ const INTENT_LABELS = {
       const base = safeLoadJSON(BASE_PATH, {});
       const templates = base[intent] || [];
 
-// ⚠️ DƏYİŞİKLİK EDİLƏN HİSSƏ: Əgər şablon yoxdursa, təkliflər ver
-      if (templates.length === 0) {
-        
-        // 1. Bazada içində məlumat olan mövzuları tapırıq
-        const availableTopics = Object.keys(base).filter(
-          (key) => Array.isArray(base[key]) && base[key].length > 0
-        );
+      // ⚠️ ƏGƏR ŞABLON VARSA → sadəcə lokal cavab ver
+      if (templates.length > 0) {
+        const random =
+          templates[Math.floor(Math.random() * templates.length)];
+        let finalText = random.template;
 
-        // 2. Siyahı hazırlayırıq (Maksimum 6 dənə, qarışıq)
-        let suggestionsText = "";
-        
-        if (availableTopics.length > 0) {
-          // Təsadüfi qarışdırıb ilk 6-nı götürürük
-          const randomTopics = availableTopics.sort(() => 0.5 - Math.random()).slice(0, 6);
-          
-          const list = randomTopics
-            .map((topic) => `🔹 ${INTENT_LABELS[topic] || topic}`) // Adı yuxarıdakı siyahıdan götürür
-            .join("\n");
-            
-          suggestionsText = `\n\n✨ Kömək edə biləcəyim mövzulardan:\n${list}`;
-        }
+        finalText = finalText.replace("{topic}", userMessage);
+        finalText = finalText.replace("{platform}", "Instagram");
 
-        return res.json({
-          reply:
-            "Bu mövzu hələ Marketify Brain-in məlumat bazasında mövcud deyil. 😞 Amma izah etsən, kömək edə bilərəm və ya istəsən modeli sol üst menyudan dəyişib söhbətə davam edə bilərsən." + suggestionsText,
-        });
+        return res.json({ reply: finalText });
       }
-      // ⚠️ DƏYİŞİKLİK BİTDİ
 
-      const random = templates[Math.floor(Math.random() * templates.length)];
-      let finalText = random.template;
-
-      finalText = finalText.replace("{topic}", userMessage);
-      finalText = finalText.replace("{platform}", "Instagram");
-
-      return res.json({ reply: finalText });
+      // ⚠️ ƏGƏR ŞABLON YOXDUR → LOCAL SUSUR,
+      // AŞAĞIDA GPT-Ə GETMƏK ÜÇÜN HEÇ BİR RETURN ETMİRİK.
+      console.log(
+        "📚 Brain-də bu intent üçün şablon yoxdur → cavab GPT-dən alınacaq və Brain öyrənəcək."
+      );
     }
 
     // 👇 GPT-4o üçün system prompt → brend tonu
-     const systemPrompt = {
+    const systemPrompt = {
       role: "system",
       content: `
 
@@ -470,26 +447,26 @@ Missiya: İstifadəçinin dilində danışan, kreativ və ağıllı köməkçi o
     };
 
     // 🔥 SYSTEM PROMPT seçimi
-let finalSystemPrompt = systemPrompt;
+    let finalSystemPrompt = systemPrompt;
 
-// 🔥 Mesaj strukturu
-let messagesToSend = [];
+    // 🔥 Mesaj strukturu
+    let messagesToSend = [];
 
-// 🔥 Model konfiqurasiyası
-let settings = {
-  model: "gpt-4o",
-  temperature: 0.35,
-  presence_penalty: 0.1,
-  frequency_penalty: 0.1,
-};
+    // 🔥 Model konfiqurasiyası
+    let settings = {
+      model: "gpt-4o",
+      temperature: 0.35,
+      presence_penalty: 0.1,
+      frequency_penalty: 0.1,
+    };
 
-// ANALYTICS model seçilibsə → GPT-5.1 istifadə et
-if (selectedModel === "gpt-5.1-analytics") {
-    settings.model = "gpt-5.1";
-  
-  finalSystemPrompt = {
-    role: "system",
-    content: `
+    // ANALYTICS model seçilibsə → GPT-5.1 istifadə et
+    if (selectedModel === "gpt-5.1-analytics") {
+      settings.model = "gpt-5.1";
+
+      finalSystemPrompt = {
+        role: "system",
+        content: `
 Sən Marketify AI Analitika modulusan.
 
 — Cavabları maksimum 3–5 cümlə arasında saxla.
@@ -504,27 +481,26 @@ Sən Marketify AI Analitika modulusan.
 - Türkçe ifadələr istifadə etmə: "Çok", "İyi", "Hadi", "Haydi", "Merakla", "Fakat", "İşletme" və hər zaman cavabların Türkçe ifadələrlə qarışmaması üçün onları diqqətlə nəzərdən keçir.
 
 Məqsəd: qısa, aydın və yüksək səviyyəli analitik cavab verməkdir.
-`
-  };
+`,
+      };
 
-  // Tarixçə qalır — sadəcə systemPrompt dəyişir
-  messagesToSend = [finalSystemPrompt, ...conversationHistory];
+      // Tarixçə qalır — sadəcə systemPrompt dəyişir
+      messagesToSend = [finalSystemPrompt, ...conversationHistory];
 
-  // Analitik setting-lər
-  settings.temperature = 0.25;
-  settings.presence_penalty = 0;
-  settings.frequency_penalty = 0;
+      // Analitik setting-lər
+      settings.temperature = 0.25;
+      settings.presence_penalty = 0;
+      settings.frequency_penalty = 0;
+    } else {
+      // Kreativ mod (default Marketify tone)
+      messagesToSend = [finalSystemPrompt, ...conversationHistory];
+    }
 
-} else {
-  // Kreativ mod (default Marketify tone)
-  messagesToSend = [finalSystemPrompt, ...conversationHistory];
-}
-
-// 🔥 OPENAI REQUEST
-const completion = await openai.chat.completions.create({
-  ...settings,
-  messages: messagesToSend,
-});
+    // 🔥 OPENAI REQUEST
+    const completion = await openai.chat.completions.create({
+      ...settings,
+      messages: messagesToSend,
+    });
 
     const reply =
       completion.choices?.[0]?.message?.content?.trim() ||
@@ -532,7 +508,7 @@ const completion = await openai.chat.completions.create({
 
     conversationHistory.push({ role: "assistant", content: reply });
 
-    // 🧠 Marketify Brain — bu cavabdan öyrənir
+    // 🧠 Marketify Brain — bu cavabdan öyrənir (BÜTÜN GPT modellərində)
     learnFromGPT(userMessage, reply, intent);
 
     res.json({ reply });
