@@ -8,6 +8,29 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// ====== ANALYTICS RATE LIMIT (20 requests/day per user) ======
+const analyticsLimits = new Map(); 
+
+function canUseAnalytics(userId) {
+  const today = new Date().toDateString();
+  if (!analyticsLimits.has(userId)) {
+    analyticsLimits.set(userId, { date: today, count: 0 });
+  }
+
+  const entry = analyticsLimits.get(userId);
+
+  // Gün dəyişibsə resetlə
+  if (entry.date !== today) {
+    entry.date = today;
+    entry.count = 0;
+  }
+
+  if (entry.count >= 20) return false;
+
+  entry.count++;
+  return true;
+}
+
 dotenv.config();
 
 // ES module üçün __dirname
@@ -332,6 +355,15 @@ app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
     const selectedModel = req.body.model || "gpt-4o";
+    if (selectedModel === "gpt-5.1-analytics") {
+  const userId = (req.auth?.userId) || req.ip;
+
+  if (!canUseAnalytics(userId)) {
+    return res.json({
+      reply: "⚠️ Bu gün üçün Analitika Rejimi limitinə çatdın. Sabah yenidən cəhd et!"
+    });
+  }
+}
 
     if (!userMessage) {
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
@@ -451,8 +483,9 @@ let settings = {
   frequency_penalty: 0.1,
 };
 
-// 🔥 ANALYTICS MODU
-if (intent === "analysis" || intent === "strategy" || intent === "seo") {
+// ANALYTICS model seçilibsə → GPT-5.1 istifadə et
+if (selectedModel === "gpt-5.1-analytics") {
+    settings.model = "gpt-5.1";
   
   finalSystemPrompt = {
     role: "system",
