@@ -1753,3 +1753,32 @@ hr.custom-divider::after {
   height: 16px;
   background: rgba(255, 255, 255, 0.1); /* Çox solğun xətt */
 }
+
+/* style.css */
+
+.new-chat-disclaimer {
+  position: absolute;
+  top: 58%; /* Başlıqdan bir az aşağıda durması üçün */
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.95);
+  z-index: 5;
+  
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  
+  opacity: 0; /* Gizli başlayır */
+  transition: all 0.35s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Aktiv olanda görünməsi üçün sinif */
+.new-chat-disclaimer.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
