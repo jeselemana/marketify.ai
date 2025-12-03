@@ -290,19 +290,37 @@ if (form && input) {
     input.style.overflowY = "hidden";
   });
 
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      const msg = input.value.trim();
-      if (!msg) return;
-      sendMessage(msg);
-      
-      // ✅ YENİ: Enter basılanda da sıfırla
-      input.value = "";
-      input.style.height = "auto";
-      input.style.overflowY = "hidden";
+  function isMobile() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+input.addEventListener("keydown", (e) => {
+
+  // 📱 MOBILE → Enter = SƏTİR AŞAĞI
+  if (isMobile()) {
+    if (e.key === "Enter") {
+      // Göndərməsin, normal newline versin
+      return;
     }
-  });
+  }
+
+  // 💻 DESKTOP → Shift+Enter = newline
+  if (e.key === "Enter" && e.shiftKey) {
+    return; // normal newline
+  }
+
+  // 💻 DESKTOP → Enter = göndər
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    const msg = input.value.trim();
+    if (!msg) return;
+    sendMessage(msg);
+
+    input.value = "";
+    input.style.height = "44px";
+  }
+});
+
 }
 
 // ✅ Scroll aşağı
@@ -527,20 +545,7 @@ if (form && input) {
     input.style.overflowY = "hidden";
   });
 
-  // 2. Enter düyməsi
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      const msg = input.value.trim();
-      if (!msg) return;
-      sendMessage(msg);
-      
-      // ✅ DÜZƏLİŞ: Burda da eyni qaydanı tətbiq edirik
-      input.value = "";
-      input.style.height = "44px";
-      input.style.overflowY = "hidden";
-    }
-  });
+
 
   // 3. Avto-böyümə funksiyası (Bunu olduğu kimi saxlayın və ya əlavə edin)
   input.addEventListener("input", function() {

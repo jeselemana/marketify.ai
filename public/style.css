@@ -2218,3 +2218,51 @@ hr.custom-divider::after {
   font-weight: 400 !important;
   opacity: 0.85;
 }
+
+/* 📱 MOBİL ÜÇÜN YUMŞAQ MODEL PICKER BÖYÜTMƏ */
+@media (max-width: 768px) {
+
+  /* Düymə */
+  #bottom-model-trigger {
+    padding: 10px 14px !important;    /* defaultdan cüzi böyük */
+    font-size: 15px !important;       /* çox böyütmürük */
+    height: 46px !important;          /* 1 pillə böyük */
+    border-radius: 12px !important;
+    gap: 6px !important;
+  }
+
+  #bottom-model-text {
+    font-size: 15px !important;
+  }
+
+  .chevron-icon {
+    width: 11px !important;
+    height: 11px !important;
+  }
+
+  /* Açılan menyu */
+  #bottom-model-menu {
+    border-radius: 12px !important;
+    padding: 8px 0 !important;
+  }
+
+  .b-model-item {
+    padding: 10px 14px !important;
+    font-size: 14px !important;  /* çox böyümədən, sadəcə rahat */
+  }
+}
+
+/* PERFECT MULTI-LINE PLACEHOLDER FIX */
+#user-input {
+  min-height: 48px !important;     /* 1. biraz yüksək */
+  max-height: 80px !important;     /* 2. 2 sətirlik yer */
+  padding: 5px 16px !important;   /* 3. yuxarı-aşağı balans */
+  line-height: 20px !important;    /* 4. səliqəli sətir aralığı */
+  overflow-y: hidden !important;   /* 5. avtomatik böyüsün */
+  resize: none !important;
+  white-space: normal !important;  /* 6. sətir qırılmasına icazə ver */
+}
+
+.bottom-model-selector {
+  transform: translateX(-4px);
+}
