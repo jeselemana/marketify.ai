@@ -1845,3 +1845,60 @@ hr.custom-divider::after {
     white-space: nowrap;
   }
 }
+
+/* =========================================
+   🚨 NUCLEAR MOBILE FIX: Send Button Force Visible
+   ========================================= */
+
+@media (max-width: 768px) {
+  /* 1. Konteyneri məcbur edirik ki, elementləri yan-yana sıxsın */
+  .input-bar {
+    display: flex !important;
+    flex-wrap: nowrap !important; /* Qətiyyən alt sətrə keçməsin */
+    align-items: center !important; /* Hər şeyi mərkəzləyirik */
+    padding-right: 6px !important;  /* Sağ tərəfdən az boşluq */
+    gap: 4px !important; /* Elementlər arası məsafəni azaldırıq */
+  }
+
+  /* 2. Input Wrapper: "Yer yoxdursa sıxıl, qırağa çıxma" əmri */
+  .input-wrapper {
+    flex: 1 1 auto !important; /* Elastik olsun */
+    min-width: 0 !important;   /* ⚠️ ƏN VACİB KOD: Bu olmazsa input kiçilmir */
+    width: auto !important;
+  }
+
+  /* 3. Model Seçimi: Çox yer tutmasın */
+  .bottom-model-selector {
+    flex: 0 0 auto !important; /* Sabit qalsın, uzanmasın */
+    margin: 0 !important;
+    max-width: 100px !important; /* Maksimum en */
+  }
+
+  /* Model adı çox uzundursa, üç nöqtə (...) qoysun */
+  #bottom-model-text {
+    display: inline-block;
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px !important;
+    vertical-align: middle;
+  }
+
+  /* 4. SEND DÜYMƏSİ: Toxunulmazlıq statusu veririk */
+  /* 4. SEND DÜYMƏSİ: Sola çəkildi */
+  .send {
+    flex: 0 0 40px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    opacity: 1 !important;
+    visibility: visible !important;
+    
+    /* 👇 Dəyişiklik buradadır: Sağdan 10px itələyirik ki, sola getsin */
+    margin: 0 10px 0 0 !important; 
+  }
+}
