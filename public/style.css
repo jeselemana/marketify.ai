@@ -2263,6 +2263,24 @@ hr.custom-divider::after {
   white-space: normal !important;  /* 6. sətir qırılmasına icazə ver */
 }
 
-.bottom-model-selector {
-  transform: translateX(-4px);
+/* 📱 Yalnız mobil üçün model picker-i 3px sola sürüşdür */
+@media (max-width: 768px) {
+  #bottom-model-trigger {
+    transform: translateX(-3px);
+  }
+}
+
+/* 🖥 Desktop üçün model picker hündürlüyü düzəlişi */
+@media (min-width: 769px) {
+  .bottom-model-selector {
+    transform: translateY(-3px);
+  }
+}
+
+/* 🖥 Desktop üçün placeholder mərkəzləşməsi */
+@media (min-width: 769px) {
+  #user-input {
+    padding-top: 12px !important;
+    padding-bottom: 10px !important;
+  }
 }
