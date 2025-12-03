@@ -1902,3 +1902,234 @@ hr.custom-divider::after {
     margin: 0 10px 0 0 !important; 
   }
 }
+
+/* 📂 Açılan Menyu - Real Glass Fix */
+.bottom-dropdown {
+  position: absolute;
+  bottom: 140%;
+  right: 0;
+  width: 180px;
+  
+  /* 👇 ƏSAS DƏYİŞİKLİK: 0.75-dən 0.25-ə endirdik (xeyli şəffaf) */
+  background: rgba(40, 40, 40, 0.25) !important; 
+  
+  /* Blur effektini gücləndirdik */
+  backdrop-filter: blur(25px) !important;
+  -webkit-backdrop-filter: blur(25px) !important;
+  
+  /* Sərhədləri biraz bəlli edirik ki, şüşə olduğu bilinsin */
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+  
+  border-radius: 12px;
+  padding: 6px;
+  
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px) scale(0.95);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 200;
+}
+
+/* =========================================
+   ✨ NEW PREMIUM CLEAR BUTTON (MARKETIFY STYLE)
+   ========================================= */
+
+.clear-btn {
+  /* Mövqe */
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+
+  /* Ölçü */
+  width: 44px !important;
+  height: 44px !important;
+  
+  /* 🎨 Premium Glass Look - Dərin və Şıq */
+  background: rgba(30, 30, 30, 0.4) !important; 
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+  
+  /* 🔲 Forma: Adi dairə yox, Modern "Squircle" (iOS tərzi) */
+  border-radius: 14px !important; 
+  
+  /* Mərkəzləmə */
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  
+  /* İkon və Animasiya */
+  color: rgba(255, 255, 255, 0.6) !important;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important; /* Elastik animasiya */
+  
+  /* Başlanğıcda gizli (JS bunu idarə edir) */
+  opacity: 0; 
+  visibility: hidden;
+  transform: scale(0.8) rotate(-15deg);
+}
+
+/* 🔥 HOVER EFFEKTİ - Neon Glow */
+.clear-btn:hover {
+  background: rgba(45, 107, 255, 0.2) !important; /* Mavi çalar */
+  border-color: rgba(45, 107, 255, 0.5) !important; /* Parlaq çərçivə */
+  color: #fff !important;
+  
+  /* Parıltı və "Uçuş" effekti */
+  box-shadow: 0 8px 30px rgba(45, 107, 255, 0.4) !important;
+  transform: translateY(-2px) scale(1.1) rotate(0deg) !important;
+}
+
+/* Basılanda sıxılma effekti */
+.clear-btn:active {
+  transform: scale(0.95) !important;
+  box-shadow: 0 2px 10px rgba(45, 107, 255, 0.2) !important;
+}
+
+/* ✅ AKTİV OLMA VƏZİYYƏTİ (.show) */
+/* (Script.js düyməni göstərəndə bu işə düşür) */
+.clear-btn.show {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: scale(1) rotate(0deg) !important;
+}
+
+/* =========================================
+   💎 REAL GLASS POPUP (FIXED)
+   ========================================= */
+
+/* 1. Ümumi Ekran Overlay (Arxanı bulandırır) */
+.confirm-popup {
+  background: rgba(0, 0, 0, 0.3) !important; /* Çox tünd olmasın */
+  backdrop-filter: blur(5px) !important;      /* Saytın özü də biraz bulansın */
+  -webkit-backdrop-filter: blur(5px) !important;
+  z-index: 9999 !important;
+}
+
+/* 2. Popup Qutusu - Əsl Şüşə */
+.confirm-box {
+  /* 👇 ƏSAS DƏYİŞİKLİK: Rəngi çox şəffaf edirik (0.65 -> 0.25) */
+  background: rgba(40, 40, 40, 0.25) !important; 
+  
+  /* Güclü Blur */
+  backdrop-filter: blur(30px) !important;
+  -webkit-backdrop-filter: blur(30px) !important;
+  
+  /* Buzlu ağ çərçivə */
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  
+  /* Dərinlik verən kölgə */
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
+  
+  border-radius: 24px !important;
+  padding: 32px 24px !important;
+  width: 85% !important;
+  max-width: 340px !important;
+  text-align: center;
+  
+  /* Giriş Animasiyası */
+  transform: scale(0.9) translateY(10px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+/* Açılan zaman */
+.confirm-popup.show .confirm-box {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+/* 3. Mətn və İkon */
+.confirm-box p {
+  color: #fff !important;
+  font-weight: 500 !important;
+  font-size: 16px !important;
+  margin-bottom: 24px !important;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3); /* Oxunaqlıq üçün kölgə */
+}
+
+/* ⚠️ İkonu bir az da böyüdürük */
+.confirm-box p::before {
+  font-size: 36px;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.4)); /* Sarı parıltı */
+}
+
+/* 4. Düymələr */
+.confirm-actions {
+  display: flex !important;
+  gap: 12px !important;
+}
+
+.confirm-btn {
+  flex: 1 !important;
+  height: 46px !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: 0.2s !important;
+}
+
+/* Bəli - Marketify Blue */
+.confirm-btn.yes {
+  background: linear-gradient(135deg, #2d6bff, #0051ff) !important;
+  color: white !important;
+  box-shadow: 0 4px 15px rgba(45, 107, 255, 0.4) !important;
+}
+
+.confirm-btn.yes:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(45, 107, 255, 0.6) !important;
+}
+
+/* Xeyr - Şəffaf */
+.confirm-btn.no {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.confirm-btn.no:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
+}
+
+/* 📂 Açılan Menyu - DARKER & LESS TRANSPARENT */
+.bottom-dropdown {
+  position: absolute;
+  bottom: 140%;
+  right: 0;
+  width: 180px;
+  
+  /* 👇 DÜZƏLİŞ: Rəngi tündləşdirdik (20,20,20) və qatılığı artırdıq (0.85) */
+  background: rgba(20, 20, 20, 0.85) !important; 
+  
+  /* Blur effekti */
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  
+  /* Kənar xətt */
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  
+  /* Kölgə */
+  box-shadow: 
+    0 25px 50px rgba(0, 0, 0, 0.5),         
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  
+  border-radius: 12px;
+  padding: 6px;
+  
+  /* Animasiya */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px) scale(0.95);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 999;
+}
