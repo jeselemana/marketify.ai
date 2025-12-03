@@ -2133,3 +2133,65 @@ hr.custom-divider::after {
   pointer-events: none;
   z-index: 999;
 }
+
+/* =========================================
+   💎 PREMIUM DARK GLASS (FINAL BALANCE)
+   ========================================= */
+
+/* 1. Model Picker (Açılan Menyu) */
+.bottom-dropdown {
+  position: absolute;
+  bottom: 140%;
+  right: 0;
+  width: 180px;
+
+  /* 👇 BALANS: 85% Tünd, 15% Şəffaf */
+  background: rgba(30, 30, 30, 0.85) !important;
+
+  /* 👇 GÜCLÜ BLUR: Arxadakı yazıları tam bulandırır ki, oxunmasın */
+  backdrop-filter: blur(25px) !important;
+  -webkit-backdrop-filter: blur(25px) !important;
+
+  /* İncə Çərçivə */
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  
+  /* Kölgə */
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6) !important;
+
+  border-radius: 12px;
+  padding: 6px;
+
+  /* Animasiya */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px) scale(0.95);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* 2. Popup Qutusu (Eyni Stil) */
+.confirm-box {
+  /* 👇 Eyni "Qızıl Orta" rəngi */
+  background: rgba(30, 30, 30, 0.85) !important;
+
+  /* Eyni Güclü Blur */
+  backdrop-filter: blur(25px) !important;
+  -webkit-backdrop-filter: blur(25px) !important;
+
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7) !important;
+
+  border-radius: 20px !important;
+  padding: 30px 24px !important;
+  width: 85% !important;
+  max-width: 320px !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+
+  transform: scale(0.95) translateY(10px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
