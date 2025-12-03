@@ -2336,3 +2336,10 @@ hr.custom-divider::after {
   opacity: 0.75;
   line-height: 1.2;
 }
+
+/* 🖥 Yalnız desktop üçün send button hündürlük düzəlişi */
+@media (min-width: 769px) {
+  #send-btn {
+    transform: translateY(-2px);
+  }
+}
