@@ -380,81 +380,6 @@ if (confirmYes) {
     }, 2200);
   });
 }
-
-// 💡 Shake Detection (v2.1)
-function requestMotionAccess() {
-  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === "function") {
-    DeviceMotionEvent.requestPermission()
-      .then((response) => {
-        if (response === "granted") initShakeDetection();
-      })
-      .catch(() => {});
-  } else {
-    initShakeDetection();
-  }
-}
-
-window.addEventListener("click", () => {
-  requestMotionAccess();
-}, { once: true });
-
-function initShakeDetection() {
-  let lastX = null, lastY = null, lastZ = null, lastTime = 0, shakeTimeout = null;
-  window.addEventListener("devicemotion", (event) => {
-    const acc = event.accelerationIncludingGravity;
-    if(!acc) return;
-    const currentTime = Date.now();
-    if ((currentTime - lastTime) > 200) {
-      const deltaX = Math.abs(acc.x - (lastX || 0));
-      const deltaY = Math.abs(acc.y - (lastY || 0));
-      const deltaZ = Math.abs(acc.z - (lastZ || 0));
-      if ((deltaX + deltaY + deltaZ) > 35) {
-        if (!shakeTimeout) {
-          showShakePrompt();
-          shakeTimeout = setTimeout(() => (shakeTimeout = null), 5000);
-        }
-      }
-      lastTime = currentTime;
-      lastX = acc.x;
-      lastY = acc.y;
-      lastZ = acc.z;
-    }
-  });
-}
-
-function showShakePrompt() {
-  if (document.querySelector(".shake-popup")) return;
-  const popup = document.createElement("div");
-  popup.className = "shake-popup";
-  popup.innerHTML = `
-    <p>💡 Saytdakı xəta haqqında məlumat vermək istəyirsən?</p>
-    <div class="shake-actions">
-      <button id="shakeYes">Bəli</button>
-      <button id="shakeNo">Xeyr</button>
-    </div>`;
-  document.body.appendChild(popup);
-
-  document.getElementById("shakeYes").addEventListener("click", () => {
-    popup.remove();
-    window.location.href =
-      "mailto:contact@marketify-ai.com?subject=Marketify%202.0%20Xəta&body=Salam,%20saytda%20qarşılaşdığım%20xəta%20barədə:";
-  });
-  document.getElementById("shakeNo").addEventListener("click", () => popup.remove());
-  setTimeout(() => popup.remove(), 8000);
-}
-
-function showInfoPopup(text) {
-  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (!isMobile) return;
-  const info = document.createElement("div");
-  info.className = "info-popup";
-  info.textContent = text;
-  document.body.appendChild(info);
-  setTimeout(() => info.remove(), 3000);
-}
-
-console.log("✅ Marketify 2.0 JS tam aktivdir (Shake + Popup + Chat)");
-
 /* ============================================
    🔄 AUTO-ROTATING TAGLINE (FIXED)
 ============================================ */
@@ -465,7 +390,7 @@ const rotatingTaglines = [
   "Sən yaz, AI düşünsün 💡",
   "Yaradıcı gücünü AI ilə birləşdir ✨",
   "Reklam dünyasında inqilab buradan başlayır 🌍",
-  "Bir az sən, bir az AI... Mükəmməl nəticə 💬",
+  "Bir az sən, bir az AI...",
   "Brendini Marketify AI ilə gücləndir ⚡️",
   "Marketinq gələcəyini bu gündən yarat 🌟",
   "Mətnlər gəlsin, ideyalar axsın ✍️",
@@ -866,3 +791,71 @@ function disableSendBtn() {
   sendBtn.classList.add("disabled");
   sendBtn.disabled = true;
 }
+
+/* =========================================
+   🔗 MODEL PICKER INTEGRATION (SYSTEM CORE)
+   ========================================= */
+
+document.addEventListener("DOMContentLoaded", () => {
+  const trigger = document.getElementById("bottom-model-trigger");
+  const menu = document.getElementById("bottom-model-menu");
+  const textLabel = document.getElementById("bottom-model-text");
+  const items = document.querySelectorAll(".b-model-item");
+
+  // 1. Menyunu açmaq/bağlamaq
+  if (trigger && menu) {
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      menu.classList.toggle("show");
+      trigger.classList.toggle("active");
+    });
+  }
+
+  // 2. Kənara klikləyəndə bağlamaq
+  document.addEventListener("click", (e) => {
+    if (menu && !menu.contains(e.target) && !trigger.contains(e.target)) {
+      menu.classList.remove("show");
+      trigger.classList.remove("active");
+    }
+  });
+
+  // 3. SEÇİM MƏNTİQİ (ƏSAS HİSSƏ)
+  items.forEach(item => {
+    item.addEventListener("click", () => {
+      // A) Dəyəri HTML-dən götürürük (gpt-4o, local və s.)
+      const newVal = item.getAttribute("data-val");
+      const newName = item.textContent.trim();
+
+      // B) 🔴 SİSTEMİ YENİLƏYİRİK (Ən vacib yer)
+      // Sənin script.js-dəki 'selectedModel' dəyişənini dəyişirik
+      if (typeof selectedModel !== 'undefined') {
+        selectedModel = newVal; 
+        console.log("✅ Sistem modeli dəyişdi:", selectedModel);
+      }
+
+      // C) Button üzərindəki yazını dəyişirik
+      if (textLabel) textLabel.textContent = newName;
+
+      // D) Vizual olaraq 'selected' sinfini dəyişirik
+      items.forEach(i => i.classList.remove("selected"));
+      item.classList.add("selected");
+
+      // E) Menyunu bağlayırıq
+      menu.classList.remove("show");
+      trigger.classList.remove("active");
+
+      // F) (Opsional) Əgər köhnə Brand adı dəyişmə effektini saxlamaq istəyirsənsə:
+      const brand = document.querySelector(".brand");
+      const version = document.querySelector(".version");
+      if (brand && version) {
+        if (newVal === "local") {
+          brand.textContent = "Marketify Brain";
+          version.textContent = "Beta";
+        } else {
+          brand.textContent = "Marketify AI";
+          version.textContent = "2.0";
+        }
+      }
+    });
+  });
+});
