@@ -2284,3 +2284,55 @@ hr.custom-divider::after {
     padding-bottom: 10px !important;
   }
 }
+
+.bubble-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;   /* 🔥 dikey ortalama */
+  line-height: 1.25;         /* 🔥 sətir aralığını sıxlaşdırır */
+}
+
+.bubble-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 2px;        /* 🔥 başlıq ilə alt mətn arasındakı məsafə */
+}
+
+.bubble-sub {
+  font-size: 13px;
+  opacity: 0.7;
+  margin-top: 0;
+}
+
+.bubble {
+  display: flex;
+  align-items: center;     /* Bubble içini ortalayır */
+}
+
+.bubble-title {
+  font-size: 14px;     /* 🔥 əvvəl 15px idi — indi daha incə */
+  font-weight: 600;
+  margin-bottom: 1px;
+}
+
+.bubble-sub {
+  font-size: 12px;     /* 🔥 əvvəl 13px idi — indi daha təmiz görünür */
+  opacity: 0.75;
+  line-height: 1.2;
+}
+
+.bubble-content {
+  line-height: 1.15;
+}
+
+.bubble-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;   /* 🔥 məsafəni buradan veririk */
+}
+
+.bubble-sub {
+  font-size: 12px;
+  opacity: 0.75;
+  line-height: 1.2;
+}
