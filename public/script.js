@@ -876,3 +876,27 @@ function showSuggestionPopup() {
     pop.classList.remove("show");
   }, 2000);
 }
+
+/* ===========================
+   🌐 MODAL OPEN/CLOSE FUNCTIONS
+   =========================== */
+function openModal(id) {
+  document.getElementById(id).classList.add("show");
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove("show");
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add("show");
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove("show");
+}
+
+function toggleFaq(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle("open");
+}
