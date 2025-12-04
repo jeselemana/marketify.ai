@@ -15,6 +15,9 @@ const center = document.getElementById("center-view");
 
 const promptSuggestions = [
   // Marketinq & Biznes
+  { title: "Black Friday-də", sub: "sərfəli təkliflərlə yanaşı mənfəət artırmaq" },
+  { title: "Alış-veriş", sub: "həvəskarları üçün cəlbedici təkliflər" },
+  { title: "Minimum büdcə", sub: "ilə maksimum gəlir əldə etmə üsulları" },
   { title: "Yeni il kampaniyası", sub: "üçün kreativ strategiya" },
   { title: "Satışları artırmaq", sub: "üçün 5 psixoloji üsul" },
   { title: "Brend hekayəsi", sub: "yazmaqda kömək et" },
@@ -863,20 +866,4 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
-});
-
-/* ------------------------------------------
-   🌟 Contact Bubble Toggle
------------------------------------------- */
-
-const contactBubble = document.getElementById("contact-bubble");
-const contactPanel = document.getElementById("contact-panel");
-const closePanel = document.getElementById("close-panel");
-
-contactBubble.addEventListener("click", () => {
-  contactPanel.classList.toggle("hidden");
-});
-
-closePanel.addEventListener("click", () => {
-  contactPanel.classList.add("hidden");
 });
