@@ -2709,3 +2709,32 @@ hr.custom-divider::after {
   opacity: 0.88;
   line-height: 1.55;
 }
+
+/* CLEAN ACCORDION ARROW */
+.faq-category {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  cursor: pointer;
+  position: relative;
+}
+
+/* Sağdakı ox (chevron) */
+.faq-category::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgba(255, 255, 255, 0.6);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+  transform: rotate(45deg);
+  margin-left: 12px;
+  transition: 0.2s ease;
+}
+
+/* Açıq olanda yuxarı çevrilir */
+.faq-category.open::after {
+  transform: rotate(-135deg);
+  border-right-color: rgba(255, 255, 255, 1);
+  border-bottom-color: rgba(255, 255, 255, 1);
+}

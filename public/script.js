@@ -897,6 +897,12 @@ function closeModal(id) {
 }
 
 function toggleFaq(id) {
-  const el = document.getElementById(id);
-  el.classList.toggle("open");
+  const content = document.getElementById(id);
+
+  // content açılıb-bağlanır
+  content.classList.toggle("open");
+
+  // kliklənən kateqoriyanı tapırıq və ona 'open' class veririk
+  const category = event.currentTarget;
+  category.classList.toggle("open");
 }
