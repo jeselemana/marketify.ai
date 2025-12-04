@@ -2343,3 +2343,93 @@ hr.custom-divider::after {
     transform: translateY(-2px);
   }
 }
+
+#bottom-model-trigger {
+  min-width: 95px;   /* 🔥 Analitika rahat sığır */
+  justify-content: center;
+}
+
+#bottom-model-text {
+  white-space: nowrap; /* 🔥 Mətni kəsmir */
+}
+
+/* ============================================================
+   💎 PREMIUM GLASSMORPHISM SYSTEM (FINAL OVERRIDE)
+   ============================================================ */
+
+/* 1️⃣ LEVEL 1: LIGHT FROST (Suggestions & Buttons)
+   Məqsəd: Yüngül, toxunmaq istəyi yaradan, parlaq şüşə. */
+.prompt-bubbles .bubble, 
+.model-btn, 
+.clear-btn {
+  /* Daha açıq fon */
+  background: rgba(255, 255, 255, 0.06) !important;
+  
+  /* Orta dərəcəli bulanıqlıq */
+  backdrop-filter: blur(14px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(150%) !important;
+  
+  /* Parlaq və incə sərhəd */
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+  
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+/* Hover zamanı daha şüşəli olsun */
+.prompt-bubbles .bubble:hover, 
+.model-btn:hover, 
+.clear-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important; /* Parıldayan kənar */
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 25px rgba(45, 107, 255, 0.25) !important; /* Mavi parıltı */
+}
+
+
+/* 2️⃣ LEVEL 2: SLEEK GLASS (Input Bar)
+   Məqsəd: Diqqəti dağıtmayan, amma fonu hiss etdirən neytral şüşə. */
+.input-bar {
+  /* Bir az daha tünd, amma şəffaf */
+  background: rgba(20, 20, 20, 0.65) !important;
+  
+  /* Yüksək blur (Yazı rahat oxunsun) */
+  backdrop-filter: blur(25px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+  
+  /* Çox incə sərhəd */
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.15) !important; /* Üstdən işıq düşmə effekti */
+  
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3) !important;
+  border-radius: 24px !important;
+}
+
+
+/* 3️⃣ LEVEL 3: DEEP GLASS (Popups & Menus)
+   Məqsəd: Arxa fonu tamamilə "yuyan" və diqqəti özünə çəkən qalın şüşə. */
+.dropdown-menu, 
+.bottom-dropdown, 
+.confirm-box {
+  /* Çox tünd şüşə */
+  background: rgba(15, 15, 15, 0.85) !important;
+  
+  /* Maksimum Blur */
+  backdrop-filter: blur(50px) !important;
+  -webkit-backdrop-filter: blur(50px) !important;
+  
+  /* Tünd sərhəd */
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  
+  /* Dərin kölgə */
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+  
+  border-radius: 16px !important;
+}
+
+/* Xüsusi: Popup arxası (Overlay) */
+.confirm-popup {
+  background: rgba(0, 0, 0, 0.4) !important; /* Tündləşdirmə */
+  backdrop-filter: blur(8px) !important;      /* Saytın özünü də bulandırır */
+  -webkit-backdrop-filter: blur(8px) !important;
+}
