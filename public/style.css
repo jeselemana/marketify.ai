@@ -2508,3 +2508,43 @@ hr.custom-divider::after {
     margin-top: 6px;
   }
 }
+
+.suggestion-popup {
+  position: fixed;
+  bottom: 180px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 18px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  border-radius: 14px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .35s ease, transform .35s ease;
+  z-index: 9999;
+}
+
+.suggestion-popup.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-6px);
+}
+
+@media (max-width: 600px) {
+  .suggestion-popup .popup-text {
+    display: inline-block;
+    max-width: 88vw;      /* mətnin sağ-sol genişlənmə sahəsi */
+    text-align: center;   /* mərkəzləndir */
+    line-height: 1.55;
+  }
+}
+
+@media (max-width: 600px) {
+  .suggestion-popup {
+    max-width: 320px !important;   /* 🔥 Mobil üçün ideal genişlik */
+    text-align: center !important; /* 🔥 Mətni ortala */
+    line-height: 1.55 !important;  /* 🔥 Oxunaqlığı artır */
+  }
+}

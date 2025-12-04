@@ -16,7 +16,7 @@ const center = document.getElementById("center-view");
 const promptSuggestions = [
   // Marketinq & Biznes
   { title: "Black Friday-də", sub: "sərfəli təkliflərlə yanaşı mənfəət artırmaq" },
-  { title: "Alış-veriş", sub: "həvəskarları üçün cəlbedici təkliflər" },
+  { title: "Alış-veriş həvəskarları üçün", sub: "cəlbedici təkliflər" },
   { title: "Minimum büdcə", sub: "ilə maksimum gəlir əldə etmə üsulları" },
   { title: "Yeni il kampaniyası", sub: "üçün kreativ strategiya" },
   { title: "Satışları artırmaq", sub: "üçün 5 psixoloji üsul" },
@@ -32,7 +32,7 @@ const promptSuggestions = [
   { title: "Instagram Reels", sub: "üçün viral ssenari" },
   { title: "TikTok trendləri", sub: "biznesimə necə uyğunlaşdırım?" },
   { title: "LinkedIn postu", sub: "peşəkar üslubda yaz" },
-  { title: "Youtube videosu", sub: "üçün SEO təsviri" },
+  { title: "YouTube videosu", sub: "üçün SEO təsviri" },
   { title: "Caption ideyası", sub: "qısa və kreativ olsun" },
   { title: "Trend audiosu", sub: "bu sahəyə uyğun tap" },
 
@@ -82,21 +82,19 @@ function loadDynamicBubbles() {
       </div>
     `;
 
-   btn.addEventListener("click", () => {
+btn.addEventListener("click", () => {
   const input = document.getElementById("user-input");
   input.value = `${item.title} ${item.sub}`;
   input.focus();
 
-  // 🔥 input event tetiklə (elə bil user yazıb)
   input.dispatchEvent(new Event("input"));
 
-  // 🔥 center elementləri gizlə
   hideCenterElements();
-
-  // 🔥 Yeni söhbət overlay göstər
   showNewChat();
-});
 
+  // 🔥 Popup göstər
+  showSuggestionPopup();
+});
 
     container.appendChild(btn);
   });
@@ -867,3 +865,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+function showSuggestionPopup() {
+  const pop = document.getElementById("suggestion-popup");
+  if (!pop) return;
+
+  pop.classList.add("show");
+
+  setTimeout(() => {
+    pop.classList.remove("show");
+  }, 2000);
+}
