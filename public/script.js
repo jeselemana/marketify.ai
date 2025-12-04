@@ -864,3 +864,19 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+/* ------------------------------------------
+   🌟 Contact Bubble Toggle
+------------------------------------------ */
+
+const contactBubble = document.getElementById("contact-bubble");
+const contactPanel = document.getElementById("contact-panel");
+const closePanel = document.getElementById("close-panel");
+
+contactBubble.addEventListener("click", () => {
+  contactPanel.classList.toggle("hidden");
+});
+
+closePanel.addEventListener("click", () => {
+  contactPanel.classList.add("hidden");
+});
