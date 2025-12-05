@@ -146,12 +146,83 @@ document.querySelectorAll(".model-item").forEach((item) => {
   });
 });
 
-// 🟣 Mesaj əlavə etmə
 function addMessage(role, text) {
   const msg = document.createElement("div");
   msg.classList.add("message", role);
-  msg.textContent = text;
+  msg.innerHTML = text;
+
   chatBox.appendChild(msg);
+
+  // 🔥 SADECE BOT MESAJLARINA COPY & SHARE DÜYMƏLƏRİ ƏLAVƏ ET
+  if (role === "bot") {
+
+    // Düymələr üçün konteyner
+    const actions = document.createElement("div");
+    actions.classList.add("msg-floating-left");
+
+    // ICON düymələri
+    actions.innerHTML = `
+      <button class="msg-btn copy-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+          <path d="M5 15V5a2 2 0 0 1 2-2h10"></path>
+        </svg>
+      </button>
+
+      <button class="msg-btn share-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="18" cy="5" r="3"></circle>
+          <circle cx="6" cy="12" r="3"></circle>
+          <circle cx="18" cy="19" r="3"></circle>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+        </svg>
+      </button>
+    `;
+
+    // ✨ DÜYMƏLƏRİ BUBBLE-DAN SONRA ƏLAVƏ EDİRİK (ən vacib hissə!)
+    msg.insertAdjacentElement("afterend", actions);
+
+    // COPY FUNKSIYASI
+    actions.querySelector(".copy-btn").addEventListener("click", () => {
+      navigator.clipboard.writeText(text);
+      showCopyPopup();
+    });
+
+    // SHARE FUNKSIYASI
+    actions.querySelector(".share-btn").addEventListener("click", async () => {
+      if (navigator.share) {
+        await navigator.share({ title: "Marketify AI", text });
+      } else {
+        navigator.clipboard.writeText(text);
+        showCopyPopup();
+      }
+    });
+
+  scrollToBottom();
+  return msg;
+
+    // COPY
+    actions.querySelector(".copy-btn").addEventListener("click", () => {
+      navigator.clipboard.writeText(text);
+      showCopyPopup();
+    });
+
+    // SHARE
+    actions.querySelector(".share-btn").addEventListener("click", async () => {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Marketify AI cavabı",
+          text: text
+        });
+      } else {
+        // fallback
+        navigator.clipboard.writeText(text);
+        showCopyPopup("Paylaşma dəstəklənmir, kopyalandı");
+      }
+    });
+  }
+
   scrollToBottom();
   return msg;
 }
@@ -905,4 +976,18 @@ function toggleFaq(id) {
   // kliklənən kateqoriyanı tapırıq və ona 'open' class veririk
   const category = event.currentTarget;
   category.classList.toggle("open");
+}
+
+function showCopyPopup(message = "Kopyalandı ✨") {
+  const popup = document.createElement("div");
+  popup.className = "copy-popup";
+  popup.textContent = message;
+
+  document.body.appendChild(popup);
+
+  setTimeout(() => popup.classList.add("show"), 50);
+  setTimeout(() => {
+    popup.classList.remove("show");
+    setTimeout(() => popup.remove(), 300);
+  }, 1800);
 }

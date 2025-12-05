@@ -2738,3 +2738,282 @@ hr.custom-divider::after {
   border-right-color: rgba(255, 255, 255, 1);
   border-bottom-color: rgba(255, 255, 255, 1);
 }
+
+/* ===============================
+   COPY & SHARE BUTTONS (Hover Reveal)
+   =============================== */
+
+/* Düymə konteyneri */
+.msg-actions {
+  position: absolute;
+  bottom: 6px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity .25s ease;
+  z-index: 10;
+}
+
+/* Hover zamanı göstər */
+.message.bot:hover .msg-actions {
+  opacity: 1;
+}
+
+/* Mobil – həmişə görünən */
+@media (max-width: 768px) {
+  .msg-actions {
+    opacity: 1;
+  }
+}
+
+/* ICON-ONLY düymələr */
+.msg-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 16px !important; /* ikonlar üçün */
+}
+
+/* Tekstləri tamamilə götürmək üçün */
+.msg-btn span {
+  display: none !important;
+}
+
+
+/* Kopyalandı popup */
+.copy-popup {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  background: rgba(45,107,255,0.9);
+  color: white;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  font-size: 14px;
+  opacity: 0;
+  z-index: 9999;
+  transition: opacity .3s ease;
+}
+
+.copy-popup.show {
+  opacity: 1;
+}
+
+/* CLEAN APPLE-STYLE ICON BUTTONS */
+.msg-actions {
+  position: absolute;
+  bottom: 4px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+
+.message.bot:hover .msg-actions {
+  opacity: 1;
+}
+
+/* Mobil → hər zaman görünür */
+@media (max-width: 768px) {
+  .msg-actions { opacity: 1; }
+}
+
+/* ✨ Minimal rounded glass buttons */
+.msg-btn {
+  width: 26px;
+  height: 26px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 14px !important;
+  line-height: 0;
+
+  border-radius: 50%;
+  border: none;
+
+  background: rgba(255,255,255,0.10);
+  backdrop-filter: blur(12px) brightness(130%);
+  -webkit-backdrop-filter: blur(12px) brightness(130%);
+
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255,255,255,0.25),
+    0 2px 6px rgba(0,0,0,0.25);
+
+  color: #fff;
+  cursor: pointer;
+  transition: transform .2s ease, opacity .2s ease;
+}
+
+.msg-btn:hover {
+  transform: translateY(-2px);
+  opacity: .85;
+}
+
+/* İkonlar tam ortalansın */
+.msg-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* --- ULTRA-MINIMAL ICON BUTTONS (Perfect Size) --- */
+
+.msg-actions {
+  bottom: 6px;
+  left: 8px;   /* daha estetik görünür */
+  gap: 6px;
+}
+
+.message.bot:hover .msg-actions {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .msg-actions { opacity: 1; }
+}
+
+.msg-btn {
+  width: 22px;
+  height: 22px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px) brightness(135%);
+  -webkit-backdrop-filter: blur(10px) brightness(135%);
+
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255,255,255,0.20),
+    0 1px 3px rgba(0,0,0,0.25);
+
+  cursor: pointer;
+  opacity: 0.65;
+  transition: transform .15s ease, opacity .15s ease;
+}
+
+.msg-btn:hover {
+  transform: translateY(-1px);
+  opacity: 1;
+}
+
+/* SVG icon optimal size */
+.msg-btn svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 1.8;
+}
+
+.msg-footer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+
+  /* Bubble-dan ayrı görünməsi üçün */
+  margin-bottom: 4px;
+}
+
+.msg-footer .msg-btn {
+  width: 26px;
+  height: 26px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  border: none;
+
+  padding: 0;
+  cursor: pointer;
+
+  background: rgba(255,255,255,0.10);
+  backdrop-filter: blur(10px) brightness(135%);
+  box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.20),
+              0 1px 3px rgba(0,0,0,0.25);
+
+  opacity: 0.75;
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+.msg-footer .msg-btn:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.msg-footer svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.8;
+}
+
+.msg-floating-left {
+  display: flex;
+  position: relative;
+  left: -4px;       /* bubble-dan bir az kənara */
+  margin-bottom: -6px; /* bubble-ın alt xəttinə yaxınlıq */
+  gap: 6px;
+  z-index: 5;
+}
+
+.msg-floating-left .msg-btn {
+  width: 24px;
+  height: 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+
+  background: rgba(255,255,255,0.10);
+  backdrop-filter: blur(10px) brightness(140%);
+  -webkit-backdrop-filter: blur(10px) brightness(140%);
+
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255,255,255,0.20),
+    0 1px 3px rgba(0,0,0,0.25);
+
+  opacity: .8;
+  transition: .2s ease;
+}
+
+.msg-floating-left .msg-btn:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.msg-floating-left svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Bubble-dan SOL AŞAĞIDA məsafəli yerləşən düymələr */
+.msg-floating-left {
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+
+  margin-top: 6px;      /* bubble ilə düymə arasında məsafə */
+  margin-left: 4px;     /* soldan yumşaq məsafə */
+  margin-bottom: 14px;  /* növbəti mesaja toxunmasın */
+}
