@@ -234,33 +234,40 @@ function typeText(el, text, speed = 18) {
   const interval = setInterval(() => {
     if (i >= text.length) {
       clearInterval(interval);
+
+      // 🔥 YAZI TAM BITDI → DÜYMƏLƏRI GÖSTER
+      const next = el.nextSibling;
+      if (next && next.classList.contains("msg-floating-left")) {
+        next.style.display = "flex";
+      }
+
       return;
     }
     
     const char = text.charAt(i);
-    
-    // Əgər simvol '<' işarəsidirsə, deməli HTML teqi başlayır
+
+    // HTML teqini birdəfəlik yazırıq
     if (char === '<') {
-      // Teqin bitdiyi yeri ('>') tapırıq
       const tagEnd = text.indexOf('>', i);
-      
       if (tagEnd !== -1) {
-        // Bütün teqi (məs: <hr class='...'>) birdəfəyə əlavə edirik
         el.innerHTML += text.substring(i, tagEnd + 1);
-        i = tagEnd + 1; // İndeksi teqin sonuna atırıq
+        i = tagEnd + 1;
       } else {
         el.innerHTML += char;
         i++;
       }
     } else {
-      // Adi mətndirsə, hərf-hərf yaz
       el.innerHTML += char;
       i++;
     }
+
+    next.style.display = "flex";
+next.classList.add("show");
     
     scrollToBottom();
   }, speed);
 }
+
 
 // 🚀 SEND MESSAGE FUNKSİYASI (YADDAŞ INTEQRASİYASI İLƏ 🧠)
 async function sendMessage(message) {
