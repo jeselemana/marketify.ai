@@ -136,6 +136,7 @@
       }
     </style>
   </head>
+
   <body>
     <div class="app">
      <header class="header">
@@ -259,6 +260,8 @@
     <div class="center" id="center-view">
       <h1 class="brand-sub">Marketify AI</h1>
      <h1 class="new-dynamic-title">Yeni Söhbət</h1>
+  <p class="new-chat-disclaimer">Cavabları yoxla. Dəqiq olmaya bilər.</p>
+
       <p class="tagline">Bu gün nə haqqında danışırıq? 😊</p>
 
       <div class="prompt-bubbles"></div>
@@ -338,6 +341,34 @@
   ✨ Ən yaxşı nəticə üçün hər zaman şablonu fərdiləşdir
 </div>
 
+<nav class="mobile-nav">
+  
+  <button class="nav-btn active" id="nav-home">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+      <polyline points="9 22 9 12 15 12 15 22"></polyline>
+    </svg>
+    <span>Əsas</span>
+  </button>
+
+  <button class="nav-btn hidden-btn" id="nav-clear">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+    </svg>
+    <span>Təmizlə</span>
+  </button>
+
+  <button class="nav-btn" id="nav-menu">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+    <span>Menyu</span>
+  </button>
+
+</nav>
       <footer class="legal">
         <p>Cavabların dəqiqliyinə zəmanət verilmir. Məlumatları yoxla.</p>
         <p>Powered by <strong>Innova Group</strong> | Marketify AI v2.0</p>
@@ -590,7 +621,6 @@ Bakı şəhəri, Azərbaycan<br>
   </div>
 
 </div>
-
     </div>
   </div>
 </div>

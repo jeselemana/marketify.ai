@@ -3017,3 +3017,194 @@ hr.custom-divider::after {
   margin-left: 4px;     /* soldan yumşaq məsafə */
   margin-bottom: 14px;  /* növbəti mesaja toxunmasın */
 }
+
+/* =========================================
+   📱 MOBILE BOTTOM NAVIGATION (PREMIUM GLASS)
+   ========================================= */
+
+/* Desktop-da gizlət */
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-nav {
+    display: flex;
+    justify-content: space-around; /* Düymələri bərabər bölür */
+    align-items: center;
+    
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 80px; /* iPhone Home Indicator üçün yer */
+    padding-bottom: 15px; /* İkonları biraz yuxarı qaldırırıq */
+    
+    /* 👇 Sənin Input Bar Stilinin Eynisi (Liquid Glass) */
+    background: rgba(20, 20, 20, 0.85); 
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+    z-index: 999; /* Input bar-ın altında, amma məzmunun üstündə */
+  }
+
+  /* Input bar-ı Naviqasiyanın üstünə qaldırırıq */
+  .input-bar {
+    bottom: 90px !important; /* Naviqasiya bar hündürlüyündən yuxarı */
+    transition: all 0.3s ease;
+  }
+  
+  /* Chat Box padding-i artırırıq ki, yazılar naviqasiyanın altında qalmasın */
+  .chat-box {
+    padding-bottom: 180px !important;
+  }
+  
+  /* Model Tooltip-i də yuxarı qaldıraq */
+  .bottom-dropdown {
+    bottom: 150% !important;
+  }
+
+  /* --- NAV BUTTON STYLES --- */
+  .nav-btn {
+    background: transparent;
+    border: none;
+    display: flex;
+    flex-direction: column; /* İkon üstdə, yazı altdan */
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    
+    width: 60px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  /* İkonlar */
+  .nav-btn svg {
+    width: 24px;
+    height: 24px;
+    stroke: rgba(255, 255, 255, 0.5); /* Passiv rəng */
+    transition: all 0.25s ease;
+  }
+
+  /* Yazılar */
+  .nav-btn span {
+    font-family: 'Poppins', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.5);
+    opacity: 0; /* Passiv olanda yazılar gizli qala bilər və ya solğun */
+    transform: translateY(5px);
+    transition: all 0.25s ease;
+  }
+  
+  /* Seçili və ya Aktiv (Hover) Vəziyyət */
+  .nav-btn.active svg,
+  .nav-btn:active svg {
+    stroke: #2d6bff; /* Marketify Blue */
+    filter: drop-shadow(0 0 8px rgba(45, 107, 255, 0.6));
+    transform: translateY(-2px);
+  }
+
+  .nav-btn.active span,
+  .nav-btn:active span {
+    color: #fff;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  /* Basılma effekti */
+  .nav-btn:active {
+    transform: scale(0.9);
+  }
+}
+
+/* 📱 Mobildə Footeri Tamamilə Gizlət */
+@media (max-width: 768px) {
+  .legal {
+    display: none !important;
+  }
+  
+  /* Chat Box-ın aşağısını tənzimləyirik ki, boşluq çox qalmasın */
+  .chat-box {
+    padding-bottom: 150px !important; /* Naviqasiya üçün yer saxlayırıq */
+  }
+}
+
+/* 🕵️‍♂️ Düyməni tam gizlətmək üçün */
+.nav-btn.hidden-btn {
+  display: none !important;
+}
+
+/* =========================================
+   📏 MOBILE SPACING FIX (Məsafə Düzəlişi)
+   ========================================= */
+
+@media (max-width: 768px) {
+  
+  /* 1. Input Bar-ı yuxarı qaldırırıq (Naviqasiyadan uzaqlaşır) */
+  .input-bar {
+    bottom: 110px !important; /* Əvvəl 95px idi, indi daha yuxarıdadır */
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  /* 2. Prompt Bubbles-ı yuxarı çəkirik (Input Bar-dan uzaqlaşır) */
+  .center .prompt-bubbles {
+    bottom: 205px !important; /* Əvvəl 170px idi -> Input Bar-dan aralı düşür */
+    padding-bottom: 5px !important; /* Aşağıdan biraz daxili boşluq */
+  }
+
+  /* 3. Chat Box-ın aşağısını tənzimləyirik ki, mesajlar Inputun altında qalmasın */
+  .chat-box {
+    padding-bottom: 200px !important; /* Təhlükəsizlik məsafəsi */
+  }
+  
+  /* 4. Model Menu (Inputun üstündəki menyu) yerini dəyişir */
+  .bottom-dropdown {
+    bottom: 130% !important; /* Menyunu da bir az yuxarı itələyirik */
+  }
+}
+
+/* =========================================
+   ⚠️ NEW CHAT DISCLAIMER (Xəbərdarlıq)
+   ========================================= */
+
+.new-chat-disclaimer {
+  position: absolute;
+  top: 58%; /* Başlıqdan bir az aşağıda durması üçün */
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.95);
+  z-index: 5;
+  
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5); /* Solğun rəng */
+  font-weight: 400;
+  text-align: center;
+  white-space: nowrap;
+  
+  /* Arxa fon (opsional - daha oxunaqlı olması üçün) */
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  
+  /* Animasiya üçün başlanğıc */
+  opacity: 0; 
+  transition: all 0.35s ease;
+  pointer-events: none; /* Kliklənməyə mane olmasın */
+}
+
+/* Aktiv olanda görünməsi üçün sinif */
+.new-chat-disclaimer.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* 🖥 Desktop-da (Kompüterdə) Xəbərdarlığı Gizlət */
+@media (min-width: 769px) {
+  .new-chat-disclaimer {
+    display: none !important;
+  }
+}

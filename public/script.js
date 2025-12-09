@@ -260,9 +260,7 @@ function typeText(el, text, speed = 18) {
       el.innerHTML += char;
       i++;
     }
-
-    next.style.display = "flex";
-next.classList.add("show");
+    
     
     scrollToBottom();
   }, speed);
@@ -742,32 +740,65 @@ if (confirmYes) {
 }
 
 /* ============================================
-   STATİK YENİ SÖHBƏT BAŞLIĞI
+   STATİK YENİ SÖHBƏT BAŞLIĞI & XƏBƏRDARLIQ (YENİLƏNMİŞ)
 ============================================ */
 const newTitle = document.querySelector(".new-dynamic-title");
+const newDisclaimer = document.querySelector(".new-chat-disclaimer"); // <--- YENİ ELEMENT
 
-/* SHOW/HIDE Məntiqi */
-if (input && newTitle) {
+// Köməkçi Funksiyalar (Bunu hər yerdə işlədəcəyik)
+function showNewChat() {
+  if (newTitle) newTitle.classList.add("show");
+  if (newDisclaimer) newDisclaimer.classList.add("show");
+
+  // Ana ekran elementlərini gizlət
+  const brandTitle = document.querySelector(".brand-sub");
+  const tagline = document.querySelector(".tagline");
+  if(brandTitle) brandTitle.style.opacity = "0";
+  if(tagline) tagline.style.opacity = "0";
+}
+
+function hideNewChat() {
+  if (newTitle) newTitle.classList.remove("show");
+  if (newDisclaimer) newDisclaimer.classList.remove("show");
+}
+
+// 1. Inputa yazanda işə düşsün
+if (input) {
   input.addEventListener("input", () => {
     if (input.value.trim().length > 0) {
-      // Yazı yazılanda "Yeni Söhbət" çıxır
-      newTitle.classList.add("show");
-
-      // Digər elementləri gizlədirik
-      if(brandTitle) brandTitle.style.opacity = "0";
-      if(tagline) tagline.style.opacity = "0";
+      showNewChat();
     } else {
-      // Yazı silinəndə "Yeni Söhbət" gizlənir
-      newTitle.classList.remove("show");
-
-      // Chat boşdursa Marketify AI geri qayıdır
-      if (chatBox.children.length === 0) {
+      // Çat boşdursa, hər şeyi əvvəlki halına qaytar
+      const chatBox = document.getElementById("chat-box");
+      if (chatBox && chatBox.children.length === 0) {
+        hideNewChat();
+        
+        const brandTitle = document.querySelector(".brand-sub");
+        const tagline = document.querySelector(".tagline");
         if(brandTitle) brandTitle.style.opacity = "1";
         if(tagline) tagline.style.opacity = "1";
+      } else {
+        // Mesaj varsa, sadəcə başlığı gizlət
+        hideNewChat();
       }
     }
   });
 }
+
+// 2. Mesaj göndəriləndə (Send button) hər şey gizlənsin
+// Qeyd: Bu kod mövcud sendMessage funksiyasını "overwrite" edir
+const _superOriginalSend = sendMessage;
+sendMessage = function(msg) {
+  hideNewChat();
+  
+  // Hər ehtimala qarşı ana ekranı da gizli saxla
+  const brandTitle = document.querySelector(".brand-sub");
+  const tagline = document.querySelector(".tagline");
+  if(brandTitle) brandTitle.style.opacity = "0";
+  if(tagline) tagline.style.opacity = "0";
+
+  _superOriginalSend(msg);
+};
 
 
 /* SHOW/HIDE */
@@ -978,3 +1009,149 @@ function showCopyPopup(message = "Kopyalandı ✨") {
     setTimeout(() => popup.remove(), 300);
   }, 1800);
 }
+
+/* ============================================
+   📱 MOBILE NAVIGATION LOGIC (FIXED)
+============================================ */
+document.addEventListener("DOMContentLoaded", () => {
+  const navHome = document.getElementById("nav-home");
+  const navNewChat = document.getElementById("nav-new-chat");
+  const navClear = document.getElementById("nav-clear");
+  const navMenu = document.getElementById("nav-menu");
+  
+  const allNavBtns = document.querySelectorAll(".nav-btn");
+
+  function setActiveNav(btn) {
+    allNavBtns.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+  }
+
+  // 🛠 KÖMƏKÇİ FUNKSİYA: Ekranı "Ana Səhifə" halına qaytarır
+  function resetToHomeState() {
+    const chatBox = document.getElementById("chat-box");
+    const input = document.getElementById("user-input");
+
+    // Yalnız çat boşdursa dizaynı sıfırla (Mesaj varsa dəymirik)
+    if (chatBox && chatBox.children.length === 0) {
+        // 1. Mərkəzi elementləri (Logo, Bubbles) geri gətir
+        if (typeof showCenterElements === "function") showCenterElements();
+        
+        // 2. "Yeni Söhbət" başlığını gizlət
+        if (typeof hideNewChat === "function") hideNewChat();
+
+        // 3. Inputu təmizlə və klaviaturanı bağla (blur)
+        if (input) {
+            input.value = "";
+            input.blur(); // Klaviaturanı bağlayır
+            input.style.height = "44px";
+        }
+    }
+  }
+
+  // 1. HOME (ƏSAS) — ARTIQ EKRANI SIFIRLAYIR
+  if (navHome) {
+    navHome.addEventListener("click", () => {
+      setActiveNav(navHome);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // 👇 ƏSAS DÜZƏLİŞ: Rejimi sıfırlayırıq
+      resetToHomeState();
+    });
+  }
+
+  // 2. NEW CHAT (YENİ SÖHBƏT) — FULL UI SWITCH
+  if (navNewChat) {
+    navNewChat.addEventListener("click", (e) => {
+      setActiveNav(navNewChat);
+      e.preventDefault();
+
+      const chatBox = document.getElementById("chat-box");
+      const input = document.getElementById("user-input");
+      const popup = document.getElementById("confirmPopup");
+
+      // A) Əgər çatda mesaj varsa -> Popup aç (Silmək üçün)
+      if (chatBox && chatBox.children.length > 0) {
+        if (popup) popup.classList.add("show");
+      } 
+      
+      // B) Əgər çat boşdursa -> "YAZIŞMA REJİMİNİ" MƏCBURİ AKTİVLƏŞDİR
+      else {
+        // 1. Ana Ekranı (Logo, Tagline, BUBBLES) MƏCBURİ GİZLƏT
+        if (typeof hideCenterElements === "function") {
+          hideCenterElements(); 
+        }
+
+        // 2. "Yeni Söhbət" başlığını və xəbərdarlığı GÖSTƏR
+        if (typeof showNewChat === "function") {
+          showNewChat();
+        }
+
+        // 3. Inputa fokuslan
+        if (input) {
+            input.focus();
+        }
+      }
+
+      setTimeout(() => navNewChat.classList.remove("active"), 300);
+    });
+  }
+  
+  // 3. CLEAR (TƏMİZLƏ)
+  if (navClear) {
+    navClear.addEventListener("click", (e) => {
+      setActiveNav(navClear);
+      e.preventDefault();
+      
+      const popup = document.getElementById("confirmPopup");
+      if(popup) popup.classList.add("show");
+      
+      setTimeout(() => navClear.classList.remove("active"), 300);
+    });
+  }
+
+  // 4. MENU
+  if (navMenu) {
+    navMenu.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setActiveNav(navMenu);
+      
+      // Menyu açılarkən də klaviaturanı bağlamaq yaxşı olar
+      const input = document.getElementById("user-input");
+      if(input) input.blur();
+
+      const dropdown = document.getElementById("dropdownMenu");
+      const arrow = document.querySelector(".arrow-down");
+      
+      if(dropdown) dropdown.classList.toggle("show");
+      if(arrow) arrow.classList.toggle("open");
+      
+      setTimeout(() => navMenu.classList.remove("active"), 300);
+    });
+  }
+});
+
+/* ============================================
+   🔄 AUTO-HIDE/SHOW CLEAR BUTTON
+============================================ */
+document.addEventListener("DOMContentLoaded", () => {
+  const chatBox = document.getElementById("chat-box");
+  const navClear = document.getElementById("nav-clear");
+
+  if (chatBox && navClear) {
+    // 1. Dəyişiklikləri izləyən funksiya
+    const observer = new MutationObserver(() => {
+      // Əgər çatda mesaj varsa, 'hidden-btn' sinfini SİL (görünsün)
+      if (chatBox.children.length > 0) {
+        navClear.classList.remove("hidden-btn");
+      } 
+      // Mesaj yoxdursa, 'hidden-btn' sinfini ƏLAVƏ ET (gizlənsin)
+      else {
+        navClear.classList.add("hidden-btn");
+        navClear.classList.remove("active"); // Aktiv effekti də sil
+      }
+    });
+
+    // 2. İzləməni başlat
+    observer.observe(chatBox, { childList: true });
+  }
+});
