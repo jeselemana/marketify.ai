@@ -347,7 +347,17 @@ let conversationHistory = [];
 app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
-    const selectedModel = req.body.model || "gpt-4o";
+    // Model seçimini təhlükəsizləşdiririk (yalnız icazəli modellər)
+    const allowedModels = new Set([
+      "gpt-4o",
+      "gpt-4o-mini",
+      "gpt-5.1-analytics",
+      "local",
+    ]);
+    let selectedModel = (req.body.model || "gpt-4o").trim();
+    if (!allowedModels.has(selectedModel)) {
+      selectedModel = "gpt-4o";
+    }
 
     // ===== ANALYTICS MODE LIMIT (gpt-5.1-analytics üçün) =====
     if (selectedModel === "gpt-5.1-analytics") {
@@ -454,7 +464,7 @@ Missiya: İstifadəçinin dilində danışan, kreativ və ağıllı köməkçi o
 
     // 🔥 Model konfiqurasiyası
     let settings = {
-      model: "gpt-4o",
+      model: selectedModel === "gpt-4o-mini" ? "gpt-4o-mini" : "gpt-4o",
       temperature: 0.35,
       presence_penalty: 0.1,
       frequency_penalty: 0.1,
@@ -494,6 +504,8 @@ Məqsəd: qısa, aydın və yüksək səviyyəli analitik cavab verməkdir.
     } else {
       // Kreativ mod (default Marketify tone)
       messagesToSend = [finalSystemPrompt, ...conversationHistory];
+      // Əsas modellər: gpt-4o və ya gpt-4o-mini
+      settings.model = selectedModel === "gpt-4o-mini" ? "gpt-4o-mini" : "gpt-4o";
     }
 
     // 🔥 OPENAI REQUEST
@@ -513,8 +525,12 @@ Məqsəd: qısa, aydın və yüksək səviyyəli analitik cavab verməkdir.
 
     res.json({ reply });
   } catch (err) {
-    console.error("AI Xətası:", err);
-    res.status(500).json({ error: "Server xətası." });
+    const errMsg =
+      err?.response?.data?.error?.message ||
+      err?.message ||
+      "Server xətası.";
+    console.error("AI Xətası:", errMsg);
+    res.status(500).json({ error: errMsg });
   }
 });
 

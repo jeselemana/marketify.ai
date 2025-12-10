@@ -103,7 +103,7 @@ btn.addEventListener("click", () => {
 document.addEventListener("DOMContentLoaded", loadDynamicBubbles);
 
 // 🟣 MODEL DROPDOWN
-let selectedModel = "gpt-4o-mini";
+let selectedModel = "gpt-4o";
 
 if (modelBtn) {
   modelBtn.addEventListener("click", (e) => {
@@ -300,10 +300,12 @@ async function sendMessage(message) {
       }),
     });
 
-    if (!res.ok) throw new Error("Server error");
-
     const data = await res.json();
-    chatBox.removeChild(typing);
+    if (!res.ok) {
+      throw new Error(data.error || "Server error");
+    }
+
+    if (typing?.parentNode) chatBox.removeChild(typing);
 
     let reply = data.reply || "⚠️ Cavab alınmadı 😔";
 
@@ -328,8 +330,14 @@ async function sendMessage(message) {
     typeText(botMsg, reply);
   } catch (err) {
     console.error(err);
-    chatBox.removeChild(typing);
-    addMessage("bot", "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.");
+    if (typing?.parentNode) chatBox.removeChild(typing);
+
+    const fallbackMsg =
+      err?.message && err.message !== "Server error"
+        ? `⚠️ ${err.message}`
+        : "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.";
+
+    addMessage("bot", fallbackMsg);
   }
 }
 
@@ -345,6 +353,7 @@ if (form && input) {
     input.value = "";
     input.style.height = "auto"; 
     input.style.overflowY = "hidden";
+    input.classList.remove("scrolling");
   });
 
   function isMobile() {
@@ -375,6 +384,7 @@ input.addEventListener("keydown", (e) => {
 
     input.value = "";
     input.style.height = "44px";
+    input.classList.remove("scrolling");
   }
 });
 
@@ -606,13 +616,18 @@ if (form && input) {
 
   // 3. Avto-böyümə funksiyası (Bunu olduğu kimi saxlayın və ya əlavə edin)
   input.addEventListener("input", function() {
-    this.style.height = "44px"; // Öncə sıfırlayırıq ki, azaldanda kiçilsin
-    this.style.height = (this.scrollHeight) + "px"; // Sonra mətnə görə böyüdürük
-    
-    if (this.scrollHeight > 140) {
-      this.style.overflowY = "auto";
+    const maxHeight = 180; // px
+    this.style.height = "44px"; // əvvəl sıfırlayırıq
+
+    const contentHeight = this.scrollHeight;
+    const nextHeight = Math.min(contentHeight, maxHeight);
+    this.style.height = `${nextHeight}px`;
+
+    // Mətn çox olanda scrollbar göstər
+    if (contentHeight > maxHeight) {
+      this.classList.add("scrolling");
     } else {
-      this.style.overflowY = "hidden";
+      this.classList.remove("scrolling");
     }
   });
 }
