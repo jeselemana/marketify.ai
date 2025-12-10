@@ -393,7 +393,13 @@ input.addEventListener("keydown", (e) => {
 // ✅ Scroll aşağı
 function scrollToBottom() {
   requestAnimationFrame(() => {
-    chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: "smooth" });
+    const lastMessage = chatBox?.querySelector(".message:last-of-type") || chatBox?.lastElementChild;
+
+    if (lastMessage) {
+      lastMessage.scrollIntoView({ block: "end", behavior: "smooth" });
+    } else {
+      chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: "smooth" });
+    }
   });
 }
 
