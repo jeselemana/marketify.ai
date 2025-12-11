@@ -3131,6 +3131,58 @@ hr.custom-divider::after {
   .nav-btn:active {
     transform: scale(0.9);
   }
+
+  /* Headerdəki clear düyməsini mobildə gizlə */
+  .clear-btn {
+    display: none !important;
+  }
+}
+
+.mobile-nav.keyboard-hidden {
+  transform: translateY(120%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  body.keyboard-open .mobile-nav {
+    transform: translateY(120%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  body.keyboard-open .input-bar {
+    bottom: 20px !important; /* Naviqasiya gizli olanda inputu aşağı çək */
+  }
+
+  body.keyboard-open .chat-box {
+    padding-bottom: 120px !important; /* Alt boşluğu optimallaşdır */
+  }
+
+  /* Klaviatura açıq olanda prompt bubble-ları inputun yaxınında saxla */
+  body.keyboard-open .prompt-bubbles,
+  body.keyboard-open .center .prompt-bubbles {
+    position: fixed !important;
+    left: 0;
+    right: 0;
+    bottom: 110px !important; /* Input bar ilə klaviatura arasında qalır */
+    width: 100%;
+    margin: 0 !important;
+    padding: 10px 14px;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 10px;
+    overflow-x: auto;
+    background: rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(6px);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 95;
+  }
+
+  body.keyboard-open .prompt-bubbles::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* 📱 Mobildə Footeri Tamamilə Gizlət */

@@ -1153,6 +1153,52 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /* ============================================
+   ⌨️ KLAVİATURA AÇILANDA NAVİQASİYANIN GİZLƏNMƏSİ
+============================================ */
+document.addEventListener("DOMContentLoaded", () => {
+  const body = document.body;
+  const mobileNav = document.querySelector(".mobile-nav");
+  const userInput = document.getElementById("user-input");
+
+  if (!mobileNav) return;
+
+  const hideNavForKeyboard = () => {
+    body.classList.add("keyboard-open");
+    mobileNav.classList.add("keyboard-hidden");
+  };
+
+  const showNav = () => {
+    body.classList.remove("keyboard-open");
+    mobileNav.classList.remove("keyboard-hidden");
+  };
+
+  if (userInput) {
+    userInput.addEventListener("focus", hideNavForKeyboard);
+    userInput.addEventListener("blur", showNav);
+  }
+
+  if (window.visualViewport) {
+    let lastHeight = window.visualViewport.height;
+    const handleViewportChange = () => {
+      const currentHeight = window.visualViewport.height;
+      const diff = currentHeight - lastHeight;
+      const isKeyboardLikelyOpen = diff < -120 && document.activeElement === userInput;
+
+      if (isKeyboardLikelyOpen) {
+        hideNavForKeyboard();
+      } else if (diff > 120) {
+        showNav();
+      }
+
+      lastHeight = currentHeight;
+    };
+
+    window.visualViewport.addEventListener("resize", handleViewportChange);
+    window.visualViewport.addEventListener("scroll", handleViewportChange);
+  }
+});
+
+/* ============================================
    🔄 AUTO-HIDE/SHOW CLEAR BUTTON
 ============================================ */
 document.addEventListener("DOMContentLoaded", () => {
