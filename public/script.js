@@ -15,6 +15,7 @@ const center = document.getElementById("center-view");
 
 const promptSuggestions = [
   // Marketinq & Biznes
+  { title: "Growth Hacking", sub: "strategiyasını düzgün tətbiq etmə yolları" },
   { title: "Black Friday-də", sub: "sərfəli təkliflərlə yanaşı mənfəət artırmaq" },
   { title: "Alış-veriş həvəskarları üçün", sub: "cəlbedici təkliflər" },
   { title: "Minimum büdcə", sub: "ilə maksimum gəlir əldə etmə üsulları" },
