@@ -8,65 +8,46 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// ===== DAILY ANALYTICS LIMIT (FILE-BASED) =====
-const ANALYTICS_LIMIT_PATH = path.join(__dirname, "data", "analytics_limits.json");
-
-// Faylı yarad
-if (!fs.existsSync(ANALYTICS_LIMIT_PATH)) {
-  fs.writeFileSync(ANALYTICS_LIMIT_PATH, "{}", "utf8");
-}
-
-function loadAnalyticsLimits() {
-  try {
-    const raw = fs.readFileSync(ANALYTICS_LIMIT_PATH, "utf8");
-    return JSON.parse(raw || "{}");
-  } catch (err) {
-    console.error("Limit JSON load error:", err.message);
-    return {};
-  }
-}
-
-function saveAnalyticsLimits(data) {
-  try {
-    fs.writeFileSync(ANALYTICS_LIMIT_PATH, JSON.stringify(data, null, 2), "utf8");
-  } catch (err) {
-    console.error("Limit JSON save error:", err.message);
-  }
-}
-
-function canUseAnalytics(ip) {
-  const limits = loadAnalyticsLimits();
-  const today = new Date().toISOString().slice(0, 10);
-
-  if (!limits[ip]) {
-    limits[ip] = { date: today, count: 0 };
-  }
-
-  const entry = limits[ip];
-
-  // Yeni gün başlayıbsa reset
-  if (entry.date !== today) {
-    entry.date = today;
-    entry.count = 0;
-  }
-
-  // Limit dolubsa
-  if (entry.count >= 1) {
-    return false;
-  }
-
-  // İstifadəni artır
-  entry.count++;
-  saveAnalyticsLimits(limits);
-
-  return true;
-}
-
 dotenv.config();
 
 // ES module üçün __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+
+// 🔥 REDIS (Analytics limit üçün)
+import { createClient } from "redis";
+
+const redis = createClient({
+  url: process.env.REDIS_URL,
+});
+
+// Event listeners — createClient-dən SONRA gəlməlidir
+redis.on("connect", () => console.log("🔥 Redis connected"));
+redis.on("error", (err) => console.error("❌ Redis error:", err));
+
+// Render-da auto-reconnect üçün
+redis.connect().catch((err) =>
+  console.error("❌ Redis connection error:", err)
+);
+
+// Günlük limit yoxlama funksiyası
+async function canUseAnalytics(ip) {
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `analytics:${ip}:${today}`;
+
+  const count = await redis.get(key);
+
+  if (count && parseInt(count) >= 1) {
+    return false;
+  }
+
+  await redis.incr(key);
+  await redis.expire(key, 60 * 60 * 24); // 24 saatlıq TTL
+
+  return true;
+}
+
 
 const app = express();
 app.use(cors());
@@ -380,10 +361,16 @@ app.post("/api/chat", async (req, res) => {
     const userMessage = req.body.message?.trim();
     const selectedModel = req.body.model || "gpt-4o";
 
-  if (selectedModel === "gpt-5.1-analytics") {
-  const userIp = req.ip;
+if (selectedModel === "gpt-5.1-analytics") {
+  // Render + Proxy serverlər üçün real IP-ni düzgün almaq
+  const userIp =
+    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+    req.connection?.remoteAddress ||
+    req.ip;
 
-  if (!canUseAnalytics(userIp)) {
+  console.log("🔍 Analytics request from IP:", userIp);
+
+  if (!(await canUseAnalytics(userIp))) {
     return res.json({
       reply:
         "⚠️ Bu gün üçün Analitika Rejimi üzrə istifadə limitini tamamladın.\nXidmət keyfiyyətini stabil saxlamaq üçün gün ərzində bütün istifadəçilərə müəyyən limit tətbiq edirik.\nLimit sabah yenilənəcək və funksiyanı yenidən istifadə edə biləcəksən.\n\nℹ️ Söhbətə qaldığın yerdən davam etmək üçün cari \"🔎 Analitika\" modelini digər hər hansı bir modelə dəyişə bilərsən.\n\nAnlayışın üçün təşəkkür edirik!",
