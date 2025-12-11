@@ -9,8 +9,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { clerkClient } from "@clerk/clerk-sdk-node";
 
-import { clerkClient } from "@clerk/clerk-sdk-node";
-
 const ANALYTICS_DAILY_LIMIT = 20;
 
 export async function canUseAnalytics(userId) {
