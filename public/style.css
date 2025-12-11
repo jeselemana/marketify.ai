@@ -3220,3 +3220,23 @@ hr.custom-divider::after {
     display: none !important;
   }
 }
+
+.disabled-analytics {
+  opacity: 0.5;
+  pointer-events: none; /* kliklənməsin */
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.coming-soon {
+  background: transparent;      /* tam şəffaf */
+  padding: 2px 6px;
+  font-size: 10px;
+  border-radius: 6px;
+  color: #ffffffcc;             /* 80% ağ – daha premium */
+  font-weight: 500;
+  border: 1px solid #ffffff33;  /* nazik şəffaf ağ kontur */
+  backdrop-filter: blur(4px);   /* çox yumşaq blur effekt */
+}
