@@ -359,17 +359,17 @@ app.post("/api/chat", async (req, res) => {
       selectedModel = "gpt-4o";
     }
 
-    // ===== ANALYTICS MODE LIMIT (gpt-5.1-analytics üçün) =====
-    if (selectedModel === "gpt-5.1-analytics") {
-      const userId = req.auth?.userId || req.ip;
+  // ===== ANALYTICS MODE LIMIT (gpt-5.1-analytics üçün) =====
+if (selectedModel === "gpt-5.1-analytics") {
+  const userId = req.auth?.userId || req.ip;
 
-      if (!canUseAnalytics(userId)) {
-        return res.json({
-          reply:
-            "⚠️ Bu gün üçün Analitika Rejimi limitinə çatdın. Sabah yenidən cəhd et!",
-        });
-      }
-    }
+  if (!canUseAnalytics(userId)) {
+    return res.json({
+      reply:
+        "⚠️ Bu gün üçün Analitika Rejimi üzrə istifadə limitini tamamladın.\nXidmət keyfiyyətini stabil saxlamaq üçün gün ərzində bütün istifadəçilərə müəyyən limit tətbiq edirik.\nLimit sabah yenilənəcək və funksiyanı yenidən istifadə edə biləcəksən.\n\nℹ️ Söhbətinə qaldığın davam etmək üçün cari \"🔎 Analitika\" modelini digər hər hansı bir modelə dəyişə bilərsən.\n\nAnlayışın üçün təşəkkür edirik!",
+    });
+  }
+}
 
     if (!userMessage) {
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
