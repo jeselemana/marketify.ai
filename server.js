@@ -7,40 +7,59 @@ import nodemailer from "nodemailer";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { clerkClient } from "@clerk/clerk-sdk-node";
 
-const ANALYTICS_DAILY_LIMIT = 1;
+// ===== DAILY ANALYTICS LIMIT (FILE-BASED) =====
+const ANALYTICS_LIMIT_PATH = path.join(__dirname, "data", "analytics_limits.json");
 
-export async function canUseAnalytics(userId) {
+// Faylı yarad
+if (!fs.existsSync(ANALYTICS_LIMIT_PATH)) {
+  fs.writeFileSync(ANALYTICS_LIMIT_PATH, "{}", "utf8");
+}
+
+function loadAnalyticsLimits() {
   try {
-    const user = await clerkClient.users.getUser(userId);
-
-    const meta = user.privateMetadata || {};
-    const today = new Date().toISOString().slice(0, 10);
-
-    const lastReset = meta.analyticsLastReset || null;
-    let count = meta.analyticsCount || 0;
-
-    if (lastReset !== today) {
-      count = 0;
-    }
-
-    if (count >= ANALYTICS_DAILY_LIMIT) {
-      return false;
-    }
-
-    await clerkClient.users.updateUser(userId, {
-      privateMetadata: {
-        analyticsCount: count + 1,
-        analyticsLastReset: today,
-      },
-    });
-
-    return true;
+    const raw = fs.readFileSync(ANALYTICS_LIMIT_PATH, "utf8");
+    return JSON.parse(raw || "{}");
   } catch (err) {
-    console.error("Analytics limit error:", err);
-    return true;
+    console.error("Limit JSON load error:", err.message);
+    return {};
   }
+}
+
+function saveAnalyticsLimits(data) {
+  try {
+    fs.writeFileSync(ANALYTICS_LIMIT_PATH, JSON.stringify(data, null, 2), "utf8");
+  } catch (err) {
+    console.error("Limit JSON save error:", err.message);
+  }
+}
+
+function canUseAnalytics(ip) {
+  const limits = loadAnalyticsLimits();
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (!limits[ip]) {
+    limits[ip] = { date: today, count: 0 };
+  }
+
+  const entry = limits[ip];
+
+  // Yeni gün başlayıbsa reset
+  if (entry.date !== today) {
+    entry.date = today;
+    entry.count = 0;
+  }
+
+  // Limit dolubsa
+  if (entry.count >= 1) {
+    return false;
+  }
+
+  // İstifadəni artır
+  entry.count++;
+  saveAnalyticsLimits(limits);
+
+  return true;
 }
 
 dotenv.config();
@@ -359,23 +378,12 @@ let conversationHistory = [];
 app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
-    // Model seçimini təhlükəsizləşdiririk (yalnız icazəli modellər)
-    const allowedModels = new Set([
-      "gpt-4o",
-      "gpt-4o-mini",
-      "gpt-5.1-analytics",
-      "local",
-    ]);
-    let selectedModel = (req.body.model || "gpt-4o").trim();
-    if (!allowedModels.has(selectedModel)) {
-      selectedModel = "gpt-4o";
-    }
+    const selectedModel = req.body.model || "gpt-4o";
 
-  // ===== ANALYTICS MODE LIMIT (gpt-5.1-analytics üçün) =====
-if (selectedModel === "gpt-5.1-analytics") {
-  const userId = req.auth?.userId || req.ip;
+  if (selectedModel === "gpt-5.1-analytics") {
+  const userIp = req.ip;
 
-  if (!canUseAnalytics(userId)) {
+  if (!canUseAnalytics(userIp)) {
     return res.json({
       reply:
         "⚠️ Bu gün üçün Analitika Rejimi üzrə istifadə limitini tamamladın.\nXidmət keyfiyyətini stabil saxlamaq üçün gün ərzində bütün istifadəçilərə müəyyən limit tətbiq edirik.\nLimit sabah yenilənəcək və funksiyanı yenidən istifadə edə biləcəksən.\n\nℹ️ Söhbətə qaldığın yerdən davam etmək üçün cari \"🔎 Analitika\" modelini digər hər hansı bir modelə dəyişə bilərsən.\n\nAnlayışın üçün təşəkkür edirik!",
@@ -476,7 +484,7 @@ Missiya: İstifadəçinin dilində danışan, kreativ və ağıllı köməkçi o
 
     // 🔥 Model konfiqurasiyası
     let settings = {
-      model: selectedModel === "gpt-4o-mini" ? "gpt-4o-mini" : "gpt-4o",
+      model: "gpt-4o",
       temperature: 0.35,
       presence_penalty: 0.1,
       frequency_penalty: 0.1,
@@ -516,8 +524,6 @@ Məqsəd: qısa, aydın və yüksək səviyyəli analitik cavab verməkdir.
     } else {
       // Kreativ mod (default Marketify tone)
       messagesToSend = [finalSystemPrompt, ...conversationHistory];
-      // Əsas modellər: gpt-4o və ya gpt-4o-mini
-      settings.model = selectedModel === "gpt-4o-mini" ? "gpt-4o-mini" : "gpt-4o";
     }
 
     // 🔥 OPENAI REQUEST
@@ -537,12 +543,8 @@ Məqsəd: qısa, aydın və yüksək səviyyəli analitik cavab verməkdir.
 
     res.json({ reply });
   } catch (err) {
-    const errMsg =
-      err?.response?.data?.error?.message ||
-      err?.message ||
-      "Server xətası.";
-    console.error("AI Xətası:", errMsg);
-    res.status(500).json({ error: errMsg });
+    console.error("AI Xətası:", err);
+    res.status(500).json({ error: "Server xətası." });
   }
 });
 
