@@ -25,7 +25,7 @@ function canUseAnalytics(userId) {
     entry.count = 0;
   }
 
-  if (entry.count >= 20) return false;
+  if (entry.count >= 1) return false;
 
   entry.count++;
   return true;
