@@ -157,18 +157,18 @@
 
       <a
        href="#" class="feedback-link" onclick="openModal('aboutModal')">
-  🌐 Marketify haqqında
+  Marketify haqqında
 </a>
 
       </a>
 
       <a
       href="#" class="feedback-link" onclick="openModal('legalModal')">
-  🔐 Hüquqi
+  Hüquqi
 </a>
 
 <a href="#" class="feedback-link" onclick="openModal('faqModal')">
-  ❓ Tez-tez verilən suallar
+  Tez-tez verilən suallar
 </a>
 
       </a>
@@ -208,16 +208,25 @@
 
 <div class="social-sep"></div>
 
-<!-- Chat Bubble Icon --> 
+<div class="contact-dropdown">
+  <!-- Sənin mövcud SVG-li iconun buradadır -->
+  <a id="contactBtn" class="social-icon" aria-label="Contact Options">
+    <!-- Sənin verdiyin ORIGINAL SVG burada qalır -->
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/>
+    </svg>
+  </a>
 
-<a
-  href="mailto:info@marketify-ai.com"
-  class="social-icon"
-  aria-label="Contact Email"
->
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/>
-  </svg>
+  <!-- Popup menyu -->
+  <div id="contactPopup" class="contact-popup hidden">
+    <a href="mailto:info@marketify-ai.com" class="contact-option">
+      📩 E-poçt ilə yaz
+    </a>
+    <a href="https://wa.me/message/4TDUP4ELXE7VN1" target="_blank" class="contact-option">
+      💬 WhatsApp ilə yaz
+    </a>
+  </div>
+</div>
 
 </a>
       </div>

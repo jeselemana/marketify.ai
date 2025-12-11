@@ -1177,3 +1177,17 @@ document.addEventListener("DOMContentLoaded", () => {
     observer.observe(chatBox, { childList: true });
   }
 });
+
+// Contact popup
+const contactBtn = document.getElementById("contactBtn");
+const contactPopup = document.getElementById("contactPopup");
+
+contactBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  contactPopup.classList.toggle("hidden");
+});
+
+// Popup kənarına klik → bağlanır
+document.addEventListener("click", () => {
+  contactPopup.classList.add("hidden");
+});

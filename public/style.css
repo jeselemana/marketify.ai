@@ -3240,3 +3240,69 @@ hr.custom-divider::after {
   border: 1px solid #ffffff33;  /* nazik şəffaf ağ kontur */
   backdrop-filter: blur(4px);   /* çox yumşaq blur effekt */
 }
+
+/* Əsas səhifə konteyneri */
+.main-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Fallback */
+  height: 100dvh; /* Müasir brauzerlər üçün dinamik hündürlük */
+  overflow: hidden; /* Səhifənin özünün scroll olmasının qarşısını alır */
+}
+
+/* Yuxarıdakı məzmun (Başlıq və s.) */
+.header-content {
+  flex: 0 0 auto; /* Ölçüsü sabit qalır, sıxılmır */
+}
+
+/* Orta hissə (Chat və ya Təklif düymələri) */
+.content-area {
+  flex: 1; /* Qalan bütün boş yeri tutur */
+  overflow-y: auto; /* Yalnız bu hissə scroll olur */
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Məzmun az olanda mərkəzdə saxlayır */
+}
+
+/* Aşağıdakı Input sahəsi */
+.input-area {
+  flex: 0 0 auto; /* Sabit hündürlük */
+  padding-bottom: env(safe-area-inset-bottom); /* iPhone-larda aşağıdakı xətt üçün yer */
+}
+
+/* Contact Dropdown */
+.contact-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.contact-popup {
+  position: absolute;
+  right: 0;
+  top: 35px;
+  background: #131313;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  width: 180px;
+  padding: 8px 0;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  z-index: 999;
+}
+
+.contact-popup.hidden {
+  display: none;
+}
+
+.contact-option {
+  display: block;
+  padding: 10px 15px;
+  font-size: 14px;
+  color: #ccc;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.contact-option:hover {
+  background: rgba(45, 107, 255, 0.12);
+  color: #fff;
+}
