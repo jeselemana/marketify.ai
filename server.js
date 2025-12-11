@@ -7,28 +7,42 @@ import nodemailer from "nodemailer";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { clerkClient } from "@clerk/clerk-sdk-node";
 
-// ====== ANALYTICS RATE LIMIT (20 requests/day per user) ======
-const analyticsLimits = new Map();
+import { clerkClient } from "@clerk/clerk-sdk-node";
 
-function canUseAnalytics(userId) {
-  const today = new Date().toDateString();
-  if (!analyticsLimits.has(userId)) {
-    analyticsLimits.set(userId, { date: today, count: 0 });
+const ANALYTICS_DAILY_LIMIT = 20;
+
+export async function canUseAnalytics(userId) {
+  try {
+    const user = await clerkClient.users.getUser(userId);
+
+    const meta = user.privateMetadata || {};
+    const today = new Date().toISOString().slice(0, 10);
+
+    const lastReset = meta.analyticsLastReset || null;
+    let count = meta.analyticsCount || 0;
+
+    if (lastReset !== today) {
+      count = 0;
+    }
+
+    if (count >= ANALYTICS_DAILY_LIMIT) {
+      return false;
+    }
+
+    await clerkClient.users.updateUser(userId, {
+      privateMetadata: {
+        analyticsCount: count + 1,
+        analyticsLastReset: today,
+      },
+    });
+
+    return true;
+  } catch (err) {
+    console.error("Analytics limit error:", err);
+    return true;
   }
-
-  const entry = analyticsLimits.get(userId);
-
-  // Gün dəyişibsə resetlə
-  if (entry.date !== today) {
-    entry.date = today;
-    entry.count = 0;
-  }
-
-  if (entry.count >= 1) return false;
-
-  entry.count++;
-  return true;
 }
 
 dotenv.config();
@@ -366,7 +380,7 @@ if (selectedModel === "gpt-5.1-analytics") {
   if (!canUseAnalytics(userId)) {
     return res.json({
       reply:
-        "⚠️ Bu gün üçün Analitika Rejimi üzrə istifadə limitini tamamladın.\nXidmət keyfiyyətini stabil saxlamaq üçün gün ərzində bütün istifadəçilərə müəyyən limit tətbiq edirik.\nLimit sabah yenilənəcək və funksiyanı yenidən istifadə edə biləcəksən.\n\nℹ️ Söhbətinə qaldığın davam etmək üçün cari \"🔎 Analitika\" modelini digər hər hansı bir modelə dəyişə bilərsən.\n\nAnlayışın üçün təşəkkür edirik!",
+        "⚠️ Bu gün üçün Analitika Rejimi üzrə istifadə limitini tamamladın.\nXidmət keyfiyyətini stabil saxlamaq üçün gün ərzində bütün istifadəçilərə müəyyən limit tətbiq edirik.\nLimit sabah yenilənəcək və funksiyanı yenidən istifadə edə biləcəksən.\n\nℹ️ Söhbətə qaldığın yerdən davam etmək üçün cari \"🔎 Analitika\" modelini digər hər hansı bir modelə dəyişə bilərsən.\n\nAnlayışın üçün təşəkkür edirik!",
     });
   }
 }
