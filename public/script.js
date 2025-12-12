@@ -153,6 +153,8 @@ function addMessage(role, text) {
   msg.innerHTML = text;
   chatBox.appendChild(msg);
 
+  scrollToBottom();
+  return msg;
 }
 
 // 🟡 “Marketify yazır...” effekti (Düzəldilmiş - V3)
