@@ -518,71 +518,6 @@ function initTaglineRotator() {
 
 document.addEventListener("DOMContentLoaded", initTaglineRotator);
 
-// 💡 Tooltip Məntiqi
-document.addEventListener("DOMContentLoaded", () => {
-  const tooltip = document.getElementById("model-tooltip");
-  const modelBtn = document.getElementById("model-btn");
-
-  if (tooltip && modelBtn) {
-    // 1. Sayt açılandan 1.5 saniyə sonra göstər
-    setTimeout(() => {
-      // Əgər menyu hələ açılmayıbsa göstər
-      if (!document.getElementById("dropdownMenu").classList.contains("show")) {
-        tooltip.classList.add("show");
-      }
-    }, 1500);
-
-    // 2. 6 saniyə sonra avtomatik gizlət
-    setTimeout(() => {
-      tooltip.classList.remove("show");
-    }, 7500);
-
-    // 3. Buttona klikləyəndə dərhal gizlət
-    modelBtn.addEventListener("click", () => {
-      tooltip.classList.remove("show");
-    });
-  }
-});
-
-// 💡 Tooltip Göstərmə Funksiyası (Reusable)
-function triggerModelTooltip() {
-  const tooltip = document.getElementById("model-tooltip");
-  const dropdownMenu = document.getElementById("dropdownMenu");
-  
-  if (tooltip && dropdownMenu) {
-    // Əgər menyu artıq açıqdırsa, tooltip-ə ehtiyac yoxdur
-    if (dropdownMenu.classList.contains("show")) return;
-
-    tooltip.classList.add("show");
-
-    // 6 saniyə sonra gizlət
-    setTimeout(() => {
-      tooltip.classList.remove("show");
-    }, 6000);
-  }
-}
-
-// Sayt yüklənəndə işə düşən hissə
-document.addEventListener("DOMContentLoaded", () => {
-  // ... digər yüklənmə kodları ...
-
-  // 1. Sayt açılandan 1.5 saniyə sonra göstər
-  setTimeout(() => {
-    triggerModelTooltip();
-  }, 1500);
-
-  // Buttona klikləyəndə dərhal gizlət
-  const modelBtn = document.getElementById("model-btn");
-  const tooltip = document.getElementById("model-tooltip");
-  
-  if (modelBtn && tooltip) {
-    modelBtn.addEventListener("click", () => {
-      tooltip.classList.remove("show");
-    });
-  }
-});
-
-/* script.js */
 
 // 1. Elementləri seçirik
 const promptContainer = document.querySelector(".prompt-bubbles");
@@ -977,16 +912,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-function showSuggestionPopup() {
-  const pop = document.getElementById("suggestion-popup");
-  if (!pop) return;
-
-  pop.classList.add("show");
-
-  setTimeout(() => {
-    pop.classList.remove("show");
-  }, 2000);
-}
 
 /* ===========================
    🌐 MODAL OPEN/CLOSE FUNCTIONS
@@ -1018,19 +943,6 @@ function toggleFaq(id) {
   category.classList.toggle("open");
 }
 
-function showCopyPopup(message = "Kopyalandı ✨") {
-  const popup = document.createElement("div");
-  popup.className = "copy-popup";
-  popup.textContent = message;
-
-  document.body.appendChild(popup);
-
-  setTimeout(() => popup.classList.add("show"), 50);
-  setTimeout(() => {
-    popup.classList.remove("show");
-    setTimeout(() => popup.remove(), 300);
-  }, 1800);
-}
 
 /* ============================================
    📱 MOBILE NAVIGATION LOGIC (FIXED)
@@ -1153,52 +1065,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /* ============================================
-   ⌨️ KLAVİATURA AÇILANDA NAVİQASİYANIN GİZLƏNMƏSİ
-============================================ */
-document.addEventListener("DOMContentLoaded", () => {
-  const body = document.body;
-  const mobileNav = document.querySelector(".mobile-nav");
-  const userInput = document.getElementById("user-input");
-
-  if (!mobileNav) return;
-
-  const hideNavForKeyboard = () => {
-    body.classList.add("keyboard-open");
-    mobileNav.classList.add("keyboard-hidden");
-  };
-
-  const showNav = () => {
-    body.classList.remove("keyboard-open");
-    mobileNav.classList.remove("keyboard-hidden");
-  };
-
-  if (userInput) {
-    userInput.addEventListener("focus", hideNavForKeyboard);
-    userInput.addEventListener("blur", showNav);
-  }
-
-  if (window.visualViewport) {
-    let lastHeight = window.visualViewport.height;
-    const handleViewportChange = () => {
-      const currentHeight = window.visualViewport.height;
-      const diff = currentHeight - lastHeight;
-      const isKeyboardLikelyOpen = diff < -120 && document.activeElement === userInput;
-
-      if (isKeyboardLikelyOpen) {
-        hideNavForKeyboard();
-      } else if (diff > 120) {
-        showNav();
-      }
-
-      lastHeight = currentHeight;
-    };
-
-    window.visualViewport.addEventListener("resize", handleViewportChange);
-    window.visualViewport.addEventListener("scroll", handleViewportChange);
-  }
-});
-
-/* ============================================
    🔄 AUTO-HIDE/SHOW CLEAR BUTTON
 ============================================ */
 document.addEventListener("DOMContentLoaded", () => {
@@ -1224,16 +1090,57 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// Contact popup
-const contactBtn = document.getElementById("contactBtn");
-const contactPopup = document.getElementById("contactPopup");
+// 📱 Mobile keyboard detection — stable version
+(function () {
+  const body = document.body;
 
-contactBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  contactPopup.classList.toggle("hidden");
-});
+  function isTextInput(el) {
+    return (
+      el &&
+      (el.tagName === 'INPUT' ||
+        el.tagName === 'TEXTAREA' ||
+        el.isContentEditable)
+    );
+  }
 
-// Popup kənarına klik → bağlanır
-document.addEventListener("click", () => {
-  contactPopup.classList.add("hidden");
-});
+  // ---- Focus based (PRIMARY) ----
+  document.addEventListener(
+    'focusin',
+    (e) => {
+      if (isTextInput(e.target)) {
+        body.classList.add('keyboard-open');
+      }
+    },
+    true
+  );
+
+  document.addEventListener(
+    'focusout',
+    () => {
+      setTimeout(() => {
+        if (!isTextInput(document.activeElement)) {
+          body.classList.remove('keyboard-open');
+        }
+      }, 150);
+    },
+    true
+  );
+
+  // ---- VisualViewport fallback (SECONDARY) ----
+  if (window.visualViewport) {
+    let baseHeight = window.visualViewport.height;
+
+    window.visualViewport.addEventListener('resize', () => {
+      // Əgər input fokusdadırsa, viewport heç nə dəyişə bilməz
+      if (isTextInput(document.activeElement)) return;
+
+      const diff = baseHeight - window.visualViewport.height;
+
+      if (diff > 120) {
+        body.classList.add('keyboard-open');
+      } else {
+        body.classList.remove('keyboard-open');
+      }
+    });
+  }
+})();

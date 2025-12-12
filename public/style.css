@@ -1,4 +1,4 @@
-/* 🛠️ Qlobal Sıfırlama və Quraşdırma */
+/* Reset */
 *,
 *::before,
 *::after {
@@ -7,7 +7,11 @@
   padding: 0;
 }
 
-/* 🎨 Əsas Dizayn Dəyişənləri */
+* {
+  font-family: "Poppins", sans-serif;
+}
+
+/* Theme variables */
 :root {
   --bg-dark-1: #000;
   --bg-dark-2: #1a1a1a;
@@ -30,9 +34,16 @@
   --text-medium: #ccc;
 
   --font-main: "Poppins", sans-serif;
+
+  --liq-bg: rgba(255, 255, 255, 0.06);
+  --liq-blur: blur(14px) saturate(150%);
+  --liq-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  --liq-edge: 1px solid rgba(255, 255, 255, 0.18);
+
+  --deep-glass-bg: rgba(15, 15, 15, 0.85);
 }
 
-/* 🌑 Ümumi üslub */
+/* Base layout */
 body {
   background: var(--bg-dark-1);
   color: var(--text-light);
@@ -43,7 +54,6 @@ body {
   overflow-x: hidden;
 }
 
-/* 📦 Əsas konteyner */
 .app {
   display: flex;
   flex-direction: column;
@@ -53,7 +63,6 @@ body {
   position: relative;
 }
 
-/* 🔹 Başlıq */
 .header {
   position: fixed;
   top: 20px;
@@ -61,20 +70,26 @@ body {
   z-index: 20;
 }
 
-/* dry: Baza Düymə Stili */
+main {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+/* Buttons */
 .base-btn {
   background: var(--bg-dark-2);
   border: 1px solid var(--border-dark-1);
   color: var(--text-light);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s ease;
   font-family: var(--font-main);
 }
+
 .base-btn:hover {
   background: var(--hover-dark);
 }
 
-/* dry: İkon Düymə Stili */
 .icon-btn {
   border-radius: 50%;
   width: 40px;
@@ -84,49 +99,82 @@ body {
   justify-content: center;
 }
 
+.model-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
 .model-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  border-radius: 8px;
+  padding: 8px 14px;
   font-size: 15px;
-  padding: 6px 10px;
+  font-weight: 600;
+  border-radius: 18px;
+  background: var(--liq-bg);
+  backdrop-filter: var(--liq-blur);
+  -webkit-backdrop-filter: var(--liq-blur);
+  border: var(--liq-edge);
+  box-shadow: var(--liq-shadow);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* 🧹 Yeni Təmizlə düyməsi */
+.model-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 25px rgba(45, 107, 255, 0.25);
+  color: #fff;
+  transform: translateY(-3px);
+}
+
+/* Clear button */
 .clear-btn {
   position: fixed;
-  top: 18px;
-  right: 18px;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: #141414;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  top: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--liq-bg);
+  backdrop-filter: var(--liq-blur);
+  -webkit-backdrop-filter: var(--liq-blur);
+  border: var(--liq-edge);
+  box-shadow: var(--liq-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
-  font-size: 20px;
-  color: #7fc0ff;
-  transition: all 0.25s ease;
-  z-index: 30;
+  z-index: 1000;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.8) rotate(-15deg);
+}
+
+.clear-btn.show {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1) rotate(0deg);
 }
 
 .clear-btn:hover {
-  background: #1c1c1c;
-  box-shadow: 0 0 10px rgba(45, 107, 255, 0.4);
-  transform: rotate(180deg) scale(1.05);
-  color: #a4c9ff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+  box-shadow: 0 8px 25px rgba(45, 107, 255, 0.25);
+  transform: translateY(-3px);
 }
 
-/* 💬 Əsas Məzmun Sahəsi */
-main {
-  flex: 1;
-  position: relative;
-  z-index: 1;
+.clear-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 10px rgba(45, 107, 255, 0.2);
 }
 
+/* Hero */
 .center {
   position: absolute;
   z-index: 10;
@@ -152,74 +200,135 @@ main {
   text-shadow: 0 0 25px rgba(45, 107, 255, 0.7);
 }
 
-
-/* style.css - təxminən sətir 135 */
-
 .tagline {
   color: var(--text-medium);
   font-size: 20px;
   margin-bottom: 25px;
-  min-height: 30px; /* Mətn dəyişəndə hoppanmaması üçün yer saxlayırıq */
-  
-  /* ✨ Animasiya parametrləri */
+  min-height: 30px;
   opacity: 1;
   transform: translateY(0) scale(1);
   filter: blur(0);
   transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-/* Yazı dəyişən zaman bu sinif aktiv olacaq */
 .tagline.hide {
   opacity: 0;
-  transform: translateY(10px) scale(0.95); /* Aşağı sürüşür və kiçilir */
-  filter: blur(10px); /* Bulanıqlaşır */
+  transform: translateY(10px) scale(0.95);
+  filter: blur(10px);
 }
 
-/* 💡 Prompt bubble-lar */
+/* Prompt bubbles */
 .prompt-bubbles {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
   margin-top: 25px;
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease;
+}
+
+.prompt-bubbles.hidden-bubbles {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  pointer-events: none;
 }
 
 .bubble {
-  background: var(--bg-bubble);
-  border: 1px solid var(--border-bubble);
-  color: var(--text-light);
-  backdrop-filter: blur(12px);
-  border-radius: 20px;
-  padding: 10px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: left;
+  min-height: 50px;
+  padding: 12px 22px;
+  border-radius: 26px;
+  background: var(--liq-bg);
+  backdrop-filter: var(--liq-blur);
+  -webkit-backdrop-filter: var(--liq-blur);
+  border: var(--liq-edge);
+  box-shadow: var(--liq-shadow);
+  color: #fff;
   font-size: 14px;
-  transition: 0.3s;
   cursor: pointer;
-}
-.bubble:hover {
-  background: var(--bg-bubble-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 0 10px rgba(45, 107, 255, 0.3);
+  transition: all 0.3s ease;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fadeUp 0.6s ease forwards;
 }
 
-/* 💬 Chat qutusu (scroll + footer overlap düzəlişi ilə) */
+.bubble:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(45, 107, 255, 0.25);
+}
+
+.bubble:nth-child(1) { animation-delay: 0.2s; }
+.bubble:nth-child(2) { animation-delay: 0.4s; }
+.bubble:nth-child(3) { animation-delay: 0.6s; }
+.bubble:nth-child(4) { animation-delay: 0.8s; }
+.bubble:nth-child(5) { animation-delay: 1s; }
+
+.bubble-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.25;
+  white-space: normal;
+overflow-wrap: anywhere;
+}
+
+.bubble-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 1px;
+  color: #fff;
+}
+
+.bubble-sub {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.75;
+  line-height: 1.2;
+}
+
+.center .prompt-bubbles {
+  position: relative;
+  top: auto;
+  bottom: auto;
+  transform: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 25px;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+/* Chat area */
 .chat-box {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
   max-width: 800px;
-  height: calc(100vh - 180px); /* footer + input bar sahəsi çıxılır */
+  bottom: 160px;
+  height: auto;
+  padding: 120px 20px 20px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 120px 20px 30px;
   scroll-behavior: smooth;
-  overscroll-behavior: contain; /* mobil scroll jitter düzəldilir */
+  overscroll-behavior: contain;
 }
 
-/* 💭 Mesajlar */
 .message {
   max-width: 80%;
   padding: 12px 16px;
@@ -229,108 +338,182 @@ main {
   animation: fadeIn 0.25s ease;
   word-break: break-word;
   overflow-wrap: anywhere;
-}
-.message.user {
-  align-self: flex-end;
-  background: var(--user-msg-blue);
-  color: white;
-}
-.message.bot {
-  align-self: flex-start;
-  background: var(--bg-dark-3);
-  border: 1px solid var(--border-dark-2);
-  color: var(--text-light);
-  white-space: pre-line;
-  text-align: left;
+  overflow: visible;
+  position: relative;
+  min-height: auto;
 }
 
-/* 🧩 Input bar */
+.message.user {
+  align-self: flex-end;
+  color: #fff;
+  background: transparent;
+  border: none;
+  backdrop-filter: blur(18px) brightness(160%);
+  -webkit-backdrop-filter: blur(18px) brightness(160%);
+}
+
+.message.user::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(45, 107, 255, 0.25);
+  backdrop-filter: blur(24px) brightness(130%);
+  -webkit-backdrop-filter: blur(24px) brightness(130%);
+  box-shadow:
+    inset 0 0 0 0.7px rgba(255, 255, 255, 0.32),
+    0 4px 12px rgba(0, 0, 0, 0.35);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.message.bot {
+  align-self: flex-start;
+  color: #fff;
+  background: transparent;
+  border: none;
+  white-space: pre-line;
+  text-align: left;
+  overflow: visible;
+}
+
+.message.bot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(26px) brightness(135%);
+  -webkit-backdrop-filter: blur(26px) brightness(135%);
+  box-shadow:
+    inset 0 0 0 0.6px rgba(255, 255, 255, 0.18),
+    0 4px 10px rgba(0, 0, 0, 0.35);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Typing indicator */
+.message.bot.typing-message {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 18px;
+  width: fit-content;
+}
+
+.typing-text {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 14px;
+  margin-top: 2px;
+}
+
+.typing-indicator span {
+  width: 6px;
+  height: 6px;
+  background-color: #8ab7ff;
+  border-radius: 50%;
+  animation: bounceWave 1.4s infinite ease-in-out both;
+}
+
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0s; }
+
+/* Input bar */
 .input-bar {
   position: fixed;
-  bottom: 75px; /* footer üçün yer */
+  bottom: 75px;
   left: 50%;
   transform: translateX(-50%);
   width: 92%;
   max-width: 800px;
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(10px);
-  padding: 10px 14px;
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
+  justify-content: space-between;
   gap: 10px;
-  border-radius: 16px;
-  border: 1px solid rgba(80, 80, 80, 0.4);
+  padding: 10px 14px;
+  background: rgba(20, 20, 20, 0.65);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3);
+  border-radius: 24px;
+  min-height: 64px;
   z-index: 100;
+  transition: all 0.2s ease;
 }
 
-/* 💥 FIX: Daxili Wrapper-in fon və blur effektini ləğv edirik ki, əsas glass görünsün */
 .input-wrapper {
-  background: transparent !important; /* Fondan qurtuluruq*/
-  backdrop-filter: none !important;  /* Blur-u ləğv edirik*/
-  -webkit-backdrop-filter: none !important;
-  border-radius: 14px !important; /* Radiusu saxlayırıq */
+  flex: 1;
+  min-width: 0; /* allow shrinking so other controls stay visible */
+  display: flex;
+  align-items: center;
+  border-radius: 14px;
+  padding: 2px;
+  background: transparent;
 }
 
-/* ✨ Fokuslandıqda mavi border + glow gəlir */
 .input-wrapper:focus-within {
-  background: linear-gradient(120deg, #0a32f0, #4c7eff, #0a32f0);
-  background-size: 200% 200%;
-  animation: borderFlow 4s ease infinite;
+  background: transparent;
   box-shadow: 0 0 14px rgba(74, 120, 255, 0.3);
 }
 
-/* 💫 Gradient axını üçün animasiya */
-@keyframes borderFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
 #user-input {
-  flex: 1; /* ✅ Bu, boşluğun yox olmasına kömək edəcək */
-  height: 44px;
-  background: transparent !important; /* Əvvəlki düzəliş */
+  flex: 1;
+  background: transparent;
   border: none;
-  border-radius: 10px;
-  padding: 0 14px;
+  outline: none;
   color: #fff;
   font-size: 15px;
-  outline: none;
+  font-family: var(--font-main);
+  resize: none;
+  overflow-y: hidden;
+  min-height: 48px;
+  max-height: 180px;
+  line-height: 20px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  white-space: normal;
+  padding-top: 12px;
+  padding-bottom: 8px;
+}
+
+#user-input.scrolling {
+  overflow-y: auto;
 }
 
 .send {
   height: 44px;
-  min-width: 44px;
+  width: 44px;
   background: #0a32f0;
-  border: none;
-  color: #fff;
-  border-radius: 10px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.3s ease, box-shadow 0.3s ease;
+
 }
+
 .send:hover {
   background: #4c7eff;
   box-shadow: 0 0 12px rgba(74, 120, 255, 0.4);
 }
-/* SEND düyməsinin deaktiv vəziyyəti */
+
 .send.disabled {
-  background: #2a2a2a !important;   /* tünd boz */
-  color: #777 !important;
-  cursor: not-allowed !important;
-  box-shadow: none !important;
-  opacity: 0.6 !important;
+  background: #2a2a2a;
+  color: #777;
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.6;
 }
 
-/* ⚙️ Footer */
+/* Footer */
 .legal {
   position: fixed;
   bottom: 15px;
@@ -351,95 +534,20 @@ main {
   font-weight: 600;
 }
 
-/* 📱 Mobil uyğunlaşdırma */
-@media (max-width: 768px) {
-  .chat-box {
-    height: calc(100vh - 220px);
-    padding-bottom: 50px;
-  }
-
-  .input-bar {
-    bottom: 85px;
-    width: 94%;
-  }
-
-  .legal {
-    bottom: 20px;
-    font-size: 12px;
-  }
-
-  .center {
-    top: 40%;
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.typing-indicator span {
-  width: 6px;
-  height: 6px;
-  background: var(--primary-blue);
-  border-radius: 50%;
-  animation: blink 1.4s infinite both;
-}
-.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes blink {
-  0%, 80%, 100% { opacity: 0; }
-  40% { opacity: 1; }
-}
-.version-label {
-  opacity: 0.6; /* 🔹 Solğun effekt */
-  transition: opacity 0.3s ease;
-}
-
-.version-label:hover {
-  opacity: 1; /* Hover zamanı tam parlaq olsun */
-}
-
-.model-dropdown {
-  position: relative;
-  display: inline-block;
-}
-
-.model-btn {
-  background: #1c1c1c;
-  border: 1px solid #2a2a2a;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 600;
-  border-radius: 10px;
-  padding: 8px 14px;
-  cursor: pointer;
-  font-size: 15px;
-  transition: all 0.25s ease;
-}
-
-.model-btn:hover {
-  background: #252525;
-  color: #fff;
-}
-
-/* ▼ AÇILAN MENYU */
+/* Model dropdown */
 .dropdown-menu {
   display: none;
   position: absolute;
   top: 45px;
   left: 0;
-  background: #121212;
-  border: 1px solid #2a2a2a;
-  border-radius: 10px;
   min-width: 200px;
   padding: 10px 0;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  background: var(--deep-glass-bg);
+  backdrop-filter: blur(50px);
+  -webkit-backdrop-filter: blur(50px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   z-index: 100;
 }
 
@@ -459,52 +567,69 @@ main {
   font-weight: 600;
 }
 
-.dropdown-menu .feedback-link:hover {
+.dropdown-menu .feedback-link:hover,
+.dropdown-menu .model-item:hover {
   background: rgba(45, 107, 255, 0.1);
   color: #fff;
 }
 
-/* Aktiv olarkən görünür */
 .dropdown-menu.show {
   display: block;
 }
 
-/* 🧊 Popup arxa fonu */
+.version-label {
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.version-label:hover {
+  opacity: 1;
+}
+
+/* Confirm popup */
 .confirm-popup {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
-  background: rgba(10, 10, 10, 0.7);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
+  z-index: 9999;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
 }
 
-/* Aktiv olanda göstər */
 .confirm-popup.show {
   opacity: 1;
   pointer-events: all;
 }
 
-/* 🧩 Qutu */
 .confirm-box {
-  background: #181818;
-  color: #fff;
-  padding: 22px 28px;
-  border-radius: 16px;
-  max-width: 360px;
+  background: var(--deep-glass-bg);
+  backdrop-filter: blur(50px);
+  -webkit-backdrop-filter: blur(50px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 30px 24px;
+  width: 85%;
+  max-width: 320px;
   text-align: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  font-family: "Poppins", sans-serif;
+  color: #fff;
+  transform: scale(0.95) translateY(10px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: var(--font-main);
 }
 
-/* 🔘 Düymələr */
+.confirm-popup.show .confirm-box {
+  transform: scale(1) translateY(0);
+}
+
 .confirm-actions {
   margin-top: 16px;
   display: flex;
@@ -513,774 +638,52 @@ main {
 }
 
 .confirm-btn {
-  border: none;
-  border-radius: 10px;
+  flex: 1;
+  height: 46px;
+  border-radius: 12px;
   padding: 10px 18px;
   cursor: pointer;
   font-weight: 600;
+  border: none;
   transition: 0.2s;
 }
 
 .confirm-btn.yes {
-  background-color: #4a6bff;
+  background: linear-gradient(135deg, #2d6bff, #0051ff);
   color: white;
-}
-
-.confirm-btn.no {
-  background-color: #2a2a2a;
-  color: #ccc;
+  box-shadow: 0 4px 15px rgba(45, 107, 255, 0.4);
 }
 
 .confirm-btn.yes:hover {
-  background-color: #5c7aff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(45, 107, 255, 0.6);
+}
+
+.confirm-btn.no {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .confirm-btn.no:hover {
-  background-color: #3a3a3a;
-}
-/* 🌟 Smart suggestions animasiyası */
-.bubble {
-  opacity: 0;
-  transform: translateY(8px);
-  animation: fadeUp 0.6s ease forwards;
-}
-.bubble:nth-child(1) { animation-delay: 0.2s; }
-.bubble:nth-child(2) { animation-delay: 0.4s; }
-.bubble:nth-child(3) { animation-delay: 0.6s; }
-.bubble:nth-child(4) { animation-delay: 0.8s; }
-.bubble:nth-child(5) { animation-delay: 1s; }
-
-@keyframes fadeUp {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.typing-indicator span {
-  width: 8px;
-  height: 8px;
-  background: #8ab7ff; /* Daha açıq mavi */
-  border-radius: 50%;
-  animation: blink 1.4s infinite both;
-  opacity: 0.6;
-}
-
-.typing-indicator span:nth-child(1) { animation-delay: 0s; }
-.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes blink {
-  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1.1); }
-
-}
-.typing-indicator span {
-  width: 8px;
-  height: 8px;
-  background: var(--primary-blue);
-  border-radius: 50%;
-  opacity: 0.5;
-  animation: blink 1.2s infinite ease-in-out;
-}
-.typing-indicator span:nth-child(1) {
-  animation-delay: 0s;
-}
-.typing-indicator span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.typing-indicator span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes blink {
-  0%, 80%, 100% {
-    opacity: 0.5;
-    transform: scale(0.9);
-  }
-  40% {
-    opacity: 1;
-    transform: scale(1.3);
-  }
-}
-
-/* 🔔 Info popup (kiçik xəbərdarlıq) */
-.info-popup {
-  position: fixed;
-  bottom: 120px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(45, 107, 255, 0.9);
+  background: rgba(255, 255, 255, 0.2);
   color: #fff;
-  font-family: "Poppins", sans-serif;
-  font-size: 13px;
-  padding: 8px 16px;
-  border-radius: 10px;
-  box-shadow: 0 0 12px rgba(45, 107, 255, 0.5);
-  z-index: 999;
-  animation: fadeInOut 3s ease;
-}
-@keyframes fadeInOut {
-  0% { opacity: 0; transform: translateY(10px) translateX(-50%); }
-  10%, 90% { opacity: 1; transform: translateY(0) translateX(-50%); }
-  100% { opacity: 0; transform: translateY(10px) translateX(-50%); }
-}
-/* 📱 Mobil üçün suggestions */
-@media (max-width: 768px) {
-  .prompt-bubbles {
-    position: fixed;
-    bottom: 115px; /* input-un bir az yuxarısında */
-    left: 0;
-    width: 100%;
-    padding: 10px 12px;
-    display: flex;
-    overflow-x: auto;
-    gap: 10px;
-    white-space: nowrap;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    background: rgba(0, 0, 0, 0.25);
-    backdrop-filter: blur(6px);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    z-index: 95;
-  }
-
-  .prompt-bubbles::-webkit-scrollbar {
-    display: none;
-  }
-
-  .bubble {
-    flex: 0 0 auto;
-    scroll-snap-align: center;
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 20px;
-    padding: 10px 16px;
-    font-size: 14px;
-    font-family: "Poppins", sans-serif;
-    color: #fff;
-    transition: all 0.2s ease;
-  }
-
-  .bubble:hover {
-    background: rgba(255, 255, 255, 0.18);
-    transform: translateY(-2px);
-  }
-
-  /* Desktop görünüşü üçün override */
-  .center .prompt-bubbles {
-    position: static;
-    background: none;
-    border: none;
-  }
 }
 
-/* ============================================================
-   🌬️ iOS 26 LIQUID GLASS OVERRIDE — ONLY SPECIFIED COMPONENTS
-   ============================================================ */
-
-/* Universal glass variables */
-:root {
-  --liq-bg: rgba(190, 210, 255, 0.06);
-  --liq-blur: blur(28px) brightness(135%);
-  --liq-shadow: 0 2px 12px rgba(0,0,0,0.28);
-  --liq-edge: inset 0 0 0 0.5px rgba(255,255,255,0.22);
-}
-
-/* ================
-   1) HEADER BUTTONS
-   ================ */
-
-.model-btn,
-.clear-btn {
-  background: var(--liq-bg) !important;
-  backdrop-filter: var(--liq-blur) !important;
-  -webkit-backdrop-filter: var(--liq-blur) !important;
-  border: none !important;
-  box-shadow: var(--liq-edge), var(--liq-shadow) !important;
-  border-radius: 18px !important;
-  transition: 0.25s !important;
-}
-.model-btn:hover,
-.clear-btn:hover {
-  transform: translateY(-2px) !important;
-}
-
-/* ================
-   2) SUGGESTIONS (.bubble)
-   ================ */
-
-.prompt-bubbles .bubble {
-  background: var(--liq-bg) !important;
-  backdrop-filter: var(--liq-blur) !important;
-  -webkit-backdrop-filter: var(--liq-blur) !important;
-
-  border: none !important;
-  box-shadow: var(--liq-edge), var(--liq-shadow) !important;
-
-  border-radius: 26px !important;
-  padding: 12px 22px !important;
-  color: #fff !important;
-  font-weight: 500 !important;
-
-  transition: 0.25s !important;
-}
-.prompt-bubbles .bubble:hover {
-  transform: translateY(-2px) !important;
-}
-
-/* ==================
-   3) INPUT BAR
-   ================== */
-
-.input-bar {
-  background: var(--liq-bg) !important;
-  backdrop-filter: var(--liq-blur) !important;
-  -webkit-backdrop-filter: var(--liq-blur) !important;
-
-  border: none !important;
-  box-shadow: var(--liq-edge), var(--liq-shadow) !important;
-  border-radius: 26px !important;
-  padding: 14px 18px !important;
-}
-
-.input-wrapper {
-  flex: 1; /* ✅ Bunu saxlayın */
-  display: flex;
-  align-items: center;
-  border-radius: 12px;
-  padding: 2px;
-  background: #1e1e1e; /* normal vəziyyətdə sadə fon */
-  transition: all 0.3s ease;
-}
-
-/* ==================
-   4) DROPDOWN MENU
-   ================== */
-
-.dropdown-menu {
-  background: var(--liq-bg) !important;
-  backdrop-filter: var(--liq-blur) !important;
-  -webkit-backdrop-filter: var(--liq-blur) !important;
-
-  border: none !important;
-  box-shadow: var(--liq-edge), var(--liq-shadow) !important;
-  border-radius: 20px !important;
-}
-
-/* ==================
-   5) POPUP BOXES
-   ================== */
-
-.confirm-box,
-everything {
-  background: var(--liq-bg) !important;
-  backdrop-filter: var(--liq-blur) !important;
-  -webkit-backdrop-filter: var(--liq-blur) !important;
-
-  border: none !important;
-  box-shadow: var(--liq-edge), var(--liq-shadow) !important;
-  border-radius: 20px !important;
-}
-
-.message.user {
-  position: relative;
-  overflow: hidden;
-  background: transparent !important;
-  border: none !important;
-  color: #fff !important;
-  backdrop-filter: blur(18px) brightness(160%) !important;
-}
-
-.message.user::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-
-  background: rgba(45, 107, 255, 0.25); /* Marketify Blue tint */
-  backdrop-filter: blur(24px) brightness(130%);
-  -webkit-backdrop-filter: blur(24px) brightness(130%);
-
-  box-shadow:
-    inset 0 0 0 0.7px rgba(255,255,255,0.32),
-    0 4px 12px rgba(0,0,0,0.35);
-
-  z-index: -1;
-  pointer-events: none;
-}
-
-.message.bot {
-  position: relative;
-  overflow: hidden;
-  background: transparent !important;
-  border: none !important;
-  color: #fff !important;
-}
-
-.message.bot::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-
-  background: rgba(255, 255, 255, 0.06); /* Tünd neytral glass */
-  backdrop-filter: blur(26px) brightness(135%);
-  -webkit-backdrop-filter: blur(26px) brightness(135%);
-
-  box-shadow:
-    inset 0 0 0 0.6px rgba(255,255,255,0.18),
-    0 4px 10px rgba(0,0,0,0.35);
-
-  z-index: -1;
-  pointer-events: none;
-}
-
-.chat-box {
-  position: fixed !important;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 800px;
-  bottom: 160px; /* input bar + footer üçün yer */
-  height: auto !important;
-  padding: 120px 20px 20px !important;
-  overflow-y: auto !important;
-}
-
-@media (max-width: 768px) {
-  .chat-box {
-    bottom: 180px !important; /* mobil input + footer spacing */
-    padding-bottom: 40px !important;
-  }
-}
-
-/* 📌 FINAL FIX — message bubble clipping fix */
-.message,
-.message.user,
-.message.bot {
-  overflow: visible !important;
-  position: relative !important;
-  min-height: auto !important;
-}
-
-/* Glass overlay layout fix */
-.message.user::before,
-.message.bot::before {
-  position: absolute !important;
-  inset: 0;
-  z-index: -1 !important;
-  pointer-events: none !important;
-  border-radius: inherit !important;
-}
-
-/* 📱 Mobil uyğunlaşdırma (FINAL WORKING BLOCK) */
-@media (max-width: 768px) {
-  
-  /* 1. Chat Box hündürlüyünü tənzimləyirik */
-  .chat-box {
-    bottom: 180px !important; /* footer + input bar üçün məsafə */
-    padding-bottom: 40px !important;
-  }
-  
-  /* 2. Input Bar tənzimlənməsi (Orijinal mobil dəyərlər) */
-  .input-bar {
-    bottom: 85px;
-    width: 94%;
-  }
-
-  /* 3. Prompt Bubbles - SLAYDER (FIXED POSITION) */
-  /* Element artıq HTML-də .center-dən ayrıldığı üçün bu kod təmiz işləyəcək */
-  .prompt-bubbles {
-    position: fixed; 
-    
-    /* 💥 FIX: bottom dəyəri Input Barın (85px) və onun hündürlüyünün (70-75px) üzərinə çıxır */
-    bottom: 170px; 
-    
-    left: 0; 
-    right: 0;
-    transform: none; /* Mərkəzləşdirməni tam ləğv edir */
-    
-    width: 100%;
-    
-    display: flex; 
-    flex-wrap: nowrap; /* Tək sətir */
-    justify-content: flex-start; /* Sola yapışdırır */
-    
-    overflow-x: auto; /* Horizontal scroll */
-    gap: 10px;
-    padding: 10px 16px; /* Yanlardan kənar məsafəsi */
-    z-index: 95;
-    
-    /* Scrollbarı gizlətmə xüsusiyyətlərini də əlavə edirik: */
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
-  }
-
-  .prompt-bubbles::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
-  }
-
-  /* 4. Bubble-ların sıxılmasının qarşısını almaq */
-  .bubble {
-    flex: 0 0 auto; 
-    margin: 0;
-    white-space: nowrap; 
-  }
-}
-
-/* 🎨 BUBBLE DAXİLİ DİZAYN (Title & Subtitle) */
-.bubble {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-align: left;
-  height: auto; /* Sabit hündürlük yoxdur, mətnə görə dəyişir */
-  min-height: 50px;
-}
-
-.bubble-content {
-  display: flex;
-  flex-direction: column; /* Başlıq və alt yazını alt-alta qoyur */
-  line-height: 1.3;
-}
-
-.bubble-title {
-  font-weight: 600;
-  font-size: 13px;
-  color: #fff;
-  display: block;
-}
-
-.bubble-sub {
-  font-weight: 400;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6); /* Bir az solğun rəng */
-  display: block;
-}
-
-/* 📱 MOBİL ÜÇÜN XÜSUSİ TƏNZİMLƏMƏ */
-@media (max-width: 768px) {
-  .prompt-bubbles {
-    /* Mövcud kodlarınız qalır, sadəcə bunu yoxlayın: */
-    display: flex;
-    flex-wrap: nowrap; /* Sətiri qırmasın, yanaşı düzsün */
-    overflow-x: auto; /* Yana sürüşdürmə aktiv olsun */
-    gap: 10px;
-    padding: 10px 16px;
-    
-    /* Scrollbarı gizlətmək */
-    -ms-overflow-style: none; 
-    scrollbar-width: none;
-  }
-  
-  .prompt-bubbles::-webkit-scrollbar {
-    display: none;
-  }
-
-  .bubble {
-    flex: 0 0 auto; /* Bubble sıxılmasın */
-    max-width: 240px; /* ⚠️ Çox uzun olsa belə ekranı tutmasın */
-    white-space: normal; /* Daxildə mətnin sətirdən keçməsinə icazə veririk */
-    padding: 10px 14px !important;
-  }
-
-  /* Əgər mətn həddindən artıq uzundursa, 2 sətirdən sonra "..." qoysun */
-  .bubble-sub {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-}
-
-/* ============================================
-   🎯 PROMPT BUBBLES - MƏRKƏZİ YERLƏŞMƏ (FIX)
-============================================ */
-
-/* .center içindəki bubbles üçün xüsusi qaydalar */
-.center .prompt-bubbles {
-  position: relative !important; /* Fixed ləğv edilir */
-  top: auto !important;
-  bottom: auto !important;
-  transform: none !important;
-  
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  
-  margin-top: 25px !important; /* ↕️ Tagline ilə məsafə */
-  width: 100%;
-  padding: 0 !important;
-  
-  /* Arxa fon və borderləri təmizləyirik (konteyner üçün) */
-  background: transparent !important;
-  border: none !important;
-  backdrop-filter: none !important;
-  box-shadow: none !important;
-}
-
-/* Mobil üçün sürüşdürmə (Slider) */
-@media (max-width: 768px) {
-  .center .prompt-bubbles {
-    flex-wrap: nowrap !important; /* Qırılmasın */
-    overflow-x: auto !important; /* Sürüşdürmə aktiv olsun */
-    justify-content: flex-start !important; /* Soldan başlasın */
-    padding-bottom: 10px !important; /* Barmaqlıq məsafəsi */
-  }
-  
-  /* Scrollbar gizlətmək */
-  .center .prompt-bubbles::-webkit-scrollbar {
-    display: none;
-  }
-  
-  .center .prompt-bubbles .bubble {
-    flex: 0 0 auto; /* Sıxılmasın */
-  }
-}
-
-/* ============================================
-   📱 MOBILE: PROMPT BUBBLES (INPUT BAR ÜZƏRİNDƏ)
-============================================ */
-
-@media (max-width: 768px) {
-  
-  /* 1. "Transform Trap" problemini həll edirik */
-  /* Mobildə mərkəzləşdirmə üsulunu dəyişirik ki, Bubbles sərbəst qalsın */
-  .center {
-    transform: none !important; /* Transform ləğv edilir */
-    top: 0 !important;
-    left: 0 !important;
-    position: absolute !important;
-    width: 100%;
-    height: 100%;
-    
-    /* Yeni mərkəzləşdirmə (Flexbox) */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding-bottom: 100px; /* Vizual olaraq bir az yuxarı çəkirik */
-  }
-
-  /* 2. Bubbles-ları Input Bar-ın üzərinə yapışdırırıq */
-  .center .prompt-bubbles {
-    position: fixed !important; /* Artıq ekrana görə sabitlənəcək */
-    
-    /* Input Bar (85px) + Boşluq = ~170px */
-    bottom: 170px !important; 
-    
-    left: 0 !important;
-    right: 0 !important;
-    top: auto !important;
-    margin-top: 0 !important;
-    
-    /* Slider dizaynı */
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    justify-content: flex-start !important;
-    overflow-x: auto !important;
-    padding: 10px 16px !important;
-    gap: 10px !important;
-    z-index: 95;
-    
-    /* Scrollbar gizlətmək */
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-    background: transparent !important;
-  }
-
-  /* Webkit brauzerlər üçün scrollbar gizlətmə */
-  .center .prompt-bubbles::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Bubble ölçülərini qoruyuruq */
-  .center .prompt-bubbles .bubble {
-    flex: 0 0 auto !important;
-    min-width: 150px;
-    max-width: 240px;
-    background: rgba(20, 20, 20, 0.6); /* Mobil üçün bir az tünd fon */
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-}
-
-/* 🧹 Təmizlə düyməsi (Yenilənmiş) */
-.clear-btn {
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: #141414;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 20px;
-  color: #7fc0ff;
-  z-index: 30;
-  
-  /* ✨ Gizlətmə effekti üçün yeni sətirlər: */
-  opacity: 0;             /* Görünməz edir */
-  visibility: hidden;     /* Kliklənməni bağlayır */
-  transform: scale(0.8);  /* Bir az kiçik olsun */
-  pointer-events: none;   /* Siçan toxunuşunu ləğv edir */
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Pop-up effekti */
-}
-
-/* Aktiv olanda bu sinifi əlavə edəcəyik */
-.clear-btn.show {
-  opacity: 1;
-  visibility: visible;
-  transform: scale(1) rotate(0deg);
-  pointer-events: auto;
-}
-
-.clear-btn:hover {
-  background: #1c1c1c;
-  box-shadow: 0 0 10px rgba(45, 107, 255, 0.4);
-  transform: rotate(90deg) scale(1.1); /* Hover-da fırlanma */
-  color: #a4c9ff;
-}
-
-/* =========================================
-   ✨ PERFECT TYPING INDICATOR (V3)
-   ========================================= */
-
-/* Mesaj qutusunun özü üçün xüsusi tənzimləmə */
-.message.bot.typing-message {
-  display: flex;
-  flex-direction: column; /* Alt-alta düzür */
-  align-items: flex-start;
-  gap: 4px; /* Mətn və nöqtələr arası məsafə (azaldıldı) */
-  padding: 12px 18px; /* Bir az daha yığcam padding */
-  width: fit-content;
-}
-
-/* Mətn stili */
-.typing-text {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 500;
-}
-
-/* Nöqtələrin konteyneri */
-.typing-indicator {
-  display: flex;
-  align-items: center;
-  gap: 5px; /* Nöqtələr arası məsafə */
-  height: 14px; /* Hündürlüyü sabitləyirik */
-  margin-top: 2px; /* Mətnə daha yaxın olsun */
-}
-
-/* Nöqtələrin özü */
-.typing-indicator span {
-  display: block;
-  width: 6px;
-  height: 6px;
-  background-color: #8ab7ff; /* Daha açıq, parlaq mavi */
-  border-radius: 50%;
-  animation: bounceWave 1.4s infinite ease-in-out both;
-}
-
-/* Animasiya gecikmələri (Dalğa effekti üçün) */
-.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
-.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
-.typing-indicator span:nth-child(3) { animation-delay: 0s; }
-
-/* 🌊 Dalğa Animasiyası (Yuxarı-aşağı) */
-@keyframes bounceWave {
-  0%, 80%, 100% { 
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  40% { 
-    transform: scale(1.2) translateY(-4px); /* Yuxarı hoppanır və böyüyür */
-    opacity: 1;
-    background-color: #fff; /* Hoppananda ağarır */
-  }
-}
-
-/* ✨ Model Tooltip (Glass Style) */
-.model-tooltip {
-  position: absolute;
-  top: 55px; /* Button-dan məsafə */
-  left: 4px;
-  
-  /* 🧊 Şəffaf Şüşə Effekti */
-  background: rgba(30, 30, 30, 0.6); /* Yarımşəffaf tünd fon */
-  backdrop-filter: blur(12px);        /* Arxa fonu bulandırır */
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.15); /* İncə ağ çərçivə */
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);   /* Kölgə */
-  
-  color: rgba(255, 255, 255, 0.9);
-  padding: 10px 16px;
-  border-radius: 14px;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 90;
-  
-  /* Animasiya */
-  opacity: 0;
-  transform: translateY(-10px);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-/* Görünən halı */
-.model-tooltip.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* 🔼 Şüşə Ox (Arrow) */
-.model-tooltip::before {
-  content: "";
-  position: absolute;
-  top: -6px; /* Yuxarı çıxır */
-  left: 24px;
-  width: 12px;
-  height: 12px;
-  
-  /* Eyni şüşə effekti */
-  background: rgba(30, 30, 30, 0.6); 
-  backdrop-filter: blur(12px);
-  
-  /* Sadəcə yuxarı və sol tərəfə çərçivə veririk */
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
-  
-  /* 45 dərəcə fırladaraq ox formasına salırıq */
-  transform: rotate(45deg);
-}
-
-/* --- Analitika Rejimi (Deaktiv) Üslubları --- */
-
-/* Deaktiv menyu elementi */
+/* Disabled menu items */
 .dropdown-menu .model-item.disabled {
-  opacity: 0.5;                /* Yarımşəffaf görüntü */
-  cursor: not-allowed;         /* Üzərinə gələndə qadağan işarəsi */
+  opacity: 0.5;
+  cursor: not-allowed;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  pointer-events: none;        /* Kliklənməni tamamilə bağlayır */
+  pointer-events: none;
 }
 
-/* Deaktiv elementin üzərinə gələndə fon dəyişməsin */
 .dropdown-menu .model-item.disabled:hover {
   background: transparent;
   color: #ccc;
 }
 
-/* "Tezliklə" yazısının dizaynı */
 .badge-soon {
   font-size: 10px;
   text-transform: uppercase;
@@ -1293,19 +696,18 @@ everything {
   color: #aaa;
 }
 
-/* ✨ Yeni İncə Ayırıcı (Divider) */
+/* Divider */
 hr.custom-divider {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.1); /* Çox solğun ağ xətt */
-  margin: 24px auto; /* Yuxarı-aşağı məsafə */
-  width: 100%; /* Mesajın eni qədər */
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 24px auto;
+  width: 100%;
   opacity: 0.6;
   position: relative;
 }
 
-/* İstəyə bağlı: Xəttin ortasında kiçik parıltı effekti */
 hr.custom-divider::after {
-  content: '';
+  content: "";
   position: absolute;
   top: -1px;
   left: 0;
@@ -1315,318 +717,50 @@ hr.custom-divider::after {
   opacity: 0.5;
 }
 
-/* 📱 Mobil üçün (Standart) - Kiçik və yığcam qalır */
-.bubble-title {
-  font-weight: 600;
-  font-size: 13px;
-  color: #fff;
-  display: block;
-}
-
-.bubble-sub {
-  font-weight: 400;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6); /* Solğun qalır ki, gözü yormasın */
-  display: block;
-}
-
-/* 💻 Desktop üçün Balans - Opacity Versiyası */
-@media (min-width: 769px) {
-  .bubble-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: #ffffff;          /* Başlıq: Tam Ağ */
-    margin-bottom: 2px;
-  }
-
-  .bubble-sub {
-    font-size: 13px;
-    font-weight: 400;
-    /* Rəng ağdır, amma 75% görünürlülük veririk */
-    color: rgba(255, 255, 255, 0.75); 
-    line-height: 1.4;
-    transition: color 0.3s ease;
-  }
-  
-  /* Hover effekti: Üstünə gələndə tam ağ olsun */
-  .bubble:hover .bubble-sub {
-    color: rgba(255, 255, 255, 1);
-  }
-}
-
-/* style.css */
-
-/* Gizlədilmiş Bubbles üçün sinif */
-.prompt-bubbles.hidden-bubbles {
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(10px); /* Aşağı sürüşərək itir */
-  pointer-events: none; /* Kliklənməni ləğv edir */
-}
-
-/* Bubbles üçün keçid effektini təmin etmək üçün mövcud koda əlavə */
-.prompt-bubbles {
-  /* Mövcud kodların qalır, sadəcə bu sətri əlavə et və ya yoxla: */
-  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
-}
-
-/* style.css */
-
-/* 1. Input bar-da elementləri aşağıya (bottom) hizalayırıq */
-.input-bar {
-  align-items: flex-end; /* Düymə həmişə aşağıda qalsın */
-  padding: 10px 14px; /* Padding-i sabit saxlayırıq */
-  transition: all 0.2s ease;
-}
-
-/* 2. Textarea üçün yeni stil */
-#user-input {
-  flex: 1;
-  background: transparent !important;
-  border: none;
-  outline: none;
-  color: #fff;
-  font-size: 15px;
-  font-family: "Poppins", sans-serif;
-  
-  resize: none; /* İstifadəçi əli ilə dartıb uzada bilməsin */
-  overflow-y: hidden; /* Scrollbar görünməsin */
-  min-height: 24px; /* Başlanğıc hündürlük */
-  max-height: 120px; /* Maksimum uzanma hündürlüyü (çox böyük olmasın) */
-  line-height: 1.5;
-  padding: 0; /* Padding-i wrapper həll edir */
-  margin-bottom: 2px; /* Mətni vizual mərkəzləşdirmək üçün */
-}
-
-/* Scrollbar yalnız max-height keçiləndə görünsün */
-#user-input.scrolling {
-  overflow-y: auto;
-}
-
-/* Düyməni bir az qaldıraq ki, tək sətirdə tam mərkəz görünsün */
-.send {
-  margin-bottom: 2px;
-}
-
-/* --- MULTI-LINE INPUT FIX --- */
-
-/* 1. Input bar elementlərini aşağıya hizalayırıq */
-.input-bar {
-  align-items: flex-end !important; /* Düymə həmişə aşağıda qalsın */
-  padding: 10px 14px; /* Padding-i qoruyuruq */
-  transition: all 0.2s ease;
-  min-height: 66px; /* Orijinal hündürlüyü qorumaq üçün */
-}
-
-/* 2. Textarea tənzimləmələri */
-#user-input {
-  flex: 1;
-  background: transparent !important;
-  border: none;
-  outline: none;
-  color: #fff;
-  font-size: 15px;
-  font-family: "Poppins", sans-serif;
-  
-  resize: none; /* İstifadəçi əli ilə dartıb uzada bilməsin */
-  overflow-y: hidden; /* Scrollbar əvvəlcə gizli olsun */
-  
-  min-height: 24px; /* Başlanğıc mətn hündürlüyü */
-  max-height: 140px; /* Maksimum uzanma hündürlüyü (təxminən 5-6 sətir) */
-  line-height: 1.5;
-  
-  padding: 10px 0 2px 0; /* Mətni vizual mərkəzləşdirmək üçün */
-  margin-bottom: 0;
-}
-
-/* 3. Göndər düyməsini vizual olaraq aşağıda mərkəzləşdiririk */
-.send {
-  margin-bottom: 2px; /* Textarea-nın son sətri ilə eyni səviyyədə olması üçün */
-  height: 44px; /* Orijinal hündürlük */
-}
-
-/* --- FIXED INPUT BAR --- */
-
-.input-bar {
-  display: flex;
-  align-items: flex-end; /* Elementləri aşağıdan hizalayırıq */
-  padding: 10px 14px;
-  background: rgba(30, 30, 30, 0.9); /* Orijinal fon */
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  border: 1px solid rgba(80, 80, 80, 0.4);
-  min-height: 64px; /* Sabit minimal hündürlük */
-  transition: all 0.2s ease;
-}
-
-#user-input {
-  flex: 1;
-  background: transparent !important;
-  border: none;
-  outline: none;
-  color: #fff;
-  font-size: 15px;
-  font-family: "Poppins", sans-serif;
-  
-  resize: none; 
-  overflow-y: hidden;
-  
-  /* ✅ ƏSAS DÜZƏLİŞ: Hündürlüyü düymə (44px) ilə eyniləşdiririk */
-  height: 44px; 
-  min-height: 44px;
-  max-height: 140px; 
-  
-  /* Mətni şaquli mərkəzləşdirmək üçün padding */
-  padding: 10px 4px; 
-  line-height: 1.5;
-  margin-bottom: 0;
-}
-
-/* Düymənin yerini sabit saxlayırıq */
-.send {
-  height: 44px;
-  width: 44px;
-  margin-bottom: 0; /* Aşağıdan yapışdırırıq */
-  flex-shrink: 0; /* Düymə sıxılmasın */
-}
-
-/* --- FIXED ALIGNMENT --- */
-
-.input-bar {
-  display: flex;
-  align-items: flex-end; /* Elementləri aşağıda saxlayır */
-  justify-content: space-between;
-  
-  /* Padding-i bir az tənzimləyirik */
-  padding: 10px 14px 10px 14px; 
-  
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  border: 1px solid rgba(80, 80, 80, 0.4);
-  min-height: 64px;
-  transition: all 0.2s ease;
-}
-
-.send {
-  height: 44px;
-  width: 44px;
-  
-  /* ✅ ƏSAS HƏLL: Düyməni 3px yuxarı qaldırırıq */
-  margin-bottom: 3px; 
-  
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  
-  /* Digər stillər olduğu kimi qalır */
-  background: #0a32f0;
-  border: none;
-  color: #fff;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background 0.3s ease, box-shadow 0.3s ease;
-}
-
-/* Hover effekti */
-.send:hover {
-  background: #4c7eff;
-  box-shadow: 0 0 12px rgba(74, 120, 255, 0.4);
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); opacity: .6; }
-  50% { transform: scale(1.25); opacity: 1; }
-  100% { transform: scale(1); opacity: .6; }
-}
-
+/* Hero labels */
 .new-chat-label {
   font-size: 44px;
   font-weight: 700;
   margin-top: -5px;
-
-  /* Dynamic Gradient */
   background: linear-gradient(135deg, #2d6bff, #60a5ff, #7db3ff, #2d6bff);
   background-size: 300% 300%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: gradientFlow 6s ease infinite;
-
-  /* Soft premium glow */
-  text-shadow:
-    0 0 20px rgba(45, 107, 255, 0.45),
-    0 0 40px rgba(0, 0, 0, 0.35);
-
+  animation: gradientFlow 6s ease infinite, breathe 4.2s ease-in-out infinite;
+  text-shadow: 0 0 20px rgba(45, 107, 255, 0.45), 0 0 40px rgba(0, 0, 0, 0.35);
   opacity: 0;
   transform: translateY(10px) scale(0.95);
-  transition: all .45s ease;
+  transition: all 0.45s ease;
   display: none;
-
-  /* Subtle breathing */
-  animation-name: gradientFlow, breathe;
-  animation-duration: 6s, 4.2s;
-  animation-timing-function: ease, ease-in-out;
-  animation-iteration-count: infinite, infinite;
-  animation-play-state: paused, paused;
+  animation-play-state: paused;
 }
 
 .new-chat-label.show {
   opacity: 1;
   transform: translateY(0) scale(1);
-  animation-play-state: running, running;
+  animation-play-state: running;
 }
 
-/* Gradient Axını */
-@keyframes gradientFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-/* Subtle breathing */
-@keyframes breathe {
-  0%, 100% {
-    transform: translateY(0) scale(1);
-  }
-  50% {
-    transform: translateY(1px) scale(1.02);
-  }
-}
-
-/* Yeni başlıq overlay kimi – digər elementləri itələmir */
 .new-dynamic-title {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(.95);
+  transform: translate(-50%, -50%) scale(0.95);
   z-index: 5;
-
   font-size: 44px;
   font-weight: 700;
   display: flex;
   gap: 12px;
   white-space: nowrap;
-
   background: linear-gradient(135deg, #2d6bff, #60a5ff, #7db3ff, #2d6bff);
   background-size: 300% 300%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: gradientFlow 6s ease infinite;
-
-  text-shadow:
-    0 0 20px rgba(45, 107, 255, 0.25),
-    0 0 40px rgba(0, 0, 0, 0.25);
-
+  text-shadow: 0 0 20px rgba(45, 107, 255, 0.25), 0 0 40px rgba(0, 0, 0, 0.25);
   opacity: 0;
-  transition: all .35s ease;
-  pointer-events: none; /* klikləri bloklamasın */
+  transition: all 0.35s ease;
+  pointer-events: none;
 }
 
 .new-dynamic-title.show {
@@ -1635,7 +769,7 @@ hr.custom-divider::after {
 }
 
 .new-dynamic {
-  transition: opacity .45s ease, transform .45s ease;
+  transition: opacity 0.45s ease, transform 0.45s ease;
 }
 
 .new-dynamic.fade {
@@ -1643,38 +777,26 @@ hr.custom-divider::after {
   transform: translateY(6px);
 }
 
-@keyframes gradientFlow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* 🌐 Social Pill Container (Yenilənmiş - Daha yığcam) */
+/* Social pill */
 .social-pill {
   display: flex;
   align-items: center;
   justify-content: space-evenly;
-  
-  /* 👇 ENİ AZALDIRIQ: Kənarlardan 45px boşluq veririk */
-  margin: 12px 45px 8px 45px; 
-  
-  /* 👇 HÜNDÜRLÜYÜ AZALDIRIQ: Daha nazik olsun */
+  margin: 12px 45px 8px;
   padding: 6px 0;
-  
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px; /* Küncləri biraz daha yumşaltdım */
+  border-radius: 20px;
   backdrop-filter: blur(10px);
 }
 
-/* İkonların özü */
 .social-icon {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
-  color: rgba(255, 255, 255, 0.6); /* Default rəng (boz) */
+  color: rgba(255, 255, 255, 0.6);
   transition: all 0.3s ease;
   border-radius: 8px;
 }
@@ -1684,7 +806,6 @@ hr.custom-divider::after {
   height: 18px;
 }
 
-/* Hover Effektləri (Marketify Blue Glow) */
 .social-icon:hover {
   color: #fff;
   background: rgba(45, 107, 255, 0.2);
@@ -1692,89 +813,86 @@ hr.custom-divider::after {
   box-shadow: 0 4px 12px rgba(45, 107, 255, 0.3);
 }
 
-/* Aradakı şaquli xətlər (Separators) */
 .social-sep {
   width: 1px;
   height: 16px;
-  background: rgba(255, 255, 255, 0.1); /* Çox solğun xətt */
+  background: rgba(255, 255, 255, 0.1);
 }
 
-/* style.css */
-
+/* Disclaimer */
 .new-chat-disclaimer {
   position: absolute;
-  top: 58%; /* Başlıqdan bir az aşağıda durması üçün */
+  top: 58%;
   left: 50%;
   transform: translate(-50%, -50%) scale(0.95);
   z-index: 5;
-  
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+  text-align: center;
+  white-space: nowrap;
   background: rgba(255, 255, 255, 0.05);
-  padding: 8px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  
-  opacity: 0; /* Gizli başlayır */
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  opacity: 0;
   transition: all 0.35s ease;
   pointer-events: none;
-  white-space: nowrap;
 }
 
-/* Aktiv olanda görünməsi üçün sinif */
 .new-chat-disclaimer.show {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
 }
 
-/* =========================================
-   ✨ GEMINI STYLE BOTTOM MODEL PICKER
-   ========================================= */
+@media (min-width: 769px) {
+  .new-chat-disclaimer {
+    display: none !important;
+  }
+}
 
+/* Bottom model selector */
 .bottom-model-selector {
   position: relative;
   display: flex;
   align-items: center;
-  /* Send düyməsi ilə məsafə */
-  margin-right: 8px; 
-  margin-bottom: 8px; /* Send düyməsi ilə eyni hündürlükdə olsun */
+  margin-right: 8px;
+  margin-bottom: 8px;
   z-index: 101;
+  transform: translateY(6px);
+  transform: translate(6px, 3px);
+  flex: 0 0 auto;
 }
 
-/* 🔘 Trigger Button (Sadə mətn + ox) */
 #bottom-model-trigger {
   background: transparent;
   border: none;
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 6px;
-  
-  /* Gemini "Thinking" rəng tonu */
-  color: rgba(255, 255, 255, 0.5); 
-  font-family: "Poppins", sans-serif;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-main);
   font-size: 13px;
   font-weight: 500;
-  
   padding: 6px 10px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-width: 95px;
+  justify-content: center;
 }
 
-/* Hover olanda bir az ağarır */
 #bottom-model-trigger:hover {
   color: rgba(255, 255, 255, 0.9);
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* Aktiv olanda (Menyu açıq olanda) */
 #bottom-model-trigger.active {
-  color: #8ab7ff; /* Marketify Blue */
+  color: #8ab7ff;
   background: rgba(45, 107, 255, 0.1);
 }
 
-/* Ox işarəsi animasiyası */
 .chevron-icon {
   transition: transform 0.2s ease;
   opacity: 0.7;
@@ -1784,28 +902,32 @@ hr.custom-divider::after {
   transform: rotate(180deg);
 }
 
-/* 📂 Açılan Menyu (Input bar-ın üstündə) */
+#bottom-model-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .bottom-dropdown {
   position: absolute;
-  bottom: 140%; /* Düymənin üstünə çıxarır */
-  right: 0;     /* Sağa yaslayır */
+  bottom: 140%;
+  right: 0;
   width: 180px;
-  
-  background: #1e1e1e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  background: rgba(30, 30, 30, 0.85);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
   border-radius: 12px;
   padding: 6px;
-  
-  /* Animasiya */
   opacity: 0;
   visibility: hidden;
   transform: translateY(10px) scale(0.95);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
+  z-index: 999;
 }
 
-/* Menyu açıq halı */
 .bottom-dropdown.show {
   opacity: 1;
   visibility: visible;
@@ -1813,7 +935,6 @@ hr.custom-divider::after {
   pointer-events: auto;
 }
 
-/* Menyu elementləri */
 .b-model-item {
   padding: 10px 12px;
   font-size: 13px;
@@ -1829,642 +950,25 @@ hr.custom-divider::after {
   color: #fff;
 }
 
-/* Seçilmiş model */
 .b-model-item.selected {
   background: rgba(45, 107, 255, 0.15);
   color: #8ab7ff;
 }
 
-/* 📱 Mobil Uyğunlaşdırma */
-@media (max-width: 768px) {
-  .bottom-model-selector {
-    margin-bottom: 8px; /* Mobildə hizalanma */
-  }
-  #bottom-model-text {
-    max-width: 80px; /* Çox uzun ad olsa kəssin */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-/* =========================================
-   🚨 NUCLEAR MOBILE FIX: Send Button Force Visible
-   ========================================= */
-
-@media (max-width: 768px) {
-  /* 1. Konteyneri məcbur edirik ki, elementləri yan-yana sıxsın */
-  .input-bar {
-    display: flex !important;
-    flex-wrap: nowrap !important; /* Qətiyyən alt sətrə keçməsin */
-    align-items: center !important; /* Hər şeyi mərkəzləyirik */
-    padding-right: 6px !important;  /* Sağ tərəfdən az boşluq */
-    gap: 4px !important; /* Elementlər arası məsafəni azaldırıq */
-  }
-
-  /* 2. Input Wrapper: "Yer yoxdursa sıxıl, qırağa çıxma" əmri */
-  .input-wrapper {
-    flex: 1 1 auto !important; /* Elastik olsun */
-    min-width: 0 !important;   /* ⚠️ ƏN VACİB KOD: Bu olmazsa input kiçilmir */
-    width: auto !important;
-  }
-
-  /* 3. Model Seçimi: Çox yer tutmasın */
-  .bottom-model-selector {
-    flex: 0 0 auto !important; /* Sabit qalsın, uzanmasın */
-    margin: 0 !important;
-    max-width: 100px !important; /* Maksimum en */
-  }
-
-  /* Model adı çox uzundursa, üç nöqtə (...) qoysun */
-  #bottom-model-text {
-    display: inline-block;
-    max-width: 70px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 11px !important;
-    vertical-align: middle;
-  }
-
-  /* 4. SEND DÜYMƏSİ: Toxunulmazlıq statusu veririk */
-  /* 4. SEND DÜYMƏSİ: Sola çəkildi */
-  .send {
-    flex: 0 0 40px !important;
-    width: 40px !important;
-    height: 40px !important;
-    min-width: 40px !important;
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    opacity: 1 !important;
-    visibility: visible !important;
-    
-    /* 👇 Dəyişiklik buradadır: Sağdan 10px itələyirik ki, sola getsin */
-    margin: 0 10px 0 0 !important; 
-  }
-}
-
-/* 📂 Açılan Menyu - Real Glass Fix */
-.bottom-dropdown {
-  position: absolute;
-  bottom: 140%;
-  right: 0;
-  width: 180px;
-  
-  /* 👇 ƏSAS DƏYİŞİKLİK: 0.75-dən 0.25-ə endirdik (xeyli şəffaf) */
-  background: rgba(40, 40, 40, 0.25) !important; 
-  
-  /* Blur effektini gücləndirdik */
-  backdrop-filter: blur(25px) !important;
-  -webkit-backdrop-filter: blur(25px) !important;
-  
-  /* Sərhədləri biraz bəlli edirik ki, şüşə olduğu bilinsin */
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
-  
-  border-radius: 12px;
-  padding: 6px;
-  
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(10px) scale(0.95);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: none;
-  z-index: 200;
-}
-
-/* =========================================
-   ✨ NEW PREMIUM CLEAR BUTTON (MARKETIFY STYLE)
-   ========================================= */
-
-.clear-btn {
-  /* Mövqe */
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
-
-  /* Ölçü */
-  width: 44px !important;
-  height: 44px !important;
-  
-  /* 🎨 Premium Glass Look - Dərin və Şıq */
-  background: rgba(30, 30, 30, 0.4) !important; 
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
-  
-  /* 🔲 Forma: Adi dairə yox, Modern "Squircle" (iOS tərzi) */
-  border-radius: 14px !important; 
-  
-  /* Mərkəzləmə */
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  
-  /* İkon və Animasiya */
-  color: rgba(255, 255, 255, 0.6) !important;
-  cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important; /* Elastik animasiya */
-  
-  /* Başlanğıcda gizli (JS bunu idarə edir) */
-  opacity: 0; 
-  visibility: hidden;
-  transform: scale(0.8) rotate(-15deg);
-}
-
-/* 🔥 HOVER EFFEKTİ - Neon Glow */
-.clear-btn:hover {
-  background: rgba(45, 107, 255, 0.2) !important; /* Mavi çalar */
-  border-color: rgba(45, 107, 255, 0.5) !important; /* Parlaq çərçivə */
-  color: #fff !important;
-  
-  /* Parıltı və "Uçuş" effekti */
-  box-shadow: 0 8px 30px rgba(45, 107, 255, 0.4) !important;
-  transform: translateY(-2px) scale(1.1) rotate(0deg) !important;
-}
-
-/* Basılanda sıxılma effekti */
-.clear-btn:active {
-  transform: scale(0.95) !important;
-  box-shadow: 0 2px 10px rgba(45, 107, 255, 0.2) !important;
-}
-
-/* ✅ AKTİV OLMA VƏZİYYƏTİ (.show) */
-/* (Script.js düyməni göstərəndə bu işə düşür) */
-.clear-btn.show {
-  opacity: 1 !important;
-  visibility: visible !important;
-  transform: scale(1) rotate(0deg) !important;
-}
-
-/* =========================================
-   💎 REAL GLASS POPUP (FIXED)
-   ========================================= */
-
-/* 1. Ümumi Ekran Overlay (Arxanı bulandırır) */
-.confirm-popup {
-  background: rgba(0, 0, 0, 0.3) !important; /* Çox tünd olmasın */
-  backdrop-filter: blur(5px) !important;      /* Saytın özü də biraz bulansın */
-  -webkit-backdrop-filter: blur(5px) !important;
-  z-index: 9999 !important;
-}
-
-/* 2. Popup Qutusu - Əsl Şüşə */
-.confirm-box {
-  /* 👇 ƏSAS DƏYİŞİKLİK: Rəngi çox şəffaf edirik (0.65 -> 0.25) */
-  background: rgba(40, 40, 40, 0.25) !important; 
-  
-  /* Güclü Blur */
-  backdrop-filter: blur(30px) !important;
-  -webkit-backdrop-filter: blur(30px) !important;
-  
-  /* Buzlu ağ çərçivə */
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  
-  /* Dərinlik verən kölgə */
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
-  
-  border-radius: 24px !important;
-  padding: 32px 24px !important;
-  width: 85% !important;
-  max-width: 340px !important;
-  text-align: center;
-  
-  /* Giriş Animasiyası */
-  transform: scale(0.9) translateY(10px);
-  opacity: 0;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-}
-
-/* Açılan zaman */
-.confirm-popup.show .confirm-box {
-  transform: scale(1) translateY(0);
-  opacity: 1;
-}
-
-/* 3. Mətn və İkon */
-.confirm-box p {
-  color: #fff !important;
-  font-weight: 500 !important;
-  font-size: 16px !important;
-  margin-bottom: 24px !important;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.3); /* Oxunaqlıq üçün kölgə */
-}
-
-/* ⚠️ İkonu bir az da böyüdürük */
-.confirm-box p::before {
-  font-size: 36px;
-  margin-bottom: 12px;
-  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.4)); /* Sarı parıltı */
-}
-
-/* 4. Düymələr */
-.confirm-actions {
-  display: flex !important;
-  gap: 12px !important;
-}
-
-.confirm-btn {
-  flex: 1 !important;
-  height: 46px !important;
-  border-radius: 12px !important;
-  font-weight: 600 !important;
-  border: none !important;
-  cursor: pointer !important;
-  transition: 0.2s !important;
-}
-
-/* Bəli - Marketify Blue */
-.confirm-btn.yes {
-  background: linear-gradient(135deg, #2d6bff, #0051ff) !important;
-  color: white !important;
-  box-shadow: 0 4px 15px rgba(45, 107, 255, 0.4) !important;
-}
-
-.confirm-btn.yes:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(45, 107, 255, 0.6) !important;
-}
-
-/* Xeyr - Şəffaf */
-.confirm-btn.no {
-  background: rgba(255, 255, 255, 0.1) !important;
-  color: rgba(255, 255, 255, 0.8) !important;
-}
-
-.confirm-btn.no:hover {
-  background: rgba(255, 255, 255, 0.2) !important;
-  color: #fff !important;
-}
-
-/* 📂 Açılan Menyu - DARKER & LESS TRANSPARENT */
-.bottom-dropdown {
-  position: absolute;
-  bottom: 140%;
-  right: 0;
-  width: 180px;
-  
-  /* 👇 DÜZƏLİŞ: Rəngi tündləşdirdik (20,20,20) və qatılığı artırdıq (0.85) */
-  background: rgba(20, 20, 20, 0.85) !important; 
-  
-  /* Blur effekti */
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  
-  /* Kənar xətt */
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  
-  /* Kölgə */
-  box-shadow: 
-    0 25px 50px rgba(0, 0, 0, 0.5),         
-    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-  
-  border-radius: 12px;
-  padding: 6px;
-  
-  /* Animasiya */
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(10px) scale(0.95);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: none;
-  z-index: 999;
-}
-
-/* =========================================
-   💎 PREMIUM DARK GLASS (FINAL BALANCE)
-   ========================================= */
-
-/* 1. Model Picker (Açılan Menyu) */
-.bottom-dropdown {
-  position: absolute;
-  bottom: 140%;
-  right: 0;
-  width: 180px;
-
-  /* 👇 BALANS: 85% Tünd, 15% Şəffaf */
-  background: rgba(30, 30, 30, 0.85) !important;
-
-  /* 👇 GÜCLÜ BLUR: Arxadakı yazıları tam bulandırır ki, oxunmasın */
-  backdrop-filter: blur(25px) !important;
-  -webkit-backdrop-filter: blur(25px) !important;
-
-  /* İncə Çərçivə */
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  
-  /* Kölgə */
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6) !important;
-
-  border-radius: 12px;
-  padding: 6px;
-
-  /* Animasiya */
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(10px) scale(0.95);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: none;
-  z-index: 999;
-}
-
-/* 2. Popup Qutusu (Eyni Stil) */
-.confirm-box {
-  /* 👇 Eyni "Qızıl Orta" rəngi */
-  background: rgba(30, 30, 30, 0.85) !important;
-
-  /* Eyni Güclü Blur */
-  backdrop-filter: blur(25px) !important;
-  -webkit-backdrop-filter: blur(25px) !important;
-
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7) !important;
-
-  border-radius: 20px !important;
-  padding: 30px 24px !important;
-  width: 85% !important;
-  max-width: 320px !important;
-
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  text-align: center !important;
-
-  transform: scale(0.95) translateY(10px);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-/* =========================================
-   🔤 FORCE POPPINS ON BUBBLES
-   ========================================= */
-
-/* Bubbles və onların içindəki hər şey üçün */
-.bubble,
-.bubble-title,
-.bubble-sub {
-  font-family: 'Poppins', sans-serif !important;
-  letter-spacing: 0.3px; /* Bir az hava qataq, daha müasir görünsün */
-}
-
-/* Başlıq (Title) */
-.bubble-title {
-  font-weight: 600 !important;
-}
-
-/* Alt başlıq (Subtitle) */
-.bubble-sub {
-  font-weight: 400 !important;
-  opacity: 0.85;
-}
-
-/* 📱 MOBİL ÜÇÜN YUMŞAQ MODEL PICKER BÖYÜTMƏ */
-@media (max-width: 768px) {
-
-  /* Düymə */
-  #bottom-model-trigger {
-    padding: 10px 14px !important;    /* defaultdan cüzi böyük */
-    font-size: 15px !important;       /* çox böyütmürük */
-    height: 46px !important;          /* 1 pillə böyük */
-    border-radius: 12px !important;
-    gap: 6px !important;
-  }
-
-  #bottom-model-text {
-    font-size: 15px !important;
-  }
-
-  .chevron-icon {
-    width: 11px !important;
-    height: 11px !important;
-  }
-
-  /* Açılan menyu */
-  #bottom-model-menu {
-    border-radius: 12px !important;
-    padding: 8px 0 !important;
-  }
-
-  .b-model-item {
-    padding: 10px 14px !important;
-    font-size: 14px !important;  /* çox böyümədən, sadəcə rahat */
-  }
-}
-
-/* PERFECT MULTI-LINE PLACEHOLDER FIX */
-#user-input {
-  min-height: 48px !important;     /* 1. biraz yüksək */
-  max-height: 80px !important;     /* 2. 2 sətirlik yer */
-  padding: 5px 16px !important;   /* 3. yuxarı-aşağı balans */
-  line-height: 20px !important;    /* 4. səliqəli sətir aralığı */
-  overflow-y: hidden !important;   /* 5. avtomatik böyüsün */
-  resize: none !important;
-  white-space: normal !important;  /* 6. sətir qırılmasına icazə ver */
-}
-
-/* 🧭 INPUT SCROLL CONTROL — scrollbar yalnız mətn çox olanda çıxsın */
-#user-input {
-  max-height: 180px !important;
-  overflow-y: hidden !important;
-}
-
-#user-input.scrolling {
-  overflow-y: auto !important;
-}
-
-/* 📱 Yalnız mobil üçün model picker-i 3px sola sürüşdür */
-@media (max-width: 768px) {
-  #bottom-model-trigger {
-    transform: translateX(-3px);
-  }
-}
-
-/* 🖥 Desktop üçün model picker hündürlüyü düzəlişi */
-@media (min-width: 769px) {
-  .bottom-model-selector {
-    transform: translateY(-3px);
-  }
-}
-
-/* 🖥 Desktop üçün placeholder mərkəzləşməsi */
-@media (min-width: 769px) {
-  #user-input {
-    padding-top: 12px !important;
-    padding-bottom: 10px !important;
-  }
-}
-
-.bubble-content {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;   /* 🔥 dikey ortalama */
-  line-height: 1.25;         /* 🔥 sətir aralığını sıxlaşdırır */
-}
-
-.bubble-title {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 2px;        /* 🔥 başlıq ilə alt mətn arasındakı məsafə */
-}
-
-.bubble-sub {
-  font-size: 13px;
-  opacity: 0.7;
-  margin-top: 0;
-}
-
-.bubble {
-  display: flex;
-  align-items: center;     /* Bubble içini ortalayır */
-}
-
-.bubble-title {
-  font-size: 14px;     /* 🔥 əvvəl 15px idi — indi daha incə */
-  font-weight: 600;
-  margin-bottom: 1px;
-}
-
-.bubble-sub {
-  font-size: 12px;     /* 🔥 əvvəl 13px idi — indi daha təmiz görünür */
-  opacity: 0.75;
-  line-height: 1.2;
-}
-
-.bubble-content {
-  line-height: 1.15;
-}
-
-.bubble-title {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 4px;   /* 🔥 məsafəni buradan veririk */
-}
-
-.bubble-sub {
-  font-size: 12px;
-  opacity: 0.75;
-  line-height: 1.2;
-}
-
-/* 🖥 Yalnız desktop üçün send button hündürlük düzəlişi */
-@media (min-width: 769px) {
-  #send-btn {
-    transform: translateY(-2px);
-  }
-}
-
-#bottom-model-trigger {
-  min-width: 95px;   /* 🔥 Analitika rahat sığır */
-  justify-content: center;
-}
-
-#bottom-model-text {
-  white-space: nowrap; /* 🔥 Mətni kəsmir */
-}
-
-/* ============================================================
-   💎 PREMIUM GLASSMORPHISM SYSTEM (FINAL OVERRIDE)
-   ============================================================ */
-
-/* 1️⃣ LEVEL 1: LIGHT FROST (Suggestions & Buttons)
-   Məqsəd: Yüngül, toxunmaq istəyi yaradan, parlaq şüşə. */
-.prompt-bubbles .bubble, 
-.model-btn, 
-.clear-btn {
-  /* Daha açıq fon */
-  background: rgba(255, 255, 255, 0.06) !important;
-  
-  /* Orta dərəcəli bulanıqlıq */
-  backdrop-filter: blur(14px) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(150%) !important;
-  
-  /* Parlaq və incə sərhəd */
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
-  
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-}
-
-/* Hover zamanı daha şüşəli olsun */
-.prompt-bubbles .bubble:hover, 
-.model-btn:hover, 
-.clear-btn:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border-color: rgba(255, 255, 255, 0.4) !important; /* Parıldayan kənar */
-  transform: translateY(-3px) !important;
-  box-shadow: 0 8px 25px rgba(45, 107, 255, 0.25) !important; /* Mavi parıltı */
-}
-
-
-/* 2️⃣ LEVEL 2: SLEEK GLASS (Input Bar)
-   Məqsəd: Diqqəti dağıtmayan, amma fonu hiss etdirən neytral şüşə. */
-.input-bar {
-  /* Bir az daha tünd, amma şəffaf */
-  background: rgba(20, 20, 20, 0.65) !important;
-  
-  /* Yüksək blur (Yazı rahat oxunsun) */
-  backdrop-filter: blur(25px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
-  
-  /* Çox incə sərhəd */
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.15) !important; /* Üstdən işıq düşmə effekti */
-  
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3) !important;
-  border-radius: 24px !important;
-}
-
-
-/* 3️⃣ LEVEL 3: DEEP GLASS (Popups & Menus)
-   Məqsəd: Arxa fonu tamamilə "yuyan" və diqqəti özünə çəkən qalın şüşə. */
-.dropdown-menu, 
-.bottom-dropdown, 
-.confirm-box {
-  /* Çox tünd şüşə */
-  background: rgba(15, 15, 15, 0.85) !important;
-  
-  /* Maksimum Blur */
-  backdrop-filter: blur(50px) !important;
-  -webkit-backdrop-filter: blur(50px) !important;
-  
-  /* Tünd sərhəd */
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  
-  /* Dərin kölgə */
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255,255,255,0.1) !important;
-  
-  border-radius: 16px !important;
-}
-
-/* Xüsusi: Popup arxası (Overlay) */
-.confirm-popup {
-  background: rgba(0, 0, 0, 0.4) !important; /* Tündləşdirmə */
-  backdrop-filter: blur(8px) !important;      /* Saytın özünü də bulandırır */
-  -webkit-backdrop-filter: blur(8px) !important;
-}
-
-/* ---------------------------------------
-   🌟 WELCOME CHAT BUBBLE (Marketify Style)
---------------------------------------- */
-
+/* Welcome bubble */
 .welcome-bubble {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 14px 20px;
   border-radius: 20px;
-
-  background: rgba(255,255,255,0.06);
+  background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
-    inset 0 0 0 0.7px rgba(255,255,255,0.25),
-    0 4px 16px rgba(0,0,0,0.45);
-
+    inset 0 0 0 0.7px rgba(255, 255, 255, 0.25),
+    0 4px 16px rgba(0, 0, 0, 0.45);
   max-width: 85%;
   animation: bubbleFade 0.6s ease forwards;
   opacity: 0;
@@ -2476,43 +980,11 @@ hr.custom-divider::after {
   display: none;
 }
 
-.bubble-icon {
-  font-size: 22px;
-}
+.bubble-icon { font-size: 22px; }
+.bubble-text { display: flex; flex-direction: column; gap: 4px; }
+.bubble-line { font-size: 15px; font-weight: 600; color: #fff; }
+.bubble-subline { font-size: 13px; color: rgba(255, 255, 255, 0.75); }
 
-.bubble-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.bubble-line {
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.bubble-subline {
-  font-size: 13px;
-  color: rgba(255,255,255,0.75);
-}
-
-/* Typing animation */
-.typing {
-  animation: typingBlink 1.4s infinite;
-}
-
-@keyframes typingBlink {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
-}
-
-@keyframes bubbleFade {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* MOBILE */
 @media (max-width: 768px) {
   .welcome-bubble {
     max-width: 92%;
@@ -2521,49 +993,7 @@ hr.custom-divider::after {
   }
 }
 
-.suggestion-popup {
-  position: fixed;
-  bottom: 180px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 18px;
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(12px);
-  border-radius: 14px;
-  font-family: 'Poppins', sans-serif;
-  font-size: 14px;
-  color: #fff;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .35s ease, transform .35s ease;
-  z-index: 9999;
-}
-
-.suggestion-popup.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(-6px);
-}
-
-@media (max-width: 600px) {
-  .suggestion-popup .popup-text {
-    display: inline-block;
-    max-width: 88vw;      /* mətnin sağ-sol genişlənmə sahəsi */
-    text-align: center;   /* mərkəzləndir */
-    line-height: 1.55;
-  }
-}
-
-@media (max-width: 600px) {
-  .suggestion-popup {
-    max-width: 320px !important;   /* 🔥 Mobil üçün ideal genişlik */
-    text-align: center !important; /* 🔥 Mətni ortala */
-    line-height: 1.55 !important;  /* 🔥 Oxunaqlığı artır */
-  }
-}
-
-/* ===========================
-   🌐 MARKETIFY FULLSCREEN MODALS
-   =========================== */
+/* Modals */
 .marketify-modal {
   position: fixed;
   inset: 0;
@@ -2590,14 +1020,9 @@ hr.custom-divider::after {
   max-height: 90vh;
   overflow-y: auto;
   color: #fff;
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.4),
-              inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
   animation: modalPop 0.3s ease;
-}
-
-@keyframes modalPop {
-  from { transform: scale(0.92); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
+  position: relative;
 }
 
 .modal-close {
@@ -2605,7 +1030,7 @@ hr.custom-divider::after {
   top: 18px;
   right: 20px;
   font-size: 23px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 50%;
   width: 38px;
   height: 38px;
@@ -2619,78 +1044,45 @@ hr.custom-divider::after {
 }
 
 .modal-close:hover {
-  background: rgba(255,255,255,0.25);
+  background: rgba(255, 255, 255, 0.25);
   transform: scale(1.07);
 }
 
-.modal-content h1 {
-  margin-bottom: 10px;
-}
+.modal-content h1 { margin-bottom: 10px; }
+.modal-subtitle { opacity: 0.7; margin-bottom: 25px; }
+.modal-body h2 { margin-top: 25px; margin-bottom: 8px; font-size: 20px; color: #a8c3ff; }
+.modal-body p,
+.modal-body li { line-height: 1.6; font-size: 15px; opacity: 0.9; }
+.modal-body ul { margin-left: 20px; margin-top: 10px; }
 
-.modal-subtitle {
-  opacity: 0.7;
-  margin-bottom: 25px;
-}
-
-.modal-body h2 {
-  margin-top: 25px;
-  margin-bottom: 8px;
-  font-size: 20px;
-  color: #a8c3ff;
-}
-
-.modal-body p, 
-.modal-body li {
-  line-height: 1.6;
-  font-size: 15px;
-  opacity: 0.9;
-}
-
-.modal-body ul {
-  margin-left: 20px;
-  margin-top: 10px;
-}
-
-/* SIMPLE FAQ */
+/* FAQ */
 .faq-item {
   margin-bottom: 16px;
   padding: 14px 18px;
-  background: rgba(255,255,255,0.06);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.faq-question {
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: #d5e2ff;
-}
+.faq-question { font-weight: 600; margin-bottom: 6px; color: #d5e2ff; }
+.faq-answer { opacity: 0.88; line-height: 1.55; }
 
-.faq-answer {
-  opacity: 0.88;
-  line-height: 1.55;
-}
-
-/* FAQ CATEGORY ACCORDION */
 .faq-category {
   margin-top: 18px;
-  padding: 14px 18px;
-  background: rgba(255,255,255,0.08);
+  padding: 18px 22px;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   transition: 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
 }
 
-.faq-category:hover {
-  background: rgba(255,255,255,0.14);
-}
-
-.faq-category h3 {
-  margin: 0;
-  font-size: 17px;
-  color: #dce6ff;
-}
+.faq-category:hover { background: rgba(255, 255, 255, 0.14); }
+.faq-category h3 { margin: 0; font-size: 17px; color: #dce6ff; }
 
 .faq-content {
   display: none;
@@ -2698,41 +1090,8 @@ hr.custom-divider::after {
   padding-left: 5px;
 }
 
-.faq-content.open {
-  display: block;
-  animation: fadeIn 0.3s ease;
-}
+.faq-content.open { display: block; animation: fadeIn 0.3s ease; }
 
-.faq-item {
-  margin-bottom: 16px;
-  padding: 14px 18px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.12);
-}
-
-.faq-question {
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: #d5e2ff;
-}
-
-.faq-answer {
-  opacity: 0.88;
-  line-height: 1.55;
-}
-
-/* CLEAN ACCORDION ARROW */
-.faq-category {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 22px;
-  cursor: pointer;
-  position: relative;
-}
-
-/* Sağdakı ox (chevron) */
 .faq-category::after {
   content: "";
   width: 8px;
@@ -2744,178 +1103,54 @@ hr.custom-divider::after {
   transition: 0.2s ease;
 }
 
-/* Açıq olanda yuxarı çevrilir */
 .faq-category.open::after {
   transform: rotate(-135deg);
   border-right-color: rgba(255, 255, 255, 1);
   border-bottom-color: rgba(255, 255, 255, 1);
 }
 
-/* ===============================
-   COPY & SHARE BUTTONS (Hover Reveal)
-   =============================== */
-
-/* Düymə konteyneri */
+/* Message actions */
 .msg-actions {
   position: absolute;
   bottom: 6px;
-  right: 10px;
+  left: 8px;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   opacity: 0;
-  transition: opacity .25s ease;
+  transition: opacity 0.25s ease;
   z-index: 10;
 }
 
-/* Hover zamanı göstər */
 .message.bot:hover .msg-actions {
   opacity: 1;
 }
 
-/* Mobil – həmişə görünən */
 @media (max-width: 768px) {
   .msg-actions {
     opacity: 1;
   }
 }
 
-/* ICON-ONLY düymələr */
-.msg-btn {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  font-size: 16px !important; /* ikonlar üçün */
-}
-
-/* Tekstləri tamamilə götürmək üçün */
-.msg-btn span {
-  display: none !important;
-}
-
-
-/* Kopyalandı popup */
-.copy-popup {
-  position: fixed;
-  bottom: 120px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 10px 18px;
-  background: rgba(45,107,255,0.9);
-  color: white;
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-  font-size: 14px;
-  opacity: 0;
-  z-index: 9999;
-  transition: opacity .3s ease;
-}
-
-.copy-popup.show {
-  opacity: 1;
-}
-
-/* CLEAN APPLE-STYLE ICON BUTTONS */
-.msg-actions {
-  position: absolute;
-  bottom: 4px;
-  right: 8px;
-  display: flex;
-  gap: 6px;
-  opacity: 0;
-  transition: opacity .25s ease;
-}
-
-.message.bot:hover .msg-actions {
-  opacity: 1;
-}
-
-/* Mobil → hər zaman görünür */
-@media (max-width: 768px) {
-  .msg-actions { opacity: 1; }
-}
-
-/* ✨ Minimal rounded glass buttons */
-.msg-btn {
-  width: 26px;
-  height: 26px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  font-size: 14px !important;
-  line-height: 0;
-
-  border-radius: 50%;
-  border: none;
-
-  background: rgba(255,255,255,0.10);
-  backdrop-filter: blur(12px) brightness(130%);
-  -webkit-backdrop-filter: blur(12px) brightness(130%);
-
-  box-shadow:
-    inset 0 0 0 0.5px rgba(255,255,255,0.25),
-    0 2px 6px rgba(0,0,0,0.25);
-
-  color: #fff;
-  cursor: pointer;
-  transition: transform .2s ease, opacity .2s ease;
-}
-
-.msg-btn:hover {
-  transform: translateY(-2px);
-  opacity: .85;
-}
-
-/* İkonlar tam ortalansın */
-.msg-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-/* --- ULTRA-MINIMAL ICON BUTTONS (Perfect Size) --- */
-
-.msg-actions {
-  bottom: 6px;
-  left: 8px;   /* daha estetik görünür */
-  gap: 6px;
-}
-
-.message.bot:hover .msg-actions {
-  opacity: 1;
-}
-
-@media (max-width: 768px) {
-  .msg-actions { opacity: 1; }
-}
-
 .msg-btn {
   width: 22px;
   height: 22px;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   border-radius: 50%;
   border: none;
   padding: 0;
-
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(10px) brightness(135%);
   -webkit-backdrop-filter: blur(10px) brightness(135%);
-
   box-shadow:
-    inset 0 0 0 0.5px rgba(255,255,255,0.20),
-    0 1px 3px rgba(0,0,0,0.25);
-
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.2),
+    0 1px 3px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   opacity: 0.65;
-  transition: transform .15s ease, opacity .15s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  font-size: 14px;
+  line-height: 0;
 }
 
 .msg-btn:hover {
@@ -2923,7 +1158,6 @@ hr.custom-divider::after {
   opacity: 1;
 }
 
-/* SVG icon optimal size */
 .msg-btn svg {
   width: 12px;
   height: 12px;
@@ -2936,32 +1170,15 @@ hr.custom-divider::after {
   justify-content: center;
   gap: 10px;
   margin-top: 6px;
-
-  /* Bubble-dan ayrı görünməsi üçün */
   margin-bottom: 4px;
 }
 
 .msg-footer .msg-btn {
   width: 26px;
   height: 26px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 50%;
-  border: none;
-
-  padding: 0;
-  cursor: pointer;
-
-  background: rgba(255,255,255,0.10);
-  backdrop-filter: blur(10px) brightness(135%);
-  box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.20),
-              0 1px 3px rgba(0,0,0,0.25);
-
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.2), 0 1px 3px rgba(0, 0, 0, 0.25);
   opacity: 0.75;
-  transition: opacity .2s ease, transform .2s ease;
 }
 
 .msg-footer .msg-btn:hover {
@@ -2969,44 +1186,27 @@ hr.custom-divider::after {
   transform: translateY(-1px);
 }
 
-.msg-footer svg {
-  width: 13px;
-  height: 13px;
-  stroke-width: 1.8;
-}
-
 .msg-floating-left {
   display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-top: 6px;
+  margin-left: 4px;
+  margin-bottom: 14px;
   position: relative;
-  left: -4px;       /* bubble-dan bir az kənara */
-  margin-bottom: -6px; /* bubble-ın alt xəttinə yaxınlıq */
-  gap: 6px;
   z-index: 5;
 }
 
 .msg-floating-left .msg-btn {
   width: 24px;
   height: 24px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-
-  background: rgba(255,255,255,0.10);
+  background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px) brightness(140%);
   -webkit-backdrop-filter: blur(10px) brightness(140%);
-
   box-shadow:
-    inset 0 0 0 0.5px rgba(255,255,255,0.20),
-    0 1px 3px rgba(0,0,0,0.25);
-
-  opacity: .8;
-  transition: .2s ease;
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.2),
+    0 1px 3px rgba(0, 0, 0, 0.25);
+  opacity: 0.8;
 }
 
 .msg-floating-left .msg-btn:hover {
@@ -3014,108 +1214,69 @@ hr.custom-divider::after {
   transform: translateY(-1px);
 }
 
-.msg-floating-left svg {
-  width: 12px;
-  height: 12px;
-}
-
-/* Bubble-dan SOL AŞAĞIDA məsafəli yerləşən düymələr */
-.msg-floating-left {
-  display: flex;
-  justify-content: flex-start;
-  gap: 10px;
-
-  margin-top: 6px;      /* bubble ilə düymə arasında məsafə */
-  margin-left: 4px;     /* soldan yumşaq məsafə */
-  margin-bottom: 14px;  /* növbəti mesaja toxunmasın */
-}
-
-/* =========================================
-   📱 MOBILE BOTTOM NAVIGATION (PREMIUM GLASS)
-   ========================================= */
-
-/* Desktop-da gizlət */
+/* Mobile nav */
 .mobile-nav {
   display: none;
+}
+
+.mobile-nav.keyboard-hidden {
+  transform: translateY(120%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 @media (max-width: 768px) {
   .mobile-nav {
     display: flex;
-    justify-content: space-around; /* Düymələri bərabər bölür */
+    justify-content: space-around;
     align-items: center;
-    
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 80px; /* iPhone Home Indicator üçün yer */
-    padding-bottom: 15px; /* İkonları biraz yuxarı qaldırırıq */
-    
-    /* 👇 Sənin Input Bar Stilinin Eynisi (Liquid Glass) */
-    background: rgba(20, 20, 20, 0.85); 
+    height: 80px;
+    padding-bottom: 15px;
+    background: rgba(20, 20, 20, 0.85);
     backdrop-filter: blur(25px) saturate(180%);
     -webkit-backdrop-filter: blur(25px) saturate(180%);
-    
     border-top: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
-    z-index: 999; /* Input bar-ın altında, amma məzmunun üstündə */
+    z-index: 999;
   }
 
-  /* Input bar-ı Naviqasiyanın üstünə qaldırırıq */
-  .input-bar {
-    bottom: 90px !important; /* Naviqasiya bar hündürlüyündən yuxarı */
-    transition: all 0.3s ease;
-  }
-  
-  /* Chat Box padding-i artırırıq ki, yazılar naviqasiyanın altında qalmasın */
-  .chat-box {
-    padding-bottom: 180px !important;
-  }
-  
-  /* Model Tooltip-i də yuxarı qaldıraq */
-  .bottom-dropdown {
-    bottom: 150% !important;
-  }
-
-  /* --- NAV BUTTON STYLES --- */
   .nav-btn {
     background: transparent;
     border: none;
     display: flex;
-    flex-direction: column; /* İkon üstdə, yazı altdan */
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 4px;
-    
     width: 60px;
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
   }
 
-  /* İkonlar */
   .nav-btn svg {
     width: 24px;
     height: 24px;
-    stroke: rgba(255, 255, 255, 0.5); /* Passiv rəng */
+    stroke: rgba(255, 255, 255, 0.5);
     transition: all 0.25s ease;
   }
 
-  /* Yazılar */
   .nav-btn span {
-    font-family: 'Poppins', sans-serif;
+    font-family: var(--font-main);
     font-size: 10px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.5);
-    opacity: 0; /* Passiv olanda yazılar gizli qala bilər və ya solğun */
+    opacity: 0;
     transform: translateY(5px);
     transition: all 0.25s ease;
   }
-  
-  /* Seçili və ya Aktiv (Hover) Vəziyyət */
+
   .nav-btn.active svg,
   .nav-btn:active svg {
-    stroke: #2d6bff; /* Marketify Blue */
+    stroke: #2d6bff;
     filter: drop-shadow(0 0 8px rgba(45, 107, 255, 0.6));
     transform: translateY(-2px);
   }
@@ -3126,22 +1287,30 @@ hr.custom-divider::after {
     opacity: 1;
     transform: translateY(0);
   }
-  
-  /* Basılma effekti */
+
   .nav-btn:active {
     transform: scale(0.9);
   }
 
-  /* Headerdəki clear düyməsini mobildə gizlə */
+  .nav-btn.hidden-btn {
+    display: none !important;
+  }
+
   .clear-btn {
     display: none !important;
   }
-}
 
-.mobile-nav.keyboard-hidden {
-  transform: translateY(120%);
-  opacity: 0;
-  pointer-events: none;
+  .input-bar {
+    bottom: 110px;
+  }
+
+  .chat-box {
+    padding-bottom: 200px;
+  }
+
+  .bottom-dropdown {
+    bottom: 130%;
+  }
 }
 
 @media (max-width: 768px) {
@@ -3152,22 +1321,21 @@ hr.custom-divider::after {
   }
 
   body.keyboard-open .input-bar {
-    bottom: 20px !important; /* Naviqasiya gizli olanda inputu aşağı çək */
+    bottom: 20px;
   }
 
   body.keyboard-open .chat-box {
-    padding-bottom: 120px !important; /* Alt boşluğu optimallaşdır */
+    padding-bottom: 120px;
   }
 
-  /* Klaviatura açıq olanda prompt bubble-ları inputun yaxınında saxla */
   body.keyboard-open .prompt-bubbles,
   body.keyboard-open .center .prompt-bubbles {
-    position: fixed !important;
+    position: fixed;
     left: 0;
     right: 0;
-    bottom: 110px !important; /* Input bar ilə klaviatura arasında qalır */
+    bottom: 110px;
     width: 100%;
-    margin: 0 !important;
+    margin: 0;
     padding: 10px 14px;
     display: flex;
     flex-wrap: nowrap;
@@ -3185,148 +1353,31 @@ hr.custom-divider::after {
   }
 }
 
-/* 📱 Mobildə Footeri Tamamilə Gizlət */
-@media (max-width: 768px) {
-  .legal {
-    display: none !important;
-  }
-  
-  /* Chat Box-ın aşağısını tənzimləyirik ki, boşluq çox qalmasın */
-  .chat-box {
-    padding-bottom: 150px !important; /* Naviqasiya üçün yer saxlayırıq */
-  }
-}
-
-/* 🕵️‍♂️ Düyməni tam gizlətmək üçün */
-.nav-btn.hidden-btn {
-  display: none !important;
-}
-
-/* =========================================
-   📏 MOBILE SPACING FIX (Məsafə Düzəlişi)
-   ========================================= */
-
-@media (max-width: 768px) {
-  
-  /* 1. Input Bar-ı yuxarı qaldırırıq (Naviqasiyadan uzaqlaşır) */
-  .input-bar {
-    bottom: 110px !important; /* Əvvəl 95px idi, indi daha yuxarıdadır */
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  }
-
-  /* 2. Prompt Bubbles-ı yuxarı çəkirik (Input Bar-dan uzaqlaşır) */
-  .center .prompt-bubbles {
-    bottom: 205px !important; /* Əvvəl 170px idi -> Input Bar-dan aralı düşür */
-    padding-bottom: 5px !important; /* Aşağıdan biraz daxili boşluq */
-  }
-
-  /* 3. Chat Box-ın aşağısını tənzimləyirik ki, mesajlar Inputun altında qalmasın */
-  .chat-box {
-    padding-bottom: 200px !important; /* Təhlükəsizlik məsafəsi */
-  }
-  
-  /* 4. Model Menu (Inputun üstündəki menyu) yerini dəyişir */
-  .bottom-dropdown {
-    bottom: 130% !important; /* Menyunu da bir az yuxarı itələyirik */
-  }
-}
-
-/* =========================================
-   ⚠️ NEW CHAT DISCLAIMER (Xəbərdarlıq)
-   ========================================= */
-
-.new-chat-disclaimer {
-  position: absolute;
-  top: 58%; /* Başlıqdan bir az aşağıda durması üçün */
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0.95);
-  z-index: 5;
-  
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.5); /* Solğun rəng */
-  font-weight: 400;
-  text-align: center;
-  white-space: nowrap;
-  
-  /* Arxa fon (opsional - daha oxunaqlı olması üçün) */
-  background: rgba(255, 255, 255, 0.05);
-  padding: 6px 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  
-  /* Animasiya üçün başlanğıc */
-  opacity: 0; 
-  transition: all 0.35s ease;
-  pointer-events: none; /* Kliklənməyə mane olmasın */
-}
-
-/* Aktiv olanda görünməsi üçün sinif */
-.new-chat-disclaimer.show {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-}
-
-/* 🖥 Desktop-da (Kompüterdə) Xəbərdarlığı Gizlət */
-@media (min-width: 769px) {
-  .new-chat-disclaimer {
-    display: none !important;
-  }
-}
-
-.disabled-analytics {
-  opacity: 0.5;
-  pointer-events: none; /* kliklənməsin */
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.coming-soon {
-  background: transparent;      /* tam şəffaf */
-  padding: 2px 6px;
-  font-size: 10px;
-  border-radius: 6px;
-  color: #ffffffcc;             /* 80% ağ – daha premium */
-  font-weight: 500;
-  border: 1px solid #ffffff33;  /* nazik şəffaf ağ kontur */
-  backdrop-filter: blur(4px);   /* çox yumşaq blur effekt */
-}
-
-/* Əsas səhifə konteyneri */
+/* Containers */
 .main-container {
   display: flex;
   flex-direction: column;
-  height: 100vh; /* Fallback */
-  height: 100dvh; /* Müasir brauzerlər üçün dinamik hündürlük */
-  overflow: hidden; /* Səhifənin özünün scroll olmasının qarşısını alır */
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
-/* Yuxarıdakı məzmun (Başlıq və s.) */
-.header-content {
-  flex: 0 0 auto; /* Ölçüsü sabit qalır, sıxılmır */
-}
-
-/* Orta hissə (Chat və ya Təklif düymələri) */
+.header-content { flex: 0 0 auto; }
 .content-area {
-  flex: 1; /* Qalan bütün boş yeri tutur */
-  overflow-y: auto; /* Yalnız bu hissə scroll olur */
+  flex: 1;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  justify-content: center; /* Məzmun az olanda mərkəzdə saxlayır */
+  justify-content: center;
 }
 
-/* Aşağıdakı Input sahəsi */
 .input-area {
-  flex: 0 0 auto; /* Sabit hündürlük */
-  padding-bottom: env(safe-area-inset-bottom); /* iPhone-larda aşağıdakı xətt üçün yer */
+  flex: 0 0 auto;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Contact Dropdown */
-.contact-dropdown {
-  position: relative;
-  display: inline-block;
-}
+/* Contact dropdown */
+.contact-dropdown { position: relative; display: inline-block; }
 
 .contact-popup {
   position: absolute;
@@ -3337,13 +1388,11 @@ hr.custom-divider::after {
   border-radius: 10px;
   width: 180px;
   padding: 8px 0;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   z-index: 999;
 }
 
-.contact-popup.hidden {
-  display: none;
-}
+.contact-popup.hidden { display: none; }
 
 .contact-option {
   display: block;
@@ -3357,4 +1406,178 @@ hr.custom-divider::after {
 .contact-option:hover {
   background: rgba(45, 107, 255, 0.12);
   color: #fff;
+}
+
+/* State helpers */
+.disabled-analytics {
+  opacity: 0.5;
+  pointer-events: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.coming-soon {
+  background: transparent;
+  padding: 2px 6px;
+  font-size: 10px;
+  border-radius: 6px;
+  color: #ffffffcc;
+  font-weight: 500;
+  border: 1px solid #ffffff33;
+  backdrop-filter: blur(4px);
+}
+
+/* Keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes borderFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes fadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bounceWave {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+  40% { transform: scale(1.2) translateY(-4px); opacity: 1; background-color: #fff; }
+}
+
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(1px) scale(1.02); }
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(10px) translateX(-50%); }
+  10%, 90% { opacity: 1; transform: translateY(0) translateX(-50%); }
+  100% { opacity: 0; transform: translateY(10px) translateX(-50%); }
+}
+
+@keyframes bubbleFade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes modalPop {
+  from { transform: scale(0.92); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .chat-box {
+    bottom: 180px;
+    padding-bottom: 200px;
+  }
+
+  .input-bar {
+    bottom: 110px;
+    width: 94%;
+  }
+
+  .legal {
+    display: none;
+  }
+
+  .center {
+    transform: none;
+    top: 0;
+    left: 0;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 100px;
+  }
+
+  .prompt-bubbles {
+    position: fixed;
+    bottom: 170px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    gap: 10px;
+    padding-left: 26px;
+    padding-right: 16px;
+    white-space: nowrap;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    background: rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(6px);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 95;
+    scroll-padding-left: 18px;
+  }
+
+  .prompt-bubbles::-webkit-scrollbar { display: none; }
+
+  .bubble {
+    flex: 0 0 auto;
+    max-width: 240px;
+    max-width: 260px;
+  }
+
+  @media (max-width: 768px) {
+  .prompt-bubbles .bubble:first-child {
+    margin-left: 16px;
+  }
+}
+
+  .center .prompt-bubbles {
+    position: fixed;
+    bottom: 205px;
+    left: 0;
+    right: 0;
+    margin-top: 0;
+    padding-bottom: 5px;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .suggestion-popup { max-width: 320px; text-align: center; line-height: 1.55; }
+  .suggestion-popup .popup-text { display: inline-block; max-width: 88vw; text-align: center; line-height: 1.55; }
+}
+
+@media (max-width: 768px) {
+  #bottom-model-trigger {
+    padding: 10px 14px;
+    font-size: 15px;
+    height: 46px;
+    border-radius: 12px;
+    gap: 6px;
+  }
+
+  #bottom-model-text {
+    font-size: 15px;
+    max-width: 80px;
+  }
+
+  .chevron-icon {
+    width: 11px;
+    height: 11px;
+  }
 }
