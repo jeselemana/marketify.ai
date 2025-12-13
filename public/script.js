@@ -1093,3 +1093,30 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 })();
+
+/* =========================================
+   📧 CONTACT POPUP (EMAIL & WHATSAPP)
+   ========================================= */
+document.addEventListener("DOMContentLoaded", () => {
+  const contactBtn = document.getElementById("contactBtn");
+  const contactPopup = document.getElementById("contactPopup");
+
+  if (contactBtn && contactPopup) {
+    // 1. Düyməyə basanda aç/bağla
+    contactBtn.addEventListener("click", (e) => {
+      e.stopPropagation(); // Klikləməni "tutur" ki, dərhal bağlanmasın
+      contactPopup.classList.toggle("show");
+      
+      // Əgər "hidden" klassı varsa, onu sil (bəzi CSS-lərdə lazım olur)
+      contactPopup.classList.remove("hidden"); 
+    });
+
+    // 2. Kənara basanda bağlansın
+    document.addEventListener("click", (e) => {
+      if (!contactBtn.contains(e.target) && !contactPopup.contains(e.target)) {
+        contactPopup.classList.remove("show");
+        contactPopup.classList.add("hidden"); // Yenidən gizlət
+      }
+    });
+  }
+});
