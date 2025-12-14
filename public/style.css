@@ -1612,3 +1612,28 @@ hr.custom-divider::after {
 .message.bot h3 + p {
   margin-top: 4px;
 }
+
+/* ===============================
+   FIX GPT LIST & HEADER LAYOUT
+================================ */
+
+.message.bot ul {
+  margin: 12px 0 18px 18px;
+  padding: 0;
+}
+
+.message.bot li {
+  margin-bottom: 10px;
+  line-height: 1.6;
+  list-style-position: inside;
+}
+
+.message.bot li::marker {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.message.bot h2,
+.message.bot h3 {
+  margin-top: 22px;
+  margin-bottom: 12px;
+}
