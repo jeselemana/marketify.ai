@@ -1637,3 +1637,31 @@ hr.custom-divider::after {
   margin-top: 22px;
   margin-bottom: 12px;
 }
+
+/* ===============================
+   FIX BULLET ALIGNMENT (FINAL)
+================================ */
+
+.message.bot ul {
+  margin: 14px 0 18px 0;
+  padding-left: 0;
+}
+
+.message.bot li {
+  list-style: none;              /* native bullet-u söndür */
+  display: flex;                 /* marker + text eyni xətt */
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+/* Custom bullet */
+.message.bot li::before {
+  content: "•";
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 18px;
+  line-height: 1;
+  margin-top: 2px;               /* text-lə align */
+  flex-shrink: 0;
+}
