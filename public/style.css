@@ -1639,29 +1639,37 @@ hr.custom-divider::after {
 }
 
 /* ===============================
-   FIX BULLET ALIGNMENT (FINAL)
+   FORCE REMOVE NATIVE BULLETS
 ================================ */
 
-.message.bot ul {
-  margin: 14px 0 18px 0;
-  padding-left: 0;
+.message.bot ul,
+.message.bot ol {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
 }
 
 .message.bot li {
-  list-style: none;              /* native bullet-u söndür */
-  display: flex;                 /* marker + text eyni xətt */
+  list-style: none !important;
+}
+
+/* ===============================
+   CUSTOM GPT BULLET (ALIGNED)
+================================ */
+
+.message.bot li {
+  display: flex;
   align-items: flex-start;
   gap: 10px;
   margin-bottom: 10px;
   line-height: 1.6;
 }
 
-/* Custom bullet */
 .message.bot li::before {
   content: "•";
-  color: rgba(255, 255, 255, 0.9);
   font-size: 18px;
   line-height: 1;
-  margin-top: 2px;               /* text-lə align */
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.9);
   flex-shrink: 0;
 }
