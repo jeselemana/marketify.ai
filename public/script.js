@@ -259,14 +259,7 @@ async function sendMessage(message) {
 
     let reply = data.reply || "⚠️ Cavab alınmadı 😔";
 
-    // MARKDOWN təmizləmə
-    reply = reply
-      .replace(/\*\*/g, "")
-      .replace(/##+/g, "")
-      .replace(/[\*_]{1,3}/g, "")
-      .replace(/`+/g, "")
-      .replace(/^>\s?/gm, "")
-      .replace(/^-\s+/gm, "");
+    reply = marked.parse(reply);
 
     // Azərbaycan dilində kiçik düzəlişlər (Tone of Voice)
     reply = reply
