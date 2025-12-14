@@ -1581,3 +1581,34 @@ hr.custom-divider::after {
     height: 11px;
   }
 }
+
+/* ===============================
+   FORCE GPT HEADERS IN CHAT
+================================ */
+
+.message.bot h1,
+.message.bot h2,
+.message.bot h3 {
+  font-weight: 700 !important;
+  line-height: 1.35;
+  margin: 18px 0 10px;
+}
+
+.message.bot h1 {
+  font-size: 1.55rem;
+}
+
+.message.bot h2 {
+  font-size: 1.35rem;
+}
+
+.message.bot h3 {
+  font-size: 1.15rem;
+}
+
+/* Header sonrası mətni rahatlat */
+.message.bot h1 + p,
+.message.bot h2 + p,
+.message.bot h3 + p {
+  margin-top: 4px;
+}
