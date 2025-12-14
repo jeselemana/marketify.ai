@@ -1583,93 +1583,24 @@ hr.custom-divider::after {
 }
 
 /* ===============================
-   FORCE GPT HEADERS IN CHAT
-================================ */
-
-.message.bot h1,
-.message.bot h2,
-.message.bot h3 {
-  font-weight: 700 !important;
-  line-height: 1.35;
-  margin: 18px 0 10px;
-}
-
-.message.bot h1 {
-  font-size: 1.55rem;
-}
-
-.message.bot h2 {
-  font-size: 1.35rem;
-}
-
-.message.bot h3 {
-  font-size: 1.15rem;
-}
-
-/* Header sonrası mətni rahatlat */
-.message.bot h1 + p,
-.message.bot h2 + p,
-.message.bot h3 + p {
-  margin-top: 4px;
-}
-
-/* ===============================
-   FIX GPT LIST & HEADER LAYOUT
-================================ */
-
-.message.bot ul {
-  margin: 12px 0 18px 18px;
-  padding: 0;
-}
-
-.message.bot li {
-  margin-bottom: 10px;
-  line-height: 1.6;
-  list-style-position: inside;
-}
-
-.message.bot li::marker {
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.message.bot h2,
-.message.bot h3 {
-  margin-top: 22px;
-  margin-bottom: 12px;
-}
-
-/* ===============================
-   FORCE REMOVE NATIVE BULLETS
+   FINAL LIST FIX (NO FLEX)
 ================================ */
 
 .message.bot ul,
 .message.bot ol {
-  list-style: none !important;
-  padding-left: 0 !important;
-  margin-left: 0 !important;
+  margin: 14px 0 18px 20px;
+  padding: 0;
+  list-style-position: outside;
 }
 
 .message.bot li {
-  list-style: none !important;
-}
-
-/* ===============================
-   CUSTOM GPT BULLET (ALIGNED)
-================================ */
-
-.message.bot li {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  display: list-item !important;   /* FLEX-i ÖLDÜR */
   margin-bottom: 10px;
   line-height: 1.6;
 }
 
-.message.bot li::before {
-  content: "•";
-  font-size: 18px;
-  line-height: 1;
-  margin-top: 2px;
-  color: rgba(255, 255, 255, 0.9);
-  flex-shrink: 0;
+/* li içində gələn p-ləri düzlə */
+.message.bot li p {
+  margin: 0;
+  display: inline;
 }
