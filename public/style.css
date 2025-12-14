@@ -1581,26 +1581,3 @@ hr.custom-divider::after {
     height: 11px;
   }
 }
-
-/* ===============================
-   FINAL LIST FIX (NO FLEX)
-================================ */
-
-.message.bot ul,
-.message.bot ol {
-  margin: 14px 0 18px 20px;
-  padding: 0;
-  list-style-position: outside;
-}
-
-.message.bot li {
-  display: list-item !important;   /* FLEX-i ÖLDÜR */
-  margin-bottom: 10px;
-  line-height: 1.6;
-}
-
-/* li içində gələn p-ləri düzlə */
-.message.bot li p {
-  margin: 0;
-  display: inline;
-}
