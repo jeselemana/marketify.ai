@@ -1581,3 +1581,30 @@ hr.custom-divider::after {
     height: 11px;
   }
 }
+
+/* --- AI Mesajlarındakı Siyahıların Düzəldilməsi --- */
+
+.message.bot ul, .message.bot ol {
+    margin: 8px 0;
+    padding-left: 20px; /* Soldan boşluq */
+    list-style-position: outside; /* Nöqtələr mətndən kənarda qalsın */
+}
+
+.message.bot li {
+    margin-bottom: 6px; /* Sətirlər arası məsafə */
+    line-height: 1.5;   /* Rahat oxunması üçün */
+}
+
+/* Paraqraflar arası məsafə */
+.message.bot p {
+    margin-bottom: 10px;
+}
+.message.bot p:last-child {
+    margin-bottom: 0;
+}
+
+/* Kod blokları üçün (əgər varsa) */
+.message.bot strong {
+    color: #fff; /* Qalın yazılar ağ olsun */
+    font-weight: 600;
+}

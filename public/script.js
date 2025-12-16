@@ -176,43 +176,53 @@ function showTyping() {
   return typing;
 }
 
-// ✨ Hərf-hərf yazma effekti (Smart HTML - Kodları gizlədərək yazır)
-function typeText(el, text, speed = 18) {
+// ✨ Təkmilləşdirilmiş Yazı Effekti (HTML Entity dəstəkli)
+function typeText(el, text, speed = 10) {
   el.innerHTML = ""; 
   let i = 0;
   
   const interval = setInterval(() => {
     if (i >= text.length) {
       clearInterval(interval);
-
-      // 🔥 YAZI TAM BITDI → DÜYMƏLƏRI GÖSTER
+      // 🔥 YAZI TAM BITDI → DÜYMƏLƏRI GÖSTER (Əgər varsa)
       const next = el.nextSibling;
       if (next && next.classList.contains("msg-floating-left")) {
         next.style.display = "flex";
       }
-
       return;
     }
     
     const char = text.charAt(i);
 
-    // HTML teqini birdəfəlik yazırıq
+    // 1. HTML Teqləri (<br>, <b>, <p>) - Bunları bütöv yazırıq
     if (char === '<') {
       const tagEnd = text.indexOf('>', i);
       if (tagEnd !== -1) {
         el.innerHTML += text.substring(i, tagEnd + 1);
         i = tagEnd + 1;
-      } else {
-        el.innerHTML += char;
-        i++;
+        scrollToBottom();
+        return; 
       }
-    } else {
-      el.innerHTML += char;
-      i++;
     }
+
+    // 2. HTML Entity-lər (&quot;, &nbsp;, &amp;) - Bunları da bütöv yazırıq (YENİ)
+    if (char === '&') {
+       const entityEnd = text.indexOf(';', i);
+       // Əgər ; tapdısa və bu qısa bir koddursa (maks 10 simvol)
+       if (entityEnd !== -1 && entityEnd - i < 10) { 
+           el.innerHTML += text.substring(i, entityEnd + 1);
+           i = entityEnd + 1;
+           scrollToBottom();
+           return;
+       }
+    }
+
+    // Normal hərf
+    el.innerHTML += char;
+    i++;
     
-    
-    scrollToBottom();
+    // Hər 5 hərf-dən bir scroll et (daha smooth olsun)
+    if (i % 5 === 0) scrollToBottom();
   }, speed);
 }
 
