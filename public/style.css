@@ -1582,29 +1582,28 @@ hr.custom-divider::after {
   }
 }
 
-/* --- AI Mesajlarındakı Siyahıların Düzəldilməsi --- */
+/* --- SİYAHI (LIST) PROBLEMİNİN HƏLLİ --- */
 
+/* 1. Siyahı daxilindəki <p> teqlərini sətir içi edirik */
+.message.bot li p {
+    display: inline; 
+    margin: 0;
+    padding: 0;
+}
+
+/* 2. Siyahının özünü səliqəyə salırıq */
 .message.bot ul, .message.bot ol {
-    margin: 8px 0;
+    margin: 0 0 10px 0;
     padding-left: 20px; /* Soldan boşluq */
-    list-style-position: outside; /* Nöqtələr mətndən kənarda qalsın */
+    list-style-position: outside; /* Nöqtə kənarda dursun */
 }
 
 .message.bot li {
-    margin-bottom: 6px; /* Sətirlər arası məsafə */
-    line-height: 1.5;   /* Rahat oxunması üçün */
+    margin-bottom: 5px;
+    line-height: 1.6; /* Sətirlər bir-birinə girməsin */
 }
 
-/* Paraqraflar arası məsafə */
-.message.bot p {
-    margin-bottom: 10px;
-}
-.message.bot p:last-child {
-    margin-bottom: 0;
-}
-
-/* Kod blokları üçün (əgər varsa) */
-.message.bot strong {
-    color: #fff; /* Qalın yazılar ağ olsun */
-    font-weight: 600;
+/* Əgər marked.js boşluqlar yaradarsa, onları sil */
+.message.bot li:empty {
+    display: none;
 }

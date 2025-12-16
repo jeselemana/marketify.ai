@@ -271,9 +271,8 @@ async function sendMessage(message) {
 
     let reply = data.reply || "⚠️ Cavab alınmadı.";
 
-    // ✅ HƏLL BURADADIR: Markdown-u HTML-ə çeviririk
-    // marked.parse() funksiyası **text** -> <b>text</b> edəcək
-    let parsedHTML = marked.parse(reply);
+// ✅ marked.parse hissəsini belə yenilə:
+let parsedHTML = marked.parse(reply, { breaks: true });
 
     // Bot mesaj qutusunu yaradırıq
     const botMsg = addMessage("bot", "");
