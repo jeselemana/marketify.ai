@@ -1582,28 +1582,490 @@ hr.custom-divider::after {
   }
 }
 
-/* --- SİYAHI (LIST) PROBLEMİNİN HƏLLİ --- */
+/* ===============================
+   FORCE GPT HEADERS IN CHAT
+================================ */
 
-/* 1. Siyahı daxilindəki <p> teqlərini sətir içi edirik */
-.message.bot li p {
-    display: inline; 
-    margin: 0;
-    padding: 0;
+.message.bot h1,
+.message.bot h2,
+.message.bot h3 {
+  font-weight: 700 !important;
+  line-height: 1.35;
+  margin: 18px 0 10px;
 }
 
-/* 2. Siyahının özünü səliqəyə salırıq */
-.message.bot ul, .message.bot ol {
-    margin: 0 0 10px 0;
-    padding-left: 20px; /* Soldan boşluq */
-    list-style-position: outside; /* Nöqtə kənarda dursun */
+.message.bot h1 {
+  font-size: 1.55rem;
 }
 
-.message.bot li {
-    margin-bottom: 5px;
-    line-height: 1.6; /* Sətirlər bir-birinə girməsin */
+.message.bot h2 {
+  font-size: 1.35rem;
 }
 
-/* Əgər marked.js boşluqlar yaradarsa, onları sil */
-.message.bot li:empty {
-    display: none;
+.message.bot h3 {
+  font-size: 1.15rem;
+}
+
+/* Header sonrası mətni rahatlat */
+.message.bot h1 + p,
+.message.bot h2 + p,
+.message.bot h3 + p {
+  margin-top: 4px;
+}
+
+/* ===============================
+   DESKTOP PROMPT SUGGESTIONS
+================================ */
+@media (min-width: 1024px) {
+  .prompt-bubbles {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 0.25s ease;
+  }
+
+  .prompt-bubbles.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .prompt-bubble {
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.06);
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s ease;
+  }
+
+  .prompt-bubble:hover {
+    background: rgba(255,255,255,0.14);
+  }
+}
+
+
+
+/* =========================================
+   DESKTOP: MƏRKƏZİ INPUT & START KARTI (FIXED POSITION)
+   ========================================= */
+
+@media (min-width: 1024px) {
+
+  /* 1. Prompt Bubbles-ları gizlət */
+  .prompt-bubbles, 
+  .center .prompt-bubbles {
+    display: none !important;
+  }
+
+  /* 2. Input Bar - Keçid Effektləri */
+  .input-bar {
+    transition: all 0.6s cubic-bezier(0.19, 1, 0.22, 1) !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  /* BAŞLANĞIC (Mərkəz) - AŞAĞI SALINDI (57%) */
+  .input-bar:not(.footer-mode) {
+    position: fixed !important;
+    top: 57% !important; /* Əvvəl 50% idi */
+    left: 50% !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%) !important;
+    
+    width: 60% !important; 
+    max-width: 720px !important;
+    
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
+    background: rgba(20, 20, 20, 0.95) !important; 
+    border-radius: 20px !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  }
+
+  /* AKTİV (Footer) - Mesaj yazılandan sonra */
+  .input-bar.footer-mode {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 70px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    
+    width: 92% !important;
+    max-width: 800px !important;
+    
+    background: rgba(20, 20, 20, 0.65) !important;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+
+  /* LOQO VƏ TAGLINE - AŞAĞI SALINDI (42%) */
+  .center {
+    top: 42% !important; /* Əvvəl 35% idi */
+    transform: translate(-50%, -50%) !important;
+    transition: opacity 0.3s ease;
+  }
+
+  /* KART - AŞAĞI SALINDI */
+  .starter-hint {
+    position: fixed;
+    /* Input bar 57%-dədir, kart ondan bir az aşağıda (85px) olmalıdır */
+    top: calc(57% + 85px); 
+    left: 50%;
+    transform: translate(-50%, 0);
+    
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+    
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    
+    cursor: pointer;
+    z-index: 2000;
+    
+    opacity: 0; 
+    animation: hintFadeIn 0.8s ease 0.2s forwards;
+    transition: all 0.3s ease;
+  }
+  
+  .starter-hint:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translate(-50%, -4px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  .starter-hint.hide-hint {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 15px);
+  }
+
+  .hint-icon { font-size: 22px; }
+  
+  .hint-text {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+  }
+  
+  .hint-text strong {
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
+  .hint-text span {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+  }
+}
+
+/* ... (əvvəlki kodlar qalır) ... */
+
+/* =========================================
+   🆕 "NECƏ BAŞLAYIM?" KARTI (DÜZƏLİŞ)
+   ========================================= */
+  .starter-hint {
+    position: fixed;
+    top: calc(57% + 85px); 
+    left: 50%;
+    transform: translate(-50%, 0);
+    
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+    
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    
+    cursor: pointer;
+    z-index: 2000;
+    
+    /* Animasiya */
+    opacity: 0; 
+    animation: hintFadeIn 0.8s ease 0.2s forwards;
+    transition: all 0.3s ease;
+  }
+  
+  .starter-hint:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translate(-50%, -4px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  /* ⚠️ VACİB DÜZƏLİŞ: Animasiyanı dayandırmaq üçün !important */
+  .starter-hint.hide-hint {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transform: translate(-50%, 20px) !important;
+    pointer-events: none !important;
+    animation: none !important; /* Animasiyanı söndürür */
+    transition: none !important;
+  }
+
+  .hint-icon { font-size: 22px; }
+  
+  .hint-text {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+  }
+  
+  .hint-text strong {
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
+  .hint-text span {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+@media (max-width: 1023px) {
+  .starter-hint { display: none !important; }
+}
+
+@keyframes hintFadeIn {
+    from { opacity: 0; transform: translate(-50%, 20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* --- Premium Dropdown Styles --- */
+.model-dropdown {
+  position: relative;
+  display: inline-block;
+  z-index: 200;
+}
+
+/* Əsas Düymə */
+.model-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(28, 28, 28, 0.7);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 8px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.model-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  color: #fff;
+}
+
+.chevron-icon {
+  opacity: 0.6;
+  transition: transform 0.3s ease;
+  width: 14px;
+  height: 14px;
+}
+
+/* Ox fırlanması üçün */
+.model-btn.active .chevron-icon {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Qutusu */
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 12px); /* Düymədən biraz aşağı */
+  left: 0;
+  width: 240px;
+  background: rgba(22, 22, 22, 0.85); /* Tünd şüşə fon */
+  backdrop-filter: blur(25px) saturate(200%);
+  -webkit-backdrop-filter: blur(25px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  
+  /* Gizli hal (Animasiya üçün) */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px) scale(0.96);
+  transform-origin: top left;
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+
+/* Açıq hal */
+.dropdown-menu.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* Menyu İtemləri */
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.75);
+  transition: all 0.2s ease;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.item-icon {
+  display: flex;
+  align-items: center;
+  color: #8ab7ff; /* Mavi rəng */
+  opacity: 0.8;
+  transition: transform 0.2s;
+}
+
+.menu-item:hover .item-icon {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 8px 6px;
+}
+
+/* Sosial Media Bölməsi */
+.social-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  padding: 6px 0 2px;
+}
+
+.social-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+.social-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+/* Instagram xüsusi */
+.social-btn.instagram:hover { color: #e1306c; background: rgba(225, 48, 108, 0.15); }
+/* Facebook xüsusi */
+.social-btn.facebook:hover { color: #1877f2; background: rgba(24, 119, 242, 0.15); }
+/* Mail xüsusi */
+.social-btn.mail:hover { color: #ffffff; background: rgba(255, 255, 255, 0.15); }
+
+.social-sep {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* --- Kvadrat Glass Button (Yazısız) --- */
+.model-btn.icon-only-btn {
+  width: 44px; /* Clear-btn ilə eyni ölçü */
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* Glass Effect */
+  background: rgba(28, 28, 28, 0.7);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px; /* Clear-btn ilə eyni radius */
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.model-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* --- Hamburger Icon & X Animasiyası --- */
+.hamburger-icon {
+  width: 20px;
+  height: 14px;
+  position: relative;
+  /* Flex yox, absolute positioning istifadə edirik */
+}
+
+.line {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 4px;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Normal vəziyyət (3 xətt) */
+.line-1 { top: 0; }
+.line-2 { top: 50%; transform: translateY(-50%); }
+.line-3 { bottom: 0; }
+
+/* Aktiv vəziyyət (X işarəsi) */
+.model-btn.active .line-1 {
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  background-color: #fff;
+}
+
+.model-btn.active .line-2 {
+  opacity: 0;
+  transform: translateY(-50%) scale(0.1);
+}
+
+.model-btn.active .line-3 {
+  bottom: 50%;
+  transform: translateY(50%) rotate(-45deg);
+  background-color: #fff;
 }
