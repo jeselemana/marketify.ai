@@ -325,14 +325,14 @@ function resetToHomeState() {
   }
 
   // Notification
-  const notice = document.createElement("div");
-  notice.textContent = "Yeni stilimiz hazırdı 🔥";
-  Object.assign(notice.style, {
-    position: "fixed", bottom: "100px", left: "50%",
-    transform: "translateX(-50%)", background: "linear-gradient(135deg,#2d6bff,#60a5ff)",
-    color: "#fff", padding: "12px 20px", borderRadius: "12px",
-    fontFamily: "'Poppins',sans-serif", zIndex: "999", opacity: "0", transition: "opacity 0.4s ease",
-  });
+  // const notice = document.createElement("div");
+  // notice.textContent = "Yeni stilimiz hazırdı 🔥";
+  // Object.assign(notice.style, {
+   // position: "fixed", bottom: "100px", left: "50%",
+   // transform: "translateX(-50%)", background: "linear-gradient(135deg,#2d6bff,#60a5ff)",
+    //color: "#fff", padding: "12px 20px", borderRadius: "12px",
+    //fontFamily: "'Poppins',sans-serif", zIndex: "999", opacity: "0", transition: "opacity 0.4s ease",
+  
   document.body.appendChild(notice);
   setTimeout(() => (notice.style.opacity = "1"), 80);
   setTimeout(() => {
@@ -475,10 +475,18 @@ async function sendMessage(message) {
 
     if (typing?.parentNode) chatBox.removeChild(typing);
 
-    let reply = data.reply || "⚠️ Cavab alınmadı 😔";
+let reply = data.reply || "⚠️ Cavab alınmadı 😔";
+
+    // 1. Əvvəlcə simvolları təmizləyirik
+    reply = reply
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, "&");
+
+    // 2. Sonra Markdown-u HTML-ə çeviririk
     reply = marked.parse(reply);
 
-    // Tone of Voice Fixes
+    // 3. Tone of Voice düzəlişləri
     reply = reply
       .replaceAll("İlk olaraq,", "Başlayaq belə:")
       .replaceAll("Bu addımları izləyə bilərsən", "Gəlin birlikdə baxaq 👇")
@@ -684,12 +692,13 @@ if (confirmNo) {
   });
 }
 
-// if (confirmYes) {
-  ///confirmYes.addEventListener("click", (e) => {
-    /// e.preventDefault();
-    /// confirmPopup.classList.remove("show");
-    ///resetToHomeState(); // Uses the centralized reset function
-
+if (confirmYes) {
+  confirmYes.addEventListener("click", (e) => {
+     e.preventDefault();
+     confirmPopup.classList.remove("show");
+    resetToHomeState(); // Uses the centralized reset function
+  })
+}
 
 // --- Bottom Model Picker (System Core) ---
 const bTrigger = document.getElementById("bottom-model-trigger");

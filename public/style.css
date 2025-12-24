@@ -2069,3 +2069,61 @@ hr.custom-divider::after {
   transform: translateY(50%) rotate(-45deg);
   background-color: #fff;
 }
+
+/* =========================================
+   BOT MESAJLARININ FORMATLANMASI (MD STYLE)
+   ========================================= */
+
+/* Sətir araları və oxunaqlılıq */
+.message.bot {
+    line-height: 1.7; 
+    font-size: 15.5px;
+}
+
+/* Paraqraflar arası məsafə */
+.message.bot p {
+    margin-bottom: 12px;
+}
+
+/* Siyahılar (Bullet Points) - ƏN VACİB HİSSƏ */
+.message.bot ul, 
+.message.bot ol {
+    margin-top: 8px;
+    margin-bottom: 16px;
+    padding-left: 24px; /* Sol tərəfdən boşluq verir ki, nöqtələr görünsün */
+}
+
+.message.bot li {
+    margin-bottom: 6px;
+    padding-left: 4px;
+    list-style-type: disc; /* Nöqtələri məcburi göstərir */
+}
+
+.message.bot ol li {
+    list-style-type: decimal; /* Nömrəli siyahı üçün */
+}
+
+/* Qalın mətnlər */
+.message.bot strong, 
+.message.bot b {
+    font-weight: 600;
+    color: #fff; 
+}
+
+/* Kod blokları (əgər kod yazarsa) */
+.message.bot pre {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 12px;
+    border-radius: 8px;
+    overflow-x: auto;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 10px 0;
+}
+
+.message.bot code {
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 4px;
+    border-radius: 4px;
+}
