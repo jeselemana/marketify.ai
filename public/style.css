@@ -2139,3 +2139,19 @@ hr.custom-divider::after {
   transform: translateY(50%) rotate(-45deg);
   background-color: #fff;
 }
+
+/* =========================================
+   MOBİL VƏ TABLET: STARTER HINT GİZLƏT
+   ========================================= */
+@media screen and (max-width: 1024px) {
+  .starter-hint, 
+  #starter-hint {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+  }
+}
