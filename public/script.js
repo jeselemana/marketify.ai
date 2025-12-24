@@ -477,25 +477,21 @@ async function sendMessage(message) {
 
 let reply = data.reply || "⚠️ Cavab alınmadı 😔";
 
-    // 1. Əvvəlcə simvolları təmizləyirik
-    reply = reply
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&amp;/g, "&");
+    // 1. Əvvəlcə bütün HTML kodlarını simvollara çeviririk (Decoding)
+    const txt = document.createElement("textarea");
+    txt.innerHTML = reply;
+    reply = txt.value; // Bu, &quot; və digər hər şeyi düzəldir
 
     // 2. Sonra Markdown-u HTML-ə çeviririk
     reply = marked.parse(reply);
 
-    // 3. Tone of Voice düzəlişləri
+    // 3. Tone of Voice düzəlişləri (Sənin köhnə kodların)
     reply = reply
       .replaceAll("İlk olaraq,", "Başlayaq belə:")
       .replaceAll("Bu addımları izləyə bilərsən", "Gəlin birlikdə baxaq 👇")
       .replaceAll("Nəticədə", "Sonda isə")
       .replaceAll("Bu, sizə kömək edəcək", "Bu sənə real fərq yaradacaq 💡")
       .replaceAll("Uğurlar!", "Uğurlar, sən artıq fərqlisən 🚀");
-
-    const botMsg = addMessage("bot", "");
-    typeText(botMsg, reply);
 
   } catch (err) {
     console.error(err);

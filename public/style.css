@@ -2127,3 +2127,44 @@ hr.custom-divider::after {
     padding: 2px 4px;
     border-radius: 4px;
 }
+
+/* =========================================
+   FIX: BOT MESSAGE FORMATTING (FINAL)
+   ========================================= */
+
+/* Siyahı qutusu (UL/OL) */
+.message.bot ul, 
+.message.bot ol {
+    margin: 12px 0 12px 20px !important; /* Soldan 20px boşluq verir */
+    padding-left: 0 !important;
+    list-style-position: outside !important; /* Nöqtəni kənara atır */
+    display: block !important;
+}
+
+/* Siyahı elementləri (LI) */
+.message.bot li {
+    display: list-item !important; /* Flex yox, List-item olmalıdır */
+    list-style-type: disc !important; /* Nöqtə mütləq olsun */
+    margin-bottom: 8px !important;
+    padding-left: 8px !important; /* Nöqtə ilə mətn arası məsafə */
+    color: #fff;
+    line-height: 1.6;
+}
+
+/* Nömrələnmiş siyahı üçün */
+.message.bot ol li {
+    list-style-type: decimal !important;
+}
+
+/* Paraqraflar */
+.message.bot p {
+    margin-bottom: 12px !important;
+    display: block;
+}
+
+/* Qalın mətnlər */
+.message.bot strong, 
+.message.bot b {
+    font-weight: 700 !important;
+    color: #fff;
+}
