@@ -277,14 +277,24 @@
  </button>
 </form>
 
-<!-- "Necə başlayım?" Kartı (Yalnız Desktop üçün görünür) -->
-<!--  <div id="starter-hint" class="starter-hint">
-<div class="hint-icon">🚀</div>
-  <div class="hint-text">
-        <div class="hint-close">×</div>
-    <strong>Necə başlayım?</strong>
-    <span>Bir mövzu seç və ya sadəcə buraya kliklə!</span> -->
+<div id="starter-hint" class="starter-hint">
+  
+  <div class="hint-icon-box">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path d="M13.1046 4.37684C12.3385 2.5312 9.66155 2.5312 8.89537 4.37684L7.5414 7.64024C7.23466 8.37951 6.64395 8.97022 5.90468 9.27696L2.64128 10.6309C0.795646 11.3971 0.795646 14.0741 2.64128 14.8402L5.90468 16.1942C6.64395 16.5009 7.23466 17.0916 7.5414 17.8309L8.89537 21.0943C9.66155 22.9399 12.3385 22.9399 13.1046 21.0943L14.4586 17.8309C14.7653 17.0916 15.356 16.5009 16.0953 16.1942L19.3587 14.8402C21.2044 14.0741 21.2044 11.3971 19.3587 10.6309L16.0953 9.27696C15.356 8.97022 14.7653 8.37951 14.4586 7.64024L13.1046 4.37684Z" fill="white"/>
+    </svg>
   </div>
+
+  <div class="hint-content">
+    <div class="hint-header">
+      <span class="hint-title">Necə başlayım?</span>
+    </div>
+    <span class="hint-desc">Bir mövzu seç və ya sadəcə yazmağa başla.</span>
+  </div>
+
+  <button class="hint-close-btn" onclick="document.getElementById('starter-hint').classList.add('hide-hint')">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+  </button>
 </div>
 
 <div id="confirmPopup" class="confirm-popup hidden">
@@ -293,11 +303,11 @@
   
    <h3 class="popup-title">Diqqət!</h3>
   
-   <p class="popup-text">Təsdiqləsən söhbət tarixçəsi silinəcək. Əminsən?</p>
+   <p class="popup-text">Yeni Söhbət başlatmaqdan istədiyinə əminsən?</p>
   
    <div class="confirm-actions">
-     <button id="confirmYes" class="confirm-btn yes">Bəli, təsdiqlə</button>
-     <button id="confirmNo" class="confirm-btn no">Xeyr, ləğv et</button>
+     <button id="confirmYes" class="confirm-btn yes">Başlat</button>
+     <button id="confirmNo" class="confirm-btn no">İmtina et</button>
    </div>
  </div>
 </div>

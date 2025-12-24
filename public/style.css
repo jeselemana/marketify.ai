@@ -1711,162 +1711,210 @@ hr.custom-divider::after {
     transition: opacity 0.3s ease;
   }
 
-  /* KART - AŞAĞI SALINDI */
-  .starter-hint {
-    position: fixed;
-    /* Input bar 57%-dədir, kart ondan bir az aşağıda (85px) olmalıdır */
-    top: calc(57% + 85px); 
-    left: 50%;
-    transform: translate(-50%, 0);
-    
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 24px;
-    
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 50px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    
-    cursor: pointer;
-    z-index: 2000;
-    
-    opacity: 0; 
-    animation: hintFadeIn 0.8s ease 0.2s forwards;
-    transition: all 0.3s ease;
-  }
-  
-  .starter-hint:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translate(-50%, -4px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-
-  .starter-hint.hide-hint {
-    opacity: 0;
-    pointer-events: none;
-    transform: translate(-50%, 15px);
-  }
-
-  .hint-icon { font-size: 22px; }
-  
-  .hint-text {
-    display: flex;
-    flex-direction: column;
-    text-align: left;
-  }
-  
-  .hint-text strong {
-    color: #fff;
-    font-weight: 600;
-    font-size: 14px;
-    margin-bottom: 2px;
-  }
-
-  .hint-text span {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-}
-
-/* X düyməsinin stili */
-.hint-close {
-  margin-left: auto; /* Bunu sağa yapışdırır */
-  font-size: 24px;
-  line-height: 20px;
-  color: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.hint-close:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-/* ... (əvvəlki kodlar qalır) ... */
-
 /* =========================================
-   🆕 "NECƏ BAŞLAYIM?" KARTI (DÜZƏLİŞ)
+   🆕 PREMIUM STARTER HINT CARD (YENİ DİZAYN)
    ========================================= */
+
+@media (min-width: 1024px) {
   .starter-hint {
     position: fixed;
-    top: calc(57% + 85px); 
+    /* Input bar-dan biraz aşağıda yerləşməsi üçün */
+    top: calc(57% + 95px); 
     left: 50%;
     transform: translate(-50%, 0);
     
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 24px;
+    gap: 16px;
+    /* Padding-i tənzimlədik ki, elementlər rahat otursun */
+    padding: 12px 12px 12px 16px; 
     
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 50px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    /* Tünd Şüşə Effekti (Glassmorphism) */
+    background: rgba(30, 30, 30, 0.65); 
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
     
-    cursor: pointer;
-    z-index: 2000;
+    /* Kənar xətt və kölgə */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 
+      0 20px 40px -10px rgba(0, 0, 0, 0.5), 
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      
+    /* Forma: Həb (50px) yox, Soft Square (20px) */
+    border-radius: 20px; 
+    
+    cursor: default;
+    z-index: 1000;
+    min-width: 320px;
     
     /* Animasiya */
-    opacity: 0; 
-    animation: hintFadeIn 0.8s ease 0.2s forwards;
+    opacity: 0;
+    animation: hintSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards;
     transition: all 0.3s ease;
   }
-  
+
+  /* Hover effekti - kart biraz yuxarı qalxır */
   .starter-hint:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translate(-50%, -4px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(40, 40, 40, 0.8);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -5px);
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6);
   }
 
-  /* ⚠️ VACİB DÜZƏLİŞ: Animasiyanı dayandırmaq üçün !important */
+  /* Gizlənəndə (JS sinifi əlavə edəndə) */
   .starter-hint.hide-hint {
     opacity: 0 !important;
     visibility: hidden !important;
     transform: translate(-50%, 20px) !important;
     pointer-events: none !important;
-    animation: none !important; /* Animasiyanı söndürür */
-    transition: none !important;
+    transition: all 0.3s ease !important;
   }
 
-  .hint-icon { font-size: 22px; }
-  
-  .hint-text {
+  /* --- 1. SOL TƏRƏF: Qradiyent İkon Qutusu --- */
+  .hint-icon-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px; /* İkonun öz forması */
+    background: linear-gradient(135deg, #2d6bff, #7db3ff); /* Mavi qradiyent */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 16px -4px rgba(45, 107, 255, 0.5); /* İkonun parıltısı */
+    flex-shrink: 0;
+  }
+
+  .hint-icon-box svg {
+    width: 22px;
+    height: 22px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  }
+
+  /* --- 2. ORTA: Mətn Hissəsi --- */
+  .hint-content {
     display: flex;
     flex-direction: column;
-    text-align: left;
+    justify-content: center;
+    gap: 2px;
+    flex: 1;
   }
-  
-  .hint-text strong {
+
+  .hint-title {
     color: #fff;
     font-weight: 600;
     font-size: 14px;
-    margin-bottom: 2px;
+    letter-spacing: 0.3px;
   }
 
-  .hint-text span {
+  .hint-desc {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.3;
   }
 
+  /* --- 3. SAĞ: Bağlamaq Düyməsi (X) --- */
+  .hint-close-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    margin-left: 8px;
+  }
+
+  .hint-close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    transform: scale(1.1);
+  }
+}
+
+/* Animasiya Keyframes */
+@keyframes hintSlideUp {
+  from { opacity: 0; transform: translate(-50%, 40px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Mobildə gizlət */
 @media (max-width: 1023px) {
   .starter-hint { display: none !important; }
 }
+}
+/* =========================================
+   🖥️ DESKTOP DROPDOWN (PREMIUM SHADOW)
+   ========================================= */
 
-@keyframes hintFadeIn {
-    from { opacity: 0; transform: translate(-50%, 20px); }
-    to { opacity: 1; transform: translate(-50%, 0); }
+@media (min-width: 1024px) {
+  
+  /* Dropdown Konteyneri */
+  .dropdown-menu {
+    /* Mövqe: Düymədən biraz aralı */
+    top: calc(100% + 14px) !important; 
+    left: 0 !important;
+    
+    /* Genişlik: Daha oxunaqlı olsun deyə artırırıq */
+    min-width: 260px !important;
+    
+    /* Fon: Tünd, demək olar ki, qara (Gemini Style) */
+    background: rgba(20, 20, 20, 0.95) !important;
+    
+    /* Blur Effekti */
+    backdrop-filter: blur(25px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+    
+    /* Kənar Xətt: Çox nazik və zərif */
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 16px !important;
+    
+    /* 🔥 ƏSAS HİSSƏ: AŞAĞI DÜŞƏN KÖLGƏ 🔥 */
+    /* Birinci dəyər: Dərin qara kölgə | İkinci dəyər: Formanı bəlli edən işıq */
+    box-shadow: 
+      0 30px 60px -12px rgba(0, 0, 0, 1), /* Əsas dərin kölgə */
+      0 10px 20px -5px rgba(0, 0, 0, 0.6), /* Orta kölgə */
+      inset 0 1px 0 rgba(255, 255, 255, 0.1) !important; /* Üst daxili işıq */
+
+    padding: 8px !important;
+    
+    /* Animasiya başlanğıcı */
+    transform-origin: top left;
+    display: block; /* Flex və ya block fərq etməz, JS idarə edir */
+    
+    /* Default olaraq gizli (JS class əlavə edəndə görünəcək) */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px) scale(0.98);
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* Açıq olanda (.show class-ı gələndə) */
+  .dropdown-menu.show {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateY(0) scale(1) !important;
+  }
+
+  /* Menyudakı linklər üçün səliqə */
+  .dropdown-menu .menu-item,
+  .dropdown-menu .feedback-link {
+    border-radius: 10px !important;
+    margin-bottom: 2px !important;
+    padding: 12px 16px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+  }
+
+  /* Hover effekti */
+  .dropdown-menu .menu-item:hover,
+  .dropdown-menu .feedback-link:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+  }
 }
 
 /* --- Premium Dropdown Styles --- */

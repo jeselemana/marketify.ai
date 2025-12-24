@@ -874,3 +874,51 @@ if(closeBtn && hintCard) {
     hintCard.classList.add('hide-hint'); // CSS-dəki gizlətmə klassını əlavə edir
   });
 }
+
+/* =========================================
+   🕒 "NECƏ BAŞLAYIM?" SMART TIMER
+   ========================================= */
+
+let hintTimer; // Timeri yaddaşda saxlamaq üçün dəyişən
+
+function restartHintTimer() {
+  const starterHint = document.getElementById("starter-hint");
+  
+  if (starterHint) {
+    // 1. Kartı mütləq görünən et (əgər gizlidirsə)
+    starterHint.classList.remove("hide-hint");
+
+    // 2. Əgər köhnə timer hələ işləyirsə, onu ləğv et (qarışmasın deyə)
+    if (hintTimer) clearTimeout(hintTimer);
+
+    // 3. Yeni 5 saniyəlik timer qur
+    hintTimer = setTimeout(() => {
+      starterHint.classList.add("hide-hint");
+    }, 5000); // 5000 ms = 5 saniyə
+  }
+}
+
+// A. Səhifə ilk dəfə açılanda işə sal
+document.addEventListener("DOMContentLoaded", restartHintTimer);
+
+// ✅ BU YENİ HİSSƏNİ ƏLAVƏ ET:
+// B. Yalnız "Bəli" (confirmYes) düyməsinə basıb təsdiqləyəndə işə sal
+const confirmYesBtn = document.getElementById("confirmYes");
+if (confirmYesBtn) {
+  confirmYesBtn.addEventListener("click", () => {
+    // Popup bağlanıb chat silinəndən sonra (biraz gecikmə ilə) kartı gətir
+    setTimeout(restartHintTimer, 500); 
+  });
+}
+
+// C. İstifadəçi yazmağa başlayan kimi dərhal gizlət
+const userInputField = document.getElementById("user-input");
+if (userInputField) {
+  userInputField.addEventListener("input", () => {
+    const starterHint = document.getElementById("starter-hint");
+    if (starterHint) {
+      starterHint.classList.add("hide-hint");
+      if (hintTimer) clearTimeout(hintTimer); // Timeri dayandır
+    }
+  });
+}
