@@ -862,3 +862,15 @@ if (navMenu) {
     });
   }
 })();
+
+// X düyməsini seçirik
+const closeBtn = document.querySelector('.hint-close');
+const hintCard = document.querySelector('.starter-hint');
+
+// Kliklənəndə işləyəcək funksiya
+if(closeBtn && hintCard) {
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // Kartın özünə kliklənməsinin qarşısını alır
+    hintCard.classList.add('hide-hint'); // CSS-dəki gizlətmə klassını əlavə edir
+  });
+}
