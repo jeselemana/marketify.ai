@@ -477,28 +477,34 @@ async function sendMessage(message) {
 
 let reply = data.reply || "⚠️ Cavab alınmadı 😔";
 
-    // 1. Simvolları mütləq təmizləyirik (Bu &quot; problemini həll edir)
-    const txt = document.createElement("textarea");
-    txt.innerHTML = reply;
-    reply = txt.value;
+    // MARKDOWN təmizləmə
+    reply = reply
+      .replace(/\*\*/g, "")
+      .replace(/##+/g, "")
+      .replace(/[\*_]{1,3}/g, "")
+      .replace(/`+/g, "")
+      .replace(/^>\s?/gm, "")
+      .replace(/^-\s+/gm, "");
 
-    // 2. ❌ MARKDOWN SÖNDÜRÜLDÜ (marked.parse silindi)
-    // Artıq HTML-ə çevirmirik, olduğu kimi saxlayırıq
-
-    // 3. Tone of Voice düzəlişləri (İstəsən saxlaya bilərsən)
+    // Azərbaycan dilində kiçik düzəlişlər (Tone of Voice)
     reply = reply
       .replaceAll("İlk olaraq,", "Başlayaq belə:")
       .replaceAll("Bu addımları izləyə bilərsən", "Gəlin birlikdə baxaq 👇")
       .replaceAll("Nəticədə", "Sonda isə")
       .replaceAll("Bu, sizə kömək edəcək", "Bu sənə real fərq yaradacaq 💡")
       .replaceAll("Uğurlar!", "Uğurlar, sən artıq fərqlisən 🚀");
-      
+
+    const botMsg = addMessage("bot", "");
+    typeText(botMsg, reply);
   } catch (err) {
     console.error(err);
     if (typing?.parentNode) chatBox.removeChild(typing);
-    const fallbackMsg = err?.message && err.message !== "Server error"
+
+    const fallbackMsg =
+      err?.message && err.message !== "Server error"
         ? `⚠️ ${err.message}`
         : "⚠️ Bağlantı xətası. Marketify AI hazırda oflayn rejimdədir.";
+
     addMessage("bot", fallbackMsg);
   }
 }

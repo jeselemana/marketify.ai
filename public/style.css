@@ -2069,27 +2069,3 @@ hr.custom-divider::after {
   transform: translateY(50%) rotate(-45deg);
   background-color: #fff;
 }
-
-/* =========================================
-   SADƏ MƏTN REJİMİ
-   ========================================= */
-
-.message.bot {
-    /* Mətni olduğu kimi göstərir, enter-ləri nəzərə alır */
-    white-space: pre-wrap !important; 
-    
-    /* Şrift və məsafələr */
-    line-height: 1.6 !important;
-    font-size: 15.5px !important;
-    
-    /* Əgər bayaq siyahı üçün yazdığımız margin-lər qalıbsa, onları sıfırlayırıq */
-    padding-left: 0 !important;
-}
-
-/* Köhnə siyahı stillərini ləğv edirik ki, mane olmasın */
-.message.bot ul, .message.bot ol, .message.bot li {
-    margin: 0 !important;
-    padding: 0 !important;
-    list-style: none !important;
-    display: inline !important;
-}
