@@ -477,22 +477,22 @@ async function sendMessage(message) {
 
 let reply = data.reply || "⚠️ Cavab alınmadı 😔";
 
-    // 1. Əvvəlcə bütün HTML kodlarını simvollara çeviririk (Decoding)
+    // 1. Simvolları mütləq təmizləyirik (Bu &quot; problemini həll edir)
     const txt = document.createElement("textarea");
     txt.innerHTML = reply;
-    reply = txt.value; // Bu, &quot; və digər hər şeyi düzəldir
+    reply = txt.value;
 
-    // 2. Sonra Markdown-u HTML-ə çeviririk
-    reply = marked.parse(reply);
+    // 2. ❌ MARKDOWN SÖNDÜRÜLDÜ (marked.parse silindi)
+    // Artıq HTML-ə çevirmirik, olduğu kimi saxlayırıq
 
-    // 3. Tone of Voice düzəlişləri (Sənin köhnə kodların)
+    // 3. Tone of Voice düzəlişləri (İstəsən saxlaya bilərsən)
     reply = reply
       .replaceAll("İlk olaraq,", "Başlayaq belə:")
       .replaceAll("Bu addımları izləyə bilərsən", "Gəlin birlikdə baxaq 👇")
       .replaceAll("Nəticədə", "Sonda isə")
       .replaceAll("Bu, sizə kömək edəcək", "Bu sənə real fərq yaradacaq 💡")
       .replaceAll("Uğurlar!", "Uğurlar, sən artıq fərqlisən 🚀");
-
+      
   } catch (err) {
     console.error(err);
     if (typing?.parentNode) chatBox.removeChild(typing);
