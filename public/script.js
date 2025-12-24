@@ -326,7 +326,7 @@ function resetToHomeState() {
 
   // Notification
   const notice = document.createElement("div");
-  notice.textContent = "💬 Yeni söhbət üçün hazırsan 😎";
+  notice.textContent = "Yeni stilimiz hazırdı 🔥";
   Object.assign(notice.style, {
     position: "fixed", bottom: "100px", left: "50%",
     transform: "translateX(-50%)", background: "linear-gradient(135deg,#2d6bff,#60a5ff)",
@@ -684,13 +684,12 @@ if (confirmNo) {
   });
 }
 
-if (confirmYes) {
-  confirmYes.addEventListener("click", (e) => {
-    e.preventDefault();
-    confirmPopup.classList.remove("show");
-    resetToHomeState(); // Uses the centralized reset function
-  });
-}
+// if (confirmYes) {
+  ///confirmYes.addEventListener("click", (e) => {
+    /// e.preventDefault();
+    /// confirmPopup.classList.remove("show");
+    ///resetToHomeState(); // Uses the centralized reset function
+
 
 // --- Bottom Model Picker (System Core) ---
 const bTrigger = document.getElementById("bottom-model-trigger");
