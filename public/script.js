@@ -274,73 +274,6 @@ function updateUIStateForInput() {
   }
 }
 
-// 3. Reset to Initial State (Clear Chat)
-function resetToHomeState() {
-  if (chatBox) chatBox.innerHTML = "";
-  if (center) center.style.display = "flex";
-  
-  if (brandTitle) {
-      brandTitle.style.display = "block";
-      brandTitle.style.opacity = "1";
-      brandTitle.style.transform = "scale(1)";
-  }
-  if (tagline) {
-      tagline.style.display = "block";
-      tagline.style.opacity = "1";
-  }
-  
-  if (promptContainer) {
-      promptContainer.style.display = "flex";
-      promptContainer.classList.remove("hidden-bubbles");
-      loadDynamicBubbles();
-  }
-  
-  if (clearBtn) clearBtn.classList.remove("show");
-  if (newTitle) newTitle.classList.remove("show");
-  if (newDisclaimer) newDisclaimer.classList.remove("show");
-
-  // ✅ Remove Footer Mode
-  if (form) {
-    form.classList.remove("footer-mode");
-  }
-
-  // ✅ SHOW STARTER HINT
-  const hint = document.getElementById("starter-hint");
-  if(hint) hint.classList.remove("hide-hint");
-  
-  // Reset Input
-  if (input) {
-      input.value = "";
-      input.style.height = "44px";
-      input.classList.remove("scrolling");
-      updateUIStateForInput();
-      
-      // Desktop: Reset placeholder logic
-      if (isDesktop()) {
-          input.placeholder = "Sualını yaz..."; 
-          userStartedTyping = false;
-          // ✅ SIFIRLANANDA ROTASİYA BAŞLAYIR
-          setTimeout(startPromptRotation, 2000); 
-      }
-  }
-
-  // Notification
-  // const notice = document.createElement("div");
-  // notice.textContent = "Yeni stilimiz hazırdı 🔥";
-  // Object.assign(notice.style, {
-   // position: "fixed", bottom: "100px", left: "50%",
-   // transform: "translateX(-50%)", background: "linear-gradient(135deg,#2d6bff,#60a5ff)",
-    //color: "#fff", padding: "12px 20px", borderRadius: "12px",
-    //fontFamily: "'Poppins',sans-serif", zIndex: "999", opacity: "0", transition: "opacity 0.4s ease",
-  
-  document.body.appendChild(notice);
-  setTimeout(() => (notice.style.opacity = "1"), 80);
-  setTimeout(() => {
-    notice.style.opacity = "0";
-    setTimeout(() => notice.remove(), 600);
-  }, 2200);
-}
-
 // --- Tagline Rotator (Yalnız səhifə yeniləndikdə) ---
 function initTaglineRotator() {
   if (!tagline) return;
@@ -697,8 +630,14 @@ if (confirmNo) {
 if (confirmYes) {
   confirmYes.addEventListener("click", (e) => {
      e.preventDefault();
+     
+     // Popupu bağlayırıq (görüntü xatirinə)
      confirmPopup.classList.remove("show");
-    resetToHomeState(); // Uses the centralized reset function
+     
+     // 🚀 ƏSAS DƏYİŞİKLİK: 
+     // resetToHomeState() əvəzinə səhifəni tam yeniləyirik.
+     // Bu, həm ekranı təmizləyir, həm də backend sorğularını dayandırır.
+     window.location.reload();
   })
 }
 
