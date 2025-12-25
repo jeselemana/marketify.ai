@@ -192,13 +192,7 @@ main {
   transition: all 0.3s ease;
 }
 
-.brand-sub {
-  font-size: 44px;
-  font-weight: 700;
-  color: var(--primary-blue);
-  margin: 0 0 10px 0;
-  text-shadow: 0 0 25px rgba(45, 107, 255, 0.7);
-}
+.brand-sub { font-size: 44px; font-weight: 700; color: var(--primary-blue); margin: 0 0 10px 0; text-shadow: 0 0 25px rgba(45, 107, 255, 0.7); }
 
 .tagline {
   color: var(--text-medium);
@@ -2153,5 +2147,162 @@ hr.custom-divider::after {
     height: 0 !important;
     width: 0 !important;
     overflow: hidden !important;
+  }
+}
+
+/* --- Header Logo & Layout --- */
+
+/* 1. Yan-yana düzülüşü təmin edən hissə (Vacib!) */
+.model-dropdown {
+  display: flex !important; /* Flex məcbur edirik */
+  align-items: center;
+  gap: 12px; /* İkonla yazı arası məsafə */
+  position: relative; /* Dropdown menyunun düzgün açılması üçün */
+}
+
+/* 2. Yazının Stili */
+.nav-brand-text {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  display: none; /* Mobildə gizli */
+  cursor: pointer; /* Kliklənə bilən işarəsi */
+  user-select: none; /* Yazını seçməyi əngəlləyir (Button kimi hiss verir) */
+  
+  /* Qradiyent Stil */
+  background: linear-gradient(
+    135deg, 
+    #ffffff 20%, 
+    #8ab7ff 50%, 
+    #2d6bff 80%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  
+  /* Parıltı */
+  filter: drop-shadow(0 0 10px rgba(45, 107, 255, 0.2));
+  animation: shine 3s ease-out 1 forwards;
+  
+  transition: opacity 0.2s ease;
+}
+
+/* Hover edəndə yüngül reaksiya */
+.nav-brand-text:hover {
+  opacity: 0.8;
+}
+
+/* 3. Yalnız Desktop-da göstər */
+@media (min-width: 1024px) {
+  .nav-brand-text {
+    display: block;
+  }
+}
+
+/* --- Mobile: Header Logo Ortada --- */
+@media (max-width: 768px) {
+  .nav-brand-text {
+    /* Hamburger menyudan ayırıb ekranın ortasına mıxlayırıq */
+    position: fixed;
+    top: 28px; /* Hamburger və Clear düyməsi ilə eyni hündürlük */
+    left: 50%;
+    transform: translateX(-50%);
+    
+    font-size: 20px !important; /* Ölçünü bir az artırdıq */
+    z-index: 1002; /* Hər şeyin üstündə olsun */
+    
+    /* Mobil üçün blok halına gətiririk */
+    display: block !important;
+    width: max-content;
+  }
+}
+
+/* --- Mobile: Mərkəzi Mətni Dəyişmək ("Salam! 👋") --- */
+@media (max-width: 768px) {
+  
+  .brand-sub {
+    /* 1. Orijinal uzun mətni gizlədirik (font-size: 0 ilə) */
+    font-size: 0 !important; 
+    line-height: 0 !important;
+    margin-bottom: 15px !important;
+    padding: 0;
+  }
+
+  /* 2. Yeni qısa mətni əlavə edirik */
+  .brand-sub::after {
+    content: "Salam!"; /* Buranı istədiyin sözlə dəyişə bilərsən */
+    
+    font-size: 42px; /* Yeni mətnin ölçüsü */
+    line-height: 1.2;
+    font-weight: 800;
+    display: block;
+    
+    /* Qradiyent stilini qoruyuruq */
+    background: linear-gradient(135deg, #ffffff 20%, #8ab7ff 50%, #2d6bff 80%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    
+    filter: drop-shadow(0 0 20px rgba(45, 107, 255, 0.3));
+    animation: shine 3s ease-out 1 forwards;
+  }
+}
+
+/* --- Minimalist (Ghost) Model Picker --- */
+
+#bottom-model-trigger {
+  /* Arxa fon və çərçivəni tamamilə ləğv edirik */
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  
+  /* Mətn stili: Solğun boz (Minimalist görünüş üçün) */
+  color: rgba(255, 255, 255, 0.5) !important; 
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  
+  /* Düzülüş */
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  
+  padding: 0 8px !important;
+  height: auto !important;
+  min-height: 32px !important;
+  
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Hover: Üstünə gələndə ağ olsun */
+#bottom-model-trigger:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.05) !important; /* Toxunanda çox yüngül fon */
+  border-radius: 8px !important;
+}
+
+/* Aktiv (Menyu açıq olanda): Mavi olsun */
+#bottom-model-trigger.active {
+  color: #8ab7ff !important;
+}
+
+/* --- Mobile Specifics --- */
+@media (max-width: 768px) {
+  #bottom-model-trigger {
+    font-size: 12px !important;
+    padding: 0 5px !important; /* Mobildə daha yığcam */
+  }
+  
+  /* Mətn çox uzundursa kəsilsin */
+  #bottom-model-text {
+    max-width: 70px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Dropdown menyunu ikonun altına doğru sürüşdürürük */
+  .bottom-model-selector {
+    margin-right: 0 !important;
   }
 }
