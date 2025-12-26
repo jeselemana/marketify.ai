@@ -861,3 +861,136 @@ if (userInputField) {
     }
   });
 }
+
+/* =========================================
+   🌐 UNIVERSAL OS DETECTION & SHORTCUTS
+   ========================================= */
+
+// 1. OS-i müəyyən edirik
+const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+const modifierText = isMac ? '⌘' : 'Ctrl';
+
+// 2. Menyu açılarkən qısayol ipucularını dinamik yeniləyirik
+function updateShortcutHints() {
+    const hints = {
+        'hint-about': isMac ? '⌘A' : 'Ctrl+A',
+        'hint-legal': isMac ? '⌘G' : 'Ctrl+G',
+        'hint-faq':   isMac ? '⌘F' : 'Ctrl+F',
+        'hint-menu':  isMac ? '⌘B' : 'Ctrl+B'
+    };
+
+    for (const [id, text] of Object.entries(hints)) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    }
+}
+
+// 3. Vahid Keydown Listener
+document.addEventListener('keydown', (e) => {
+    const isMod = e.metaKey || e.ctrlKey; // Həm Cmd, həm Ctrl-u tutur
+    const key = e.key.toLowerCase();
+    const isMenuOpen = dropdownMenu.classList.contains('show');
+
+    // Menyu toggle (Cmd+B və ya Ctrl+B)
+    if (isMod && key === 'b') {
+        e.preventDefault();
+        modelBtn.click();
+    }
+
+    // Menyu açıqdırsa, sürətli keçidlər
+    if (isMenuOpen) {
+        if (key === 'a') { e.preventDefault(); openModal('aboutModal'); }
+        if (key === 'g') { e.preventDefault(); openModal('legalModal'); }
+        if (key === 'f') { e.preventDefault(); openModal('faqModal'); }
+        if (key === 'escape') { modelBtn.click(); }
+    }
+
+    // Fokuslanma (Cmd+K və ya Ctrl+K)
+    if (isMod && key === 'k') {
+        e.preventDefault();
+        input.focus();
+    }
+});
+
+// Səhifə yüklənəndə ipucuları yenilə
+document.addEventListener('DOMContentLoaded', updateShortcutHints);
+
+/* ==========================================================================
+   7. PWA INSTALLATION LOGIC (ANDROID, iOS & MAC SAFARI)
+   ========================================================================== */
+let deferredPrompt;
+const installBtn = document.getElementById("installApp");
+const iosModalId = 'iosInstallModal';
+const macModalId = 'macSafariInstallModal';
+
+// Cihaz Təyini
+const ua = navigator.userAgent;
+const isIOS = /iPhone|iPad|iPod/i.test(ua);
+// Mac Safari-ni tapmaq üçün: "Macintosh" var, "Safari" var, amma "Chrome" YOXDUR.
+const isMacSafari = /Macintosh/i.test(ua) && /Safari/i.test(ua) && !/Chrome/i.test(ua) && !/Chromium/i.test(ua);
+
+const isInStandaloneMode = (window.navigator.standalone === true) || (window.matchMedia('(display-mode: standalone)').matches);
+
+/**
+ * Düymənin görünməsini idarə edən funksiya
+ */
+function checkInstallButtonVisibility() {
+    if (!installBtn) return;
+
+    // 1. Artıq quraşdırılıbsa gizlət
+    if (isInStandaloneMode) {
+        installBtn.style.display = 'none';
+        return;
+    }
+
+    // 2. Düyməni göstər əgər:
+    // - Android/Chrome promptu hazırdırsa (deferredPrompt)
+    // - Və ya iOS-dursa
+    // - Və ya Mac Safari-dirsə
+    if (deferredPrompt || isIOS || isMacSafari) {
+        installBtn.style.display = "flex";
+    } else {
+        // Digər hallarda (Məsələn Firefox Desktop) gizli qalsın
+        installBtn.style.display = "none";
+    }
+}
+
+// Hadisə 1: Android/Chrome Promptu
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  checkInstallButtonVisibility(); // Prompt gələn kimi düyməni aç
+});
+
+// Hadisə 2: Səhifə yüklənəndə (iOS və Mac Safari üçün)
+document.addEventListener("DOMContentLoaded", checkInstallButtonVisibility);
+
+// Hadisə 3: Klik Məntiqi
+if (installBtn) {
+  installBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    // A: Avtomatik Prompt (Android, PC Chrome, Mac Chrome)
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      if (outcome === 'accepted') {
+        installBtn.style.display = 'none';
+      }
+    } 
+    // B: iOS (iPhone/iPad)
+    else if (isIOS) {
+      openModal(iosModalId);
+    }
+    // C: Mac Safari (Desktop)
+    else if (isMacSafari) {
+      openModal(macModalId);
+    }
+  });
+}
+
+// Hadisə 4: Quraşdırılandan sonra gizlət
+window.addEventListener("appinstalled", () => {
+  if (installBtn) installBtn.style.display = "none";
+});

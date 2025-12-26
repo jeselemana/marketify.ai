@@ -192,7 +192,29 @@ main {
   transition: all 0.3s ease;
 }
 
-.brand-sub { font-size: 44px; font-weight: 700; color: var(--primary-blue); margin: 0 0 10px 0; text-shadow: 0 0 25px rgba(45, 107, 255, 0.7); }
+.brand-sub {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 12px 0;
+
+  /* Modern gradient text */
+  background: linear-gradient(
+    135deg,
+    #2d6bff 0%,
+    #5f8dff 40%,
+    #9bb6ff 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+
+  /* Soft premium glow (not eye-burning) */
+  text-shadow:
+    0 2px 12px rgba(45, 107, 255, 0.25),
+    0 0 1px rgba(255, 255, 255, 0.6);
+}
 
 .tagline {
   color: var(--text-medium);
@@ -2217,37 +2239,6 @@ hr.custom-divider::after {
   }
 }
 
-/* --- Mobile: Mərkəzi Mətni Dəyişmək ("Salam! 👋") --- */
-@media (max-width: 768px) {
-  
-  .brand-sub {
-    /* 1. Orijinal uzun mətni gizlədirik (font-size: 0 ilə) */
-    font-size: 0 !important; 
-    line-height: 0 !important;
-    margin-bottom: 15px !important;
-    padding: 0;
-  }
-
-  /* 2. Yeni qısa mətni əlavə edirik */
-  .brand-sub::after {
-    content: "Salam!"; /* Buranı istədiyin sözlə dəyişə bilərsən */
-    
-    font-size: 42px; /* Yeni mətnin ölçüsü */
-    line-height: 1.2;
-    font-weight: 800;
-    display: block;
-    
-    /* Qradiyent stilini qoruyuruq */
-    background: linear-gradient(135deg, #ffffff 20%, #8ab7ff 50%, #2d6bff 80%);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    
-    filter: drop-shadow(0 0 20px rgba(45, 107, 255, 0.3));
-    animation: shine 3s ease-out 1 forwards;
-  }
-}
-
 /* --- Minimalist (Ghost) Model Picker --- */
 
 #bottom-model-trigger {
@@ -2304,5 +2295,237 @@ hr.custom-divider::after {
   /* Dropdown menyunu ikonun altına doğru sürüşdürürük */
   .bottom-model-selector {
     margin-right: 0 !important;
+  }
+}
+
+/* Menyu bəndini tənzimləyirik */
+.menu-item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important; /* Mətn sol, qısayol sağ */
+  padding: 10px 14px !important;
+  gap: 12px;
+}
+
+.item-text {
+  flex: 1; /* Mətnin bütün boşluğu tutmasını təmin edir */
+  font-size: 14px;
+}
+
+/* Qısayol etiketləri üçün yeni "Premium" görünüş */
+.shortcut-hint {
+  font-size: 9px; /* Çox kiçik və zərif */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 600;
+  
+  /* Şüşə effekti və rənglər */
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  
+  /* Düymə forması */
+  padding: 2px 6px;
+  border-radius: 5px;
+  min-width: 32px;
+  text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  
+  /* Mobildə gizlətmək üçün */
+  display: inline-block;
+}
+
+/* Hover olanda rənglənsin */
+.menu-item:hover .shortcut-hint {
+  color: #8ab7ff;
+  border-color: rgba(138, 183, 255, 0.4);
+  background: rgba(138, 183, 255, 0.1);
+}
+
+/* Mobildə qısayolları gizlədirik ki, interfeys qarışmasın */
+@media (max-width: 768px) {
+  .shortcut-hint {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   iOS PWA Modal - Premium Design
+   ========================================================================== */
+
+/* 1. Modalın Ümumi Fonu (Overlay) */
+.marketify-modal {
+  position: fixed;
+  inset: 0; /* top/left/right/bottom: 0 əvəzi - bütün ekranı tutur */
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6); /* Arxa fon qaralır */
+  backdrop-filter: blur(8px); /* Arxa fon bulanıqlaşır */
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 99999; /* Hər şeyin üstündə */
+  
+  /* Flex ilə mərkəzləmə */
+  display: none; 
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* Modal açılanda məcbur göstər */
+.marketify-modal.show {
+  display: flex !important; 
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 2. Modal Qutusu (Card) */
+/* 2. Modal Qutusu (Card) - Düzəliş edildi */
+.ios-guide {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  background: rgba(30, 30, 32, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  padding: 30px 24px 24px;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  animation: iosPopUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  
+  /* 🔥 YENİ: Bu sətir modalı yuxarı qaldırır */
+  margin-bottom: 15vh; /* Ekran hündürlüyünün 15%-i qədər yuxarı */
+}
+
+/* 3. Close Button (X) - Qutunun içində, sağ üstdə */
+.modal-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* 4. Header Hissəsi */
+.ios-header {
+  margin-bottom: 24px;
+}
+
+.app-icon-preview img {
+  width: 68px;
+  height: 68px;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ios-header h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 8px 0;
+  letter-spacing: 0.3px;
+}
+
+.ios-header p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* 5. Addımlar Siyahısı (List) */
+.ios-steps {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  overflow: hidden; /* Divider kənara çıxmasın */
+}
+
+.step-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* İkonu sağa, mətni sola */
+  padding: 16px;
+  gap: 14px;
+  text-align: left;
+}
+
+/* Nömrələr (1, 2) */
+.step-num {
+  width: 26px;
+  height: 26px;
+  background: #007aff;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0; /* Sıxılmasın */
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.4);
+}
+
+/* Mətn */
+.step-text {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.step-text strong {
+  color: #2d6bff; /* Highlight rəngi */
+  font-weight: 600;
+}
+
+/* İkonlar (Sağ tərəf) */
+.step-icon {
+  color: #007aff;
+  display: flex;
+  align-items: center;
+}
+
+.step-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2.2px;
+}
+
+/* Divider (Xətt) */
+.step-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin-left: 56px; /* Mətndən başlasın */
+}
+
+/* Animasiya */
+@keyframes iosPopUp {
+  0% { transform: scale(0.9) translateY(20px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Desktop-da modalı tam mərkəzə qaytarırıq */
+@media (min-width: 1024px) {
+  .ios-guide {
+    margin-bottom: 0 !important; /* Mərkəzləşdirir */
+    max-width: 380px; /* Mac ekranı böyükdür, biraz geniş olsun */
   }
 }
