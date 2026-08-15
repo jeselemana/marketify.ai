@@ -2,11 +2,15 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import { OpenAI } from "openai";
-import fetch from "node-fetch";
-import nodemailer from "nodemailer";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { guestSession } from "./src/http/session.js";
+import {
+  createStrategyRouter,
+  strategyErrorHandler,
+} from "./src/http/strategy-router.js";
+import { FileStrategyRepository } from "./src/repositories/file-strategy-repository.js";
 
 dotenv.config();
 
@@ -18,21 +22,22 @@ const __dirname = path.dirname(__filename);
 // 🔥 REDIS (Analytics limit üçün)
 import { createClient } from "redis";
 
-const redis = createClient({
-  url: process.env.REDIS_URL,
-});
+const redis = process.env.REDIS_URL
+  ? createClient({ url: process.env.REDIS_URL })
+  : null;
 
 // Event listeners — createClient-dən SONRA gəlməlidir
-redis.on("connect", () => console.log("🔥 Redis connected"));
-redis.on("error", (err) => console.error("❌ Redis error:", err));
+redis?.on("connect", () => console.log("🔥 Redis connected"));
+redis?.on("error", (err) => console.error("❌ Redis error:", err));
 
 // Render-da auto-reconnect üçün
-redis.connect().catch((err) =>
+redis?.connect().catch((err) =>
   console.error("❌ Redis connection error:", err)
 );
 
 // Günlük limit yoxlama funksiyası
 async function canUseAnalytics(ip) {
+  if (!redis) return true;
   const today = new Date().toISOString().slice(0, 10);
   const key = `analytics:${ip}:${today}`;
 
@@ -53,16 +58,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
+app.use(guestSession);
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // 🧠 Data qovluğu və fayllar
 const DATA_DIR = path.join(__dirname, "data");
 const KNOWLEDGE_LOG_PATH = path.join(DATA_DIR, "knowledge_log.json");
 const BASE_PATH = path.join(DATA_DIR, "marketify_base.json");
 const TRASH_PATH = path.join(DATA_DIR, "marketify_trash.json");
+const STRATEGIES_PATH = path.join(DATA_DIR, "strategies.json");
+const strategyRepository = new FileStrategyRepository(STRATEGIES_PATH);
+
+app.use("/api/strategy", createStrategyRouter(strategyRepository));
 
 // 💾 Faylları təhlükəsiz hazırlamaq
 function ensureDataFiles() {
@@ -358,6 +368,11 @@ let conversationHistory = [];
 // 🧠 CHAT ENDPOINT
 app.post("/api/chat", async (req, res) => {
   try {
+    if (!openai) {
+      return res.status(503).json({
+        error: "AI xidməti hələ konfiqurasiya edilməyib.",
+      });
+    }
     const userMessage = req.body.message?.trim();
     const selectedModel = req.body.model || "gpt-4o";
 
@@ -918,6 +933,8 @@ app.get("/admin", (req, res) => {
 
   return res.status(404).send("Admin panel tapılmadı.");
 });
+
+app.use(strategyErrorHandler);
 
 // 🌐 Frontend üçün fallback
 app.get("*", (req, res) => {

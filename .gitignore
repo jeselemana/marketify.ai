@@ -1,2 +1,4 @@
 .env
 node_modules
+data/strategies.json
+data/strategies.json.*.tmp

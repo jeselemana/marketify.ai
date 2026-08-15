@@ -1,293 +1,117 @@
-<!DOCTYPE html>
-<html lang="az" data-theme="dark">
+<!doctype html>
+<html lang="az">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#09090a" />
+    <meta
+      name="description"
+      content="Marketify AI biznes məqsədini strukturlaşdırılmış, icra oluna bilən strategiyaya çevirir."
+    />
+    <title>Marketify AI — Strategiya workspace-i</title>
+    <link rel="icon" href="/MarketifyAINewFavicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/script.js" type="module"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#workspace">Əsas hissəyə keç</a>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#07111f" />
-
-  <title>Marketify AI — Yenilənirik</title>
-
-  <meta
-    name="description"
-    content="Marketify AI dəyişir. Daha ağıllı, daha sistemli və marketinq işini yalnız generasiya etməyən, idarə edən yeni məhsul üzərində işləyirik."
-  />
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet"
-  />
-
-  <link rel="stylesheet" href="style.css" />
-</head>
-
-<body>
-
-  <div class="page-shell">
-
-    <header class="site-header">
-      <a href="/" class="brand" aria-label="Marketify AI">
-        <div class="brand-mark">M</div>
-
-        <div class="brand-copy">
-          <strong>Marketify AI</strong>
-          <span>by Innova Group</span>
+    <div class="app-shell">
+      <nav class="navigation-rail" aria-label="Sürətli naviqasiya">
+        <button class="rail-button rail-menu" id="railMenuButton" type="button" aria-label="Workspace menyusunu aç" aria-expanded="false" data-tooltip="Menyu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+        </button>
+        <div class="rail-nav">
+          <button class="rail-button is-active" id="railHomeButton" type="button" aria-label="Başlanğıc" data-tooltip="Başlanğıc">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6Z" /><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z" /></svg>
+          </button>
+          <button class="rail-button" id="railStrategiesButton" type="button" aria-label="Strategiyalar" data-tooltip="Strategiyalar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5h7l2 2h9v9.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /><path d="M3 7.5V5a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v2.5" /></svg>
+          </button>
         </div>
-      </a>
+        <button class="rail-button rail-new" id="railNewButton" type="button" aria-label="Yeni strategiya" data-tooltip="Yeni strategiya">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+        </button>
+      </nav>
 
-      <div class="status-pill">
-        <span class="status-dot"></span>
-        Yenilənir
-      </div>
-    </header>
-
-
-    <main class="hero">
-
-      <section class="hero-content">
-
-        <div class="eyebrow">
-          <span>✦</span>
-          The next Marketify
-        </div>
-
-        <h1>
-          Marketify dəyişir.
-          <span>Sadəcə görünüşü yox.</span>
-        </h1>
-
-        <p class="hero-description">
-          Marketinq üçün sadəcə AI cavabları generasiya edən klassik
-          assistentdən daha böyük bir məhsula keçirik.
-        </p>
-
-        <p class="hero-secondary">
-          Yeni Marketify biznesinizi anlayan, kampaniyalarınızı quran,
-          kontentinizi təşkil edən və zamanla nəticələrinizdən öyrənən
-          ağıllı marketinq workspace-i olacaq.
-        </p>
-
-        <div class="hero-actions">
-          <a href="#whats-coming" class="primary-btn">
-            Nə dəyişir?
-            <span>↓</span>
+      <aside class="sidebar" id="sidebar" aria-label="Əsas naviqasiya">
+        <div class="sidebar-top">
+          <a class="brand" href="/" aria-label="Marketify AI ana səhifə">
+            <strong class="brand-wordmark">Marketify AI</strong>
           </a>
+          <button class="icon-button sidebar-close" id="sidebarClose" type="button" aria-label="Menyunu bağla">
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
 
-      </section>
+        <button class="new-strategy-button" id="newStrategyButton" type="button">
+          <svg class="nav-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z" />
+          </svg>
+          Yeni strategiya
+        </button>
 
+        <nav class="primary-nav" aria-label="Workspace">
+          <button class="nav-item is-active" id="homeNav" type="button">
+            <svg class="nav-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6Z" />
+              <path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z" />
+            </svg>
+            Başlanğıc
+          </button>
+          <button class="nav-item" id="strategiesNav" type="button">
+            <svg class="nav-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 7.5h7l2 2h9v9.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+              <path d="M3 7.5V5a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v2.5" />
+            </svg>
+            Strategiyalar
+            <span class="nav-count" id="strategyCount">0</span>
+          </button>
+        </nav>
 
-      <section class="preview-card" aria-label="Yeni Marketify preview">
-
-        <div class="preview-topbar">
-          <div class="preview-brand">
-            <div class="preview-logo">M</div>
-            <span>Marketify</span>
+        <div class="recent-section">
+          <div class="sidebar-label">Son işlər</div>
+          <div class="recent-list" id="recentList">
+            <div class="recent-empty"><strong>Strategiyalar burada görünəcək.</strong><span>Yadda saxladığın işlər bu bölmədə qalır.</span></div>
           </div>
+        </div>
 
-          <div class="preview-live">
-            Next generation
+        <div class="sidebar-footer">
+          <div class="workspace-avatar" aria-hidden="true">M</div>
+          <div>
+            <strong>Marketify workspace</strong>
+            <span>Şəxsi · bu cihazda</span>
           </div>
         </div>
+      </aside>
 
-        <div class="preview-body">
+      <div class="mobile-overlay" id="mobileOverlay" hidden></div>
 
-          <aside class="preview-sidebar">
-            <span class="preview-nav active">Home</span>
-            <span class="preview-nav">Campaigns</span>
-            <span class="preview-nav">Content</span>
-            <span class="preview-nav">Brand</span>
-            <span class="preview-nav">Insights</span>
-            <span class="preview-nav">Brain</span>
-          </aside>
+      <div class="app-main">
+        <header class="mobile-header">
+          <button class="icon-button" id="mobileMenuButton" type="button" aria-label="Menyunu aç" aria-expanded="false">
+            <span aria-hidden="true">☰</span>
+          </button>
+          <a class="mobile-brand" href="/">
+            <span class="brand-mark" aria-hidden="true">M</span>
+            <strong>Marketify</strong>
+          </a>
+          <button class="mobile-new" id="mobileNewButton" type="button" aria-label="Yeni strategiya">＋</button>
+        </header>
 
-          <div class="preview-main">
-
-            <div class="preview-heading">
-              <small>MARKETING PULSE</small>
-              <h2>Marketinqiniz. Bir yerdə.</h2>
-            </div>
-
-            <div class="preview-grid">
-
-              <div class="mini-card highlight">
-                <small>OPPORTUNITY</small>
-                <strong>Yeni kampaniya imkanı</strong>
-                <p>
-                  Marketify biznes kontekstinizə əsasən növbəti addımı
-                  müəyyən edir.
-                </p>
-              </div>
-
-              <div class="mini-card">
-                <small>CAMPAIGNS</small>
-                <strong>Strategiyadan icraya</strong>
-                <p>
-                  Kampaniya, kontent və qərarlar artıq ayrıca chat
-                  mesajlarında itib getməyəcək.
-                </p>
-              </div>
-
-              <div class="mini-card">
-                <small>MARKETIFY BRAIN</small>
-                <strong>Biznesinizi xatırlayır</strong>
-                <p>
-                  Brend qaydaları, auditoriya və öyrənilmiş nəticələr
-                  gələcək işlərdə istifadə olunur.
-                </p>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-    </main>
-
-
-    <section class="change-section" id="whats-coming">
-
-      <div class="section-heading">
-        <span class="section-kicker">Marketify 3.0</span>
-
-        <h2>
-          Prompt yazmaqdan
-          <span>marketinq idarə etməyə.</span>
-        </h2>
+        <main id="workspace" class="workspace" tabindex="-1">
+          <div class="initial-loader" aria-live="polite">Workspace hazırlanır…</div>
+        </main>
       </div>
+    </div>
 
-      <div class="feature-grid">
-
-        <article class="feature">
-          <span class="feature-number">01</span>
-          <h3>Campaigns</h3>
-          <p>
-            Məqsəddən başlayıb strategiya, kontent və nəticəyə qədər
-            kampaniyanın bütün lifecycle-ı bir workspace-də.
-          </p>
-        </article>
-
-        <article class="feature">
-          <span class="feature-number">02</span>
-          <h3>Content</h3>
-          <p>
-            AI cavabları əvəzinə real, redaktə olunan və kampaniyalara
-            bağlı marketinq asset-ləri.
-          </p>
-        </article>
-
-        <article class="feature">
-          <span class="feature-number">03</span>
-          <h3>Brand</h3>
-          <p>
-            Marketify brendinizin kim olduğunu, necə danışdığını və
-            nə satdığını strukturlaşdırılmış şəkildə anlayacaq.
-          </p>
-        </article>
-
-        <article class="feature">
-          <span class="feature-number">04</span>
-          <h3>Brain</h3>
-          <p>
-            Qərarlar, üstünlüklər və nəticələr zamanla Marketify-nin
-            biznesiniz haqqında yaddaşına çevriləcək.
-          </p>
-        </article>
-
-        <article class="feature">
-          <span class="feature-number">05</span>
-          <h3>Insights</h3>
-          <p>
-            Sadəcə nə baş verdiyini göstərmək yox — niyə baş verdiyini
-            və bundan sonra nə etməli olduğunuzu izah etmək.
-          </p>
-        </article>
-
-        <article class="feature">
-          <span class="feature-number">06</span>
-          <h3>Ask Marketify</h3>
-          <p>
-            Chat qalır. Amma artıq məhsulun özü deyil — bütün Marketify
-            sistemini idarə edən ağıllı command layer olur.
-          </p>
-        </article>
-
-      </div>
-
-    </section>
-
-
-    <section class="statement-section">
-
-      <div class="statement-card">
-
-        <span class="statement-label">
-          OUR DIRECTION
-        </span>
-
-        <blockquote>
-          “AI model bizim məhsulumuz deyil.
-          <span>Marketify məhsuldur.</span>”
-        </blockquote>
-
-        <p>
-          Yeni versiyanı sadəcə daha yaxşı cavab generasiya etmək üçün yox,
-          marketinq işinin özünü dəyişmək üçün qururuq.
-        </p>
-
-      </div>
-
-    </section>
-
-
-    <section class="final-section">
-
-      <div class="final-glow"></div>
-
-      <div class="final-content">
-
-        <span class="section-kicker">COMING NEXT</span>
-
-        <h2>
-          Marketify-nin növbəti
-          mərhələsi hazırlanır.
-        </h2>
-
-        <p>
-          Yeni məhsul təcrübəsi üzərində işləyirik.
-          Daha ağıllı. Daha sistemli. Daha Marketify.
-        </p>
-
-        <div class="coming-soon">
-          <span class="pulse"></span>
-          Development in progress
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <footer class="site-footer">
-
-      <div>
-        <strong>Marketify AI</strong>
-        <span>Powered by Innova Group</span>
-      </div>
-
-      <p>
-        © 2026 Innova Group Azerbaijan
-      </p>
-
-    </footer>
-
-  </div>
-
-</body>
+    <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+  </body>
 </html>
