@@ -1,1475 +1,293 @@
 <!DOCTYPE html>
-<html lang="az">
- <head>
-   <script
-     async
-     crossorigin="anonymous"
-     data-clerk-publishable-key="pk_test_c2F2aW5nLXBhbmdvbGluLTE3LmNsZXJrLmFjY291bnRzLmRldiQ"
-     src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-     type="text/javascript"
-   ></script>
-    <link rel="manifest" href="/manifest.json" />
-   <!-- PWA -->
-   <meta name="theme-color" content="#000000" />
-   <link rel="icon" href="/MarketifyAIpwaicon.png">
+<html lang="az" data-theme="dark">
 
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#07111f" />
 
-   <!-- Favicon -->
-   <link rel="icon" type="image/png" href="/MarketifyAINewFavicon.png">
+  <title>Marketify AI — Yenilənirik</title>
 
+  <meta
+    name="description"
+    content="Marketify AI dəyişir. Daha ağıllı, daha sistemli və marketinq işini yalnız generasiya etməyən, idarə edən yeni məhsul üzərində işləyirik."
+  />
 
-   <!-- Meta -->
-   <meta charset="UTF-8" />
-   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
 
-   <title>Marketify AI | Where Marketing Meets Intelligence</title>
-   <!-- Share Preview -->
-<meta property="og:title" content="Marketify AI – Where Marketing Meets Intelligence" />
-<meta property="og:description" content="AI ilə marketinqin gələcəyini kəşf et. Marketify AI sənə kontent, strategiya, ideya və analitikaları real vaxtda yaradır. 🚀" />
-<meta property="og:image" content="https://marketify-ai.onrender.com/preview.png" />
-<meta property="og:url" content="https://marketify-ai.onrender.com" />
-<meta name="twitter:card" content="summary_large_image" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 
+<body>
 
-   <link
- href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
- rel="stylesheet"
-/>
-   <link rel="stylesheet" href="/style.css" />
-   <style>
-     /* ▼ AÇILAN MENYU */
-     .model-dropdown {
-       position: relative;
-       display: inline-block;
-     }
+  <div class="page-shell">
 
+    <header class="site-header">
+      <a href="/" class="brand" aria-label="Marketify AI">
+        <div class="brand-mark">M</div>
 
-     .model-btn {
-       display: flex;
-       align-items: center;
-       gap: 6px;
-       background: #1c1c1c;
-       border: 1px solid #2a2a2a;
-       color: rgba(255, 255, 255, 0.85);
-       font-weight: 600;
-       border-radius: 10px;
-       padding: 8px 14px;
-       cursor: pointer;
-       font-size: 15px;
-       transition: all 0.25s ease;
-     }
+        <div class="brand-copy">
+          <strong>Marketify AI</strong>
+          <span>by Innova Group</span>
+        </div>
+      </a>
 
-
-     .model-btn:hover {
-       background: #252525;
-       color: #fff;
-     }
-
-
-     .arrow-down {
-       font-size: 13px;
-       transition: transform 0.2s ease;
-     }
-
-
-     .arrow-down.open {
-       transform: rotate(180deg);
-     }
-
-
-     .dropdown-menu {
-       display: none;
-       position: absolute;
-       top: 45px;
-       left: 0;
-       background: #121212;
-       border: 1px solid #2a2a2a;
-       border-radius: 10px;
-       min-width: 230px;
-       padding: 10px 0;
-       box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-       z-index: 100;
-     }
-
-
-     .dropdown-menu .model-item {
-       display: block;
-       padding: 10px 15px;
-       font-size: 14px;
-       color: #ccc;
-       text-decoration: none;
-       transition: all 0.2s ease;
-     }
-
-
-     .dropdown-menu .model-item.selected {
-       background: rgba(45, 107, 255, 0.15);
-       color: #8ab7ff;
-       font-weight: 600;
-     }
-
-
-     .dropdown-divider {
-       height: 1px;
-       background: #2a2a2a;
-       margin: 6px 0;
-     }
-
-
-     .feedback-link {
-       display: flex;
-       align-items: center;
-       justify-content: space-between;
-       padding: 10px 15px;
-       font-size: 14px;
-       color: #ccc;
-       text-decoration: none;
-       transition: all 0.2s ease;
-     }
-
-
-     .feedback-link span {
-       background: #2b2b2b;
-       border-radius: 6px;
-       padding: 2px 8px;
-       font-size: 12px;
-       color: #8ab7ff;
-       border: 1px solid #3a3a3a;
-     }
-
-
-     .feedback-link:hover {
-       background: rgba(45, 107, 255, 0.08);
-       color: #fff;
-     }
-
-
-     .dropdown-menu.show {
-       display: block;
-     }
-   </style>
- </head>
-
-
- <body>
-   <div class="app">
-   <header class="header">
-  <div class="model-dropdown">
-    <button id="model-btn" class="model-btn icon-only-btn" aria-label="Menyu">
-      <div class="hamburger-icon">
-        <span class="line line-1"></span>
-        <span class="line line-2"></span>
-        <span class="line line-3"></span>
+      <div class="status-pill">
+        <span class="status-dot"></span>
+        Yenilənir
       </div>
-    </button>
+    </header>
 
-    <span class="nav-brand-text" onclick="window.location.reload()">Marketify AI</span>
 
-    <div id="dropdownMenu" class="dropdown-menu">
-  <a href="#" class="menu-item" onclick="openModal('aboutModal')">
-    <span class="item-icon">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-    </span>
-    <span class="item-text">Haqqımızda</span>
-    <span id="hint-about" class="shortcut-hint"></span> 
-  </a>
+    <main class="hero">
 
-  <a href="#" class="menu-item" id="installApp" style="display: none;">
-  <span class="item-icon">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-      <polyline points="7 10 12 15 17 10"></polyline>
-      <line x1="12" y1="15" x2="12" y2="3"></line>
-    </svg>
-  </span>
-  <span class="item-text">Tətbiqi Yüklə</span>
-</a>
+      <section class="hero-content">
 
-  <a href="#" class="menu-item" onclick="openModal('legalModal')">
-    <span class="item-icon">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-    </span>
-    <span class="item-text">Hüquqi</span>
-    <span id="hint-legal" class="shortcut-hint"></span>
-  </a>
+        <div class="eyebrow">
+          <span>✦</span>
+          The next Marketify
+        </div>
 
-  <a href="#" class="menu-item" onclick="openModal('faqModal')">
-    <span class="item-icon">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-    </span>
-    <span class="item-text">Suallar (FAQ)</span>
-    <span id="hint-faq" class="shortcut-hint"></span>
-  </a>
+        <h1>
+          Marketify dəyişir.
+          <span>Sadəcə görünüşü yox.</span>
+        </h1>
 
-      <div class="dropdown-divider"></div>
+        <p class="hero-description">
+          Marketinq üçün sadəcə AI cavabları generasiya edən klassik
+          assistentdən daha böyük bir məhsula keçirik.
+        </p>
 
-      <div class="social-row">
-         <a href="https://instagram.com/marketify_ai" target="_blank" class="social-btn instagram">
-           <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-         </a>
-         <div class="social-sep"></div>
-         <a href="https://www.facebook.com/profile.php?id=61570183055851" target="_blank" class="social-btn facebook">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/></svg>
-         </a>
-         <div class="social-sep"></div>
-         <a href="mailto:info@marketify-ai.com" class="social-btn mail">
-           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-         </a>
+        <p class="hero-secondary">
+          Yeni Marketify biznesinizi anlayan, kampaniyalarınızı quran,
+          kontentinizi təşkil edən və zamanla nəticələrinizdən öyrənən
+          ağıllı marketinq workspace-i olacaq.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#whats-coming" class="primary-btn">
+            Nə dəyişir?
+            <span>↓</span>
+          </a>
+        </div>
+
+      </section>
+
+
+      <section class="preview-card" aria-label="Yeni Marketify preview">
+
+        <div class="preview-topbar">
+          <div class="preview-brand">
+            <div class="preview-logo">M</div>
+            <span>Marketify</span>
+          </div>
+
+          <div class="preview-live">
+            Next generation
+          </div>
+        </div>
+
+        <div class="preview-body">
+
+          <aside class="preview-sidebar">
+            <span class="preview-nav active">Home</span>
+            <span class="preview-nav">Campaigns</span>
+            <span class="preview-nav">Content</span>
+            <span class="preview-nav">Brand</span>
+            <span class="preview-nav">Insights</span>
+            <span class="preview-nav">Brain</span>
+          </aside>
+
+          <div class="preview-main">
+
+            <div class="preview-heading">
+              <small>MARKETING PULSE</small>
+              <h2>Marketinqiniz. Bir yerdə.</h2>
+            </div>
+
+            <div class="preview-grid">
+
+              <div class="mini-card highlight">
+                <small>OPPORTUNITY</small>
+                <strong>Yeni kampaniya imkanı</strong>
+                <p>
+                  Marketify biznes kontekstinizə əsasən növbəti addımı
+                  müəyyən edir.
+                </p>
+              </div>
+
+              <div class="mini-card">
+                <small>CAMPAIGNS</small>
+                <strong>Strategiyadan icraya</strong>
+                <p>
+                  Kampaniya, kontent və qərarlar artıq ayrıca chat
+                  mesajlarında itib getməyəcək.
+                </p>
+              </div>
+
+              <div class="mini-card">
+                <small>MARKETIFY BRAIN</small>
+                <strong>Biznesinizi xatırlayır</strong>
+                <p>
+                  Brend qaydaları, auditoriya və öyrənilmiş nəticələr
+                  gələcək işlərdə istifadə olunur.
+                </p>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+
+
+    <section class="change-section" id="whats-coming">
+
+      <div class="section-heading">
+        <span class="section-kicker">Marketify 3.0</span>
+
+        <h2>
+          Prompt yazmaqdan
+          <span>marketinq idarə etməyə.</span>
+        </h2>
       </div>
-    </div>
+
+      <div class="feature-grid">
+
+        <article class="feature">
+          <span class="feature-number">01</span>
+          <h3>Campaigns</h3>
+          <p>
+            Məqsəddən başlayıb strategiya, kontent və nəticəyə qədər
+            kampaniyanın bütün lifecycle-ı bir workspace-də.
+          </p>
+        </article>
+
+        <article class="feature">
+          <span class="feature-number">02</span>
+          <h3>Content</h3>
+          <p>
+            AI cavabları əvəzinə real, redaktə olunan və kampaniyalara
+            bağlı marketinq asset-ləri.
+          </p>
+        </article>
+
+        <article class="feature">
+          <span class="feature-number">03</span>
+          <h3>Brand</h3>
+          <p>
+            Marketify brendinizin kim olduğunu, necə danışdığını və
+            nə satdığını strukturlaşdırılmış şəkildə anlayacaq.
+          </p>
+        </article>
+
+        <article class="feature">
+          <span class="feature-number">04</span>
+          <h3>Brain</h3>
+          <p>
+            Qərarlar, üstünlüklər və nəticələr zamanla Marketify-nin
+            biznesiniz haqqında yaddaşına çevriləcək.
+          </p>
+        </article>
+
+        <article class="feature">
+          <span class="feature-number">05</span>
+          <h3>Insights</h3>
+          <p>
+            Sadəcə nə baş verdiyini göstərmək yox — niyə baş verdiyini
+            və bundan sonra nə etməli olduğunuzu izah etmək.
+          </p>
+        </article>
+
+        <article class="feature">
+          <span class="feature-number">06</span>
+          <h3>Ask Marketify</h3>
+          <p>
+            Chat qalır. Amma artıq məhsulun özü deyil — bütün Marketify
+            sistemini idarə edən ağıllı command layer olur.
+          </p>
+        </article>
+
+      </div>
+
+    </section>
+
+
+    <section class="statement-section">
+
+      <div class="statement-card">
+
+        <span class="statement-label">
+          OUR DIRECTION
+        </span>
+
+        <blockquote>
+          “AI model bizim məhsulumuz deyil.
+          <span>Marketify məhsuldur.</span>”
+        </blockquote>
+
+        <p>
+          Yeni versiyanı sadəcə daha yaxşı cavab generasiya etmək üçün yox,
+          marketinq işinin özünü dəyişmək üçün qururuq.
+        </p>
+
+      </div>
+
+    </section>
+
+
+    <section class="final-section">
+
+      <div class="final-glow"></div>
+
+      <div class="final-content">
+
+        <span class="section-kicker">COMING NEXT</span>
+
+        <h2>
+          Marketify-nin növbəti
+          mərhələsi hazırlanır.
+        </h2>
+
+        <p>
+          Yeni məhsul təcrübəsi üzərində işləyirik.
+          Daha ağıllı. Daha sistemli. Daha Marketify.
+        </p>
+
+        <div class="coming-soon">
+          <span class="pulse"></span>
+          Development in progress
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <footer class="site-footer">
+
+      <div>
+        <strong>Marketify AI</strong>
+        <span>Powered by Innova Group</span>
+      </div>
+
+      <p>
+        © 2026 Innova Group Azerbaijan
+      </p>
+
+    </footer>
+
   </div>
 
-  <div id="iosInstallModal" class="marketify-modal">
-  <div class="modal-content ios-guide">
-    <button class="modal-close" onclick="closeModal('iosInstallModal')">✕</button>
-
-    <div class="ios-header">
-      <div class="app-icon-preview">
-        <img src="/MarketifyAIpwaicon.png" alt="App Icon">
-      </div>
-      <h3>Ana Ekrana Əlavə Et</h3>
-      <p>Tətbiqi yükləmək üçün aşağıdakı addımları izlə:</p>
-    </div>
-
-    <div class="ios-steps">
-      <div class="step-row">
-        <div class="step-num">1</div>
-        <div class="step-text">
-          Aşağıdakı paneldə <span class="highlight">Paylaş (Share)</span> düyməsinə toxun.
-        </div>
-        <div class="step-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-            <polyline points="16 6 12 2 8 6"></polyline>
-            <line x1="12" y1="2" x2="12" y2="15"></line>
-          </svg>
-        </div>
-      </div>
-
-      <div class="step-divider"></div>
-
-      <div class="step-row">
-        <div class="step-num">2</div>
-        <div class="step-text">
-          Açılan menyuda aşağı sürüşdür və <span class="highlight">Ana Ekrana Əlavə Et (Add to Home Screen)</span> seç.
-        </div>
-        <div class="step-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="4" ry="4"></rect>
-            <line x1="12" y1="8" x2="12" y2="16"></line>
-            <line x1="8" y1="12" x2="16" y2="12"></line>
-          </svg>
-        </div>
-        <div id="macSafariInstallModal" class="marketify-modal">
-  <div class="modal-content ios-guide">
-    <button class="modal-close" onclick="closeModal('macSafariInstallModal')">✕</button>
-
-    <div class="ios-header">
-      <div class="app-icon-preview">
-        <img src="/MarketifyAIpwaicon.png" alt="App Icon">
-      </div>
-      <h3>Dock-a Əlavə Et</h3>
-      <p>Mac-da tətbiq kimi işlətmək üçün:</p>
-    </div>
-
-    <div class="ios-steps">
-      <div class="step-row">
-        <div class="step-num">1</div>
-        <div class="step-text">
-          Yuxarı menyudan <strong>Fayl (File)</strong> bölməsini seç.
-        </div>
-        <div class="step-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-        </div>
-      </div>
-
-      <div class="step-divider"></div>
-
-      <div class="step-row">
-        <div class="step-num">2</div>
-        <div class="step-text">
-          Siyahıdan <strong>Dock-a Əlavə Et (Add to Dock)</strong> seç.
-        </div>
-        <div class="step-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-       <button class="clear-btn" id="clearChat" aria-label="Söhbəti təmizlə">
- <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-   <path d="M3 6H21M8 6L9 4H15L16 6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
- </svg>
-</button>
-     </header>
-
-
- <main>
-   <div class="center" id="center-view">
-<h1 class="brand-sub" id="dynamic-header">Bu gün nə haqqında danışırıq?</h1>
-<h1 class="new-dynamic-title">Yeni Söhbət</h1>
-<p class="new-chat-disclaimer">Cavabları yoxla. Dəqiq olmaya bilər.</p>
-
-<div class="prompt-bubbles"></div>
-    <h1 class="new-dynamic-title">Yeni Söhbət</h1>
- <p class="new-chat-disclaimer">Cavabları yoxla. Dəqiq olmaya bilər.</p>
-
-
-     <div class="prompt-bubbles"></div>
-   </div>
-
-
-       <div id="chat-box" class="chat-box"></div>
-     </main>
-
-
-     <form id="chat-form" class="input-bar">
- <div class="input-wrapper" style="flex: 1;">
-   <textarea
-     id="user-input"
-     placeholder="Sualını yaz"
-     rows="1"
-   ></textarea>
- </div>
-
-
- <div class="bottom-model-selector">
- <button type="button" id="bottom-model-trigger">
-   <span id="bottom-model-text">Model</span>
-   <svg class="chevron-icon" width="10" height="6" viewBox="0 0 10 6" fill="none">
-     <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-   </svg>
- </button>
-  <div id="bottom-model-menu" class="bottom-dropdown">
-   <div class="b-model-item selected" data-val="gpt-4o">
-   Default
-   </div>
-
-
-  <div class="b-model-item disabled-analytics">
- 🔎 Analitika
- <span class="coming-soon">TEZLİKLƏ</span>
-</div>
- </div>
-</div>
-
-
- <button
-   id="send-btn"
-   class="send base-btn icon-btn"
-   type="submit"
-   aria-label="Göndər"
- >
-   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-     <path
-       d="M3.4 11.1l15.2-6.8c1.1-.5 2.2.6 1.7 1.7l-6.8 15.2c-.5 1.1-2.1 1-2.4-.2l-1.2-4.6-4.6-1.2c-1.2-.3-1.3-1.9-.1-2.4z"
-       fill="currentColor"
-     />
-   </svg>
- </button>
-</form>
-
-<div id="starter-hint" class="starter-hint">
-  
-  <div class="hint-icon-box">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <path d="M13.1046 4.37684C12.3385 2.5312 9.66155 2.5312 8.89537 4.37684L7.5414 7.64024C7.23466 8.37951 6.64395 8.97022 5.90468 9.27696L2.64128 10.6309C0.795646 11.3971 0.795646 14.0741 2.64128 14.8402L5.90468 16.1942C6.64395 16.5009 7.23466 17.0916 7.5414 17.8309L8.89537 21.0943C9.66155 22.9399 12.3385 22.9399 13.1046 21.0943L14.4586 17.8309C14.7653 17.0916 15.356 16.5009 16.0953 16.1942L19.3587 14.8402C21.2044 14.0741 21.2044 11.3971 19.3587 10.6309L16.0953 9.27696C15.356 8.97022 14.7653 8.37951 14.4586 7.64024L13.1046 4.37684Z" fill="white"/>
-    </svg>
-  </div>
-
-  <div class="hint-content">
-    <div class="hint-header">
-      <span class="hint-title">Necə başlayım?</span>
-    </div>
-    <span class="hint-desc">Bir mövzu seç və ya sadəcə yazmağa başla.</span>
-  </div>
-
-  <button class="hint-close-btn" onclick="document.getElementById('starter-hint').classList.add('hide-hint')">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-  </button>
-</div>
-
-<div id="confirmPopup" class="confirm-popup hidden">
- <div class="confirm-box">
-   <div class="popup-icon">⚠️</div>
-  
-   <h3 class="popup-title">Diqqət!</h3>
-  
-   <p class="popup-text">Yeni Söhbət başlatmaqdan istədiyinə əminsən?</p>
-  
-   <div class="confirm-actions">
-     <button id="confirmYes" class="confirm-btn yes">Başlat</button>
-     <button id="confirmNo" class="confirm-btn no">İmtina et</button>
-   </div>
- </div>
-</div>
- </div>
-</div>
-
-
-<nav class="mobile-nav">
-  <button class="nav-btn active" id="nav-home">
-   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-     <polyline points="9 22 9 12 15 12 15 22"></polyline>
-   </svg>
-   <span>Əsas</span>
- </button>
-
- <button class="nav-btn hidden-btn" id="nav-clear">
-   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-     <polyline points="3 6 5 6 21 6"></polyline>
-     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-   </svg>
-   <span>Təmizlə</span>
- </button>
-
-<a href="mailto:info@marketify-ai.com" class="nav-btn" style="text-decoration: none;">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-    </svg>
-    <span>Əlaqə</span>
-</a>
-
-<button class="nav-btn" id="nav-menu">
-   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-     <circle cx="12" cy="12" r="1"></circle>
-     <circle cx="19" cy="12" r="1"></circle>
-     <circle cx="5" cy="12" r="1"></circle>
-   </svg>
-   <span>Daha çox</span>
- </button>
-
-
-</nav>
-     <footer class="legal">
-       <p>Cavabların dəqiqliyinə zəmanət verilmir. Məlumatları yoxla.</p>
-       <p>Powered by <strong>Innova Group</strong> | Marketify AI v2.0</p>
-     </footer>
-
-
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="script.js"></script>
-
-
-<!-- 🌐 MARKETIFY HAQQINDA MODAL -->
-<div id="aboutModal" class="marketify-modal">
- <div class="modal-content">
-   <button class="modal-close" onclick="closeModal('aboutModal')">✕</button>
-
-
-   <h1>Marketify AI</h1>
-   <p class="modal-subtitle">Where Marketing Meets Intelligence</p>
-
-
-   <div class="modal-body">
-     <h2>Missiya</h2>
-     <p>
-       Marketify AI müəssisələrin marketinq əməliyyatlarını optimallaşdırmaq,
-       məlumat əsaslı qərarvermə imkanlarını genişləndirmək və əməliyyat
-       səmərəliliyini artırmaq məqsədilə yaradılmış süni intellekt platformasıdır.
-       Missiyamız bizneslərə çevik, etibarlı və funksional AI dəstəyi təqdim etməkdir.
-     </p>
-
-
-     <h2>Vizyon</h2>
-     <p>
-       Marketify AI-ın vizyonu regionda AI əsaslı marketinq texnologiyaları üzrə
-       aparıcı platformaya çevrilmək, müəssisələrin rəqəmsal transformasiya
-       proseslərini dəstəkləmək və “Azərbaycan Respublikasının 2025–2028 Süni İntellekt Strategiyası"nda müəyyən edilmiş strateji hədəflərlə uzlaşan innovativ
-       ekosistem formalaşdırmaqdır.
-     </p>
-
-
-     <h2>Nə təklif edirik?</h2>
-     <ul>
-       <li>Marketinq və kommunikasiya mətnlərinin avtomatik generasiyası</li>
-       <li>Məlumat əsaslı analitika və strateji icmallar</li>
-       <li>Lokal bazara uyğunlaşdırılmış cavab və kontent formalaşdırılması</li>
-       <li>Adaptiv modellər vasitəsilə dəqiq və stabil AI dəstəyi</li>
-     </ul>
-
-
-     <h2>Korporativ Əməkdaşlıq</h2>
-<p>
- Marketify AI inkişaf və genişlənmə istiqamətində müxtəlif tərəfdaşlarla
- əməkdaşlıq imkanlarını qiymətləndirməyə açıqdır. Əməkdaşlıq barədə daxil olan
- təkliflər texniki uyğunluq, platformanın inkişaf prioritetləri və tərəfdaşın
- fəaliyyət sahəsi nəzərə alınmaqla dəyərləndirilir.
-</p>
-<p>
- Potensial əməkdaşlıq və ya inteqrasiya imkanları ilə bağlı ilkin sorğular
- üçün bizimlə əlaqə saxlaya bilərsiniz:
- <strong>info@marketify-ai.com</strong>
-</p>
-   </div>
- </div>
-</div>
-<!-- ✔ aboutModal BURADA TAM BAĞLANDI -->
-
-
-
-
-<!-- 🔐 İSTİFADƏ QAYDALARI & TƏHLÜKƏSİZLİK MODALI -->
-<div id="legalModal" class="marketify-modal">
- <div class="modal-content">
-   <button class="modal-close" onclick="closeModal('legalModal')">✕</button>
-
-
-   <h1>İstifadə Qaydaları & Təhlükəsizlik</h1>
-
-
-   <div class="modal-body">
-
-
-     <h2>1. Ümumi məlumat</h2>
-<p>Bu İstifadəçi Müqaviləsi (“Müqavilə”) “Marketify AI” platformasından istifadəni tənzimləyir. Marketify AI, “Innova Group Azerbaijan” tərəfindən idarə olunur və süni intellekt əsaslı məsləhət, marketinq və məlumat analitikası xidmətləri təqdim edir. Platformadan istifadə etməklə, Siz (“İstifadəçi”) bu Müqavilənin bütün şərtlərini qəbul etmiş hesab edilirsiniz.</p>
-
-
-<h2>2. Xidmətin təsviri</h2>
-<p>Marketify AI — OpenAI şirkətinin təqdim etdiyi GPT-4o, o cümlədən digər qabaqcıl modellər əsasında fəaliyyət göstərən süni intellekt sistemidir. Xidmət aşağıdakı imkanları təqdim edir:</p>
-<ul>
- <li>Marketinq və kommunikasiya mövzularında məlumat və tövsiyələr;</li>
- <li>Mətn analizi və avtomatik cavablandırma;</li>
- <li>Tədris və brend inkişafı məqsədli dəstək sistemləri.</li>
-</ul>
-<p>Marketify AI istifadəçilərə məlumat xarakterli cavablar təqdim edir və rəsmi məsləhət və ya hüquqi təklif xarakteri daşımır.</p>
-
-
-<h2>3. İstifadə qaydaları</h2>
-<p>İstifadəçi:</p>
-<ul>
- <li>Platformadan yalnız qanuni məqsədlərlə istifadə etməlidir;</li>
- <li>Marketify AI sisteminə zərər verə biləcək hərəkətlərə (hakerlik, avtomatik sorğular, bot fəaliyyəti və s.) yol verməməlidir;</li>
- <li>Üçüncü şəxslərin müəllif hüquqlarını, şəxsi məlumatlarını və kommersiya sirrini pozmamalıdır.</li>
-</ul>
-
-
-<h2>4. Məlumatların emalı və məxfiliyin qorunması</h2>
-<p>Marketify AI istifadəçilərin şəxsi məlumatlarını Innova Group Azerbaijan-ın Məxfilik Siyasətinə uyğun şəkildə emal edir. Toplanmış məlumatlar yalnız sistemin texniki təkmilləşdirilməsi və təhlükəsizliyinin təmin olunması məqsədilə istifadə olunur. Marketify AI, OpenAI xidmətindən istifadə etdiyinə görə, cavabların emalı zamanı məlumatlar OpenAI serverləri vasitəsilə ötürülə bilər.</p>
-
-
-<h2>5. Məsuliyyətin məhdudlaşdırılması</h2>
-<p>Marketify AI tərəfindən təqdim edilən cavablar avtomatlaşdırılmış süni intellekt sistemi tərəfindən yaradılır və rəsmi, hüquqi və ya tibbi qərar qəbul etmək üçün əsas hesab edilə bilməz. Innova Group Azerbaijan və Marketify AI, istifadəçinin cavablardan istifadə nəticəsində yarana biləcək hər hansı dolayı və ya birbaşa zərərə görə məsuliyyət daşımır. Xidmətin fasiləsiz və səhvsiz işləməsi təmin edilsə də, texniki nasazlıqlar və ya OpenAI infrastrukturunda yaranan gecikmələr istisna edilə bilməz.</p>
-
-
-<h2>6. Müəllif hüquqları</h2>
-<p>Marketify AI və Innova Group Azerbaijan loqosu, dizaynı, proqram kodları və məzmunu müəllif hüquqları ilə qorunur. İstifadəçi bu elementləri yalnız fərdi və kommersiya məqsədi daşımayan hallarda istifadə edə bilər.</p>
-
-
-<h2>7. Müqaviləyə dəyişikliklər</h2>
-<p>Innova Group Azerbaijan istənilən vaxt bu Müqavilənin şərtlərini dəyişmək hüququna malikdir. Dəyişikliklər rəsmi sayt (https://marketify-ai.com) vasitəsilə dərc edildiyi andan qüvvəyə minir.</p>
-
-
-<h2>8. Marketify Brain – Lokal Data Emalı (Yalnız Bazada Saxlanılan Şablonlar)</h2>
-
-
-<h3>8.1. Marketify Brain nədir?</h3>
-<p>Marketify Brain — Marketify AI daxilində fəaliyyət göstərən lokal (server-daxili) təkmilləşmə moduludur. Bu modul yalnız GPT tərəfindən təqdim olunan cavablardan şablon çıxarır və onları sistem daxilində saxlayır. Bu məlumatlar şəxsi məlumat hesab edilmir.</p>
-
-
-<h3>8.2. Lokal Emal Qaydaları</h3>
-<ul>
- <li>Marketify Brain istifadəçinin daxil etdiyi mesajları şəxsi məlumat kimi saxlamır.</li>
- <li>Heç bir şəxsin adı, telefon nömrəsi, e-poçtı, ünvanı, hesab məlumatı və ya tanıdıcı identifikasiya elementi saxlanılmır.</li>
- <li>Sistem yalnız GPT cavablarında yaranan ümumi strukturları (“template”) çıxararaq anonimizə olunmuş formada saxlayır.</li>
- <li>Saxlanılan şablonlar heç bir halda istifadəçiyə aid şəxsi məlumat daşımır.</li>
-</ul>
-
-
-<h3>8.3. Məlumatların saxlanılması</h3>
-<p>Şablonlar yalnız Marketify serverində lokal JSON fayllarında saxlanılır. Heç bir məlumat OpenAI, Google və üçüncü tərəf xidmətlərinə ötürülmür. İstifadəçi mesajlarının tam mətni saxlanılmır; yalnız şablonlaşdırılmış, şəxsi məlumatdan təmizlənmiş formalar saxlanılır.</p>
-
-
-<h3>8.4. Məsuliyyət və hüquqi çərçivə</h3>
-<p>Marketify Brain yalnız yaradıcı cavabların generasiyası üçün istifadə olunan texniki moduldur. “Innova Group Azerbaijan” istifadəçinin daxil etdiyi məlumatların üçüncü tərəflərə ötürülməsinə görə cavabdeh deyil, çünki heç bir məlumat paylaşılmır. Marketify Brain tərəfindən yaradılan şablonlar məlumat xarakterlidir və istifadəçiyə dəyən hər hansı zərərə görə məsuliyyət daşınmır.</p>
-
-
-<h3>8.5. İstifadəçi razılığı</h3>
-<p>Platformadan istifadə etməklə, İstifadəçi Marketify Brain modulunun işləmə mexanizmini qəbul edir və lokal şablon saxlanmasına razılıq verir.</p>
-
-
-<h2>9. Əlaqə məlumatları</h2>
-<p>
-Innova Group Azerbaijan<br>
-Bakı şəhəri, Azərbaycan<br>
-📧 Email: info@marketify-ai.com<br>
-🌐 Veb: https://marketify-ai.com
-</p>
-
-
-<h2>10. Qüvvəyə minmə</h2>
-<p>Bu Müqavilə 05.12.2025-ci il tarixindən qüvvəyə minir və Marketify AI platformasından istifadə edən bütün şəxslərə şamil olunur.</p>
-
-
-   </div>
- </div>
-</div>
-
-
-
-
-<!-- ❓ FAQ MODAL -->
-<div id="faqModal" class="marketify-modal">
- <div class="modal-content">
-   <button class="modal-close" onclick="closeModal('faqModal')">✕</button>
-
-
-   <h1>Tez-tez verilən suallar (FAQ)</h1>
-   <p class="modal-subtitle">Marketify AI haqqında bütün suallarına buradan cavab tapa bilərsən. Nəsə sualın olarsa, mütləq bizimlə əlaqə saxla! 🙂</p>
-
-
-   <div class="modal-body">
-
-
-     <!-- SƏNİN FAQ BLOKLARIN BURADA (HEÇ NƏ DƏYİŞMİR) -->
-      <div class="faq-category" onclick="toggleFaq('faq-models')">
- <h3>🚀 Modellər haqqında</h3>
-</div>
-<div id="faq-models" class="faq-content">
-
-
- <div class="faq-item">
-   <p class="faq-question">Default Rejim nə üçündür?</p>
-   <p class="faq-answer">
-     Gündəlik kontent, ideya, reklam mətnləri və ümumi cavablar üçün nəzərdə tutulmuş balanslı rejimdir.
-   </p>
- </div>
-
-
- <div class="faq-item">
-   <p class="faq-question">Analitika Rejimi nə edir?</p>
-   <p class="faq-answer">
-     Məlumatlardan çıxarılan nəticələr, qısa hesabatlar, rəqib analizi və optimallaşdırma təklifləri yaradır.
-     <br><strong>Gündəlik limit: 20 sorğu.</strong>
-   </p>
- </div>
-
-
- <div class="faq-item">
-   <p class="faq-question">Local Rejim (Marketify Brain) nədir?</p>
-   <p class="faq-answer">
-     Şablonlarla işləmək, yaradıcılıqda sərhədsiz imkanlar üçün əlverişlidir. Hər hansı bir istifadə limiti tətbiq edilmir. ✨
-   </p>
- </div>
-
-
-</div>
-
-
-
-
-<div class="faq-category" onclick="toggleFaq('faq-security')">
- <h3>🔐 Təhlükəsizlik</h3>
-</div>
-<div id="faq-security" class="faq-content">
-
-
- <div class="faq-item">
-   <p class="faq-question">Məlumatlarım saxlanılırmı?</p>
-   <p class="faq-answer">
-     Xeyr. Sorğular yalnız cavab generasiyası üçün qısa müddətlik emal olunur və saxlanmır.
-   </p>
- </div>
-
-
- <div class="faq-item">
-   <p class="faq-question">Məlumatlarım üçüncü tərəflə paylaşılır?</p>
-   <p class="faq-answer">
-     Xeyr. Verilənlər kommersiya məqsədi ilə paylaşılmır və ya satılmır.
-   </p>
- </div>
-
-
-</div>
-
-
-
-
-<div class="faq-category" onclick="toggleFaq('faq-limit')">
- <h3>⏳ Limitlər</h3>
-</div>
-<div id="faq-limit" class="faq-content">
-
-
- <div class="faq-item">
-   <p class="faq-question">Analitika limiti niyə var?</p>
-   <p class="faq-answer">
-     Analitika sorğuları daha ağır hesablama tələb edir. Limit stabil və sürətli xidmətin qorunması üçündür.
-   </p>
- </div>
-
-
- <div class="faq-item">
-   <p class="faq-question">Digər rejimlərdə limit varmı?</p>
-   <p class="faq-answer">
-     Hal-hazırda yalnız Analitika rejimi üçün gündəlik limit tətbiq olunur.
-   </p>
- </div>
-
-
-</div>
-
-
-
-
-<div class="faq-category" onclick="toggleFaq('faq-support')">
- <h3>📞 Dəstək Xidməti</h3>
-</div>
-<div id="faq-support" class="faq-content">
-
-
- <div class="faq-item">
-   <p class="faq-question">Marketify AI ilə necə əlaqə saxlaya bilərəm?</p>
-   <p class="faq-answer">
-     Texniki dəstək ilə əlaqə saxlamaq üçün e-poçt ünvanımıza müraciətini göndərə bilərsən:
-     <strong>info@marketify-ai.com</strong>
-   </p>
- </div>
-
-
- <div class="faq-item">
-   <p class="faq-question">Dəstək sorğuları nə qədər müddətə cavablandırılır?</p>
-   <p class="faq-answer">
-     Adətən 24 saat ərzində cavab verilir. Müraciətlərin sayı çox olduqda bu müddət uzana bilər.<!DOCTYPE html>
-<html lang="az">
- <head>
-   <script
-     async
-     crossorigin="anonymous"
-     data-clerk-publishable-key="pk_test_c2F2aW5nLXBhbmdvbGluLTE3LmNsZXJrLmFjY291bnRzLmRldiQ"
-     src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-     type="text/javascript"
-   ></script>
-    <link rel="manifest" href="/manifest.json" />
-   <!-- PWA -->
-   <meta name="theme-color" content="#000000" />
-   <link rel="icon" href="/MarketifyAIpwaicon.png">
-
-
-   <!-- Favicon -->
-   <link rel="icon" type="image/png" href="/MarketifyAINewFavicon.png">
-
-
-   <!-- Meta -->
-   <meta charset="UTF-8" />
-   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-
-   <title>Marketify AI | Where Marketing Meets Intelligence</title>
-   <!-- Share Preview -->
-<meta property="og:title" content="Marketify AI – Where Marketing Meets Intelligence" />
-<meta property="og:description" content="AI ilə marketinqin gələcəyini kəşf et. Marketify AI sənə kontent, strategiya, ideya və analitikaları real vaxtda yaradır. 🚀" />
-<meta property="og:image" content="https://marketify-ai.onrender.com/preview.png" />
-<meta property="og:url" content="https://marketify-ai.onrender.com" />
-<meta name="twitter:card" content="summary_large_image" />
-</head>
-
-
-   <link
- href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
- rel="stylesheet"
-/>
-   <link rel="stylesheet" href="/style.css" />
-   <style>
-     /* ▼ AÇILAN MENYU */
-     .model-dropdown {
-       position: relative;
-       display: inline-block;
-     }
-
-
-     .model-btn {
-       display: flex;
-       align-items: center;
-       gap: 6px;
-       background: #1c1c1c;
-       border: 1px solid #2a2a2a;
-       color: rgba(255, 255, 255, 0.85);
-       font-weight: 600;
-       border-radius: 10px;
-       padding: 8px 14px;
-       cursor: pointer;
-       font-size: 15px;
-       transition: all 0.25s ease;
-     }
-
-
-     .model-btn:hover {
-       background: #252525;
-       color: #fff;
-     }
-
-
-     .arrow-down {
-       font-size: 13px;
-       transition: transform 0.2s ease;
-     }
-
-
-     .arrow-down.open {
-       transform: rotate(180deg);
-     }
-
-
-     .dropdown-menu {
-       display: none;
-       position: absolute;
-       top: 45px;
-       left: 0;
-       background: #121212;
-       border: 1px solid #2a2a2a;
-       border-radius: 10px;
-       min-width: 230px;
-       padding: 10px 0;
-       box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-       z-index: 100;
-     }
-
-
-     .dropdown-menu .model-item {
-       display: block;
-       padding: 10px 15px;
-       font-size: 14px;
-       color: #ccc;
-       text-decoration: none;
-       transition: all 0.2s ease;
-     }
-
-
-     .dropdown-menu .model-item.selected {
-       background: rgba(45, 107, 255, 0.15);
-       color: #8ab7ff;
-       font-weight: 600;
-     }
-
-
-     .dropdown-divider {
-       height: 1px;
-       background: #2a2a2a;
-       margin: 6px 0;
-     }
-
-
-     .feedback-link {
-       display: flex;
-       align-items: center;
-       justify-content: space-between;
-       padding: 10px 15px;
-       font-size: 14px;
-       color: #ccc;
-       text-decoration: none;
-       transition: all 0.2s ease;
-     }
-
-
-     .feedback-link span {
-       background: #2b2b2b;
-       border-radius: 6px;
-       padding: 2px 8px;
-       font-size: 12px;
-       color: #8ab7ff;
-       border: 1px solid #3a3a3a;
-     }
-
-
-     .feedback-link:hover {
-       background: rgba(45, 107, 255, 0.08);
-       color: #fff;
-     }
-
-
-     .dropdown-menu.show {
-       display: block;
-     }
-   </style>
- </head>
-
-
- <body>
-   <div class="app">
-    <header class="header">
- <div class="model-dropdown">
-   <button id="model-btn" class="model-btn base-btn">
-     <span class="brand">Menyu</span>
-     <span class="arrow-down">▼</span>
-   </button>
-
-
-   <!-- HOVER TOOLTIP (model item-in yanında görsənən) -->
-<div id="model-tooltip-hover" class="model-tooltip"></div>
-
-
-<!-- INTRO TOOLTIP (Marketify AI düyməsinin yanında açılan) -->
-<div id="model-tooltip-intro" class="intro-tooltip"></div>
-
-
-
-
-   <div id="dropdownMenu" class="dropdown-menu">
-
-
-     <a
-      href="#" class="feedback-link" onclick="openModal('aboutModal')">
- Haqqımızda
-</a>
-
-
-     </a>
-
-
-     <a
-     href="#" class="feedback-link" onclick="openModal('legalModal')">
- Hüquqi
-</a>
-
-
-<a href="#" class="feedback-link" onclick="openModal('faqModal')">
- Tez-tez verilən suallar
-</a>
-
-
-     </a>
-
-
-     <div class="dropdown-divider"></div>
-
-
-     <div class="social-pill">
-       <!-- Instagram -->
-       <a
-         href="https://instagram.com/marketifym.az"
-         target="_blank"
-         class="social-icon"
-         aria-label="Instagram"
-       >
-         <svg viewBox="0 0 24 24" fill="currentColor">
-           <path
-             d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"
-           />
-         </svg>
-       </a>
-
-
-       <div class="social-sep"></div>
-
-
-       <!-- Facebook -->
-       <a
-         href="https://www.facebook.com/profile.php?id=61570183055851"
-         target="_blank"
-         class="social-icon"
-         aria-label="Facebook"
-       >
-         <svg viewBox="0 0 24 24" fill="currentColor">
-           <path
-             d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"
-           />
-         </svg>
-         </a>
-
-
-<div class="social-sep"></div>
-
-
-<div class="contact-dropdown">
- <!-- Sənin mövcud SVG-li iconun buradadır -->
- <a id="contactBtn" class="social-icon" aria-label="Contact Options">
-   <!-- Sənin verdiyin ORIGINAL SVG burada qalır -->
-   <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-     <path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/>
-   </svg>
- </a>
-
-
- <!-- Popup menyu -->
- <div id="contactPopup" class="contact-popup hidden">
-   <a href="mailto:info@marketify-ai.com" class="contact-option">
-     📩 E-poçt ilə yaz
-   </a>
-   <a href="https://wa.me/message/4TDUP4ELXE7VN1" target="_blank" class="contact-option">
-     💬 WhatsApp ilə yaz
-   </a>
- </div>
-</div>
-
-
-</a>
-     </div>
-   </div>
- </div>
-
-
- <button
-   class="clear-btn"
-   id="clearChat"
-   aria-label="Söhbəti təmizlə"
- >
-   <!-- sənin mövcud ikonun burada qalır -->
-   <svg
-     width="22"
-     height="22"
-     viewBox="0 0 24 24"
-     fill="none"
-     xmlns="http://www.w3.org/2000/svg"
-   >
-     <path
-       d="M3 6H21M8 6L9 4H15L16 6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z"
-       stroke="currentColor"
-       stroke-width="2"
-       stroke-linecap="round"
-       stroke-linejoin="round"
-     />
-   </svg>
- </button>
-</header>
-
-
-
-
-       <button class="clear-btn" id="clearChat" aria-label="Söhbəti təmizlə">
- <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-   <path d="M3 6H21M8 6L9 4H15L16 6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
- </svg>
-</button>
-     </header>
-
-
- <main>
-   <div class="center" id="center-view">
-     <h1 class="brand-sub">Marketify AI</h1>
-    <h1 class="new-dynamic-title">Yeni Söhbət</h1>
- <p class="new-chat-disclaimer">Cavabları yoxla. Dəqiq olmaya bilər.</p>
-
-
-     <p class="tagline">Bu gün nə haqqında danışırıq? 😊</p>
-
-
-     <div class="prompt-bubbles"></div>
-   </div>
-
-
-   <div id="chat-box" class="chat-box"></div>
-</main>
-
-
-       <div id="chat-box" class="chat-box"></div>
-     </main>
-
-
-     <form id="chat-form" class="input-bar">
- <div class="input-wrapper" style="flex: 1;">
-   <textarea
-     id="user-input"
-     placeholder="Sualını yaz"
-     rows="1"
-   ></textarea>
- </div>
-
-
- <div class="bottom-model-selector">
- <button type="button" id="bottom-model-trigger">
-   <span id="bottom-model-text">Default</span>
-   <svg class="chevron-icon" width="10" height="6" viewBox="0 0 10 6" fill="none">
-     <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-   </svg>
- </button>
-  <div id="bottom-model-menu" class="bottom-dropdown">
-   <div class="b-model-item selected" data-val="gpt-4o">
-   Default
-   </div>
-
-
-  <div class="b-model-item disabled-analytics">
- 🔎 Analitika
- <span class="coming-soon">TEZLİKLƏ</span>
-</div>
- </div>
-</div>
-
-
- <button
-   id="send-btn"
-   class="send base-btn icon-btn"
-   type="submit"
-   aria-label="Göndər"
- >
-   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-     <path
-       d="M3.4 11.1l15.2-6.8c1.1-.5 2.2.6 1.7 1.7l-6.8 15.2c-.5 1.1-2.1 1-2.4-.2l-1.2-4.6-4.6-1.2c-1.2-.3-1.3-1.9-.1-2.4z"
-       fill="currentColor"
-     />
-   </svg>
- </button>
-</form>
-
-<!-- "Necə başlayım?" Kartı (Yalnız Desktop üçün görünür) -->
-<div id="starter-hint" class="starter-hint">
-  <div class="hint-icon">🚀</div>
-  <div class="hint-text">
-    <strong>Necə başlayım?</strong>
-    <span>Bir mövzu seçin və ya sadəcə "Salam" yazın</span>
-  </div>
-</div>
-
-
-<div id="confirmPopup" class="confirm-popup hidden">
- <div class="confirm-box">
-   <div class="popup-icon">⚠️</div>
-  
-   <h3 class="popup-title">Diqqət!</h3>
-  
-   <p class="popup-text">Təsdiqləsən söhbət tarixçəsi silinəcək. Əminsən?</p>
-  
-   <div class="confirm-actions">
-     <button id="confirmYes" class="confirm-btn yes">Bəli, təsdiqlə</button>
-     <button id="confirmNo" class="confirm-btn no">Xeyr, ləğv et</button>
-   </div>
- </div>
-</div>
- </div>
-</div>
-
-
-<nav class="mobile-nav">
-  <button class="nav-btn active" id="nav-home">
-   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-     <polyline points="9 22 9 12 15 12 15 22"></polyline>
-   </svg>
-   <span>Əsas</span>
- </button>
-
-
- <button class="nav-btn hidden-btn" id="nav-clear">
-   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-     <polyline points="3 6 5 6 21 6"></polyline>
-     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-   </svg>
-   <span>Təmizlə</span>
- </button>
-
-
- <button class="nav-btn" id="nav-menu">
-   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-     <line x1="3" y1="12" x2="21" y2="12"></line>
-     <line x1="3" y1="6" x2="21" y2="6"></line>
-     <line x1="3" y1="18" x2="21" y2="18"></line>
-   </svg>
-   <span>Menyu</span>
- </button>
-
-
-</nav>
-     <footer class="legal">
-       <p>Cavabların dəqiqliyinə zəmanət verilmir. Məlumatları yoxla.</p>
-       <p>Powered by <strong>Innova Group</strong> | Marketify AI v2.0</p>
-     </footer>
-
-
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="script.js"></script>
-
-
-<!-- 🌐 MARKETIFY HAQQINDA MODAL -->
-<div id="aboutModal" class="marketify-modal">
- <div class="modal-content">
-   <button class="modal-close" onclick="closeModal('aboutModal')">✕</button>
-
-
-   <h1>Marketify AI</h1>
-   <p class="modal-subtitle">Where Marketing Meets Intelligence</p>
-
-
-   <div class="modal-body">
-     <h2>Missiya</h2>
-     <p>
-       Marketify AI müəssisələrin marketinq əməliyyatlarını optimallaşdırmaq,
-       məlumat əsaslı qərarvermə imkanlarını genişləndirmək və əməliyyat
-       səmərəliliyini artırmaq məqsədilə yaradılmış süni intellekt platformasıdır.
-       Missiyamız bizneslərə çevik, etibarlı və funksional AI dəstəyi təqdim etməkdir.
-     </p>
-
-
-     <h2>Vizyon</h2>
-     <p>
-       Marketify AI-ın vizyonu regionda AI əsaslı marketinq texnologiyaları üzrə
-       aparıcı platformaya çevrilmək, müəssisələrin rəqəmsal transformasiya
-       proseslərini dəstəkləmək və “Azərbaycan Respublikasının 2025–2028 Süni İntellekt Strategiyası"nda müəyyən edilmiş strateji hədəflərlə uzlaşan innovativ
-       ekosistem formalaşdırmaqdır.
-     </p>
-
-
-     <h2>Nə təklif edirik?</h2>
-     <ul>
-       <li>Marketinq və kommunikasiya mətnlərinin avtomatik generasiyası</li>
-       <li>Məlumat əsaslı analitika və strateji icmallar</li>
-       <li>Lokal bazara uyğunlaşdırılmış cavab və kontent formalaşdırılması</li>
-       <li>Adaptiv modellər vasitəsilə dəqiq və stabil AI dəstəyi</li>
-     </ul>
-
-
-     <h2>Korporativ Əməkdaşlıq</h2>
-<p>
- Marketify AI inkişaf və genişlənmə istiqamətində müxtəlif tərəfdaşlarla
- əməkdaşlıq imkanlarını qiymətləndirməyə açıqdır. Əməkdaşlıq barədə daxil olan
- təkliflər texniki uyğunluq, platformanın inkişaf prioritetləri və tərəfdaşın
- fəaliyyət sahəsi nəzərə alınmaqla dəyərləndirilir.
-</p>
-<p>
- Potensial əməkdaşlıq və ya inteqrasiya imkanları ilə bağlı ilkin sorğular
- üçün bizimlə əlaqə saxlaya bilərsiniz:
- <strong>info@marketify-ai.com</strong>
-</p>
-   </div>
- </div>
-</div>
-<!-- ✔ aboutModal BURADA TAM BAĞLANDI -->
-
-
-
-
-<!-- 🔐 İSTİFADƏ QAYDALARI & TƏHLÜKƏSİZLİK MODALI -->
-<div id="legalModal" class="marketify-modal">
- <div class="modal-content">
-   <button class="modal-close" onclick="closeModal('legalModal')">✕</button>
-
-
-   <h1>İstifadə Qaydaları & Təhlükəsizlik</h1>
-
-
-   <div class="modal-body">
-
-
-     <h2>1. Ümumi məlumat</h2>
-<p>Bu İstifadəçi Müqaviləsi (“Müqavilə”) “Marketify AI” platformasından istifadəni tənzimləyir. Marketify AI, “Innova Group Azerbaijan” tərəfindən idarə olunur və süni intellekt əsaslı məsləhət, marketinq və məlumat analitikası xidmətləri təqdim edir. Platformadan istifadə etməklə, Siz (“İstifadəçi”) bu Müqavilənin bütün şərtlərini qəbul etmiş hesab edilirsiniz.</p>
-
-
-<h2>2. Xidmətin təsviri</h2>
-<p>Marketify AI — OpenAI şirkətinin təqdim etdiyi GPT-4o, o cümlədən digər qabaqcıl modellər əsasında fəaliyyət göstərən süni intellekt sistemidir. Xidmət aşağıdakı imkanları təqdim edir:</p>
-<ul>
- <li>Marketinq və kommunikasiya mövzularında məlumat və tövsiyələr;</li>
- <li>Mətn analizi və avtomatik cavablandırma;</li>
- <li>Tədris və brend inkişafı məqsədli dəstək sistemləri.</li>
-</ul>
-<p>Marketify AI istifadəçilərə məlumat xarakterli cavablar təqdim edir və rəsmi məsləhət və ya hüquqi təklif xarakteri daşımır.</p>
-
-
-<h2>3. İstifadə qaydaları</h2>
-<p>İstifadəçi:</p>
-<ul>
- <li>Platformadan yalnız qanuni məqsədlərlə istifadə etməlidir;</li>
- <li>Marketify AI sisteminə zərər verə biləcək hərəkətlərə (hakerlik, avtomatik sorğular, bot fəaliyyəti və s.) yol verməməlidir;</li>
- <li>Üçüncü şəxslərin müəllif hüquqlarını, şəxsi məlumatlarını və kommersiya sirrini pozmamalıdır.</li>
-</ul>
-
-
-<h2>4. Məlumatların emalı və məxfiliyin qorunması</h2>
-<p>Marketify AI istifadəçilərin şəxsi məlumatlarını Innova Group Azerbaijan-ın Məxfilik Siyasətinə uyğun şəkildə emal edir. Toplanmış məlumatlar yalnız sistemin texniki təkmilləşdirilməsi və təhlükəsizliyinin təmin olunması məqsədilə istifadə olunur. Marketify AI, OpenAI xidmətindən istifadə etdiyinə görə, cavabların emalı zamanı məlumatlar OpenAI serverləri vasitəsilə ötürülə bilər.</p>
-
-
-<h2>5. Məsuliyyətin məhdudlaşdırılması</h2>
-<p>Marketify AI tərəfindən təqdim edilən cavablar avtomatlaşdırılmış süni intellekt sistemi tərəfindən yaradılır və rəsmi, hüquqi və ya tibbi qərar qəbul etmək üçün əsas hesab edilə bilməz. Innova Group Azerbaijan və Marketify AI, istifadəçinin cavablardan istifadə nəticəsində yarana biləcək hər hansı dolayı və ya birbaşa zərərə görə məsuliyyət daşımır. Xidmətin fasiləsiz və səhvsiz işləməsi təmin edilsə də, texniki nasazlıqlar və ya OpenAI infrastrukturunda yaranan gecikmələr istisna edilə bilməz.</p>
-
-
-<h2>6. Müəllif hüquqları</h2>
-<p>Marketify AI və Innova Group Azerbaijan loqosu, dizaynı, proqram kodları və məzmunu müəllif hüquqları ilə qorunur. İstifadəçi bu elementləri yalnız fərdi və kommersiya məqsədi daşımayan hallarda istifadə edə bilər.</p>
-
-
-<h2>7. Müqaviləyə dəyişikliklər</h2>
-<p>Innova Group Azerbaijan istənilən vaxt bu Müqavilənin şərtlərini dəyişmək hüququna malikdir. Dəyişikliklər rəsmi sayt (https://marketify-ai.com) vasitəsilə dərc edildiyi andan qüvvəyə minir.</p>
-
-
-<h2>8. Marketify Brain – Lokal Data Emalı (Yalnız Bazada Saxlanılan Şablonlar)</h2>
-
-
-<h3>8.1. Marketify Brain nədir?</h3>
-<p>Marketify Brain — Marketify AI daxilində fəaliyyət göstərən lokal (server-daxili) təkmilləşmə moduludur. Bu modul yalnız GPT tərəfindən təqdim olunan cavablardan şablon çıxarır və onları sistem daxilində saxlayır. Bu məlumatlar şəxsi məlumat hesab edilmir.</p>
-
-
-<h3>8.2. Lokal Emal Qaydaları</h3>
-<ul>
- <li>Marketify Brain istifadəçinin daxil etdiyi mesajları şəxsi məlumat kimi saxlamır.</li>
- <li>Heç bir şəxsin adı, telefon nömrəsi, e-poçtı, ünvanı, hesab məlumatı və ya tanıdıcı identifikasiya elementi saxlanılmır.</li>
- <li>Sistem yalnız GPT cavablarında yaranan ümumi strukturları (“template”) çıxararaq anonimizə olunmuş formada saxlayır.</li>
- <li>Saxlanılan şablonlar heç bir halda istifadəçiyə aid şəxsi məlumat daşımır.</li>
-</ul>
-
-
-<h3>8.3. Məlumatların saxlanılması</h3>
-<p>Şablonlar yalnız Marketify serverində lokal JSON fayllarında saxlanılır. Heç bir məlumat OpenAI, Google və üçüncü tərəf xidmətlərinə ötürülmür. İstifadəçi mesajlarının tam mətni saxlanılmır; yalnız şablonlaşdırılmış, şəxsi məlumatdan təmizlənmiş formalar saxlanılır.</p>
-
-
-<h3>8.4. Məsuliyyət və hüquqi çərçivə</h3>
-<p>Marketify Brain yalnız yaradıcı cavabların generasiyası üçün istifadə olunan texniki moduldur. “Innova Group Azerbaijan” istifadəçinin daxil etdiyi məlumatların üçüncü tərəflərə ötürülməsinə görə cavabdeh deyil, çünki heç bir məlumat paylaşılmır. Marketify Brain tərəfindən yaradılan şablonlar məlumat xarakterlidir və istifadəçiyə dəyən hər hansı zərərə görə məsuliyyət daşınmır.</p>
-
-
-<h3>8.5. İstifadəçi razılığı</h3>
-<p>Platformadan istifadə etməklə, İstifadəçi Marketify Brain modulunun işləmə mexanizmini qəbul edir və lokal şablon saxlanmasına razılıq verir.</p>
-
-
-<h2>9. Əlaqə məlumatları</h2>
-<p>
-Innova Group Azerbaijan<br>
-Bakı şəhəri, Azərbaycan<br>
-📧 Email: info@marketify-ai.com<br>
-🌐 Veb: https://marketify-ai.com
-</p>
-
-
-<h2>10. Qüvvəyə minmə</h2>
-<p>Bu Müqavilə 05.12.2025-ci il tarixindən qüvvəyə minir və Marketify AI platformasından istifadə edən bütün şəxslərə şamil olunur.</p>
-
-
-   </div>
- </div>
-</div>
-
-
-
-
-<!-- ❓ FAQ MODAL -->
-<div id="faqModal" class="marketify-modal">
- <div class="modal-content">
-   <button class="modal-close" onclick="closeModal('faqModal')">✕</button>
-
-
-   <h1>Tez-tez verilən suallar (FAQ)</h1>
-   <p class="modal-subtitle">Marketify AI haqqında bütün suallarına buradan cavab tapa bilərsən. Nəsə sualın olarsa, mütləq bizimlə əlaqə saxla! 🙂</p>
-
-
-   <div class="modal-body">
-
-
-     <!-- SƏNİN FAQ BLOKLARIN BURADA (HEÇ NƏ DƏYİŞMİR) -->
-      <div class="faq-category" onclick="toggleFaq('faq-models')">
- <h3>🚀 Modellər haqqında</h3>
-</div>
-<div id="faq-models" class="faq-content">
-
-
- <div class="faq-item">
-   <p class="faq-question">Default Rejim nə üçündür?</p>
-   <p class="faq-answer">
-     Gündəlik kontent, ideya, reklam mətnləri və ümumi cavablar üçün nəzərdə tutulmuş balanslı rejimdir.
-   </p>
- </div>
-
-
- <div class="faq-item">
-   <p class="faq-question">Analitika Rejimi nə edir?</p>
-   <p class="faq-answer">
-     Məlumatlardan çıxarılan nəticələr, qısa hesabatlar, rəqib analizi və optimallaşdırma təklifləri yaradır.
-     <br><strong>Gündəlik limit: 20 sorğu.</strong>
-   </p>
- </div>
-
-
- <div class="faq-item">
-   <p class="faq-question">Local Rejim (Marketify Brain) nədir?</p>
-   <p class="faq-answer">
-     Şablonlarla işləmək, yaradıcılıqda sərhədsiz imkanlar üçün əlverişlidir. Hər hansı bir istifadə limiti tətbiq edilmir. ✨
-   </p>
- </div>
-
-
-</div>
-
-
-
-
-<div class="faq-category" onclick="toggleFaq('faq-security')">
- <h3>🔐 Təhlükəsizlik</h3>
-</div>
-<div id="faq-security" class="faq-content">
-
-
- <div class="faq-item">
-   <p class="faq-question">Məlumatlarım saxlanılırmı?</p>
-   <p class="faq-answer">
-     Xeyr. Sorğular yalnız cavab generasiyası üçün qısa müddətlik emal olunur və saxlanmır.
-   </p>
- </div>
-
-
- <div class="faq-item">
-   <p class="faq-question">Məlumatlarım üçüncü tərəflə paylaşılır?</p>
-   <p class="faq-answer">
-     Xeyr. Verilənlər kommersiya məqsədi ilə paylaşılmır və ya satılmır.
-   </p>
- </div>
-
-
-</div>
-
-
-
-
-<div class="faq-category" onclick="toggleFaq('faq-limit')">
- <h3>⏳ Limitlər</h3>
-</div>
-<div id="faq-limit" class="faq-content">
-
-
- <div class="faq-item">
-   <p class="faq-question">Analitika limiti niyə var?</p>
-   <p class="faq-answer">
-     Analitika sorğuları daha ağır hesablama tələb edir. Limit stabil və sürətli xidmətin qorunması üçündür.
-   </p>
- </div>
-
-
- <div class="faq-item">
-   <p class="faq-question">Digər rejimlərdə limit varmı?</p>
-   <p class="faq-answer">
-     Hal-hazırda yalnız Analitika rejimi üçün gündəlik limit tətbiq olunur.
-   </p>
- </div>
-
-
-</div>
-
-
-
-
-<div class="faq-category" onclick="toggleFaq('faq-support')">
- <h3>📞 Dəstək Xidməti</h3>
-</div>
-<div id="faq-support" class="faq-content">
-
-
- <div class="faq-item">
-   <p class="faq-question">Marketify AI ilə necə əlaqə saxlaya bilərəm?</p>
-   <p class="faq-answer">
-     Texniki dəstək ilə əlaqə saxlamaq üçün e-poçt ünvanımıza müraciətini göndərə bilərsən:
-     <strong>info@marketify-ai.com</strong>
-   </p>
- </div>
-
-
- <div class="faq-item">
-   <p class="faq-question">Dəstək sorğuları nə qədər müddətə cavablandırılır?</p>
-   <p class="faq-answer">
-     Adətən 24 saat ərzində cavab verilir. Müraciətlərin sayı çox olduqda bu müddət uzana bilər.
-   </p>
- </div>
-
-
- <div class="faq-item">
-   <p class="faq-question">Şikayət və ya təklif göndərə bilərəm?</p>
-   <p class="faq-answer">
-     Əlbəttə! Marketify AI istifadəçi rəylərinə əsaslanaraq inkişaf edir.
-     Şikayət, təklif və yaxud yeni funksiya istəklərinizi göndərə bilərsən.
-   </p>
- </div>
-
-
-</div>
+</body>
+</html>
