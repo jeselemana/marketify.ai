@@ -1,3 +1,4 @@
+import { OAuth2Client } from "google-auth-library";
 import express from "express";
 import { createHash, randomBytes } from "node:crypto";
 import {
@@ -22,6 +23,8 @@ import {
 
 const RESET_TTL_SECONDS = 20 * 60;
 const DUMMY_PASSWORD_HASH = "$argon2id$v=19$m=19456,p=1,t=2$vcP17Lqj+FV8BaSbIBHvAg$SvwldQJW4f14U7Cv2tgeeuVIFT0LfFBIUNxAGWfNPLU";
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -78,6 +81,102 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     const existing = await userRepository.findByUsername(parsed.data);
     return res.json({ available: !existing, valid: true });
   }));
+
+  router.post(
+  "/google",
+  limit(authStore, "google-login", 20, 15 * 60),
+  asyncRoute(async (req, res) => {
+    const credential = String(req.body?.credential || "");
+
+    if (!credential) {
+      return res.status(400).json({
+        error: "Google giriş məlumatı göndərilməyib.",
+        code: "GOOGLE_CREDENTIAL_REQUIRED",
+      });
+    }
+
+    if (!GOOGLE_CLIENT_ID) {
+      return res.status(503).json({
+        error: "Google girişi serverdə konfiqurasiya edilməyib.",
+        code: "GOOGLE_AUTH_NOT_CONFIGURED",
+      });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: GOOGLE_CLIENT_ID,
+    });
+
+    const profile = ticket.getPayload();
+
+    if (!profile?.sub || !profile?.email || !profile.email_verified) {
+      return res.status(401).json({
+        error: "Google hesabı təsdiqlənmədi.",
+        code: "INVALID_GOOGLE_ACCOUNT",
+      });
+    }
+
+    const email = normalizeEmail(profile.email);
+    let user = await userRepository.findByEmail(email);
+
+    if (!user) {
+      let baseUsername = email
+        .split("@")[0]
+        .toLowerCase()
+        .replace(/[^a-z0-9._]/g, "")
+        .replace(/^[._]+|[._]+$/g, "");
+
+      if (!baseUsername || baseUsername.length < 3) {
+        baseUsername = `user${Date.now().toString().slice(-6)}`;
+      }
+
+      baseUsername = baseUsername.slice(0, 24);
+
+      let username = baseUsername;
+      let suffix = 1;
+
+      while (await userRepository.findByUsername(username)) {
+        username = `${baseUsername.slice(0, 24)}${suffix}`;
+        suffix += 1;
+      }
+
+      const randomPassword = randomBytes(48).toString("base64url");
+      const passwordHash = await hashPassword(randomPassword);
+
+      user = await userRepository.create({
+        fullName: String(profile.name || email.split("@")[0]).trim(),
+        username,
+        email,
+        passwordHash,
+      });
+
+      user = await userRepository.update(user.id, {
+        emailVerifiedAt: new Date().toISOString(),
+        avatarUrl: profile.picture || null,
+        googleSub: profile.sub,
+      });
+    } else {
+      user = await userRepository.update(user.id, {
+        emailVerifiedAt:
+          user.emailVerifiedAt || new Date().toISOString(),
+        avatarUrl:
+          user.avatarUrl || profile.picture || null,
+        googleSub: profile.sub,
+        lastLoginAt: new Date().toISOString(),
+      });
+    }
+
+    await startSession(req, res, authStore, user.id);
+
+    if (req.guestOwnerId && strategyRepository?.claimOwner) {
+      await strategyRepository.claimOwner(req.guestOwnerId, user.id);
+    }
+
+    return res.json({
+      user: publicUser(user),
+    });
+  }),
+);
 
   router.post("/signup", limit(authStore, "signup", 8, 15 * 60), asyncRoute(async (req, res) => {
     const payload = parseBody(SignupSchema, req.body);
