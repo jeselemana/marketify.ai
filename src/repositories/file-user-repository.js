@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { migrateAuthUserStore } from "./auth-store-migrations.js";
 import { normalizeEmail, normalizeUsername } from "../auth/validation.js";
+import { loadJSONFromR2, saveJSONToR2 } from "../http/r2-storage.js";
 
 export class UserConflictError extends Error {
   constructor(field) {
@@ -30,6 +31,25 @@ export class FileUserRepository {
   }
 
   async readStore() {
+    // 1. Try Cloudflare R2 first
+    try {
+      const r2Data = await loadJSONFromR2("users.json");
+      if (r2Data && Array.isArray(r2Data.users) && r2Data.users.length > 0) {
+        const store = migrateAuthUserStore(r2Data);
+        await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+        const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
+        await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+        await fs.rename(temporaryPath, this.filePath).catch(() => {});
+        if (this.redis?.isReady) {
+          await this.redis.set(this.redisKey, JSON.stringify(store)).catch(() => {});
+        }
+        return store;
+      }
+    } catch (err) {
+      console.error("R2 user read error:", err?.message || err);
+    }
+
+    // 2. Try Redis
     if (this.redis?.isReady) {
       try {
         const raw = await this.redis.get(this.redisKey);
@@ -40,6 +60,7 @@ export class FileUserRepository {
           const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
           await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
           await fs.rename(temporaryPath, this.filePath).catch(() => {});
+          await saveJSONToR2("users.json", store).catch(() => {});
           return store;
         }
       } catch (err) {
@@ -47,12 +68,16 @@ export class FileUserRepository {
       }
     }
 
+    // 3. Try Local File
     await this.ensure();
     try {
       const raw = await fs.readFile(this.filePath, "utf8");
       const store = migrateAuthUserStore(JSON.parse(raw || "{}"));
-      if (this.redis?.isReady && store.users.length > 0) {
-        await this.redis.set(this.redisKey, JSON.stringify(store)).catch(() => {});
+      if (store.users.length > 0) {
+        if (this.redis?.isReady) {
+          await this.redis.set(this.redisKey, JSON.stringify(store)).catch(() => {});
+        }
+        await saveJSONToR2("users.json", store).catch(() => {});
       }
       return store;
     } catch (error) {
@@ -74,6 +99,8 @@ export class FileUserRepository {
         console.error("Redis user write error:", err?.message || err);
       }
     }
+
+    await saveJSONToR2("users.json", store).catch(() => {});
   }
 
   enqueue(operation) {

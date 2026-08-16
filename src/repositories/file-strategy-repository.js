@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { loadJSONFromR2, saveJSONToR2 } from "../http/r2-storage.js";
 
 export class FileStrategyRepository {
   constructor(filePath, redis = null) {
@@ -20,6 +21,24 @@ export class FileStrategyRepository {
   }
 
   async readAll() {
+    // 1. Try Cloudflare R2 first
+    try {
+      const r2Data = await loadJSONFromR2("strategies.json");
+      if (r2Data && Array.isArray(r2Data) && r2Data.length > 0) {
+        await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+        const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
+        await fs.writeFile(temporaryPath, `${JSON.stringify(r2Data, null, 2)}\n`, "utf8");
+        await fs.rename(temporaryPath, this.filePath).catch(() => {});
+        if (this.redis?.isReady) {
+          await this.redis.set(this.redisKey, JSON.stringify(r2Data)).catch(() => {});
+        }
+        return r2Data;
+      }
+    } catch (err) {
+      console.error("R2 strategy read error:", err?.message || err);
+    }
+
+    // 2. Try Redis
     if (this.redis?.isReady) {
       try {
         const raw = await this.redis.get(this.redisKey);
@@ -30,6 +49,7 @@ export class FileStrategyRepository {
           const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
           await fs.writeFile(temporaryPath, `${JSON.stringify(records, null, 2)}\n`, "utf8");
           await fs.rename(temporaryPath, this.filePath).catch(() => {});
+          await saveJSONToR2("strategies.json", records).catch(() => {});
           return records;
         }
       } catch (err) {
@@ -37,13 +57,17 @@ export class FileStrategyRepository {
       }
     }
 
+    // 3. Try Local File
     await this.ensure();
     try {
       const raw = await fs.readFile(this.filePath, "utf8");
       const data = JSON.parse(raw || "[]");
       const records = Array.isArray(data) ? data : [];
-      if (this.redis?.isReady && records.length > 0) {
-        await this.redis.set(this.redisKey, JSON.stringify(records)).catch(() => {});
+      if (records.length > 0) {
+        if (this.redis?.isReady) {
+          await this.redis.set(this.redisKey, JSON.stringify(records)).catch(() => {});
+        }
+        await saveJSONToR2("strategies.json", records).catch(() => {});
       }
       return records;
     } catch (error) {
@@ -69,6 +93,8 @@ export class FileStrategyRepository {
           console.error("Redis strategy write error:", err?.message || err);
         }
       }
+
+      await saveJSONToR2("strategies.json", records).catch(() => {});
     };
     this.writeQueue = this.writeQueue.then(operation, operation);
     return this.writeQueue;

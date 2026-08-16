@@ -1,4 +1,4 @@
-import { loadJSONFromR2, saveJSONToR2 } from "./src/http/r2-storage.js";
+import { isR2Configured, loadJSONFromR2, saveJSONToR2 } from "./src/http/r2-storage.js";
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -155,14 +155,15 @@ const authStore = redis?.isReady ? new RedisAuthStore(redis) : new FileAuthStore
 const emailService = new PasswordResetEmailService({ dataDir: DATA_DIR });
 const adminUsernames = new Set(String(process.env.ADMIN_USERNAMES || "").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean));
 
-// Initial sync with Redis on startup
-if (redis?.isReady) {
-  Promise.allSettled([
-    userRepository.readStore(),
-    strategyRepository.readAll(),
-    chatRepository.readAll(),
-  ]).catch(() => {});
+// Initial sync with Cloudflare R2 / Redis / File on startup
+if (isR2Configured()) {
+  console.log("☁️ Cloudflare R2 storage active.");
 }
+Promise.allSettled([
+  userRepository.readStore(),
+  strategyRepository.readAll(),
+  chatRepository.readAll(),
+]).catch(() => {});
 
 function requireAdmin(req, res, next) {
   if (req.user && adminUsernames.has(req.user.username)) return next();

@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { loadJSONFromR2, saveJSONToR2 } from "../http/r2-storage.js";
 
 function emptyStore() {
   return { schemaVersion: 1, sessions: {}, resetTokens: {}, rates: {} };
@@ -12,11 +13,29 @@ export class FileAuthStore {
   }
 
   async read() {
+    try {
+      const r2Data = await loadJSONFromR2("auth-store.json");
+      if (r2Data && typeof r2Data === "object" && Object.keys(r2Data.sessions || {}).length > 0) {
+        const store = { ...emptyStore(), ...r2Data };
+        await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+        const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
+        await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+        await fs.rename(temporaryPath, this.filePath).catch(() => {});
+        return store;
+      }
+    } catch (err) {
+      console.error("R2 auth-store read error:", err?.message || err);
+    }
+
     await fs.mkdir(path.dirname(this.filePath), { recursive: true });
     try {
       const raw = await fs.readFile(this.filePath, "utf8");
       const parsed = JSON.parse(raw || "{}");
-      return { ...emptyStore(), ...parsed };
+      const store = { ...emptyStore(), ...parsed };
+      if (Object.keys(store.sessions).length > 0) {
+        await saveJSONToR2("auth-store.json", store).catch(() => {});
+      }
+      return store;
     } catch (error) {
       if (error.code === "ENOENT") return emptyStore();
       throw error;
@@ -28,6 +47,7 @@ export class FileAuthStore {
     const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
     await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
     await fs.rename(temporaryPath, this.filePath);
+    await saveJSONToR2("auth-store.json", store).catch(() => {});
   }
 
   mutate(callback) {
