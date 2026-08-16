@@ -3338,8 +3338,8 @@ body.sidebar-open .refinement-dock {
 .dock-actions-strip {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: center;
+  gap: 0;
   margin-bottom: 8px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-subtle);
@@ -3348,11 +3348,10 @@ body.sidebar-open .refinement-dock {
 .dock-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 0 13px;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 14px;
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
   background: var(--bg-elevated);
   color: var(--text-primary);
   font-size: 12px;
@@ -3360,6 +3359,24 @@ body.sidebar-open .refinement-dock {
   transition: all 150ms ease;
   cursor: pointer;
   white-space: nowrap;
+  border-radius: 0;
+  margin-left: -1px;
+}
+
+.dock-action-btn:first-child,
+.dock-actions-strip > :first-child .dock-action-btn {
+  border-radius: 7px 0 0 7px;
+  margin-left: 0;
+}
+
+.dock-action-btn:last-child,
+.dock-actions-strip > :last-child .dock-action-btn {
+  border-radius: 0 7px 7px 0;
+}
+
+/* When the export wrap is the middle child, target its button */
+.dock-export-wrap .dock-action-btn {
+  border-radius: 0;
 }
 
 .dock-action-btn:hover:not(:disabled) {
@@ -3380,21 +3397,11 @@ body.sidebar-open .refinement-dock {
 }
 
 .dock-save-btn {
-  background: var(--accent);
-  color: #ffffff;
-  border-color: var(--accent);
-}
-
-.dock-save-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  color: #ffffff;
+  border-color: var(--border-subtle);
 }
 
 .dock-save-btn.is-saved {
-  background: rgba(35, 133, 103, 0.12);
   color: var(--success);
-  border-color: rgba(35, 133, 103, 0.25);
 }
 
 .dock-export-wrap {
@@ -4763,7 +4770,7 @@ body.sidebar-open .refinement-dock {
   }
 
   .dock-actions-strip {
-    gap: 6px;
+    gap: 0;
     margin-bottom: 6px;
     padding-bottom: 6px;
   }
