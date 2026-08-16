@@ -193,10 +193,11 @@ function googleSignInButton() {
       return;
     }
 
-    google.accounts.id.initialize({
-      client_id: 121941263403-i4qt374rqirc8uord3r5omdtqvcnamb9.apps.googleusercontent.com,
-      callback: handleGoogleCredential,
-    });
+ google.accounts.id.initialize({
+  client_id: GOOGLE_CLIENT_ID,
+  callback: handleGoogleCredential,
+  ux_mode: "popup",
+});
 
     google.accounts.id.renderButton(target, {
       type: "standard",
@@ -300,14 +301,6 @@ function renderSignup() {
   const content = shell("Marketify hesabını yarat", "Strategiyalarını təhlükəsiz saxla və istənilən cihazdan davam et.");
   const { form, submit } = formBase("Hesab yarat");
   const fullName = field({ label: "Ad və soyad", name: "fullName", autocomplete: "name", placeholder: "Ad Soyad" });
-  const divider = document.createElement("div");
-divider.className = "auth-divider";
-divider.innerHTML = "<span>və ya</span>";
-
-form.append(
-  divider,
-  googleSignInButton(),
-);
   const username = field({ label: "İstifadəçi adı", name: "username", autocomplete: "username", placeholder: "marketinq.lideri", hint: "3–30 simvol · hərf, rəqəm, nöqtə və alt xətt" });
   username.classList.add("auth-username-field");
   const usernamePrefix = document.createElement("span");
@@ -317,6 +310,14 @@ form.append(
   const email = field({ label: "E-poçt", name: "email", type: "email", autocomplete: "email", placeholder: "ad@şirkət.az" });
   const password = field({ label: "Şifrə", name: "password", type: "password", autocomplete: "new-password", placeholder: "Ən azı 10 simvol", hint: "Ən azı 10 simvol, bir hərf və bir rəqəm" });
   form.append(fullName, username, email, password, submit);
+    const divider = document.createElement("div");
+divider.className = "auth-divider";
+divider.innerHTML = "<span>və ya</span>";
+
+form.append(
+  divider,
+  googleSignInButton(),
+);
   const availability = username.querySelector("small");
   let timer;
   form.username.addEventListener("input", () => {
@@ -464,11 +465,8 @@ function renderRoute() {
   if (path === "/forgot-password") return renderForgot();
   if (path === "/reset-password") return renderReset();
   if (path !== "/login") route("/login", true);
-  return renderLogin();
-  form.append(
-  divider,
-  // googleSignInButton(),
-);
+if (path !== "/login") route("/login", true);
+return renderLogin();
 }
 
 export async function initializeAuthentication(onAuthenticated) {
