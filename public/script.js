@@ -39,6 +39,8 @@ const state = {
   status: "draft",
   brief: "",
   questions: [],
+  clarificationIndex: 0,
+  clarificationDrafts: {},
   answers: [],
   assumptions: [],
   understanding: "",
@@ -198,6 +200,8 @@ function resetStrategy() {
     status: "draft",
     brief: "",
     questions: [],
+    clarificationIndex: 0,
+    clarificationDrafts: {},
     answers: [],
     assumptions: [],
     understanding: "",
@@ -339,12 +343,17 @@ function renderLoading() {
   workspace.classList.add("workspace-centered");
   const isAssessment = state.status === "analyzing";
   const phases = isAssessment
-    ? ["Məqsədi və konteksti anlayıram", "Brifdə kritik boşluqları yoxlayıram"]
+    ? [
+        ["Brif strukturlaşdırılır", "Biznes məqsədini, bazarı və əsas məhdudiyyətləri vahid kontekstdə toplayıram."],
+        ["Kritik boşluqlar yoxlanılır", "Yalnız strategiyanın keyfiyyətini dəyişəcək məlumatların çatışıb-çatışmadığını yoxlayıram."],
+        ["Növbəti addım seçilir", "Mövcud məlumatla davam etmək və ya qısa dəqiqləşdirmə istəmək qərarı hazırlanır."],
+      ]
     : [
-        "Strateji istiqaməti qururam",
-        "Prioritetləri sıralayıram",
-        "İcra planını hazırlayıram",
-        "Ölçü və riskləri dəqiqləşdirirəm",
+        ["Brif strukturlaşdırılır", "Auditoriya, məqsəd, vaxt və büdcə bir strateji çərçivədə birləşdirilir."],
+        ["Prioritetlər müəyyən edilir", "Ən yüksək təsir yaradacaq qərarlar və asılılıqlar sıralanır."],
+        ["Strategiya qurulur", "Mövqelənmə, kanallar və təklif vahid istiqamətdə əlaqələndirilir."],
+        ["İcra planı hazırlanır", "Strateji qərarlar ardıcıl və icra edilə bilən mərhələlərə çevrilir."],
+        ["Ölçü və risklər yoxlanılır", "KPI-lar, risklər və növbəti addımlar strategiya ilə uyğunlaşdırılır."],
       ];
   let currentPhase = 0;
   const view = element("section", "loading-view");
@@ -352,18 +361,12 @@ function renderLoading() {
   const visual = element("div", "loading-visual");
   visual.append(element("span", "loading-orbit"), element("span", "loading-core", "M"));
   const eyebrow = element("div", "loading-eyebrow", isAssessment ? "BRİF ANALİZİ" : "STRATEGİYA HAZIRLANIR");
-  const title = element("h1", "loading-title", phases[0]);
-  const copy = element(
-    "p",
-    "loading-copy",
-    isAssessment
-      ? "Yalnız strategiyanı həqiqətən yaxşılaşdıracaq məlumat çatışmırsa sual verəcəyəm."
-      : "Brifini strukturlaşdırılmış qərarlara, prioritetlərə və ölçülə bilən fəaliyyət planına çevirirəm.",
-  );
-  const progress = element("div", "loading-progress");
-  phases.forEach((phase, index) => {
-    const step = element("span", index === 0 ? "is-active" : "");
-    step.title = phase;
+  const title = element("h1", "loading-title", phases[0][0]);
+  const copy = element("p", "loading-copy", phases[0][1]);
+  const progress = element("ol", "generation-steps");
+  phases.forEach(([phase], index) => {
+    const step = element("li", index === 0 ? "is-current" : "is-upcoming");
+    step.append(element("span", "generation-step-mark", index === 0 ? "●" : "○"), element("span", "", phase));
     progress.appendChild(step);
   });
   view.append(visual, eyebrow, title, copy, progress);
@@ -371,10 +374,14 @@ function renderLoading() {
 
   progressTimer = setInterval(() => {
     currentPhase = Math.min(currentPhase + 1, phases.length - 1);
-    title.textContent = phases[currentPhase];
-    [...progress.children].forEach((step, index) => step.classList.toggle("is-active", index <= currentPhase));
+    title.textContent = phases[currentPhase][0];
+    copy.textContent = phases[currentPhase][1];
+    [...progress.children].forEach((step, index) => {
+      step.className = index < currentPhase ? "is-complete" : index === currentPhase ? "is-current" : "is-upcoming";
+      step.querySelector(".generation-step-mark").textContent = index < currentPhase ? "✓" : index === currentPhase ? "●" : "○";
+    });
     if (currentPhase === phases.length - 1) clearInterval(progressTimer);
-  }, 1800);
+  }, 1500);
 }
 
 async function startAssessment() {
@@ -396,6 +403,8 @@ async function startAssessment() {
     state.assumptions = assessment.assumptions || [];
     if (assessment.status === "needs_clarification") {
       state.questions = assessment.questions;
+      state.clarificationIndex = 0;
+      state.clarificationDrafts = {};
       trackEvent("clarification_requested", { questionCount: assessment.questions.length, round: state.round + 1 });
       setStatus("needs_clarification");
       render();
@@ -409,83 +418,125 @@ async function startAssessment() {
 
 function renderClarification() {
   workspace.classList.add("workspace-centered");
+  const index = Math.min(state.clarificationIndex, state.questions.length - 1);
+  const question = state.questions[index];
+  if (!question) return startGeneration();
   const view = element("section", "clarification-view");
   view.setAttribute("aria-labelledby", "clarificationTitle");
   const top = element("div", "clarification-heading");
   top.append(
-    element("div", "step-label", `QISA DƏQİQLƏŞDİRMƏ · ${state.round + 1}/2`),
-    element("h1", "clarification-title", `Strategiyanı daha dəqiq qurmaq üçün ${state.questions.length} detal lazımdır.`),
-    element("p", "clarification-copy", state.understanding),
+    element("div", "step-label", state.round ? "BİR DETAL DA DƏQİQLƏŞDİRƏK" : "QISA DƏQİQLƏŞDİRMƏ"),
+    element("h1", "clarification-title", "Strategiyanı dəqiqləşdirək"),
+    element("p", "clarification-copy", "Bir neçə vacib detal strategiyanı real biznesinə uyğunlaşdıracaq."),
   );
 
-  const form = element("form", "clarification-form");
-  state.questions.forEach((question, index) => {
-    const fieldset = element("fieldset", "question-card");
-    const legend = element("legend", "question-title");
-    legend.append(element("span", "question-number", String(index + 1)), document.createTextNode(question.question));
-    fieldset.appendChild(legend);
-    if (question.reason) fieldset.appendChild(element("p", "question-reason", question.reason));
+  const progressMeta = element("div", "clarification-progress-meta");
+  progressMeta.append(element("span", "", `${index + 1} / ${state.questions.length}`), element("span", "", "Sual"));
+  const progressTrack = element("div", "clarification-progress");
+  const progressFill = element("span");
+  progressFill.style.width = `${((index + 1) / state.questions.length) * 100}%`;
+  progressTrack.appendChild(progressFill);
 
-    if (question.inputType === "text" || !question.options.length) {
-      const input = element("textarea", "question-input");
+  const form = element("form", "clarification-form");
+  const stage = element("div", "clarification-stage");
+  stage.append(element("h2", "question-title", question.question));
+  if (question.reason) stage.append(element("p", "question-reason", question.reason));
+
+  let textInput;
+  if (question.inputType === "text" || !question.options.length) {
+    textInput = element("textarea", "question-input");
+    textInput.name = question.id;
+    textInput.rows = 4;
+    textInput.maxLength = 1500;
+    textInput.placeholder = "Cavabını qısa və konkret yaz…";
+    textInput.value = state.clarificationDrafts[question.id] || "";
+    stage.append(textInput, element("p", "question-example", "Məsələn: əsas məhsul, auditoriya, büdcə və ya fərqləndirici yanaşma."));
+  } else {
+    const options = element("div", "choice-grid");
+    const selected = new Set(Array.isArray(state.clarificationDrafts[question.id]) ? state.clarificationDrafts[question.id] : [state.clarificationDrafts[question.id]].filter(Boolean));
+    question.options.forEach((option) => {
+      const label = element("label", "choice-pill");
+      const input = document.createElement("input");
+      input.type = question.inputType === "multi_choice" ? "checkbox" : "radio";
       input.name = question.id;
-      input.rows = 2;
-      input.maxLength = 1500;
-      input.placeholder = "Qısa cavab yaz…";
-      input.required = true;
-      fieldset.appendChild(input);
-    } else {
-      const options = element("div", "choice-grid");
-      question.options.forEach((option, optionIndex) => {
-        const label = element("label", "choice-pill");
-        const input = document.createElement("input");
-        input.type = question.inputType === "multi_choice" ? "checkbox" : "radio";
-        input.name = question.id;
-        input.value = option;
-        input.required = question.inputType === "single_choice" && optionIndex === 0;
-        label.append(input, element("span", "", option));
-        options.appendChild(label);
-      });
-      fieldset.appendChild(options);
-    }
-    form.appendChild(fieldset);
+      input.value = option;
+      input.checked = selected.has(option);
+      label.append(input, element("span", "", option));
+      options.appendChild(label);
+    });
+    stage.appendChild(options);
+  }
+  form.appendChild(stage);
+
+  const context = document.createElement("details");
+  context.className = "clarification-context";
+  const contextSummary = element("summary", "", "Marketify nə bilir?");
+  const contextBody = element("div", "clarification-context-body");
+  const briefRow = element("div", "context-summary-row");
+  briefRow.append(element("strong", "", "Brif"), element("span", "", state.brief.slice(0, 220)));
+  contextBody.appendChild(briefRow);
+  state.answers.slice(-3).forEach((answer) => {
+    const row = element("div", "context-summary-row");
+    row.append(element("strong", "", answer.question), element("span", "", answer.answer));
+    contextBody.appendChild(row);
   });
+  context.append(contextSummary, contextBody);
 
   const actions = element("div", "clarification-actions");
-  const skip = button("Dəqiq bilmirəm — fərziyyə ilə davam et", "text-button", () => {
-    state.assumptions = [
-      ...state.assumptions,
-      "İstifadəçi əlavə dəqiqləşdirmə vermədən işçi fərziyyələrlə davam etməyi seçdi.",
-    ];
-    startGeneration();
+  const back = button("← Geri", "text-button", () => {
+    if (index === 0) return;
+    state.clarificationIndex = index - 1;
+    render();
   });
-  const continueButton = button("Davam et", "primary-button");
+  back.disabled = index === 0;
+  const skip = button("Dəqiq bilmirəm", "text-button clarification-skip");
+  const continueButton = button(index === state.questions.length - 1 ? "Tamamla" : "Davam et", "primary-button");
   continueButton.type = "submit";
   continueButton.appendChild(element("span", "button-arrow", "→"));
-  actions.append(skip, continueButton);
-  form.appendChild(actions);
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const formData = new FormData(form);
-    const newAnswers = state.questions.map((question) => ({
-      questionId: question.id,
-      question: question.question,
-      answer: formData.getAll(question.id).join(", ").trim(),
-    }));
-    if (newAnswers.some((answer) => !answer.answer)) {
-      showToast("Bütün suallara qısa cavab ver.", "error");
+  const actionRight = element("div", "clarification-action-right");
+  actionRight.append(skip, continueButton);
+  actions.append(back, actionRight);
+  form.append(context, actions);
+
+  const advance = (answer) => {
+    if (!answer) {
+      showToast("Davam etmək üçün cavab seç və ya yaz.", "error");
       return;
     }
+    state.clarificationDrafts[question.id] = question.inputType === "multi_choice" ? answer.split(", ") : answer;
+    if (index < state.questions.length - 1) {
+      state.clarificationIndex = index + 1;
+      render();
+      return;
+    }
+    const newAnswers = state.questions.map((item) => {
+      const value = state.clarificationDrafts[item.id];
+      return { questionId: item.id, question: item.question, answer: Array.isArray(value) ? value.join(", ") : value };
+    });
     state.answers = [...state.answers, ...newAnswers];
     state.round += 1;
     trackEvent("clarification_completed", { answerCount: newAnswers.length, round: state.round });
     startAssessment();
+  };
+
+  skip.addEventListener("click", () => advance("Dəqiq məlum deyil — əsaslandırılmış işçi fərziyyə istifadə et."));
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const value = textInput ? textInput.value.trim() : new FormData(form).getAll(question.id).join(", ").trim();
+    advance(value);
+  });
+  textInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
   });
 
   const banner = errorBanner();
   if (banner) view.appendChild(banner);
-  view.append(top, form);
+  view.append(top, progressMeta, progressTrack, form);
   workspace.appendChild(view);
+  setTimeout(() => textInput?.focus(), 0);
 }
 
 async function startGeneration() {
@@ -533,11 +584,12 @@ function renderStrategyWorkspace() {
   const view = element("div", `strategy-view${state.status === "refining" ? " is-refining" : ""}`);
 
   const toolbar = element("div", "strategy-toolbar");
-  const crumb = button("← Strategiyalar", "text-button toolbar-back", () => {
+  const crumb = button(`Strategiyalar / ${strategy.title}`, "strategy-breadcrumb", () => {
     state.view = "list";
     render();
   });
   const toolbarActions = element("div", "toolbar-actions");
+  const refineButton = button("Dəyişiklik istə", "secondary-button compact", () => document.querySelector("#refinementInput")?.focus());
   const exportWrap = element("div", "export-wrap");
   const exportButton = button("İxrac", "secondary-button compact");
   exportButton.setAttribute("aria-haspopup", "menu");
@@ -548,12 +600,13 @@ function renderStrategyWorkspace() {
     exportButton.setAttribute("aria-expanded", String(open));
   });
   exportWrap.append(exportButton, menu);
-  const saveButton = button(state.savedId ? "Yadda saxlanıb" : "Strategiyanı yadda saxla", "primary-button compact", saveStrategy);
+  const saveButton = button(state.savedId ? "Yadda saxlanıb" : "Yadda saxla", "primary-button compact", saveStrategy);
   saveButton.disabled = Boolean(state.savedId) || state.status === "refining";
-  toolbarActions.append(exportWrap, saveButton);
+  toolbarActions.append(refineButton, exportWrap, saveButton);
   toolbar.append(crumb, toolbarActions);
 
-  const header = element("header", "strategy-header");
+  const header = element("header", "strategy-overview");
+  header.id = "overview";
   const status = element("span", `status-badge status-${state.status}`);
   status.append(element("span", "status-dot"), document.createTextNode(STATUS_LABELS[state.status]));
   const title = element("h1", "strategy-title", strategy.title);
@@ -565,64 +618,67 @@ function renderStrategyWorkspace() {
     element("span", "meta-divider", "·"),
     element("span", "", `Yenilənib ${formatDate(state.updatedAt)}`),
   );
-  header.append(meta, title, element("p", "strategy-lede", strategy.summary));
+  const thesis = element("p", "strategy-lede", firstSentences(strategy.summary, 2));
+  header.append(meta, title, thesis);
   if (state.changeSummary) header.append(element("div", "change-note", state.changeSummary));
 
-  const context = element("section", "strategy-block context-block");
-  context.appendChild(createSectionHeading("KONTEKST", "Strategiyanın əsası"));
-  const contextGrid = element("dl", "context-grid");
+  const metrics = element("dl", "overview-metrics");
   [
-    ["Biznes", strategy.context.business],
-    ["Məqsəd", strategy.context.objective],
-    ["Bazar", strategy.context.market],
-    ["Auditoriya", strategy.context.targetAudience],
-  ].forEach(([label, value]) => {
-    const item = element("div", "context-item");
-    item.append(element("dt", "", label), element("dd", "", value));
-    contextGrid.appendChild(item);
+    [shortValue(strategy.actionPlan[0]?.phase || "Planlı"), "İlk mərhələ"],
+    [budgetSignal(state.brief), "Marketinq büdcəsi"],
+    [shortValue(strategy.priorities[0]?.title || "Fokuslu"), "Əsas prioritet"],
+    [shortValue(strategy.context.targetAudience), "Əsas auditoriya"],
+  ].forEach(([value, label]) => {
+    const item = element("div", "overview-metric");
+    item.append(element("dd", "", value), element("dt", "", label));
+    metrics.appendChild(item);
   });
-  context.appendChild(contextGrid);
+  header.appendChild(metrics);
+  const essence = element("div", "strategy-essence");
+  essence.append(element("h2", "", "Strategiyanın mahiyyəti"), element("p", "", firstSentences(strategy.summary, 3)));
+  header.appendChild(essence);
 
-  const priorities = element("section", "strategy-block");
-  priorities.appendChild(
-    createSectionHeading("PRİORİTETLƏR", "Əvvəl nə vacibdir", "Resurs və diqqətin ilk yönələcəyi qərarlar."),
-  );
-  const priorityGrid = element("div", "priority-grid");
+  const priorities = element("section", "strategy-work-section");
+  priorities.id = "priorities";
+  priorities.appendChild(createSectionHeading("PRİORİTETLƏR", "Əvvəl nə vacibdir"));
+  const priorityGrid = element("div", "priority-rows");
   strategy.priorities.forEach((priority, index) => {
-    const card = element("article", "priority-card");
-    const number = element("span", "priority-number", String(index + 1).padStart(2, "0"));
+    const card = element("article", "priority-row");
     const level = element("span", `priority-level priority-${priority.priority}`, priority.priority);
-    const top = element("div", "priority-top");
-    top.append(number, level);
-    card.append(top, element("h3", "", priority.title), element("p", "", priority.description));
+    const copy = element("div", "priority-row-copy");
+    copy.append(element("h3", "", `${String(index + 1).padStart(2, "0")}  ${priority.title}`), element("p", "", firstSentences(priority.description, 1)));
+    card.append(copy, level);
     priorityGrid.appendChild(card);
   });
   priorities.appendChild(priorityGrid);
 
-  const direction = element("section", "strategy-block");
-  direction.appendChild(createSectionHeading("STRATEJİ İSTİQAMƏT", "Qərarlar və yanaşma"));
+  const direction = element("section", "strategy-work-section");
+  direction.id = "strategy";
+  direction.appendChild(createSectionHeading("STRATEGİYA", "Qərarlar və yanaşma"));
   const sections = element("div", "strategy-sections");
   strategy.sections.forEach((section, index) => {
-    const article = element("article", "strategy-section");
-    const indexNode = element("span", "section-index", String(index + 1).padStart(2, "0"));
-    const copy = element("div", "section-copy");
-    copy.append(element("h3", "", section.title));
-    if (section.summary) copy.append(element("p", "section-summary", section.summary));
-    copy.append(element("p", "section-content", section.content));
+    const article = element("article", "decision-section");
+    article.append(element("h3", "", `${String(index + 1).padStart(2, "0")} — ${section.title}`));
+    const decision = element("div", "decision-field");
+    decision.append(element("strong", "", "Qərar"), element("p", "", section.summary || firstSentences(section.content, 1)));
+    const rationale = element("div", "decision-field");
+    rationale.append(element("strong", "", "Niyə"), element("p", "", firstSentences(section.content, 3)));
+    article.append(decision, rationale);
     if (section.bullets.length) {
+      const actions = element("div", "decision-field");
+      actions.append(element("strong", "", "Et"));
       const list = element("ul", "decision-list");
       section.bullets.forEach((item) => list.appendChild(element("li", "", item)));
-      copy.appendChild(list);
+      actions.appendChild(list);
+      article.appendChild(actions);
     }
-    article.append(indexNode, copy);
     sections.appendChild(article);
   });
   direction.appendChild(sections);
 
-  const actionPlan = element("section", "strategy-block");
-  actionPlan.appendChild(
-    createSectionHeading("İCRA PLANI", "Strategiyadan hərəkətə", "Fazalar üzrə konkret işlər və gözlənilən nəticə."),
-  );
+  const actionPlan = element("section", "strategy-work-section");
+  actionPlan.id = "execution";
+  actionPlan.appendChild(createSectionHeading("İCRA PLANI", "Strategiyadan hərəkətə"));
   const timeline = element("div", "timeline");
   strategy.actionPlan.forEach((phase, index) => {
     const row = element("article", "timeline-row");
@@ -631,8 +687,17 @@ function renderStrategyWorkspace() {
     const body = element("div", "timeline-body");
     body.append(element("h3", "", phase.phase));
     const list = element("ul", "decision-list compact-list");
-    phase.actions.forEach((action) => list.appendChild(element("li", "", action)));
+    phase.actions.slice(0, 3).forEach((action) => list.appendChild(element("li", "", action)));
     body.appendChild(list);
+    if (phase.actions.length > 3) {
+      const details = document.createElement("details");
+      details.className = "timeline-details";
+      details.appendChild(element("summary", "", "Detalları göstər"));
+      const extra = element("ul", "decision-list compact-list");
+      phase.actions.slice(3).forEach((action) => extra.appendChild(element("li", "", action)));
+      details.appendChild(extra);
+      body.appendChild(details);
+    }
     if (phase.expectedOutcome) {
       const outcome = element("p", "expected-outcome");
       outcome.append(element("strong", "", "Gözlənilən nəticə: "), document.createTextNode(phase.expectedOutcome));
@@ -643,49 +708,85 @@ function renderStrategyWorkspace() {
   });
   actionPlan.appendChild(timeline);
 
-  const measurement = element("section", "strategy-block");
-  measurement.appendChild(createSectionHeading("ÖLÇÜ", "KPI-lar və uğur siqnalları"));
-  const kpiGrid = element("div", "kpi-grid");
+  const measurement = element("section", "strategy-work-section");
+  measurement.id = "kpi";
+  measurement.appendChild(createSectionHeading("KPI", "Ölçü və uğur siqnalları"));
+  const kpiGrid = element("div", "kpi-table");
+  const kpiHead = element("div", "kpi-row kpi-head");
+  kpiHead.append(element("span", "", "KPI"), element("span", "", "Nəyi göstərir"), element("span", "", "İlk siqnal"));
+  kpiGrid.appendChild(kpiHead);
   strategy.kpis.forEach((kpi) => {
-    const card = element("article", "kpi-card");
-    card.append(element("h3", "", kpi.name), element("p", "", kpi.reason));
-    if (kpi.target) card.append(element("span", "kpi-target", kpi.target));
-    kpiGrid.appendChild(card);
+    const row = element("details", "kpi-row");
+    const summary = element("summary", "kpi-summary");
+    summary.append(element("strong", "", kpi.name), element("span", "", firstSentences(kpi.reason, 1)), element("span", "kpi-signal", kpi.target || "İlk ölçüm dövrü"));
+    row.append(summary, element("p", "kpi-detail", kpi.reason));
+    kpiGrid.appendChild(row);
   });
   measurement.appendChild(kpiGrid);
 
+  const risks = element("section", "strategy-work-section");
+  risks.id = "risks";
+  risks.appendChild(createSectionHeading("RİSKLƏR", "Nə planı poza bilər"));
+  const riskList = element("div", "risk-table");
   if (strategy.risks.length) {
-    const risks = element("section", "strategy-block");
-    risks.appendChild(createSectionHeading("RİSKLƏR", "Nə planı poza bilər"));
-    const riskList = element("div", "risk-list");
-    strategy.risks.forEach((risk) => {
-      const row = element("article", "risk-row");
-      const riskCopy = element("div");
-      riskCopy.append(element("span", "risk-label", "RİSK"), element("p", "", risk.risk));
-      const mitigation = element("div");
-      mitigation.append(element("span", "risk-label", "QARŞILIĞI"), element("p", "", risk.mitigation));
-      row.append(riskCopy, mitigation);
+    strategy.risks.forEach((risk, index) => {
+      const row = element("article", "risk-compact-row");
+      const riskCopy = element("div", "risk-main");
+      riskCopy.append(element("span", "risk-severity", index < 2 ? "HIGH" : "MEDIUM"), element("strong", "", risk.risk));
+      row.append(riskCopy, element("p", "", risk.mitigation));
       riskList.appendChild(row);
     });
-    risks.appendChild(riskList);
-    view.append(toolbar, header, context, priorities, direction, actionPlan, measurement, risks);
   } else {
-    view.append(toolbar, header, context, priorities, direction, actionPlan, measurement);
+    riskList.appendChild(element("p", "section-empty", "Əlavə kritik risk müəyyən edilməyib."));
   }
+  risks.appendChild(riskList);
 
-  const closeout = element("section", "strategy-block closeout-grid");
-  const assumptions = element("div", "closeout-card");
-  assumptions.append(element("span", "section-kicker", "FƏRZİYYƏLƏR"), element("h2", "", "Nəyə əsaslanırıq"));
+  const closeout = element("section", "strategy-work-section next-actions-section");
+  closeout.id = "next";
+  closeout.appendChild(createSectionHeading("NÖVBƏTİ ADDIMLAR", "İndi nə etməli"));
+  const checklist = element("div", "action-checklist");
+  const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+  const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
+  groupLabels.forEach((label, groupIndex) => {
+    const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
+    if (!items.length) return;
+    const group = element("section", "checklist-group");
+    group.appendChild(element("h3", "", label));
+    items.forEach((item, itemIndex) => {
+      const checkboxLabel = element("label", "checklist-item");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.dataset.key = `${groupIndex}-${itemIndex}`;
+      checkboxLabel.append(checkbox, element("span", "", item));
+      group.appendChild(checkboxLabel);
+    });
+    checklist.appendChild(group);
+  });
+  closeout.appendChild(checklist);
+
+  const assumptions = document.createElement("details");
+  assumptions.className = "assumptions-panel";
+  assumptions.appendChild(element("summary", "", "Fərziyyələr və əsas kontekst"));
   const assumptionList = element("ul", "decision-list");
   strategy.assumptions.forEach((item) => assumptionList.appendChild(element("li", "", item)));
-  assumptions.appendChild(assumptionList);
-  const next = element("div", "closeout-card next-card");
-  next.append(element("span", "section-kicker", "NÖVBƏTİ ADDIMLAR"), element("h2", "", "İndi nə etməli"));
-  const nextList = element("ol", "next-list");
-  strategy.nextSteps.forEach((item) => nextList.appendChild(element("li", "", item)));
-  next.appendChild(nextList);
-  closeout.append(assumptions, next);
-  view.append(closeout, buildRefinementPanel());
+  assumptions.append(assumptionList);
+
+  const tocItems = [
+    ["overview", "Ümumi baxış"], ["priorities", "Prioritetlər"], ["strategy", "Strategiya"],
+    ["execution", "İcra planı"], ["kpi", "KPI"], ["risks", "Risklər"], ["next", "Növbəti addımlar"],
+  ];
+  const toc = element("nav", "strategy-toc");
+  toc.setAttribute("aria-label", "Strategiya bölmələri");
+  tocItems.forEach(([id, label], index) => {
+    const link = element("a", index === 0 ? "is-active" : "", label);
+    link.href = `#${id}`;
+    toc.appendChild(link);
+  });
+  const documentCanvas = element("main", "strategy-document-canvas");
+  documentCanvas.append(header, priorities, direction, actionPlan, measurement, risks, closeout, assumptions);
+  const shell = element("div", "strategy-local-shell");
+  shell.append(toc, documentCanvas);
+  view.append(toolbar, shell, buildRefinementPanel());
 
   if (state.status === "refining") {
     const working = element("div", "refining-banner");
@@ -693,32 +794,60 @@ function renderStrategyWorkspace() {
     view.prepend(working);
   }
   const banner = errorBanner();
-  if (banner) view.insertBefore(banner, header);
+  if (banner) view.insertBefore(banner, shell);
   workspace.appendChild(view);
+
+  const sectionNodes = tocItems.map(([id]) => document.getElementById(id)).filter(Boolean);
+  const observer = new IntersectionObserver((entries) => {
+    const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+    if (!visible) return;
+    [...toc.children].forEach((link) => link.classList.toggle("is-active", link.getAttribute("href") === `#${visible.target.id}`));
+  }, { rootMargin: "-18% 0px -68% 0px", threshold: [0, 0.2, 0.6] });
+  sectionNodes.forEach((section) => observer.observe(section));
+}
+
+function firstSentences(value, count = 2, maxLength = count === 1 ? 180 : 360) {
+  const text = String(value || "").trim();
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+  const summary = sentences.slice(0, count).join(" ").trim();
+  return summary.length > maxLength ? `${summary.slice(0, maxLength - 1).trim()}…` : summary;
+}
+
+function shortValue(value, max = 28) {
+  const text = String(value || "—").trim();
+  return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
+}
+
+function budgetSignal(brief) {
+  const match = String(brief || "").match(/(?:₼|AZN|manat|büdcə)\s*[:：-]?\s*([\d.,]+(?:\s*[–-]\s*[\d.,]+)?)/i)
+    || String(brief || "").match(/([\d.,]+(?:\s*[–-]\s*[\d.,]+)?)\s*(?:AZN|₼|manat)/i);
+  return match ? `${match[1]} AZN` : "Optimallaşdırılmış";
 }
 
 function buildRefinementPanel() {
-  const panel = element("section", "refinement-panel");
-  panel.setAttribute("aria-labelledby", "refineTitle");
-  panel.append(
-    element("span", "section-kicker", "BİRLİKDƏ YENİLƏYƏK"),
-    element("h2", "", "Dəyişiklik istə"),
-    element("p", "refinement-copy", "Mövcud strategiyanı saxlayaraq büdcə, auditoriya, kanal və ya yanaşmanı dəyiş."),
-  );
+  const panel = element("section", "refinement-dock");
+  panel.setAttribute("aria-label", "Strategiyanı yenilə");
+  const quick = element("div", "quick-actions");
+  QUICK_ACTIONS.forEach(([action, label]) => {
+    const actionButton = button(label, "quick-action", () => requestRefinement(action, ""));
+    actionButton.disabled = state.status === "refining";
+    quick.appendChild(actionButton);
+  });
+  panel.appendChild(quick);
   const form = element("form", "refinement-form");
   const label = element("label", "sr-only", "Dəyişiklik istəyi");
   label.htmlFor = "refinementInput";
   const input = element("textarea", "refinement-input");
   input.id = "refinementInput";
-  input.rows = 2;
+  input.rows = 1;
   input.maxLength = 2000;
-  input.placeholder = "Məsələn: Büdcəni 700 AZN-ə endir və universitet tələbələrinə fokuslan…";
+  input.placeholder = "Strategiyada nəyi dəyişmək istəyirsən?";
   input.disabled = state.status === "refining";
-  const submit = button("Göndər", "refine-submit");
+  const submit = button("", "refine-submit");
   submit.type = "submit";
   submit.disabled = true;
   submit.setAttribute("aria-label", "Dəyişiklik istəyini göndər");
-  submit.append(element("span", "", "↑"));
+  submit.append(element("span", "", "→"));
   form.append(label, input, submit);
   input.addEventListener("input", () => {
     submit.disabled = input.value.trim().length < 3 || state.status === "refining";
@@ -735,14 +864,6 @@ function buildRefinementPanel() {
     if (request.length >= 3) requestRefinement("custom", request);
   });
   panel.appendChild(form);
-
-  const quick = element("div", "quick-actions");
-  QUICK_ACTIONS.forEach(([action, label]) => {
-    const actionButton = button(label, "quick-action", () => requestRefinement(action, ""));
-    actionButton.disabled = state.status === "refining";
-    quick.appendChild(actionButton);
-  });
-  panel.appendChild(quick);
   return panel;
 }
 
@@ -819,27 +940,24 @@ async function saveStrategy() {
 function buildExportMenu(trigger) {
   const menu = element("div", "export-menu");
   menu.setAttribute("role", "menu");
-  const title = element("span", "export-label", "İXRAC ET");
+  const title = element("span", "export-label", "İxrac et");
   menu.appendChild(title);
-  const doc = button("Sənəd (.html)", "export-option", () => {
+  const doc = button("HTML sənədi", "export-option", () => {
     trackEvent("export_requested", { format: "document" });
     downloadExport(createDocumentExport(state.strategy));
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
   });
-  const csv = button("Cədvəl (.csv)", "export-option", () => {
+  const csv = button("CSV / məlumat", "export-option", () => {
     trackEvent("export_requested", { format: "spreadsheet" });
     downloadExport(createSpreadsheetExport(state.strategy));
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
   });
-  menu.append(doc, csv, element("div", "export-separator"));
-  ["Google Docs", "Google Sheets", "Excel inteqrasiyası"].forEach((label) => {
-    const option = button(label, "export-option is-coming", () => {
-      trackEvent("export_requested", { format: label, available: false });
-      showToast(`${label} bağlantısı tezliklə əlavə olunacaq. Hazırda lokal export istifadə edə bilərsən.`, "neutral");
-    });
-    option.append(element("span", "coming-badge", "Tezliklə"));
+  menu.append(doc, csv, element("div", "export-separator"), element("span", "export-label", "İnteqrasiyalar"));
+  ["Google Docs", "Google Sheets"].forEach((label) => {
+    const option = element("div", "export-integration");
+    option.append(element("span", "", label), element("small", "", "Coming soon"));
     menu.appendChild(option);
   });
   return menu;
@@ -891,7 +1009,7 @@ function renderStrategyList() {
   const view = element("section", "strategies-view");
   const heading = element("div", "list-heading");
   const copy = element("div");
-  copy.append(element("span", "section-kicker", "WORKSPACE"), element("h1", "", "Strategiyalar"), element("p", "", "Yadda saxladığın işləri aç, davam etdir və export et."));
+  copy.append(element("span", "section-kicker", "WORKSPACE"), element("h1", "", "Strategiyalar"), element("p", "", "Yadda saxladığın strategiyaları tap, aç və davam etdir."));
   heading.append(copy, button("＋ Yeni strategiya", "primary-button", resetStrategy));
   view.appendChild(heading);
 
@@ -899,28 +1017,48 @@ function renderStrategyList() {
     const empty = element("div", "empty-state");
     empty.append(
       element("span", "empty-icon", "✦"),
-      element("h2", "", "Hələ strategiya yoxdur"),
-      element("p", "", "İlk AI strategiyanı qur və sonra workspace-ə əlavə et."),
+      element("h2", "", "Strategiyalar burada görünəcək"),
+      element("p", "", "İlk strategiyanı qur və yadda saxla."),
       button("Yeni strategiya", "primary-button", resetStrategy),
     );
     view.appendChild(empty);
   } else {
-    const grid = element("div", "saved-grid");
-    state.savedStrategies.forEach((record) => {
-      const card = element("article", "saved-card");
-      const top = element("div", "saved-card-top");
-      top.append(element("span", "saved-status", "Yadda saxlanıb"), element("span", "saved-version", `${record.versionCount} versiya`));
-      card.append(
-        top,
-        element("h2", "", record.title),
-        element("p", "", record.strategy?.summary || record.brief),
-      );
-      const footer = element("div", "saved-card-footer");
-      footer.append(element("span", "", formatDate(record.updatedAt)), button("Aç →", "text-button", () => openSavedStrategy(record.id)));
-      card.appendChild(footer);
-      grid.appendChild(card);
-    });
-    view.appendChild(grid);
+    const controls = element("div", "library-controls");
+    const search = element("input", "library-search");
+    search.type = "search";
+    search.placeholder = "Strategiyalarda axtar";
+    search.setAttribute("aria-label", "Strategiyalarda axtar");
+    const filters = element("div", "library-filters");
+    ["Hamısı", "Son", "Yadda saxlanmış"].forEach((label, index) => filters.appendChild(button(label, `library-filter${index === 0 ? " is-active" : ""}`)));
+    const sort = element("span", "library-sort", "Son yenilənən ↓");
+    controls.append(search, filters, sort);
+    const list = element("div", "strategy-library");
+    const drawRows = () => {
+      const query = search.value.trim().toLocaleLowerCase("az");
+      const records = state.savedStrategies.filter((record) => !query || `${record.title} ${record.strategy?.summary || record.brief}`.toLocaleLowerCase("az").includes(query));
+      list.replaceChildren();
+      if (!records.length) {
+        list.appendChild(element("p", "library-no-results", "Bu axtarışa uyğun strategiya tapılmadı."));
+        return;
+      }
+      records.forEach((record) => {
+        const row = element("article", "strategy-library-row");
+        const main = element("div", "library-row-main");
+        main.append(element("h2", "", record.title), element("p", "", firstSentences(record.strategy?.summary || record.brief, 1)));
+        const meta = element("div", "library-row-meta");
+        meta.append(element("span", "", `Yenilənib ${formatDate(record.updatedAt)}`), element("span", "", `Versiya ${record.versionCount}`));
+        const status = element("span", "saved-status", "Hazırdır");
+        const open = button("Aç →", "text-button", () => openSavedStrategy(record.id));
+        row.append(main, meta, status, open);
+        list.appendChild(row);
+      });
+    };
+    search.addEventListener("input", drawRows);
+    [...filters.children].forEach((filter) => filter.addEventListener("click", () => {
+      [...filters.children].forEach((item) => item.classList.toggle("is-active", item === filter));
+    }));
+    drawRows();
+    view.append(controls, list);
   }
   workspace.appendChild(view);
 }
@@ -934,6 +1072,8 @@ async function openSavedStrategy(id) {
       status: "saved",
       brief: record.brief,
       questions: [],
+      clarificationIndex: 0,
+      clarificationDrafts: {},
       answers: record.clarification?.answers || [],
       assumptions: record.strategy.assumptions,
       strategy: record.strategy,
