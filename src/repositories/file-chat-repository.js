@@ -3,8 +3,10 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 export class FileChatRepository {
-  constructor(filePath) {
+  constructor(filePath, redis = null) {
     this.filePath = filePath;
+    this.redis = redis;
+    this.redisKey = "marketify:store:chats";
     this.writeQueue = Promise.resolve();
   }
 
@@ -18,11 +20,32 @@ export class FileChatRepository {
   }
 
   async readAll() {
+    if (this.redis?.isReady) {
+      try {
+        const raw = await this.redis.get(this.redisKey);
+        if (raw) {
+          const data = JSON.parse(raw);
+          const records = Array.isArray(data) ? data : [];
+          await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+          const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
+          await fs.writeFile(temporaryPath, `${JSON.stringify(records, null, 2)}\n`, "utf8");
+          await fs.rename(temporaryPath, this.filePath).catch(() => {});
+          return records;
+        }
+      } catch (err) {
+        console.error("Redis chat read error:", err?.message || err);
+      }
+    }
+
     await this.ensure();
     try {
       const raw = await fs.readFile(this.filePath, "utf8");
       const data = JSON.parse(raw || "[]");
-      return Array.isArray(data) ? data : [];
+      const records = Array.isArray(data) ? data : [];
+      if (this.redis?.isReady && records.length > 0) {
+        await this.redis.set(this.redisKey, JSON.stringify(records)).catch(() => {});
+      }
+      return records;
     } catch (error) {
       if (error instanceof SyntaxError) {
         console.error("Chat storage contains invalid JSON.");
@@ -38,6 +61,14 @@ export class FileChatRepository {
       const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
       await fs.writeFile(temporaryPath, `${JSON.stringify(records, null, 2)}\n`, "utf8");
       await fs.rename(temporaryPath, this.filePath);
+
+      if (this.redis?.isReady) {
+        try {
+          await this.redis.set(this.redisKey, JSON.stringify(records));
+        } catch (err) {
+          console.error("Redis chat write error:", err?.message || err);
+        }
+      }
     };
     this.writeQueue = this.writeQueue.then(operation, operation);
     return this.writeQueue;

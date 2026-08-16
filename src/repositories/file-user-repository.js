@@ -13,8 +13,10 @@ export class UserConflictError extends Error {
 }
 
 export class FileUserRepository {
-  constructor(filePath) {
+  constructor(filePath, redis = null) {
     this.filePath = filePath;
+    this.redis = redis;
+    this.redisKey = "marketify:store:users";
     this.writeQueue = Promise.resolve();
   }
 
@@ -28,10 +30,31 @@ export class FileUserRepository {
   }
 
   async readStore() {
+    if (this.redis?.isReady) {
+      try {
+        const raw = await this.redis.get(this.redisKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const store = migrateAuthUserStore(parsed);
+          await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+          const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
+          await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+          await fs.rename(temporaryPath, this.filePath).catch(() => {});
+          return store;
+        }
+      } catch (err) {
+        console.error("Redis user read error:", err?.message || err);
+      }
+    }
+
     await this.ensure();
     try {
       const raw = await fs.readFile(this.filePath, "utf8");
-      return migrateAuthUserStore(JSON.parse(raw || "{}"));
+      const store = migrateAuthUserStore(JSON.parse(raw || "{}"));
+      if (this.redis?.isReady && store.users.length > 0) {
+        await this.redis.set(this.redisKey, JSON.stringify(store)).catch(() => {});
+      }
+      return store;
     } catch (error) {
       if (error instanceof SyntaxError) throw new Error("User storage contains invalid JSON.");
       throw error;
@@ -43,6 +66,14 @@ export class FileUserRepository {
     const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
     await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
     await fs.rename(temporaryPath, this.filePath);
+
+    if (this.redis?.isReady) {
+      try {
+        await this.redis.set(this.redisKey, JSON.stringify(store));
+      } catch (err) {
+        console.error("Redis user write error:", err?.message || err);
+      }
+    }
   }
 
   enqueue(operation) {

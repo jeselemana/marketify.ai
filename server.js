@@ -139,7 +139,7 @@ const openai = process.env.OPENAI_API_KEY
   : null;
 
 // 🧠 Data qovluğu və fayllar
-const DATA_DIR = path.join(__dirname, "data");
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const KNOWLEDGE_LOG_PATH = path.join(DATA_DIR, "knowledge_log.json");
 const BASE_PATH = path.join(DATA_DIR, "marketify_base.json");
 const TRASH_PATH = path.join(DATA_DIR, "marketify_trash.json");
@@ -147,12 +147,21 @@ const STRATEGIES_PATH = path.join(DATA_DIR, "strategies.json");
 const CHATS_PATH = path.join(DATA_DIR, "chats.json");
 const USERS_PATH = path.join(DATA_DIR, "users.json");
 const AUTH_STORE_PATH = path.join(DATA_DIR, "auth-store.json");
-const strategyRepository = new FileStrategyRepository(STRATEGIES_PATH);
-const chatRepository = new FileChatRepository(CHATS_PATH);
-const userRepository = new FileUserRepository(USERS_PATH);
+const strategyRepository = new FileStrategyRepository(STRATEGIES_PATH, redis);
+const chatRepository = new FileChatRepository(CHATS_PATH, redis);
+const userRepository = new FileUserRepository(USERS_PATH, redis);
 const authStore = redis?.isReady ? new RedisAuthStore(redis) : new FileAuthStore(AUTH_STORE_PATH);
 const emailService = new PasswordResetEmailService({ dataDir: DATA_DIR });
 const adminUsernames = new Set(String(process.env.ADMIN_USERNAMES || "").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean));
+
+// Initial sync with Redis on startup
+if (redis?.isReady) {
+  Promise.allSettled([
+    userRepository.readStore(),
+    strategyRepository.readAll(),
+    chatRepository.readAll(),
+  ]).catch(() => {});
+}
 
 function requireAdmin(req, res, next) {
   if (req.user && adminUsernames.has(req.user.username)) return next();
