@@ -4776,8 +4776,8 @@ body {
 
   .mobile-header {
     display: grid;
-    height: calc(64px + env(safe-area-inset-top));
-    min-height: calc(64px + env(safe-area-inset-top));
+    height: calc(60px + env(safe-area-inset-top));
+    min-height: calc(60px + env(safe-area-inset-top));
     grid-template-columns: 44px minmax(0, 1fr) 44px;
     align-items: center;
     padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
@@ -4795,12 +4795,12 @@ body {
   }
 
   .mobile-header #mobileMenuButton span {
-    font-size: 23px;
+    font-size: 22px;
     line-height: 1;
   }
 
   .mobile-header .mobile-new {
-    font-size: 27px;
+    font-size: 26px;
     font-weight: 400;
     line-height: 1;
   }
@@ -4810,31 +4810,31 @@ body {
   }
 
   .mobile-brand strong {
-    font-size: 27px;
+    font-size: 24px;
     font-weight: 700;
     letter-spacing: -0.045em;
   }
 
   .mode-header {
-    min-height: 58px;
-    height: 58px;
+    min-height: 54px;
+    height: 54px;
     align-items: flex-start;
-    padding-top: 14px;
+    padding-top: 12px;
   }
 
   .mode-switch {
-    width: min(calc(100% - 32px), 320px);
-    height: 44px;
+    width: min(calc(100% - 32px), 288px);
+    height: 40px;
     padding: 3px;
     border: 0;
-    border-radius: 15px;
+    border-radius: 14px;
     background: #eceef2;
   }
 
   .mode-option {
     min-width: 0;
     border-radius: 12px;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 550;
     transition: background 160ms ease, box-shadow 160ms ease, color 160ms ease;
   }
@@ -4847,12 +4847,12 @@ body {
   .mode-header + .workspace,
   .workspace-ask,
   .ask-shell {
-    min-height: calc(100dvh - 122px - env(safe-area-inset-top));
+    min-height: calc(100dvh - 114px - env(safe-area-inset-top));
   }
 
   .mode-header + .workspace-centered {
     display: block;
-    min-height: calc(100dvh - 122px - env(safe-area-inset-top));
+    min-height: calc(100dvh - 114px - env(safe-area-inset-top));
     padding: 0 16px calc(14px + env(safe-area-inset-bottom));
   }
 
@@ -4867,32 +4867,32 @@ body {
   .workspace-centered .intake-intro {
     order: 1;
     width: 100%;
-    max-width: 430px;
-    margin: 48px auto 0;
+    max-width: 440px;
+    margin: 32px auto 0;
     text-align: center;
   }
 
   .workspace-centered .product-eyebrow {
-    margin-bottom: 14px;
-    font-size: 12px;
+    margin-bottom: 12px;
+    font-size: 10px;
     letter-spacing: 0.14em;
   }
 
   .workspace-centered .intake-title {
-    max-width: 390px;
+    max-width: 408px;
     margin-inline: auto;
-    font-size: clamp(38px, 11.5vw, 48px);
+    font-size: clamp(36px, 9.5vw, 42px);
     font-weight: 700;
     letter-spacing: -0.048em;
     line-height: 1.01;
-    text-wrap: balance;
+    text-wrap: wrap;
   }
 
   .workspace-centered .intake-description {
     max-width: 340px;
-    margin: 15px auto 0;
+    margin: 13px auto 0;
     color: rgba(70, 78, 94, 0.82);
-    font-size: 17px;
+    font-size: 15.5px;
     line-height: 1.45;
     text-align: center;
   }
@@ -4913,7 +4913,7 @@ body {
     order: 2;
     width: 100%;
     max-width: 100%;
-    margin: clamp(28px, 5dvh, 44px) 0 0;
+    margin: clamp(24px, 4dvh, 34px) 0 0;
     padding: 0 16px 2px 0;
   }
 
@@ -4928,16 +4928,16 @@ body {
 
   .workspace-centered .example-chip,
   .ask-suggestion {
-    height: 42px;
-    min-height: 42px;
+    height: 38px;
+    min-height: 38px;
     flex: 0 0 auto;
-    padding: 0 16px;
+    padding: 0 14px;
     border: 1px solid rgba(20, 27, 42, 0.09);
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.78);
     box-shadow: 0 4px 14px rgba(31, 41, 55, 0.035);
     color: rgba(48, 56, 70, 0.78);
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 500;
     scroll-snap-align: start;
     white-space: nowrap;
@@ -4958,7 +4958,7 @@ body {
     grid-template-columns: 44px minmax(0, 1fr) 48px;
     align-items: end;
     gap: 8px;
-    margin-top: 26px;
+    margin-top: 22px;
     padding: 8px 8px 8px 10px;
     overflow: hidden;
     border-radius: 22px;
@@ -5042,7 +5042,7 @@ body {
     width: 100%;
     max-width: 100%;
     min-height: 0;
-    padding: 48px 0 0;
+    padding: 32px 0 0;
   }
 
   .ask-intro {
@@ -5050,19 +5050,19 @@ body {
   }
 
   .ask-title {
-    max-width: 390px;
+    max-width: 408px;
     margin-inline: auto;
-    font-size: clamp(38px, 11.5vw, 48px);
+    font-size: clamp(36px, 9.5vw, 42px);
     font-weight: 700;
     line-height: 1.01;
-    text-wrap: balance;
+    text-wrap: wrap;
   }
 
   .ask-subtitle {
     max-width: 340px;
-    margin-top: 15px;
+    margin-top: 13px;
     color: rgba(70, 78, 94, 0.82);
-    font-size: 17px;
+    font-size: 15.5px;
     line-height: 1.45;
   }
 
@@ -5071,7 +5071,7 @@ body {
     position: relative;
     width: 100%;
     max-width: 100%;
-    margin: clamp(28px, 5dvh, 44px) 0 0;
+    margin: clamp(24px, 4dvh, 34px) 0 0;
     padding: 0 0 calc(12px + env(safe-area-inset-bottom));
     background: transparent;
   }
@@ -5086,7 +5086,7 @@ body {
   .ask-suggestions {
     width: 100%;
     max-width: 100%;
-    margin: 0 0 26px;
+    margin: 0 0 22px;
     padding: 0 16px 2px 0;
   }
 
@@ -5156,12 +5156,12 @@ body {
   .ask-thread,
   .ask-shell.is-empty .ask-thread {
     padding-top: 0;
-    margin-top: 42px;
+    margin-top: 28px;
   }
 
   .workspace-centered .intake-title,
   .ask-title {
-    font-size: clamp(40px, 10.8vw, 44px);
+    font-size: clamp(35px, 9.5vw, 40px);
   }
 }
 
@@ -5172,7 +5172,7 @@ body {
   }
 
   .mode-switch {
-    width: min(calc(100% - 28px), 320px);
+    width: min(calc(100% - 28px), 288px);
   }
 
   .mode-header + .workspace-centered,
@@ -5184,17 +5184,17 @@ body {
   .workspace-centered .intake-intro,
   .ask-thread,
   .ask-shell.is-empty .ask-thread {
-    margin-top: 36px;
+    margin-top: 24px;
   }
 
   .workspace-centered .intake-title,
   .ask-title {
-    font-size: clamp(38px, 11vw, 43px);
+    font-size: clamp(35px, 9.3vw, 38px);
   }
 
   .workspace-centered .intake-description,
   .ask-subtitle {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .workspace-centered .examples,

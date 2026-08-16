@@ -302,7 +302,9 @@ function renderIntake() {
   textarea.name = "brief";
   textarea.rows = 1;
   textarea.maxLength = 8000;
-  textarea.placeholder = "Biznes məqsədini və ya həll etmək istədiyin problemi yaz…";
+  textarea.placeholder = window.innerWidth <= 767
+    ? "Məqsədini və ya problemi yaz…"
+    : "Biznes məqsədini və ya həll etmək istədiyin problemi yaz…";
   textarea.value = state.brief;
   const footer = element("div", "composer-footer");
   const composerTools = element("div", "composer-tools");
@@ -380,7 +382,7 @@ function renderIntake() {
   if (banner) view.appendChild(banner);
   view.append(intro, form, examples);
   workspace.appendChild(view);
-  setTimeout(() => textarea.focus(), 0);
+  if (window.innerWidth > 767) setTimeout(() => textarea.focus(), 0);
 }
 
 function appendAskInline(parent, value) {
@@ -727,7 +729,7 @@ function renderAsk() {
 
   requestAnimationFrame(() => {
     if (state.askMessages.length) composerArea.scrollIntoView({ block: "end" });
-    if (!state.askLoading) input.focus();
+    if (!state.askLoading && window.innerWidth > 767) input.focus();
   });
 }
 
