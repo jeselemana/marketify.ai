@@ -8,6 +8,7 @@ import { hashOpaqueToken, hashPassword, verifyPassword } from "../src/auth/passw
 import { FileAuthStore } from "../src/auth/auth-store.js";
 import { SignupSchema, normalizeEmail, normalizeUsername } from "../src/auth/validation.js";
 import { createIdentityMiddleware, requireAuth } from "../src/http/auth-middleware.js";
+import { guestSession } from "../src/http/session.js";
 import { authErrorHandler, createAuthRouter } from "../src/http/auth-router.js";
 import { migrateAuthUserStore } from "../src/repositories/auth-store-migrations.js";
 import { FileUserRepository } from "../src/repositories/file-user-repository.js";
@@ -40,6 +41,25 @@ test("user store migration and uniqueness are deterministic", async (t) => {
     repository.create({ fullName: "Other", username: "other", email: "test@EXAMPLE.com", passwordHash }),
     (error) => error.code === "USER_CONFLICT" && error.field === "email",
   );
+});
+
+test("guest session creates a stable anonymous workspace owner", async (t) => {
+  const app = express();
+  app.use(guestSession);
+  app.get("/workspace", (req, res) => res.json({ ownerId: req.ownerId }));
+  const server = app.listen(0, "127.0.0.1");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const first = await fetch(`${base}/workspace`);
+  assert.equal(first.status, 200);
+  const firstOwner = (await first.json()).ownerId;
+  assert.match(firstOwner, /^guest_[0-9a-f-]{36}$/i);
+  const cookie = first.headers.get("set-cookie").split(";")[0];
+
+  const returning = await fetch(`${base}/workspace`, { headers: { Cookie: cookie } });
+  assert.equal((await returning.json()).ownerId, firstOwner);
 });
 
 test("signup, session, login, reset, and single-use reset token work end to end", async (t) => {

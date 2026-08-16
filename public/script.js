@@ -1461,6 +1461,12 @@ function renderRecentList() {
 
 function updateWorkspaceIdentity(user) {
   state.currentUser = user;
+  if (!user) {
+    workspaceAvatar.textContent = "M";
+    workspaceName.textContent = "Marketify workspace";
+    workspaceMeta.textContent = "Hesabsız istifadə · hesab yaratmaq tövsiyə olunur";
+    return;
+  }
   const initials = user.fullName
     .split(/\s+/)
     .filter(Boolean)
@@ -1499,7 +1505,23 @@ function renderSettings() {
   workspace.replaceChildren();
   const view = element("section", "settings-view");
   const header = element("header", "settings-header");
-  header.append(element("span", "section-kicker", "WORKSPACE"), element("h1", "", "Parametrlər"), element("p", "", "Hesab məlumatlarını və giriş təhlükəsizliyini idarə et."));
+  header.append(element("span", "section-kicker", "WORKSPACE"), element("h1", "", state.currentUser ? "Parametrlər" : "Gedişatını qoruyun"), element("p", "", state.currentUser ? "Hesab məlumatlarını və giriş təhlükəsizliyini idarə et." : "Hesabsız istifadə edə bilərsən. Hesab yaratdıqda bu cihazdakı strategiyaların profilinə köçürüləcək və başqa cihazlardan da əlçatan olacaq."));
+  if (!state.currentUser) {
+    const panel = element("section", "settings-panel guest-account-panel");
+    panel.append(
+      element("h2", "", "Hesab məcburi deyil"),
+      element("p", "settings-panel-intro", "Hazırkı işlərin bu brauzerdə saxlanılır. Cihaz dəyişdikdə itirməmək üçün pulsuz hesab yaratmağı tövsiyə edirik."),
+    );
+    const actions = element("div", "guest-account-actions");
+    actions.append(
+      button("Hesab yarat", "primary-button", () => { window.location.href = "/signup?returnTo=/"; }),
+      button("Daxil ol", "secondary-button", () => { window.location.href = "/login?returnTo=/"; }),
+    );
+    panel.appendChild(actions);
+    view.append(header, panel);
+    workspace.appendChild(view);
+    return;
+  }
   const tabs = element("div", "settings-tabs");
   const accountTab = button("Hesab", `settings-tab${state.settingsTab === "account" ? " is-active" : ""}`, () => {
     state.settingsTab = "account";

@@ -10,6 +10,7 @@ import { FileUserRepository } from "./src/repositories/file-user-repository.js";
 import { FileAuthStore, RedisAuthStore } from "./src/auth/auth-store.js";
 import { PasswordResetEmailService } from "./src/auth/email-service.js";
 import { createIdentityMiddleware, requireAuth } from "./src/http/auth-middleware.js";
+import { guestSession } from "./src/http/session.js";
 import { authErrorHandler, createAuthRouter } from "./src/http/auth-router.js";
 import {
   createStrategyRouter,
@@ -155,6 +156,7 @@ function requireAdmin(req, res, next) {
   return res.status(404).json({ error: "Yol tapılmadı.", code: "NOT_FOUND" });
 }
 
+app.use(guestSession);
 app.use(createIdentityMiddleware({ authStore, userRepository }));
 app.use("/api/auth", createAuthRouter({
   userRepository,
@@ -164,7 +166,7 @@ app.use("/api/auth", createAuthRouter({
   appUrl: APP_URL,
 }));
 
-app.use("/api/strategy", requireAuth, createStrategyRouter(strategyRepository));
+app.use("/api/strategy", createStrategyRouter(strategyRepository));
 
 const ASK_MODEL = aiConfig.askModel;
 const ASK_INSTRUCTIONS = `You are Marketify Ask, a precise and helpful AI assistant inside the Marketify workspace.
@@ -176,7 +178,7 @@ function askSafetyIdentifier(ownerId) {
   return createHash("sha256").update(ownerId).digest("hex").slice(0, 32);
 }
 
-app.post("/api/ask", requireAuth, async (req, res) => {
+app.post("/api/ask", async (req, res) => {
   try {
     if (!openai) {
       return res.status(503).json({ error: "AI xidməti hələ konfiqurasiya edilməyib." });
@@ -528,7 +530,7 @@ function learnFromGPT(userMessage, gptReply, intent) {
 const conversationHistoryByOwner = new Map();
 
 // 🧠 CHAT ENDPOINT
-app.post("/api/chat", requireAuth, async (req, res) => {
+app.post("/api/chat", async (req, res) => {
   try {
     if (!openai) {
       return res.status(503).json({
@@ -945,7 +947,7 @@ Məqsəd: qısa, aydın və yüksək səviyyəli analitik cavab verməkdir.
 });
 
 // 💡 Söhbəti sıfırlama (Clear düyməsi üçün)
-app.post("/api/clear", requireAuth, (req, res) => {
+app.post("/api/clear", (req, res) => {
   conversationHistoryByOwner.delete(req.ownerId);
   res.json({ ok: true });
 });

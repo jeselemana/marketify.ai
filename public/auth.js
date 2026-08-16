@@ -121,6 +121,23 @@ function linkButton(label, path) {
 
 let authenticatedCallback = null;
 
+async function enterGuestWorkspace() {
+  authRoot.hidden = true;
+  appShell.hidden = false;
+  document.body.classList.remove("auth-loading", "auth-active");
+  route(pendingReturnPath, true);
+  await authenticatedCallback?.(null);
+}
+
+function guestAccessButton(label = "Hesabsız davam et") {
+  const guest = document.createElement("button");
+  guest.type = "button";
+  guest.className = "auth-guest-button";
+  guest.innerHTML = `<strong>${escapeHtml(label)}</strong><span>Strategiyalar bu cihazda saxlanacaq</span>`;
+  guest.addEventListener("click", enterGuestWorkspace);
+  return guest;
+}
+
 async function completeAuthentication(user) {
   if (!user.onboardingCompleted) return renderOnboarding(user);
   authRoot.hidden = true;
@@ -145,7 +162,7 @@ function renderLogin() {
   const switcher = document.createElement("p");
   switcher.className = "auth-switch";
   switcher.append("Hesabın yoxdur? ", linkButton("Pulsuz hesab yarat", "/signup"));
-  form.append(switcher);
+  form.append(switcher, guestAccessButton());
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     setFormError(form, "");
@@ -199,7 +216,7 @@ function renderSignup() {
   const switcher = document.createElement("p");
   switcher.className = "auth-switch";
   switcher.append("Artıq hesabın var? ", linkButton("Daxil ol", "/login"));
-  form.append(terms, switcher);
+  form.append(terms, switcher, guestAccessButton("İndi hesab yaratmadan davam et"));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     setFormError(form, "");
@@ -342,11 +359,15 @@ export async function initializeAuthentication(onAuthenticated) {
     route(`/login?returnTo=${encodeURIComponent(pendingReturnPath)}`, true);
     renderRoute();
   });
+  if (AUTH_PATHS.has(location.pathname)) {
+    renderRoute();
+    return;
+  }
   try {
     const data = await request("/api/auth/me");
     await completeAuthentication(data.user);
   } catch {
-    renderRoute();
+    await enterGuestWorkspace();
   }
 }
 
