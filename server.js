@@ -81,6 +81,23 @@ if (process.env.NODE_ENV !== "production") {
   trustedOrigins.add(`http://127.0.0.1:${APP_PORT}`);
 }
 
+function normalizeOrigin(value) {
+  return String(value || "").trim().replace(/\/$/, "");
+}
+
+function currentRequestOrigin(req) {
+  const protocol = String(req.get("X-Forwarded-Proto") || req.protocol || "http").split(",")[0].trim();
+  const host = String(req.get("X-Forwarded-Host") || req.get("Host") || "").split(",")[0].trim();
+  return host ? `${protocol}://${host}` : "";
+}
+
+function isTrustedRequestOrigin(req, origin) {
+  const normalized = normalizeOrigin(origin);
+  return Boolean(normalized) && (
+    normalized === normalizeOrigin(currentRequestOrigin(req)) || trustedOrigins.has(normalized)
+  );
+}
+
 app.use((req, res, next) => {
   res.set({
     "X-Content-Type-Options": "nosniff",
@@ -92,14 +109,16 @@ app.use((req, res, next) => {
   });
   next();
 });
-app.use(cors({
-  credentials: true,
-  origin(origin, callback) {
-    if (!origin || trustedOrigins.has(origin.replace(/\/$/, ""))) return callback(null, true);
+app.use(cors((req, callback) => {
+  const origin = req.get("Origin");
+  if (!origin || isTrustedRequestOrigin(req, origin)) {
+    return callback(null, { credentials: true, origin: origin || false });
+  }
+  {
     const error = new Error("Origin is not allowed.");
     error.code = "ORIGIN_NOT_ALLOWED";
     return callback(error);
-  },
+  }
 }));
 app.use(express.json({ limit: "1mb" }));
 app.use((req, res, next) => {
@@ -107,7 +126,7 @@ app.use((req, res, next) => {
   const source = req.get("Origin") || (() => {
     try { return new URL(req.get("Referer")).origin; } catch { return ""; }
   })();
-  if (source && trustedOrigins.has(source.replace(/\/$/, ""))) return next();
+  if (source && isTrustedRequestOrigin(req, source)) return next();
   if (!source && process.env.NODE_ENV !== "production") return next();
   return res.status(403).json({ error: "Sorğunun mənbəyi təsdiqlənmədi.", code: "CSRF_ORIGIN_REJECTED" });
 });
