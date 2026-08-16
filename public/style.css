@@ -4894,6 +4894,202 @@ body {
   .settings-signout { align-items: flex-start; flex-direction: column; }
 }
 
+/* Mobile strategy intake: compact command surface with bottom-weighted actions. */
+@media (max-width: 640px) {
+  .mobile-header {
+    display: grid;
+    min-height: 68px;
+    grid-template-columns: 48px minmax(0, 1fr) 48px;
+    justify-content: initial;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-bottom: 8px;
+    padding-left: max(14px, env(safe-area-inset-left));
+  }
+
+  .mobile-header .icon-button,
+  .mobile-header .mobile-new {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+  }
+
+  .mobile-header #mobileMenuButton span {
+    font-size: 25px;
+    line-height: 1;
+  }
+
+  .mobile-header .mobile-new {
+    font-size: 31px;
+    font-weight: 400;
+    line-height: 1;
+  }
+
+  .mobile-brand {
+    justify-self: center;
+  }
+
+  .mobile-brand strong {
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+  }
+
+  .mobile-brand .brand-mark {
+    display: none;
+  }
+
+  .mode-header + .workspace-centered {
+    min-height: calc(100svh - 122px);
+    padding: 20px 16px max(18px, env(safe-area-inset-bottom));
+  }
+
+  .workspace-centered .intake-view {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100svh - 173px - env(safe-area-inset-bottom));
+    width: 100%;
+  }
+
+  .workspace-centered .intake-intro {
+    order: 1;
+    margin: clamp(48px, 9vh, 84px) auto 0;
+    text-align: center;
+  }
+
+  .workspace-centered .intake-title,
+  .workspace-centered .intake-description {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+  }
+
+  .workspace-centered .intake-title {
+    max-width: 350px;
+    font-size: clamp(30px, 9vw, 36px);
+    line-height: 1.06;
+  }
+
+  .workspace-centered .intake-description {
+    max-width: 330px;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .workspace-centered .examples {
+    order: 2;
+    width: calc(100% + 16px);
+    margin: auto -16px 0 0;
+    padding: 34px 16px 2px 0;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .workspace-centered .examples::-webkit-scrollbar {
+    display: none;
+  }
+
+  .workspace-centered .examples-label {
+    display: none;
+  }
+
+  .workspace-centered .example-chip {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border-color: rgba(17, 24, 39, 0.09);
+    background: rgba(255, 255, 255, 0.82);
+    color: rgba(17, 24, 39, 0.76);
+    box-shadow: 0 5px 18px rgba(17, 24, 39, 0.045);
+    font-size: 12.5px;
+    font-weight: 500;
+    scroll-snap-align: start;
+  }
+
+  .workspace-centered .example-chip:active {
+    transform: translateY(1px);
+  }
+
+  .workspace-centered .composer-card {
+    order: 3;
+    position: relative;
+    isolation: isolate;
+    min-height: 60px;
+    margin-top: 10px;
+    overflow: visible;
+    border-radius: 18px;
+    box-shadow: 0 12px 34px rgba(17, 24, 39, 0.09);
+  }
+
+  .workspace-centered .composer-card::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: -46px -8px -24px;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse at 50% 74%,
+      rgba(79, 110, 232, 0.13) 0%,
+      rgba(108, 130, 219, 0.055) 40%,
+      transparent 72%
+    );
+  }
+
+  .workspace-centered .composer-input {
+    height: 58px;
+    min-height: 58px;
+    max-height: 128px;
+    padding: 18px 58px 14px 52px;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .workspace-centered .composer-footer {
+    position: absolute;
+    inset: 7px;
+    z-index: 2;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0;
+    pointer-events: none;
+  }
+
+  .workspace-centered .composer-tools,
+  .workspace-centered .composer-submit {
+    pointer-events: auto;
+  }
+
+  .workspace-centered .composer-tool {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background: transparent;
+  }
+
+  .workspace-centered .composer-submit {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 13px;
+    font-size: 0;
+  }
+
+  .workspace-centered .composer-submit .button-arrow {
+    font-size: 20px;
+  }
+
+  .workspace-centered .composer-hint {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
