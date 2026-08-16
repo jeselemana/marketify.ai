@@ -8,5 +8,7 @@ data/auth-store.json
 data/auth-store.json.*.tmp
 data/chats.json
 data/chats.json.*.tmp
+data/planner.json
+data/planner.json.*.tmp
 data/email-outbox.json
 data/*.tmp

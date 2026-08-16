@@ -8,14 +8,17 @@ const mobileMenuButton = document.querySelector("#mobileMenuButton");
 const railMenuButton = document.querySelector("#railMenuButton");
 const railHomeButton = document.querySelector("#railHomeButton");
 const railStrategiesButton = document.querySelector("#railStrategiesButton");
+const railPlannerButton = document.querySelector("#railPlannerButton");
 const sidebarClose = document.querySelector("#sidebarClose");
 const newStrategyButton = document.querySelector("#newStrategyButton");
 const sidebarLabel = document.querySelector(".sidebar-label");
 const toastRegion = document.querySelector("#toastRegion");
 const recentList = document.querySelector("#recentList");
 const strategyCount = document.querySelector("#strategyCount");
+const plannerCount = document.querySelector("#plannerCount");
 const homeNav = document.querySelector("#homeNav");
 const strategiesNav = document.querySelector("#strategiesNav");
+const plannerNav = document.querySelector("#plannerNav");
 const settingsNav = document.querySelector("#settingsNav");
 const accountButton = document.querySelector("#accountButton");
 const workspaceAvatar = document.querySelector("#workspaceAvatar");
@@ -66,6 +69,8 @@ const state = {
   changeSummary: "",
   askChatId: null,
   savedChats: [],
+  plannerTasks: [],
+  plannerFilter: "all",
   askMessages: [],
   askLoading: false,
   askError: "",
@@ -259,11 +264,13 @@ function closeSidebar() {
 
 function syncNav() {
   const isBuild = state.mode === "build";
-  homeNav.classList.toggle("is-active", isBuild ? !["list", "settings"].includes(state.view) : state.view !== "settings");
+  homeNav.classList.toggle("is-active", isBuild ? !["list", "settings", "planner"].includes(state.view) : state.view !== "settings");
   strategiesNav.classList.toggle("is-active", isBuild && state.view === "list");
+  plannerNav?.classList.toggle("is-active", isBuild && state.view === "planner");
   settingsNav.classList.toggle("is-active", state.view === "settings");
-  railHomeButton.classList.toggle("is-active", isBuild ? !["list", "settings"].includes(state.view) : state.view !== "settings");
+  railHomeButton.classList.toggle("is-active", isBuild ? !["list", "settings", "planner"].includes(state.view) : state.view !== "settings");
   railStrategiesButton.classList.toggle("is-active", isBuild && state.view === "list");
+  railPlannerButton?.classList.toggle("is-active", isBuild && state.view === "planner");
 
   const homeLabel = homeNav.querySelector("span");
   if (homeLabel) {
@@ -353,6 +360,7 @@ function render() {
   workspace.className = "workspace";
 
   if (state.view === "settings") return renderSettings();
+  if (state.view === "planner") return renderPlannerView();
   if (state.mode === "ask") return renderAsk();
   if (state.view === "list") return renderStrategyList();
   if (["analyzing", "generating"].includes(state.status)) return renderLoading();
@@ -1411,7 +1419,50 @@ function buildBlogView(strategy) {
   // 06. NÖVBƏTİ ADDIMLAR (Checklist)
   const closeout = element("section", "strategy-work-section next-actions-section");
   closeout.id = "next";
-  closeout.appendChild(createSectionHeading("06. NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addım-addım tapşırıqlar"));
+  const headingWrapper = element("div", "section-heading-with-action");
+  headingWrapper.appendChild(createSectionHeading("06. NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addım-addım tapşırıqlar"));
+
+  const addAllToPlannerButton = button("✦ Planlaşdırılanlara əlavə et", "add-to-planner-btn", async () => {
+    addAllToPlannerButton.disabled = true;
+    addAllToPlannerButton.textContent = "Əlavə edilir…";
+    try {
+      const itemsToBatch = [];
+      const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+      const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
+      groupLabels.forEach((label, groupIndex) => {
+        const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
+        items.forEach((item) => {
+          itemsToBatch.push({
+            text: item,
+            groupLabel: label,
+            strategyId: state.savedId || null,
+            strategyTitle: strategy.title || "Strategiya",
+          });
+        });
+      });
+
+      const res = await authRequest("/api/planner/batch", {
+        method: "POST",
+        body: JSON.stringify({ tasks: itemsToBatch }),
+      });
+      state.plannerTasks = Array.isArray(res.tasks) ? res.tasks : state.plannerTasks;
+      updatePlannerBadge();
+      showToast(`${res.added?.length || itemsToBatch.length} tapşırıq Planlaşdırılanlara əlavə edildi ✓`, "success");
+      addAllToPlannerButton.textContent = "✓ Əlavə edildi";
+      setTimeout(() => {
+        addAllToPlannerButton.disabled = false;
+        addAllToPlannerButton.textContent = "✦ Planlaşdırılanlara əlavə et";
+      }, 2500);
+    } catch (err) {
+      showToast(err.message || "Xəta baş verdi", "error");
+      addAllToPlannerButton.disabled = false;
+      addAllToPlannerButton.textContent = "✦ Planlaşdırılanlara əlavə et";
+    }
+  });
+
+  headingWrapper.appendChild(addAllToPlannerButton);
+  closeout.appendChild(headingWrapper);
+
   const checklistGrid = element("div", "action-checklist-grid");
   const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
   const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
@@ -1427,7 +1478,36 @@ function buildBlogView(strategy) {
       checkbox.type = "checkbox";
       checkbox.dataset.key = `${groupIndex}-${itemIndex}`;
       const span = element("span", "checklist-item-text", item);
-      checkboxLabel.append(checkbox, span);
+
+      const singleAddBtn = button("+ Planlaşdır", "item-plan-btn", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        singleAddBtn.disabled = true;
+        singleAddBtn.textContent = "…";
+        try {
+          const res = await authRequest("/api/planner", {
+            method: "POST",
+            body: JSON.stringify({
+              text: item,
+              groupLabel: label,
+              strategyId: state.savedId || null,
+              strategyTitle: strategy.title || "Strategiya",
+            }),
+          });
+          if (res.task) {
+            state.plannerTasks = [res.task, ...state.plannerTasks.filter((t) => t.id !== res.task.id)];
+            updatePlannerBadge();
+            showToast("Tapşırıq Planlaşdırılanlara əlavə edildi ✓", "success");
+            singleAddBtn.textContent = "✓";
+          }
+        } catch (err) {
+          showToast(err.message || "Xəta baş verdi", "error");
+          singleAddBtn.textContent = "+ Planlaşdır";
+          singleAddBtn.disabled = false;
+        }
+      });
+
+      checkboxLabel.append(checkbox, span, singleAddBtn);
       itemsList.appendChild(checkboxLabel);
     });
     groupCard.appendChild(itemsList);
@@ -1769,7 +1849,50 @@ function buildRoadmapView(strategy) {
   // Next Steps Checklist
   const closeout = element("section", "strategy-work-section next-actions-section");
   closeout.id = "next";
-  closeout.appendChild(createSectionHeading("NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addımlar"));
+  const headingWrapper = element("div", "section-heading-with-action");
+  headingWrapper.appendChild(createSectionHeading("NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addımlar"));
+
+  const addAllToPlannerButton = button("✦ Planlaşdırılanlara əlavə et", "add-to-planner-btn", async () => {
+    addAllToPlannerButton.disabled = true;
+    addAllToPlannerButton.textContent = "Əlavə edilir…";
+    try {
+      const itemsToBatch = [];
+      const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+      const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
+      groupLabels.forEach((label, groupIndex) => {
+        const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
+        items.forEach((item) => {
+          itemsToBatch.push({
+            text: item,
+            groupLabel: label,
+            strategyId: state.savedId || null,
+            strategyTitle: strategy.title || "Strategiya",
+          });
+        });
+      });
+
+      const res = await authRequest("/api/planner/batch", {
+        method: "POST",
+        body: JSON.stringify({ tasks: itemsToBatch }),
+      });
+      state.plannerTasks = Array.isArray(res.tasks) ? res.tasks : state.plannerTasks;
+      updatePlannerBadge();
+      showToast(`${res.added?.length || itemsToBatch.length} tapşırıq Planlaşdırılanlara əlavə edildi ✓`, "success");
+      addAllToPlannerButton.textContent = "✓ Əlavə edildi";
+      setTimeout(() => {
+        addAllToPlannerButton.disabled = false;
+        addAllToPlannerButton.textContent = "✦ Planlaşdırılanlara əlavə et";
+      }, 2500);
+    } catch (err) {
+      showToast(err.message || "Xəta baş verdi", "error");
+      addAllToPlannerButton.disabled = false;
+      addAllToPlannerButton.textContent = "✦ Planlaşdırılanlara əlavə et";
+    }
+  });
+
+  headingWrapper.appendChild(addAllToPlannerButton);
+  closeout.appendChild(headingWrapper);
+
   const checklistGrid = element("div", "action-checklist-grid");
   const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
   const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
@@ -1784,7 +1907,37 @@ function buildRoadmapView(strategy) {
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.dataset.key = `roadmap-${groupIndex}-${itemIndex}`;
-      checkboxLabel.append(checkbox, element("span", "checklist-item-text", item));
+      const span = element("span", "checklist-item-text", item);
+
+      const singleAddBtn = button("+ Planlaşdır", "item-plan-btn", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        singleAddBtn.disabled = true;
+        singleAddBtn.textContent = "…";
+        try {
+          const res = await authRequest("/api/planner", {
+            method: "POST",
+            body: JSON.stringify({
+              text: item,
+              groupLabel: label,
+              strategyId: state.savedId || null,
+              strategyTitle: strategy.title || "Strategiya",
+            }),
+          });
+          if (res.task) {
+            state.plannerTasks = [res.task, ...state.plannerTasks.filter((t) => t.id !== res.task.id)];
+            updatePlannerBadge();
+            showToast("Tapşırıq Planlaşdırılanlara əlavə edildi ✓", "success");
+            singleAddBtn.textContent = "✓";
+          }
+        } catch (err) {
+          showToast(err.message || "Xəta baş verdi", "error");
+          singleAddBtn.textContent = "+ Planlaşdır";
+          singleAddBtn.disabled = false;
+        }
+      });
+
+      checkboxLabel.append(checkbox, span, singleAddBtn);
       itemsList.appendChild(checkboxLabel);
     });
     groupCard.appendChild(itemsList);
@@ -2484,6 +2637,265 @@ async function openSavedStrategy(id) {
   }
 }
 
+async function loadPlannerTasks() {
+  try {
+    const data = await authRequest("/api/planner");
+    state.plannerTasks = Array.isArray(data.tasks) ? data.tasks : [];
+    updatePlannerBadge();
+    if (state.view === "planner") render();
+  } catch (error) {
+    console.error("Failed to load planner tasks:", error);
+  }
+}
+
+function updatePlannerBadge() {
+  if (plannerCount) {
+    const activeCount = state.plannerTasks.filter((t) => !t.completed).length;
+    plannerCount.textContent = String(activeCount);
+  }
+}
+
+function renderPlannerView() {
+  workspace.classList.add("workspace-list");
+  workspace.replaceChildren();
+
+  const view = element("section", "planner-view");
+  const heading = element("div", "list-heading");
+  const copy = element("div");
+  copy.append(
+    element("span", "section-kicker", "WORKSPACE"),
+    element("h1", "", "Planlaşdırılanlar"),
+    element("p", "", "Strategiyalardan əlavə etdiyin və şəxsi tapşırıqlarının icra planı.")
+  );
+  heading.appendChild(copy);
+  view.appendChild(heading);
+
+  // Quick Add Composer
+  const composer = element("form", "planner-quick-add");
+  const taskInput = element("input", "planner-input");
+  taskInput.type = "text";
+  taskInput.placeholder = "Yeni tapşırıq yaz və əlavə et…";
+  taskInput.required = true;
+
+  const groupSelect = document.createElement("select");
+  groupSelect.className = "planner-select";
+  ["Bu gün", "Növbəti 48 saat", "Bu həftə", "Ümumi"].forEach((opt) => {
+    const option = document.createElement("option");
+    option.value = opt;
+    option.textContent = opt;
+    groupSelect.appendChild(option);
+  });
+
+  const submitBtn = button("＋ Əlavə et", "primary-button");
+  submitBtn.type = "submit";
+
+  composer.append(taskInput, groupSelect, submitBtn);
+  composer.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = taskInput.value.trim();
+    if (!text) return;
+    submitBtn.disabled = true;
+    try {
+      const res = await authRequest("/api/planner", {
+        method: "POST",
+        body: JSON.stringify({
+          text,
+          groupLabel: groupSelect.value,
+        }),
+      });
+      if (res.task) {
+        state.plannerTasks.unshift(res.task);
+        updatePlannerBadge();
+        taskInput.value = "";
+        drawPlannerList();
+        showToast("Tapşırıq əlavə edildi ✓", "success");
+      }
+    } catch (err) {
+      showToast(err.message || "Xəta baş verdi", "error");
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+  view.appendChild(composer);
+
+  // Filter & Search Controls
+  const controls = element("div", "library-controls");
+  const search = element("input", "library-search");
+  search.type = "search";
+  search.placeholder = "Tapşırıqlarda axtar…";
+  search.setAttribute("aria-label", "Tapşırıqlarda axtar");
+
+  const filters = element("div", "library-filters");
+  const filterOptions = [
+    { key: "all", label: "Hamısı" },
+    { key: "active", label: "Aktiv" },
+    { key: "completed", label: "Tamamlanmış" },
+  ];
+  filterOptions.forEach((opt) => {
+    const btn = button(opt.label, `library-filter${state.plannerFilter === opt.key ? " is-active" : ""}`, () => {
+      state.plannerFilter = opt.key;
+      [...filters.children].forEach((b) => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+      drawPlannerList();
+    });
+    filters.appendChild(btn);
+  });
+
+  const clearBtn = button("Tamamlanmışları təmizlə", "text-button clear-completed-btn", async () => {
+    const completedCount = state.plannerTasks.filter((t) => t.completed).length;
+    if (!completedCount) {
+      showToast("Tamamlanmış tapşırıq yoxdur", "info");
+      return;
+    }
+    try {
+      await authRequest("/api/planner/completed", { method: "DELETE" });
+      state.plannerTasks = state.plannerTasks.filter((t) => !t.completed);
+      updatePlannerBadge();
+      drawPlannerList();
+      showToast("Tamamlanmış tapşırıqlar təmizləndi ✓", "success");
+    } catch (err) {
+      showToast(err.message || "Xəta baş verdi", "error");
+    }
+  });
+
+  controls.append(search, filters, clearBtn);
+  view.appendChild(controls);
+
+  const listContainer = element("div", "planner-tasks-container");
+  view.appendChild(listContainer);
+
+  const drawPlannerList = () => {
+    const query = search.value.trim().toLocaleLowerCase("az");
+    let tasks = state.plannerTasks;
+
+    if (state.plannerFilter === "active") tasks = tasks.filter((t) => !t.completed);
+    else if (state.plannerFilter === "completed") tasks = tasks.filter((t) => t.completed);
+
+    if (query) {
+      tasks = tasks.filter((t) =>
+        t.text.toLocaleLowerCase("az").includes(query) ||
+        (t.strategyTitle && t.strategyTitle.toLocaleLowerCase("az").includes(query)) ||
+        (t.groupLabel && t.groupLabel.toLocaleLowerCase("az").includes(query))
+      );
+    }
+
+    listContainer.replaceChildren();
+
+    if (!tasks.length) {
+      const empty = element("div", "empty-state");
+      empty.append(
+        element("span", "empty-icon", "✓"),
+        element("h2", "", state.plannerTasks.length ? "Bu filtrə uyğun tapşırıq tapılmadı" : "Planlaşdırılan tapşırıq yoxdur"),
+        element("p", "", "Strategiyaların 'Növbəti addımlar' bölməsindən bir kliklə tapşırıq əlavə edə və ya yuxarıdan yeni tapşırıq yaza bilərsən.")
+      );
+      listContainer.appendChild(empty);
+      return;
+    }
+
+    // Group by groupLabel
+    const groupOrder = ["Bu gün", "Növbəti 48 saat", "Bu həftə", "Ümumi"];
+    const groups = {};
+    tasks.forEach((task) => {
+      const g = task.groupLabel || "Ümumi";
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(task);
+    });
+
+    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+      const ia = groupOrder.indexOf(a);
+      const ib = groupOrder.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+
+    sortedGroupNames.forEach((groupName) => {
+      const groupTasks = groups[groupName];
+      if (!groupTasks.length) return;
+
+      const groupEl = element("div", "planner-group");
+      const groupHeader = element("div", "planner-group-header");
+      const activeCount = groupTasks.filter((t) => !t.completed).length;
+      groupHeader.append(
+        element("h3", "planner-group-name", groupName),
+        element("span", "planner-group-badge", `${activeCount} aktiv / ${groupTasks.length}`)
+      );
+      groupEl.appendChild(groupHeader);
+
+      const taskList = element("div", "planner-task-list");
+      groupTasks.forEach((task) => {
+        const row = element("div", `planner-task-row${task.completed ? " is-done" : ""}`);
+
+        const checkWrap = element("label", "planner-check-wrap");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = Boolean(task.completed);
+        checkbox.addEventListener("change", async () => {
+          task.completed = checkbox.checked;
+          row.classList.toggle("is-done", task.completed);
+          updatePlannerBadge();
+          try {
+            await authRequest(`/api/planner/${task.id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ completed: task.completed }),
+            });
+          } catch (err) {
+            checkbox.checked = !task.completed;
+            task.completed = checkbox.checked;
+            row.classList.toggle("is-done", task.completed);
+            updatePlannerBadge();
+            showToast(err.message || "Yeniləmək mümkün olmadı", "error");
+          }
+        });
+        checkWrap.appendChild(checkbox);
+
+        const body = element("div", "planner-task-body");
+        const textEl = element("p", "planner-task-text", task.text);
+
+        const meta = element("div", "planner-task-meta");
+        if (task.strategyTitle) {
+          const stratTag = button(`✦ ${task.strategyTitle}`, "planner-strategy-tag", () => {
+            if (task.strategyId) openSavedStrategy(task.strategyId);
+            else {
+              state.mode = "build";
+              state.view = "list";
+              render();
+            }
+          });
+          meta.appendChild(stratTag);
+        }
+        meta.appendChild(element("span", "planner-date", formatDate(task.createdAt)));
+
+        body.append(textEl, meta);
+
+        const deleteBtn = button("", "icon-button planner-delete-btn", async () => {
+          row.style.opacity = "0.5";
+          try {
+            await authRequest(`/api/planner/${task.id}`, { method: "DELETE" });
+            state.plannerTasks = state.plannerTasks.filter((t) => t.id !== task.id);
+            updatePlannerBadge();
+            drawPlannerList();
+            showToast("Tapşırıq silindi ✓", "info");
+          } catch (err) {
+            row.style.opacity = "1";
+            showToast(err.message || "Silmək mümkün olmadı", "error");
+          }
+        });
+        deleteBtn.setAttribute("aria-label", "Tapşırığı sil");
+        deleteBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+
+        row.append(checkWrap, body, deleteBtn);
+        taskList.appendChild(row);
+      });
+
+      groupEl.appendChild(taskList);
+      listContainer.appendChild(groupEl);
+    });
+  };
+
+  search.addEventListener("input", drawPlannerList);
+  drawPlannerList();
+  workspace.appendChild(view);
+}
+
 newStrategyButton?.addEventListener("click", () => {
   if (state.mode === "ask") startNewChat();
   else resetStrategy();
@@ -2504,6 +2916,12 @@ railStrategiesButton.addEventListener("click", () => {
   render();
   closeSidebar();
 });
+railPlannerButton?.addEventListener("click", () => {
+  state.mode = "build";
+  state.view = "planner";
+  render();
+  closeSidebar();
+});
 sidebarClose.addEventListener("click", closeSidebar);
 mobileOverlay.addEventListener("click", closeSidebar);
 homeNav.addEventListener("click", () => {
@@ -2513,6 +2931,12 @@ homeNav.addEventListener("click", () => {
 strategiesNav.addEventListener("click", () => {
   state.mode = "build";
   state.view = "list";
+  render();
+  closeSidebar();
+});
+plannerNav?.addEventListener("click", () => {
+  state.mode = "build";
+  state.view = "planner";
   render();
   closeSidebar();
 });
@@ -2538,5 +2962,5 @@ initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
   render();
   showRegistrationNotice();
-  await Promise.allSettled([loadSavedStrategies(), loadSavedChats()]);
+  await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks()]);
 });

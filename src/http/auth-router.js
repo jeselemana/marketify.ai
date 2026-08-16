@@ -72,7 +72,7 @@ async function startSession(req, res, authStore, userId) {
   return sessionId;
 }
 
-export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, appUrl }) {
+export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, appUrl }) {
   const router = express.Router();
 
   router.get("/username-availability", limit(authStore, "username", 120, 60), asyncRoute(async (req, res) => {
@@ -154,6 +154,9 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     if (req.guestOwnerId && chatRepository?.claimOwner) {
       await chatRepository.claimOwner(req.guestOwnerId, user.id);
     }
+    if (req.guestOwnerId && plannerRepository?.claimOwner) {
+      await plannerRepository.claimOwner(req.guestOwnerId, user.id);
+    }
 
     return res.json({
       user: publicUser(user),
@@ -171,6 +174,9 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     }
     if (req.guestOwnerId && chatRepository?.claimOwner) {
       await chatRepository.claimOwner(req.guestOwnerId, user.id);
+    }
+    if (req.guestOwnerId && plannerRepository?.claimOwner) {
+      await plannerRepository.claimOwner(req.guestOwnerId, user.id);
     }
     return res.status(201).json({ user: publicUser(user) });
   }));
@@ -192,6 +198,9 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     }
     if (req.guestOwnerId && chatRepository?.claimOwner) {
       await chatRepository.claimOwner(req.guestOwnerId, user.id);
+    }
+    if (req.guestOwnerId && plannerRepository?.claimOwner) {
+      await plannerRepository.claimOwner(req.guestOwnerId, user.id);
     }
     return res.json({ user: publicUser(updated || user) });
   }));

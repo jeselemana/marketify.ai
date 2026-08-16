@@ -19,6 +19,8 @@ import {
 } from "./src/http/strategy-router.js";
 import { FileStrategyRepository } from "./src/repositories/file-strategy-repository.js";
 import { FileChatRepository } from "./src/repositories/file-chat-repository.js";
+import { FilePlannerRepository } from "./src/repositories/file-planner-repository.js";
+import { createPlannerRouter } from "./src/http/planner-router.js";
 import { aiConfig } from "./src/services/ai/config.js";
 
 dotenv.config();
@@ -146,10 +148,12 @@ const BASE_PATH = path.join(DATA_DIR, "marketify_base.json");
 const TRASH_PATH = path.join(DATA_DIR, "marketify_trash.json");
 const STRATEGIES_PATH = path.join(DATA_DIR, "strategies.json");
 const CHATS_PATH = path.join(DATA_DIR, "chats.json");
+const PLANNER_PATH = path.join(DATA_DIR, "planner.json");
 const USERS_PATH = path.join(DATA_DIR, "users.json");
 const AUTH_STORE_PATH = path.join(DATA_DIR, "auth-store.json");
 const strategyRepository = new FileStrategyRepository(STRATEGIES_PATH, redis);
 const chatRepository = new FileChatRepository(CHATS_PATH, redis);
+const plannerRepository = new FilePlannerRepository(PLANNER_PATH, redis);
 const userRepository = new FileUserRepository(USERS_PATH, redis);
 const authStore = redis?.isReady ? new RedisAuthStore(redis) : new FileAuthStore(AUTH_STORE_PATH);
 const emailService = new PasswordResetEmailService({ dataDir: DATA_DIR });
@@ -163,6 +167,7 @@ Promise.allSettled([
   userRepository.readStore(),
   strategyRepository.readAll(),
   chatRepository.readAll(),
+  plannerRepository.readAll(),
 ]).catch(() => {});
 
 function requireAdmin(req, res, next) {
@@ -178,10 +183,12 @@ app.use("/api/auth", createAuthRouter({
   emailService,
   strategyRepository,
   chatRepository,
+  plannerRepository,
   appUrl: APP_URL,
 }));
 
 app.use("/api/strategy", createStrategyRouter(strategyRepository));
+app.use("/api/planner", createPlannerRouter(plannerRepository));
 
 const ASK_MODEL = aiConfig.askModel;
 const ASK_INSTRUCTIONS = `You are Marketify Ask, a precise and helpful AI assistant inside the Marketify workspace.
