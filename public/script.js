@@ -706,29 +706,68 @@ function renderLoading() {
         ["Ölçü və risklər yoxlanılır", "KPI-lar, risklər və növbəti addımlar strategiya ilə uyğunlaşdırılır."],
       ];
   let currentPhase = 0;
-  const view = element("section", "loading-view");
+  const view = element("section", `loading-view ${isAssessment ? "is-assessment" : "is-generation"}`);
   view.setAttribute("aria-live", "polite");
-  const visual = element("div", "loading-visual");
-  visual.append(element("span", "loading-orbit"), element("span", "loading-core", "M"));
-  const eyebrow = element("div", "loading-eyebrow", isAssessment ? "BRİF ANALİZİ" : "STRATEGİYA HAZIRLANIR");
-  const title = element("h1", "loading-title", phases[0][0]);
+  const statusLine = element("div", "loading-status-line");
+  statusLine.append(
+    element("span", "loading-live-dot"),
+    element("span", "loading-eyebrow", isAssessment ? "BRİF ANALİZİ" : "STRATEGİYA HAZIRLANIR"),
+  );
+  const title = element(
+    "h1",
+    "loading-title",
+    isAssessment ? "Brifdən növbəti qərara" : "Brifdən icra planına",
+  );
+  const intro = element(
+    "p",
+    "loading-intro",
+    isAssessment
+      ? "Məlumatları yoxlayıb ən doğru növbəti addımı müəyyənləşdiririk."
+      : "Marketify daxil etdiyin konteksti strukturlaşdırılmış strategiyaya çevirir.",
+  );
+
+  const activity = element("div", "loading-activity");
+  const activityTop = element("div", "loading-activity-top");
+  const activityLabel = element("span", "loading-activity-label", "Hazırda");
+  const activityCount = element("span", "loading-activity-count", `01 / ${String(phases.length).padStart(2, "0")}`);
+  activityTop.append(activityLabel, activityCount);
+  const activityBody = element("div", "loading-activity-body");
+  const activityIndicator = element("span", "loading-activity-indicator");
+  activityIndicator.append(element("span", "loading-activity-spark"));
+  const activityText = element("div", "loading-activity-text");
+  const activityTitle = element("strong", "", phases[0][0]);
   const copy = element("p", "loading-copy", phases[0][1]);
+  activityText.append(activityTitle, copy);
+  activityBody.append(activityIndicator, activityText);
+  activity.append(activityTop, activityBody);
+
   const progress = element("ol", "generation-steps");
   phases.forEach(([phase], index) => {
     const step = element("li", index === 0 ? "is-current" : "is-upcoming");
-    step.append(element("span", "generation-step-mark", index === 0 ? "●" : "○"), element("span", "", phase));
+    step.append(
+      element("span", "generation-step-mark", index === 0 ? "01" : String(index + 1).padStart(2, "0")),
+      element("span", "generation-step-label", phase),
+    );
     progress.appendChild(step);
   });
-  view.append(visual, eyebrow, title, copy, progress);
+  const reassurance = element(
+    "p",
+    "loading-reassurance",
+    isAssessment
+      ? "Vacib detal çatışmasa, yalnız zəruri sualları verəcəyik."
+      : "Məzmun hazır olduqda birbaşa strategiya iş sahəsinə keçəcəksən.",
+  );
+  view.append(statusLine, title, intro, activity, progress, reassurance);
   workspace.appendChild(view);
 
   progressTimer = setInterval(() => {
     currentPhase = Math.min(currentPhase + 1, phases.length - 1);
-    title.textContent = phases[currentPhase][0];
+    activityTitle.textContent = phases[currentPhase][0];
     copy.textContent = phases[currentPhase][1];
+    activityCount.textContent = `${String(currentPhase + 1).padStart(2, "0")} / ${String(phases.length).padStart(2, "0")}`;
     [...progress.children].forEach((step, index) => {
       step.className = index < currentPhase ? "is-complete" : index === currentPhase ? "is-current" : "is-upcoming";
-      step.querySelector(".generation-step-mark").textContent = index < currentPhase ? "✓" : index === currentPhase ? "●" : "○";
+      step.querySelector(".generation-step-mark").textContent = index < currentPhase ? "✓" : String(index + 1).padStart(2, "0");
     });
     if (currentPhase === phases.length - 1) clearInterval(progressTimer);
   }, 1500);
