@@ -469,7 +469,15 @@ submit.appendChild(element("span", "button-arrow", "↑"));
 
   const banner = errorBanner();
   if (banner) view.appendChild(banner);
-  view.append(intro, form, examples);
+
+  const footerEl = element("footer", "workspace-footer");
+  const copyright = element("span", "footer-copyright", "Marketify AI © 2026");
+  const termsLink = button("İstifadə şərtləri", "footer-link", () => openLegalModal("terms"));
+  const dot = element("span", "footer-dot", "•");
+  const privacyLink = button("Məxfilik siyasəti", "footer-link", () => openLegalModal("privacy"));
+  footerEl.append(copyright, termsLink, dot, privacyLink);
+
+  view.append(intro, form, examples, footerEl);
   workspace.appendChild(view);
   if (window.innerWidth > 767) setTimeout(() => textarea.focus(), 0);
 }
@@ -2467,7 +2475,11 @@ function renderSettings() {
     state.settingsTab = "security";
     renderSettings();
   });
-  tabs.append(accountTab, securityTab);
+  const legalTab = button("Hüquqi & Məxfilik", `settings-tab${state.settingsTab === "legal" ? " is-active" : ""}`, () => {
+    state.settingsTab = "legal";
+    renderSettings();
+  });
+  tabs.append(accountTab, securityTab, legalTab);
   view.append(header, tabs);
 
   if (state.settingsTab === "account") {
@@ -2502,7 +2514,7 @@ function renderSettings() {
     });
     panel.appendChild(form);
     view.appendChild(panel);
-  } else {
+  } else if (state.settingsTab === "security") {
     const panel = element("section", "settings-panel");
     panel.append(element("h2", "", "Şifrə və sessiyalar"), element("p", "settings-panel-intro", "Şifrəni dəyişdikdə bu cihazdan başqa bütün aktiv sessiyalar bağlanacaq."));
     const form = element("form", "settings-form");
@@ -2544,6 +2556,32 @@ function renderSettings() {
     copy.append(element("strong", "", "Bu cihazdan çıx"), element("p", "", "Marketify sessiyanı təhlükəsiz şəkildə bağlayacaq."));
     signOut.append(copy, button("Hesabdan çıx", "danger-button", logout));
     panel.append(form, signOut);
+    view.appendChild(panel);
+  } else {
+    const panel = element("section", "settings-panel");
+    panel.append(
+      element("h2", "", "Hüquqi Şərtlər və Məxfilik"),
+      element("p", "settings-panel-intro", "Platformanın istifadə qaydaları və 3-cü tərəf süni intellekt API şərtləri ilə tanış ol.")
+    );
+
+    const apiNotice = element("div", "legal-highlight-box");
+    apiNotice.innerHTML = "<strong>✦ 3-cü Tərəf Süni İntellekt API İnteqrasiyası</strong>Marketify AI xidməti biznes analizləri və strategiya generasiyası üçün qabaqcıl 3-cü tərəf süni intellekt API provayderlərinin (OpenAI, Google) infrastrukturundan istifadə edir.";
+    panel.appendChild(apiNotice);
+
+    const docsList = element("div", "settings-legal-list");
+    
+    const termsRow = element("div", "settings-legal-row");
+    const termsInfo = element("div");
+    termsInfo.append(element("strong", "", "İstifadə Şərtləri"), element("p", "", "Xidmətdən istifadə qaydaları, hüquqlar və öhdəliklər."));
+    termsRow.append(termsInfo, button("Baxış keçir →", "secondary-button", () => openLegalModal("terms")));
+
+    const privacyRow = element("div", "settings-legal-row");
+    const privacyInfo = element("div");
+    privacyInfo.append(element("strong", "", "Məxfilik Siyasəti"), element("p", "", "Məlumatların emalı, qorunması və 3-cü tərəf API şəffaflığı."));
+    privacyRow.append(privacyInfo, button("Baxış keçir →", "secondary-button", () => openLegalModal("privacy")));
+
+    docsList.append(termsRow, privacyRow);
+    panel.appendChild(docsList);
     view.appendChild(panel);
   }
   workspace.appendChild(view);
@@ -2896,6 +2934,102 @@ function renderPlannerView() {
   workspace.appendChild(view);
 }
 
+const LEGAL_DOCS = {
+  terms: {
+    title: "İstifadə Şərtləri",
+    subtitle: "Son yenilənmə tarixi: Avqust 2026",
+    html: `
+      <div class="legal-highlight-box">
+        <strong>✦ 3-cü Tərəf Süni İntellekt API İstifadəsi</strong>
+        Marketify AI xidməti strateji analizləri və marketinq nəticələrini generasiya etmək üçün qabaqcıl üçüncü tərəf süni intellekt provayderlərinin (o cümlədən OpenAI, Google AI və digər etibarlı LLM API infrastrukturlarının) rəsmi API sistemləri ilə fəaliyyət göstərir.
+      </div>
+      <h3>1. Ümumi Müddəalar və Xidmətin Təyinatı</h3>
+      <p>Marketify AI platformasına (“Platforma”, “Xidmət”) xoş gəlmisiniz. Bu İstifadə Şərtləri (“Şərtlər”) sizin platformadan istifadənizi tənzimləyir. Xidmətdən istifadə etməklə siz bu şərtləri tam və qeyd-şərtsiz qəbul etmiş olursunuz.</p>
+      
+      <h3>2. 3-cü Tərəf API-ləri və Süni İntellekt Emalı</h3>
+      <p>Platformada daxil etdiyiniz biznes brifləri, cavablar və sorğular ən müasir böyük dil modelləri (LLM) vasitəsilə təhlil edilir. Bu proses üçüncü tərəf API provayderləri üzərindən təhlükəsiz şifrələnmiş kanallarla həyata keçirilir.</p>
+      <p>Marketify AI generasiya prosesində ən yüksək dəqiqlik və kontekstual uyğunluq təmin etmək üçün API sorğularını optimallaşdırır.</p>
+
+      <h3>3. Əqli Mülkiyyət və Məzmun Hüquqları</h3>
+      <p><strong>İstifadəçi Məlumatları:</strong> Daxil etdiyiniz bütün biznes ideyaları, məhsul detalları və fərdi qeydlər müstəsna olaraq sizə məxsusdur.</p>
+      <p><strong>Generasiya Edilən Strategiyalar:</strong> Marketify AI vasitəsilə hazırladığınız bütün marketinq strategiyaları, fəaliyyət planları və sənədlər sizin sərəncamınızdadır və kommersiya və ya qeyri-kommersiya fəaliyyətinizdə sərbəst istifadə edilə bilər.</p>
+
+      <h3>4. Məsuliyyətin Məhdudlaşdırılması və Tövsiyə Xarakteri</h3>
+      <p>Süni intellekt tərəfindən generasiya olunan nəticələr, proqnozlar və fəaliyyət planları strateji bələdçi və məsləhət xarakteri daşıyır. Marketinq kampaniyalarının icrası, büdcə xərcləri və biznes qərarları üzrə yekun məsuliyyət istifadəçinin üzərindədir.</p>
+
+      <h3>5. İstifadəçi Öhdəlikləri</h3>
+      <p>İstifadəçilər qanunvericiliyə zidd, fırıldaqçılıq xarakterli və ya üçüncü şəxslərin hüquqlarını pozan sorğular göndərməməyi və sistemin/API-lərin fəaliyyətinə mane olmamağı öhdələrinə götürürlər.</p>
+    `,
+  },
+  privacy: {
+    title: "Məxfilik Siyasəti",
+    subtitle: "Son yenilənmə tarixi: Avqust 2026",
+    html: `
+      <div class="legal-highlight-box">
+        <strong>✦ Məlumatların Qorunması və 3-cü Tərəf API Şəffaflığı</strong>
+        Marketify AI istifadəçi məlumatlarının təhlükəsizliyini təmin edir. Sorğuların cavablandırılması üçün 3-cü tərəf süni intellekt API provayderlərindən (OpenAI, Google) istifadə olunur və məlumatlar yalnız cari generasiya sessiyası məqsədilə emal edilir.
+      </div>
+      <h3>1. Toplanan Məlumatlar</h3>
+      <p>• <strong>Profil və Giriş Məlumatları:</strong> Ad, soyad, istifadəçi adı, e-poçt ünvanı və təhlükəsiz şifrələnmiş giriş məlumatları.</p>
+      <p>• <strong>Biznes Konteksti:</strong> Daxil etdiyiniz marketinq brifləri, aydınlaşdırma cavabları, arxivləşdirilmiş strategiyalar, söhbət tarixçəsi və planlaşdırılan tapşırıqlar.</p>
+      <p>• <strong>Texniki Göstəricilər:</strong> Brauzer sessiya açarları və təhlükəsizlik jurnalları.</p>
+
+      <h3>2. 3-cü Tərəf API İnteqrasiyası və Məlumatların Emalı</h3>
+      <p>Marketify AI platforması sorğuları generasiya etmək məqsədilə etibarlı 3-cü tərəf süni intellekt API-lərinə müraciət edir.</p>
+      <p>• Məlumatlar yalnız cari strategiyanın hazırlanması üçün API vasitəsilə təhlükəsiz TLS/HTTPS protokolu ilə göndərilir.</p>
+      <p>• Sorğularınız 3-cü tərəf modellərinin açıq təlimi (training) üçün istifadə edilmir və yalnız sizin generasiya sessiyanızın tələblərini yerinə yetirmək üçün emal olunur.</p>
+      <p>• Biz heç bir halda şəxsi identifikasiya məlumatlarınızı, şifrələrinizi və ya e-poçt ünvanınızı reklam və ya marketinq şirkətlərinə satmırıq və ötürmürük.</p>
+
+      <h3>3. Məlumatların Saxlanması və Təhlükəsizlik</h3>
+      <p>Bütün istifadəçi verilənləri müasir Cloudflare R2 bulud saxlancı, Redis keşləmə və gücləndirilmiş server mühitində etibarlı şəkildə qorunur.</p>
+
+      <h3>4. Məlumatların İdarə Edilməsi və Silinməsi</h3>
+      <p>İstifadəçilər istənilən an saxlanılmış strategiyalarını, keçmiş söhbətlərini və planlaşdırılan tapşırıqlarını arxivdən tamamilə silmək hüququna malikdirlər.</p>
+
+      <h3>5. Əlaqə</h3>
+      <p>Məxfilik siyasəti və ya məlumatların emalı ilə bağlı suallarınız üçün platforma üzərindən bizimlə əlaqə saxlaya bilərsiniz.</p>
+    `,
+  },
+};
+
+function openLegalModal(type) {
+  const overlay = document.querySelector("#legalModalOverlay");
+  if (!overlay) return;
+  const doc = LEGAL_DOCS[type] || LEGAL_DOCS.terms;
+
+  overlay.replaceChildren();
+  const card = element("div", "legal-modal-card");
+
+  const header = element("header", "legal-modal-header");
+  const titleGroup = element("div", "legal-modal-title-group");
+  titleGroup.append(element("h2", "", doc.title), element("p", "", doc.subtitle));
+
+  const closeBtn = button("✕", "legal-modal-close", closeLegalModal);
+  closeBtn.setAttribute("aria-label", "Bağla");
+
+  header.append(titleGroup, closeBtn);
+
+  const body = element("div", "legal-modal-body");
+  body.innerHTML = doc.html;
+
+  const footer = element("div", "legal-modal-footer");
+  footer.appendChild(button("Bağla", "primary-button", closeLegalModal));
+
+  card.append(header, body, footer);
+  overlay.appendChild(card);
+  overlay.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function closeLegalModal() {
+  const overlay = document.querySelector("#legalModalOverlay");
+  if (overlay) {
+    overlay.hidden = true;
+    overlay.replaceChildren();
+  }
+  document.body.style.overflow = "";
+}
+
 newStrategyButton?.addEventListener("click", () => {
   if (state.mode === "ask") startNewChat();
   else resetStrategy();
@@ -2952,10 +3086,24 @@ accountButton.addEventListener("click", () => {
   render();
   closeSidebar();
 });
+document.querySelector("#sidebarTermsBtn")?.addEventListener("click", () => {
+  closeSidebar();
+  openLegalModal("terms");
+});
+document.querySelector("#sidebarPrivacyBtn")?.addEventListener("click", () => {
+  closeSidebar();
+  openLegalModal("privacy");
+});
+document.querySelector("#legalModalOverlay")?.addEventListener("click", (event) => {
+  if (event.target === document.querySelector("#legalModalOverlay")) closeLegalModal();
+});
 buildModeButton.addEventListener("click", () => setMode("build"));
 askModeButton.addEventListener("click", () => setMode("ask"));
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeSidebar();
+  if (event.key === "Escape") {
+    closeSidebar();
+    closeLegalModal();
+  }
 });
 
 initializeAuthentication(async (user) => {
@@ -2963,4 +3111,9 @@ initializeAuthentication(async (user) => {
   render();
   showRegistrationNotice();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks()]);
+  if (window.location.hash === "#terms" || window.location.pathname === "/terms") {
+    openLegalModal("terms");
+  } else if (window.location.hash === "#privacy" || window.location.pathname === "/privacy") {
+    openLegalModal("privacy");
+  }
 });
