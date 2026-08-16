@@ -14,6 +14,7 @@ Marketify AI is an AI strategy workspace built on the project's existing Express
 - `OPENAI_API_KEY` — required for assessment, generation, and refinement.
 - `OPENAI_FAST_MODEL` — intake/clarification model; defaults to `gpt-5.6-terra`.
 - `OPENAI_STRATEGY_MODEL` — generation/refinement model; defaults to `gpt-5.6-terra`.
+- `OPENAI_ASK_MODEL` — optional server-only model override for Ask mode.
 - `MAX_CLARIFICATION_ROUNDS` — defaults to `2`.
 - `PORT` — defaults to `5050`.
 - `REDIS_URL` — optional and used only by the preserved legacy analytics chat endpoint.

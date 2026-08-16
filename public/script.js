@@ -14,6 +14,8 @@ const recentList = document.querySelector("#recentList");
 const strategyCount = document.querySelector("#strategyCount");
 const homeNav = document.querySelector("#homeNav");
 const strategiesNav = document.querySelector("#strategiesNav");
+const buildModeButton = document.querySelector("#buildModeButton");
+const askModeButton = document.querySelector("#askModeButton");
 
 const STATUS_LABELS = {
   draft: "Qaralama",
@@ -35,6 +37,7 @@ const QUICK_ACTIONS = [
 ];
 
 const state = {
+  mode: "build",
   view: "home",
   status: "draft",
   brief: "",
@@ -54,6 +57,10 @@ const state = {
   error: null,
   retry: null,
   changeSummary: "",
+  askMessages: [],
+  askLoading: false,
+  askError: "",
+  askStrategyId: "",
 };
 
 let progressTimer;
@@ -117,7 +124,9 @@ async function api(path, options = {}) {
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const safeMessage = ["AI_AUTH_ERROR", "AI_NOT_CONFIGURED", "STRATEGY_ERROR"].includes(data.code)
+    const safeMessage = path === "/api/ask"
+      ? data.error || "Cavabı hazırlamaq mümkün olmadı."
+      : ["AI_AUTH_ERROR", "AI_NOT_CONFIGURED", "STRATEGY_ERROR"].includes(data.code)
       ? "Strategiyanı hazırlamaq mümkün olmadı. Bir neçə saniyə sonra yenidən yoxla."
       : data.error || "Sorğunu tamamlamaq mümkün olmadı.";
     const error = new Error(safeMessage);
@@ -187,15 +196,34 @@ function closeSidebar() {
 }
 
 function syncNav() {
-  homeNav.classList.toggle("is-active", state.view !== "list");
-  strategiesNav.classList.toggle("is-active", state.view === "list");
-  railHomeButton.classList.toggle("is-active", state.view !== "list");
-  railStrategiesButton.classList.toggle("is-active", state.view === "list");
+  const isBuild = state.mode === "build";
+  homeNav.classList.toggle("is-active", isBuild && state.view !== "list");
+  strategiesNav.classList.toggle("is-active", isBuild && state.view === "list");
+  railHomeButton.classList.toggle("is-active", isBuild && state.view !== "list");
+  railStrategiesButton.classList.toggle("is-active", isBuild && state.view === "list");
+}
+
+function syncMode() {
+  const isBuild = state.mode === "build";
+  buildModeButton.classList.toggle("is-active", isBuild);
+  askModeButton.classList.toggle("is-active", !isBuild);
+  buildModeButton.setAttribute("aria-selected", String(isBuild));
+  askModeButton.setAttribute("aria-selected", String(!isBuild));
+  document.body.dataset.mode = state.mode;
+}
+
+function setMode(mode) {
+  if (!['build', 'ask'].includes(mode) || state.mode === mode) return;
+  state.mode = mode;
+  syncMode();
+  render();
+  closeSidebar();
 }
 
 function resetStrategy() {
   clearInterval(progressTimer);
   Object.assign(state, {
+    mode: "build",
     view: "home",
     status: "draft",
     brief: "",
@@ -221,10 +249,12 @@ function resetStrategy() {
 
 function render() {
   clearInterval(progressTimer);
+  syncMode();
   syncNav();
   workspace.replaceChildren();
   workspace.className = "workspace";
 
+  if (state.mode === "ask") return renderAsk();
   if (state.view === "list") return renderStrategyList();
   if (["analyzing", "generating"].includes(state.status)) return renderLoading();
   if (state.status === "needs_clarification") return renderClarification();
@@ -337,6 +367,326 @@ function renderIntake() {
   view.append(intro, form, examples);
   workspace.appendChild(view);
   setTimeout(() => textarea.focus(), 0);
+}
+
+function appendAskInline(parent, value) {
+  const parts = String(value).split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
+  parts.forEach((part) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      parent.appendChild(element("strong", "", part.slice(2, -2)));
+    } else if (part.startsWith("`") && part.endsWith("`")) {
+      parent.appendChild(element("code", "", part.slice(1, -1)));
+    } else {
+      parent.appendChild(document.createTextNode(part));
+    }
+  });
+}
+
+function askTableCells(line) {
+  return line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim());
+}
+
+function renderAskRichText(value) {
+  const root = element("div", "ask-rich-text");
+  const lines = String(value || "").replace(/\r/g, "").split("\n");
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index].trim();
+    if (!line) {
+      index += 1;
+      continue;
+    }
+
+    if (line.startsWith("```") ) {
+      const language = line.slice(3).trim();
+      const content = [];
+      index += 1;
+      while (index < lines.length && !lines[index].trim().startsWith("```")) content.push(lines[index++]);
+      if (index < lines.length) index += 1;
+      const pre = element("pre", "ask-code-block");
+      const code = element("code", language ? `language-${language}` : "", content.join("\n"));
+      pre.appendChild(code);
+      root.appendChild(pre);
+      continue;
+    }
+
+    const heading = line.match(/^(#{2,4})\s+(.+)$/);
+    if (heading) {
+      const level = Math.min(4, heading[1].length);
+      const node = element(`h${level}`, "");
+      appendAskInline(node, heading[2]);
+      root.appendChild(node);
+      index += 1;
+      continue;
+    }
+
+    if (line.includes("|") && lines[index + 1]?.includes("|") && /^\|?[\s:|-]+\|?$/.test(lines[index + 1].trim())) {
+      const tableWrap = element("div", "ask-table-wrap");
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+      askTableCells(line).forEach((cell) => {
+        const th = document.createElement("th");
+        appendAskInline(th, cell);
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+      index += 2;
+      const tbody = document.createElement("tbody");
+      while (index < lines.length && lines[index].includes("|") && lines[index].trim()) {
+        const row = document.createElement("tr");
+        askTableCells(lines[index]).forEach((cell) => {
+          const td = document.createElement("td");
+          appendAskInline(td, cell);
+          row.appendChild(td);
+        });
+        tbody.appendChild(row);
+        index += 1;
+      }
+      table.appendChild(tbody);
+      tableWrap.appendChild(table);
+      root.appendChild(tableWrap);
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(line)) {
+      const list = document.createElement("ul");
+      while (index < lines.length && /^[-*]\s+/.test(lines[index].trim())) {
+        const item = document.createElement("li");
+        appendAskInline(item, lines[index].trim().replace(/^[-*]\s+/, ""));
+        list.appendChild(item);
+        index += 1;
+      }
+      root.appendChild(list);
+      continue;
+    }
+
+    if (/^\d+[.)]\s+/.test(line)) {
+      const list = document.createElement("ol");
+      while (index < lines.length && /^\d+[.)]\s+/.test(lines[index].trim())) {
+        const item = document.createElement("li");
+        appendAskInline(item, lines[index].trim().replace(/^\d+[.)]\s+/, ""));
+        list.appendChild(item);
+        index += 1;
+      }
+      root.appendChild(list);
+      continue;
+    }
+
+    const paragraph = element("p");
+    const paragraphLines = [line];
+    index += 1;
+    while (index < lines.length && lines[index].trim() && !/^(#{2,4})\s+|^[-*]\s+|^\d+[.)]\s+|^```/.test(lines[index].trim())) {
+      if (lines[index].includes("|") && lines[index + 1]?.includes("|")) break;
+      paragraphLines.push(lines[index].trim());
+      index += 1;
+    }
+    appendAskInline(paragraph, paragraphLines.join(" "));
+    root.appendChild(paragraph);
+  }
+  return root;
+}
+
+function renderAsk() {
+  workspace.classList.add("workspace-ask");
+  const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
+  const shell = element("section", `ask-shell${state.askMessages.length ? " has-messages" : " is-empty"}`);
+  shell.setAttribute("aria-label", "Ask");
+  const thread = element("div", "ask-thread");
+
+  if (!state.askMessages.length) {
+    const intro = element("div", "ask-intro");
+    intro.append(
+      element("h1", "ask-title", "Nə haqda düşünürsən?"),
+      element("p", "ask-subtitle", "Sualını, ideyanı və ya həll etmək istədiyin problemi yaz."),
+    );
+    thread.appendChild(intro);
+  } else {
+    state.askMessages.forEach((message) => {
+      const row = element("article", `ask-message ask-message-${message.role}`);
+      const content = element("div", "ask-message-content");
+      if (message.role === "assistant") {
+        content.appendChild(renderAskRichText(message.content));
+        const actions = element("div", "ask-message-actions");
+        const copy = button("", "ask-copy-action", async () => {
+          try {
+            await navigator.clipboard.writeText(message.content);
+            showToast("Cavab kopyalandı.", "neutral");
+          } catch {
+            showToast("Cavabı kopyalamaq mümkün olmadı.", "error");
+          }
+        });
+        copy.setAttribute("aria-label", "Cavabı kopyala");
+        copy.title = "Kopyala";
+        copy.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>';
+        actions.appendChild(copy);
+        content.appendChild(actions);
+      } else {
+        content.textContent = message.content;
+        if (message.strategyTitle) {
+          content.appendChild(element("span", "ask-message-context", `Strategiya: ${message.strategyTitle}`));
+        }
+      }
+      row.appendChild(content);
+      thread.appendChild(row);
+    });
+    if (state.askLoading) {
+      const row = element("article", "ask-message ask-message-assistant is-loading");
+      row.setAttribute("aria-live", "polite");
+      row.appendChild(element("span", "ask-typing", "Cavab hazırlanır"));
+      thread.appendChild(row);
+    }
+  }
+
+  if (state.askError) {
+    const error = element("div", "ask-error");
+    error.append(
+      element("strong", "", state.askError),
+      element("span", "", navigator.onLine ? "Bir neçə saniyə sonra yenidən yoxla." : "İnternet bağlantını yoxla."),
+    );
+    thread.appendChild(error);
+  }
+
+  const composerArea = element("div", "ask-composer-area");
+  if (!state.askMessages.length) {
+    const suggestions = element("div", "ask-suggestions");
+    ["Bu ideyanın güclü və zəif tərəfləri nədir?", "Müştəri segmentasiyasını necə qurum?", "Bu həftə hansı KPI-lara baxmalıyam?"].forEach((prompt) => {
+      suggestions.appendChild(button(prompt, "ask-suggestion"));
+    });
+    composerArea.appendChild(suggestions);
+  }
+  const contextMenu = document.createElement("details");
+  contextMenu.className = `ask-context-menu${selectedStrategy ? " has-selection" : ""}`;
+  const contextTrigger = element("summary", "ask-context-trigger");
+  contextTrigger.setAttribute("aria-label", "Strategiya arxivindən seç");
+  contextTrigger.title = selectedStrategy ? `Kontekst: ${selectedStrategy.title}` : "Strategiya arxivindən seç";
+  contextTrigger.appendChild(element("span", "ask-context-plus", "+"));
+  const contextPopover = element("div", "ask-context-popover");
+  contextPopover.appendChild(element("strong", "ask-context-title", "Strategiya arxivindən seç"));
+  const contextList = element("div", "ask-context-list");
+  if (state.savedStrategies.length) {
+    state.savedStrategies.forEach((strategy) => {
+      const item = button("", `ask-context-item${strategy.id === state.askStrategyId ? " is-selected" : ""}`);
+      item.append(
+        element("span", "", strategy.title),
+        element("small", "", strategy.id === state.askStrategyId ? "Seçilib" : formatDate(strategy.updatedAt)),
+      );
+      item.addEventListener("click", () => {
+        state.askStrategyId = strategy.id;
+        contextMenu.open = false;
+        render();
+      });
+      contextList.appendChild(item);
+    });
+  } else {
+    const emptyContext = element("div", "ask-context-empty");
+    emptyContext.append(
+      element("span", "", "Arxiv hələ boşdur."),
+      element("small", "", "Build bölməsində strategiya yaradıb yadda saxla."),
+    );
+    contextList.appendChild(emptyContext);
+  }
+  contextPopover.appendChild(contextList);
+  if (selectedStrategy) {
+    const clearContext = button("Konteksti sil", "ask-context-clear", () => {
+      state.askStrategyId = "";
+      contextMenu.open = false;
+      render();
+    });
+    contextPopover.appendChild(clearContext);
+  }
+  const openArchive = button("Strategiyalar arxivinə keç →", "ask-context-archive", () => {
+    contextMenu.open = false;
+    state.mode = "build";
+    state.view = "list";
+    render();
+  });
+  contextPopover.appendChild(openArchive);
+  contextMenu.append(contextTrigger, contextPopover);
+  contextMenu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") contextMenu.open = false;
+  });
+  const closeContextMenu = (event) => {
+    if (!contextMenu.contains(event.target)) contextMenu.open = false;
+  };
+  contextMenu.addEventListener("toggle", () => {
+    if (contextMenu.open) setTimeout(() => document.addEventListener("click", closeContextMenu), 0);
+    else document.removeEventListener("click", closeContextMenu);
+  });
+  const form = element("form", "ask-composer");
+  const label = element("label", "sr-only", "Ask sualı");
+  label.htmlFor = "askInput";
+  const input = element("textarea", "ask-input");
+  input.id = "askInput";
+  input.name = "message";
+  input.rows = 1;
+  input.maxLength = 8000;
+  input.placeholder = "Marketify-dən soruş…";
+  input.disabled = state.askLoading;
+  const submit = button("", "ask-submit");
+  submit.type = "submit";
+  submit.disabled = true;
+  submit.setAttribute("aria-label", "Sualı göndər");
+  submit.appendChild(element("span", "", "↑"));
+  form.append(contextMenu, label, input, submit);
+  const helper = element("div", "ask-composer-meta");
+  const contextMeta = element("span", "ask-context-meta", selectedStrategy ? `Kontekst: ${selectedStrategy.title}` : "Marketify");
+  helper.append(contextMeta, element("span", "", "Enter ilə göndər · Shift + Enter yeni sətir"));
+  composerArea.append(form, helper);
+  shell.append(thread, composerArea);
+  workspace.appendChild(shell);
+
+  const resizeInput = () => {
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+    submit.disabled = input.value.trim().length < 2 || state.askLoading;
+  };
+  input.addEventListener("input", resizeInput);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      if (!submit.disabled) form.requestSubmit();
+    }
+  });
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const message = input.value.trim();
+    if (message.length >= 2) submitAskMessage(message);
+  });
+  composerArea.querySelectorAll(".ask-suggestion").forEach((suggestion) => {
+    suggestion.addEventListener("click", () => {
+      input.value = suggestion.textContent;
+      resizeInput();
+      input.focus();
+    });
+  });
+
+  requestAnimationFrame(() => {
+    if (state.askMessages.length) composerArea.scrollIntoView({ block: "end" });
+    if (!state.askLoading) input.focus();
+  });
+}
+
+async function submitAskMessage(message) {
+  const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
+  state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "" });
+  state.askLoading = true;
+  state.askError = "";
+  trackEvent("ask_message_sent", { messageCount: state.askMessages.length });
+  render();
+  try {
+    const data = await api("/api/ask", {
+      method: "POST",
+      body: JSON.stringify({ messages: state.askMessages, strategyId: state.askStrategyId || undefined }),
+    });
+    state.askMessages.push({ role: "assistant", content: data.reply });
+  } catch (error) {
+    state.askError = error.message;
+  } finally {
+    state.askLoading = false;
+    render();
+  }
 }
 
 function renderLoading() {
@@ -981,7 +1331,8 @@ async function loadSavedStrategies() {
     state.savedStrategies = data.strategies;
     strategyCount.textContent = String(data.strategies.length);
     renderRecentList();
-    if (state.view === "list") renderStrategyList();
+    if (state.mode === "ask") render();
+    else if (state.view === "list") renderStrategyList();
   } catch {
     recentList.replaceChildren(element("p", "recent-empty", "Strategiyaları yükləmək mümkün olmadı."));
   }
@@ -1097,6 +1448,7 @@ mobileMenuButton.addEventListener("click", openSidebar);
 railMenuButton.addEventListener("click", () => (sidebar.classList.contains("is-open") ? closeSidebar() : openSidebar()));
 railHomeButton.addEventListener("click", resetStrategy);
 railStrategiesButton.addEventListener("click", () => {
+  state.mode = "build";
   state.view = "list";
   render();
   closeSidebar();
@@ -1106,10 +1458,13 @@ sidebarClose.addEventListener("click", closeSidebar);
 mobileOverlay.addEventListener("click", closeSidebar);
 homeNav.addEventListener("click", resetStrategy);
 strategiesNav.addEventListener("click", () => {
+  state.mode = "build";
   state.view = "list";
   render();
   closeSidebar();
 });
+buildModeButton.addEventListener("click", () => setMode("build"));
+askModeButton.addEventListener("click", () => setMode("ask"));
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeSidebar();
 });
