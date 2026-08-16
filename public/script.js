@@ -69,6 +69,9 @@ const state = {
   askStrategyId: "",
   currentUser: null,
   settingsTab: "account",
+  strategyFormat: "blog",
+  faqFilter: "",
+  faqExpandedAll: false,
 };
 
 let progressTimer;
@@ -276,6 +279,9 @@ function resetStrategy() {
     error: null,
     retry: null,
     changeSummary: "",
+    strategyFormat: "blog",
+    faqFilter: "",
+    faqExpandedAll: false,
   });
   render();
   closeSidebar();
@@ -1045,11 +1051,690 @@ async function startGeneration() {
   }
 }
 
+function calcReadingTime(strategy) {
+  if (!strategy) return 3;
+  let wordCount = 0;
+  if (strategy.title) wordCount += strategy.title.split(/\s+/).length;
+  if (strategy.summary) wordCount += strategy.summary.split(/\s+/).length;
+  if (strategy.context) {
+    Object.values(strategy.context).forEach((val) => {
+      if (val) wordCount += String(val).split(/\s+/).length;
+    });
+  }
+  if (Array.isArray(strategy.sections)) {
+    strategy.sections.forEach((sec) => {
+      if (sec.title) wordCount += sec.title.split(/\s+/).length;
+      if (sec.summary) wordCount += sec.summary.split(/\s+/).length;
+      if (sec.content) wordCount += sec.content.split(/\s+/).length;
+      if (Array.isArray(sec.bullets)) {
+        sec.bullets.forEach((b) => (wordCount += String(b).split(/\s+/).length));
+      }
+    });
+  }
+  if (Array.isArray(strategy.priorities)) {
+    strategy.priorities.forEach((p) => {
+      wordCount += `${p.title} ${p.description}`.split(/\s+/).length;
+    });
+  }
+  if (Array.isArray(strategy.actionPlan)) {
+    strategy.actionPlan.forEach((ap) => {
+      wordCount += `${ap.phase} ${ap.expectedOutcome || ""}`.split(/\s+/).length;
+      if (Array.isArray(ap.actions)) {
+        ap.actions.forEach((a) => (wordCount += String(a).split(/\s+/).length));
+      }
+    });
+  }
+  return Math.max(1, Math.ceil(wordCount / 170));
+}
+
 function createSectionHeading(kicker, title, description) {
   const heading = element("div", "section-heading");
   heading.append(element("span", "section-kicker", kicker), element("h2", "", title));
-  if (description) heading.append(element("p", "", description));
+  if (description) heading.append(element("p", "section-description", description));
   return heading;
+}
+
+function buildFormatSwitcher() {
+  const container = element("div", "strategy-format-tabs");
+  container.setAttribute("role", "tablist");
+  container.setAttribute("aria-label", "Görünüş formatı");
+
+  const tabs = [
+    { id: "blog", label: "Məqalə (Blog)" },
+    { id: "faq", label: "Sual-Cavab (FAQ)" },
+    { id: "roadmap", label: "İcra Planı" },
+  ];
+
+  tabs.forEach((tab) => {
+    const btn = button(tab.label, `format-tab${state.strategyFormat === tab.id ? " is-active" : ""}`, () => {
+      state.strategyFormat = tab.id;
+      render();
+    });
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-selected", String(state.strategyFormat === tab.id));
+    container.appendChild(btn);
+  });
+
+  return container;
+}
+
+function buildStrategyHeader(strategy) {
+  const header = element("header", "strategy-overview");
+  header.id = "overview";
+
+  const topRow = element("div", "strategy-header-top");
+  const status = element("span", `status-badge status-${state.status}`);
+  status.append(element("span", "status-dot"), document.createTextNode(STATUS_LABELS[state.status]));
+
+  const meta = element("div", "strategy-meta");
+  const readingTime = element("span", "reading-time-badge", `⏱ ~${calcReadingTime(strategy)} dəqiqəlik oxu`);
+  meta.append(
+    status,
+    element("span", "meta-divider", "·"),
+    element("span", "", `Versiya ${state.versions.length}`),
+    element("span", "meta-divider", "·"),
+    element("span", "", `Yenilənib ${formatDate(state.updatedAt)}`),
+    element("span", "meta-divider", "·"),
+    readingTime,
+  );
+  topRow.appendChild(meta);
+
+  const title = element("h1", "strategy-title", strategy.title);
+
+  // Context Chips Strip (Auditoriya, Bazar, Büdcə, Biznes)
+  const contextChips = element("div", "context-chips-strip");
+  if (strategy.context?.targetAudience) {
+    const chip = element("div", "context-chip");
+    chip.append(element("span", "chip-icon", "🎯"), element("strong", "", "Auditoriya: "), element("span", "", shortValue(strategy.context.targetAudience, 45)));
+    contextChips.appendChild(chip);
+  }
+  if (strategy.context?.market) {
+    const chip = element("div", "context-chip");
+    chip.append(element("span", "chip-icon", "📍"), element("strong", "", "Bazar: "), element("span", "", shortValue(strategy.context.market, 40)));
+    contextChips.appendChild(chip);
+  }
+  const budget = budgetSignal(state.brief);
+  if (budget) {
+    const chip = element("div", "context-chip");
+    chip.append(element("span", "chip-icon", "💰"), element("strong", "", "Büdcə: "), element("span", "", budget));
+    contextChips.appendChild(chip);
+  }
+  if (strategy.context?.business) {
+    const chip = element("div", "context-chip");
+    chip.append(element("span", "chip-icon", "🏢"), element("strong", "", "Biznes: "), element("span", "", shortValue(strategy.context.business, 40)));
+    contextChips.appendChild(chip);
+  }
+
+  // Strateji Xülasə / Executive Brief Box (Clean, single presentation, no duplicate essence text below!)
+  const execCard = element("div", "strategy-executive-card");
+  const execKicker = element("div", "exec-card-header");
+  execKicker.append(
+    element("span", "exec-badge", "✦ STRATEJİ XÜLASƏ VƏ ƏSAS İSTİQAMƏT"),
+  );
+  const execText = element("p", "exec-summary-text", strategy.summary);
+  execCard.append(execKicker, execText);
+
+  header.append(topRow, title, contextChips, execCard);
+
+  if (state.changeSummary) {
+    const changeBox = element("div", "change-note");
+    changeBox.append(element("span", "change-note-icon", "✨ "), document.createTextNode(state.changeSummary));
+    header.append(changeBox);
+  }
+
+  return header;
+}
+
+function buildBlogView(strategy) {
+  const container = element("div", "strategy-blog-container");
+
+  // 01. PRIORİTETLƏR
+  const priorities = element("section", "strategy-work-section");
+  priorities.id = "priorities";
+  priorities.appendChild(createSectionHeading("01. PRİORİTETLƏR", "İlk növbədə nəyə fokuslanırıq?", "Resursların və diqqətin yönəldiləcəyi ən vacib strateji istiqamətlər"));
+  const pillarGrid = element("div", "strategy-pillar-grid");
+  strategy.priorities.forEach((item, index) => {
+    const card = element("article", `strategy-pillar-card priority-${item.priority}`);
+    const top = element("div", "pillar-card-top");
+    const num = element("span", "pillar-num", String(index + 1).padStart(2, "0"));
+    const priorityLabel = item.priority === "high" ? "Yüksək Prioritet" : item.priority === "medium" ? "Orta Prioritet" : "Planlı";
+    const badge = element("span", `pillar-badge priority-${item.priority}`, priorityLabel);
+    top.append(num, badge);
+    const h3 = element("h3", "pillar-title", item.title);
+    const p = element("p", "pillar-desc", item.description);
+    card.append(top, h3, p);
+    pillarGrid.appendChild(card);
+  });
+  priorities.appendChild(pillarGrid);
+
+  // 02. STRATEJİ QƏRARLAR VƏ YANAŞMA
+  const direction = element("section", "strategy-work-section");
+  direction.id = "decisions";
+  direction.appendChild(createSectionHeading("02. STRATEJİ QƏRARLAR", "Kanal, mövqeləndirmə və hədəf yanaşması", "Məqsədə çatmaq üçün verilmiş əsas qərarlar və tətbiq qaydaları"));
+  const sections = element("div", "editorial-sections-list");
+  strategy.sections.forEach((section, index) => {
+    const article = element("article", "editorial-section-card");
+    const header = element("header", "editorial-card-header");
+    const num = element("span", "editorial-idx", `02.${index + 1}`);
+    const heading = element("h3", "editorial-title", section.title);
+    header.append(num, heading);
+
+    const body = element("div", "editorial-card-body");
+
+    // Decision Highlight Callout
+    const decisionBox = element("div", "editorial-decision-box");
+    decisionBox.append(
+      element("strong", "decision-label", "Əsas Qərar:"),
+      element("p", "decision-text", section.summary || firstSentences(section.content, 2)),
+    );
+    body.appendChild(decisionBox);
+
+    // Rationale
+    if (section.content) {
+      const rationaleBox = element("div", "editorial-rationale-box");
+      rationaleBox.append(
+        element("span", "rationale-label", "Niyə və necə işləyir?"),
+        element("p", "rationale-text", section.content),
+      );
+      body.appendChild(rationaleBox);
+    }
+
+    // Actionable Bullets
+    if (section.bullets && section.bullets.length) {
+      const actionsBox = element("div", "editorial-actions-box");
+      actionsBox.append(element("span", "actions-label", "Tətbiq və İcra Addımları:"));
+      const list = element("ul", "editorial-bullets");
+      section.bullets.forEach((item) => {
+        const li = element("li");
+        li.append(element("span", "bullet-check", "✓"), document.createTextNode(item));
+        list.appendChild(li);
+      });
+      actionsBox.appendChild(list);
+      body.appendChild(actionsBox);
+    }
+
+    article.append(header, body);
+    sections.appendChild(article);
+  });
+  direction.appendChild(sections);
+
+  // 03. İCRA PLANI (Timeline)
+  const actionPlan = element("section", "strategy-work-section");
+  actionPlan.id = "execution";
+  actionPlan.appendChild(createSectionHeading("03. İCRA PLANI", "Mərhələli tətbiq qrafiki", "Strategiyadan konkret nəticələrə doğru addım-addım yol xəritəsi"));
+  const timeline = element("div", "roadmap-timeline");
+  strategy.actionPlan.forEach((phase, index) => {
+    const card = element("article", "roadmap-phase-card");
+    const phaseHeader = element("div", "phase-card-header");
+    const phaseBadge = element("span", "phase-badge", `Mərhələ ${index + 1}`);
+    const phaseTitle = element("h3", "phase-title", phase.phase);
+    phaseHeader.append(phaseBadge, phaseTitle);
+
+    const actionList = element("ul", "phase-action-list");
+    phase.actions.forEach((action) => {
+      const li = element("li");
+      li.append(element("span", "action-dot", "•"), document.createTextNode(action));
+      actionList.appendChild(li);
+    });
+
+    card.append(phaseHeader, actionList);
+
+    if (phase.expectedOutcome) {
+      const outcome = element("div", "phase-outcome");
+      outcome.append(
+        element("span", "outcome-icon", "🎯"),
+        element("strong", "", "Gözlənilən nəticə: "),
+        document.createTextNode(phase.expectedOutcome),
+      );
+      card.appendChild(outcome);
+    }
+    timeline.appendChild(card);
+  });
+  actionPlan.appendChild(timeline);
+
+  // 04. KPI GÖSTƏRİCİLƏRİ
+  const measurement = element("section", "strategy-work-section");
+  measurement.id = "kpi";
+  measurement.appendChild(createSectionHeading("04. KPI GÖSTƏRİCİLƏRİ", "Ölçü və uğur siqnalları", "Strategiyanın effektivliyini izləmək üçün əsas performans göstəriciləri"));
+  const kpiGrid = element("div", "kpi-cards-grid");
+  strategy.kpis.forEach((kpi) => {
+    const card = element("article", "kpi-card");
+    const top = element("div", "kpi-card-top");
+    const name = element("h3", "kpi-name", kpi.name);
+    const target = element("span", "kpi-target-tag", kpi.target || "Ölçüm dövrü");
+    top.append(name, target);
+    const desc = element("p", "kpi-desc", kpi.reason);
+    card.append(top, desc);
+    kpiGrid.appendChild(card);
+  });
+  measurement.appendChild(kpiGrid);
+
+  // 05. RİSKLƏR VƏ HƏLLİ
+  const risks = element("section", "strategy-work-section");
+  risks.id = "risks";
+  risks.appendChild(createSectionHeading("05. RİSKLƏR VƏ HƏLLİ", "Ehtiyat tədbirləri və qarşısının alınması", "Gözlənilməz çətinliklərə qarşı sığorta və həll yolları"));
+  const riskGrid = element("div", "risk-cards-grid");
+  if (strategy.risks && strategy.risks.length) {
+    strategy.risks.forEach((risk, index) => {
+      const card = element("article", "risk-card");
+      const top = element("div", "risk-card-top");
+      const badge = element("span", `risk-badge risk-${index < 2 ? "high" : "medium"}`, index < 2 ? "Yüksək Risk" : "Orta Risk");
+      const title = element("h3", "risk-title", risk.risk);
+      top.append(badge, title);
+      const mitigation = element("div", "risk-mitigation");
+      mitigation.append(element("strong", "", "Həll yolu: "), document.createTextNode(risk.mitigation));
+      card.append(top, mitigation);
+      riskGrid.appendChild(card);
+    });
+  } else {
+    riskGrid.appendChild(element("p", "section-empty", "Əlavə kritik risk müəyyən edilməyib."));
+  }
+  risks.appendChild(riskGrid);
+
+  // 06. NÖVBƏTİ ADDIMLAR (Checklist)
+  const closeout = element("section", "strategy-work-section next-actions-section");
+  closeout.id = "next";
+  closeout.appendChild(createSectionHeading("06. NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addım-addım tapşırıqlar"));
+  const checklistGrid = element("div", "action-checklist-grid");
+  const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+  const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
+  groupLabels.forEach((label, groupIndex) => {
+    const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
+    if (!items.length) return;
+    const groupCard = element("section", "checklist-group-card");
+    groupCard.appendChild(element("h3", "checklist-group-title", label));
+    const itemsList = element("div", "checklist-items-list");
+    items.forEach((item, itemIndex) => {
+      const checkboxLabel = element("label", "checklist-item");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.dataset.key = `${groupIndex}-${itemIndex}`;
+      const span = element("span", "checklist-item-text", item);
+      checkboxLabel.append(checkbox, span);
+      itemsList.appendChild(checkboxLabel);
+    });
+    groupCard.appendChild(itemsList);
+    checklistGrid.appendChild(groupCard);
+  });
+  closeout.appendChild(checklistGrid);
+
+  // Assumptions
+  if (strategy.assumptions && strategy.assumptions.length) {
+    const assumptions = document.createElement("details");
+    assumptions.className = "assumptions-panel";
+    assumptions.appendChild(element("summary", "", "Fərziyyələr və əsas kontekst"));
+    const assumptionList = element("ul", "decision-list");
+    strategy.assumptions.forEach((item) => assumptionList.appendChild(element("li", "", item)));
+    assumptions.append(assumptionList);
+    container.append(priorities, direction, actionPlan, measurement, risks, closeout, assumptions);
+  } else {
+    container.append(priorities, direction, actionPlan, measurement, risks, closeout);
+  }
+
+  return container;
+}
+
+function buildFaqView(strategy) {
+  const container = element("div", "strategy-faq-container");
+
+  const faqHeader = element("div", "faq-intro-header");
+  const faqTitle = element("h2", "faq-main-title", "Strategiya haqqında tez-tez verilən suallar və aydın cavablar");
+  const faqSubtitle = element("p", "faq-main-desc", "Bütün strateji qərarlar, hədəf auditoriyası, icra mərhələləri və risklər sual-cavab formatında ümumiləşdirilib.");
+  faqHeader.append(faqTitle, faqSubtitle);
+
+  // FAQ Controls: Search + Toggle All
+  const controlsBar = element("div", "faq-controls-bar");
+  const searchInput = element("input", "faq-search-input");
+  searchInput.type = "search";
+  searchInput.placeholder = "Suallarda axtar...";
+  searchInput.value = state.faqFilter || "";
+  searchInput.setAttribute("aria-label", "Suallarda axtar");
+
+  const toggleAllBtn = button(
+    state.faqExpandedAll ? "Hamısını bağla" : "Hamısını aç",
+    "secondary-button compact faq-toggle-btn",
+    () => {
+      state.faqExpandedAll = !state.faqExpandedAll;
+      const detailsList = container.querySelectorAll(".faq-item");
+      detailsList.forEach((d) => {
+        d.open = state.faqExpandedAll;
+      });
+      toggleAllBtn.textContent = state.faqExpandedAll ? "Hamısını bağla" : "Hamısını aç";
+    },
+  );
+
+  controlsBar.append(searchInput, toggleAllBtn);
+  container.append(faqHeader, controlsBar);
+
+  // Structured FAQ Q&A Items
+  const faqItemsData = [
+    {
+      id: "faq-goal",
+      category: "Məqsəd və Xülasə",
+      question: "Bu strategiyanın əsas biznes məqsədi və istiqaməti nədir?",
+      renderBody: () => {
+        const body = element("div", "faq-body-content");
+        body.append(
+          element("p", "faq-lead-text", strategy.summary),
+        );
+        if (strategy.context?.objective) {
+          const objBox = element("div", "faq-info-callout");
+          objBox.append(element("strong", "", "Hədəflənən Nəticə: "), document.createTextNode(strategy.context.objective));
+          body.appendChild(objBox);
+        }
+        return body;
+      },
+    },
+    {
+      id: "faq-audience",
+      category: "Auditoriya və Bazar",
+      question: "Hədəf auditoriyamız kimlərdir və harada fəaliyyət göstəririk?",
+      renderBody: () => {
+        const body = element("div", "faq-body-content");
+        if (strategy.context?.targetAudience) {
+          body.append(element("p", "", `Əsas auditoriya: ${strategy.context.targetAudience}`));
+        }
+        if (strategy.context?.market) {
+          body.append(element("p", "", `Fəaliyyət bazarı və coğrafiya: ${strategy.context.market}`));
+        }
+        if (strategy.context?.business) {
+          body.append(element("p", "", `Biznes modeli və təklif: ${strategy.context.business}`));
+        }
+        return body;
+      },
+    },
+    {
+      id: "faq-priorities",
+      category: "Prioritetlər",
+      question: "İlk növbədə hansı strateji prioritetləri icra etməliyik?",
+      renderBody: () => {
+        const body = element("div", "faq-body-content");
+        const list = element("div", "faq-priorities-list");
+        strategy.priorities.forEach((p, idx) => {
+          const item = element("div", "faq-priority-row");
+          const tag = element("span", `pillar-badge priority-${p.priority}`, p.priority === "high" ? "Yüksək" : p.priority === "medium" ? "Orta" : "Planlı");
+          const text = element("div", "");
+          text.append(element("strong", "", `${idx + 1}. ${p.title}: `), document.createTextNode(p.description));
+          item.append(tag, text);
+          list.appendChild(item);
+        });
+        body.appendChild(list);
+        return body;
+      },
+    },
+    {
+      id: "faq-decisions",
+      category: "Strateji Qərarlar",
+      question: "Marketinq və inkişaf üzrə hansı əsas qərarlar verilib?",
+      renderBody: () => {
+        const body = element("div", "faq-body-content");
+        strategy.sections.forEach((sec, idx) => {
+          const secBox = element("div", "faq-decision-entry");
+          secBox.append(
+            element("h4", "faq-entry-title", `${idx + 1}. ${sec.title}`),
+            element("p", "faq-entry-decision", sec.summary || sec.content),
+          );
+          if (sec.bullets && sec.bullets.length) {
+            const ul = element("ul", "editorial-bullets");
+            sec.bullets.forEach((b) => {
+              const li = element("li");
+              li.append(element("span", "bullet-check", "✓"), document.createTextNode(b));
+              ul.appendChild(li);
+            });
+            secBox.appendChild(ul);
+          }
+          body.appendChild(secBox);
+        });
+        return body;
+      },
+    },
+    {
+      id: "faq-execution",
+      category: "İcra Planı",
+      question: "İcra planı hansı mərhələlərlə həyata keçiriləcək?",
+      renderBody: () => {
+        const body = element("div", "faq-body-content");
+        const timeline = element("div", "roadmap-timeline");
+        strategy.actionPlan.forEach((ph, idx) => {
+          const card = element("div", "roadmap-phase-card");
+          const h = element("div", "phase-card-header");
+          h.append(element("span", "phase-badge", `Mərhələ ${idx + 1}`), element("h3", "phase-title", ph.phase));
+          const ul = element("ul", "phase-action-list");
+          ph.actions.forEach((act) => {
+            const li = element("li");
+            li.append(element("span", "action-dot", "•"), document.createTextNode(act));
+            ul.appendChild(li);
+          });
+          card.append(h, ul);
+          if (ph.expectedOutcome) {
+            const out = element("div", "phase-outcome");
+            out.append(element("span", "outcome-icon", "🎯"), element("strong", "", "Gözlənilən nəticə: "), document.createTextNode(ph.expectedOutcome));
+            card.appendChild(out);
+          }
+          timeline.appendChild(card);
+        });
+        body.appendChild(timeline);
+        return body;
+      },
+    },
+    {
+      id: "faq-kpi",
+      category: "KPI və Nəticə",
+      question: "Strategiyanın uğurunu və nəticələrini hansı KPI-larla ölçəcəyik?",
+      renderBody: () => {
+        const body = element("div", "faq-body-content");
+        const kpiGrid = element("div", "kpi-cards-grid");
+        strategy.kpis.forEach((kpi) => {
+          const card = element("article", "kpi-card");
+          const top = element("div", "kpi-card-top");
+          top.append(element("h3", "kpi-name", kpi.name), element("span", "kpi-target-tag", kpi.target || "Ölçüm dövrü"));
+          card.append(top, element("p", "kpi-desc", kpi.reason));
+          kpiGrid.appendChild(card);
+        });
+        body.appendChild(kpiGrid);
+        return body;
+      },
+    },
+    {
+      id: "faq-risks",
+      category: "Risklər",
+      question: "Hansı risklər yarana bilər və onların qarşısını necə alacağıq?",
+      renderBody: () => {
+        const body = element("div", "faq-body-content");
+        const riskGrid = element("div", "risk-cards-grid");
+        if (strategy.risks && strategy.risks.length) {
+          strategy.risks.forEach((r, idx) => {
+            const card = element("article", "risk-card");
+            const top = element("div", "risk-card-top");
+            top.append(element("span", `risk-badge risk-${idx < 2 ? "high" : "medium"}`, idx < 2 ? "Yüksək Risk" : "Orta Risk"), element("h3", "risk-title", r.risk));
+            const mit = element("div", "risk-mitigation");
+            mit.append(element("strong", "", "Həll yolu: "), document.createTextNode(r.mitigation));
+            card.append(top, mit);
+            riskGrid.appendChild(card);
+          });
+        }
+        body.appendChild(riskGrid);
+        return body;
+      },
+    },
+    {
+      id: "faq-next",
+      category: "İlk Addımlar",
+      question: "Dərhal (növbəti 24–48 saatda) hansı ilk addımları atmalıyıq?",
+      renderBody: () => {
+        const body = element("div", "faq-body-content");
+        const checklistGrid = element("div", "action-checklist-grid");
+        const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+        const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
+        groupLabels.forEach((label, groupIndex) => {
+          const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
+          if (!items.length) return;
+          const groupCard = element("section", "checklist-group-card");
+          groupCard.appendChild(element("h3", "checklist-group-title", label));
+          const itemsList = element("div", "checklist-items-list");
+          items.forEach((item, itemIndex) => {
+            const checkboxLabel = element("label", "checklist-item");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.dataset.key = `faq-${groupIndex}-${itemIndex}`;
+            checkboxLabel.append(checkbox, element("span", "checklist-item-text", item));
+            itemsList.appendChild(checkboxLabel);
+          });
+          groupCard.appendChild(itemsList);
+          checklistGrid.appendChild(groupCard);
+        });
+        body.appendChild(checklistGrid);
+        return body;
+      },
+    },
+  ];
+
+  if (strategy.assumptions && strategy.assumptions.length) {
+    faqItemsData.push({
+      id: "faq-assumptions",
+      category: "Fərziyyələr",
+      question: "Bu strategiya hansı ilkin fərziyyələrə və şərtlərə əsaslanır?",
+      renderBody: () => {
+        const body = element("div", "faq-body-content");
+        const list = element("ul", "editorial-bullets");
+        strategy.assumptions.forEach((item) => {
+          const li = element("li");
+          li.append(element("span", "bullet-check", "•"), document.createTextNode(item));
+          list.appendChild(li);
+        });
+        body.appendChild(list);
+        return body;
+      },
+    });
+  }
+
+  const faqAccordion = element("div", "faq-accordion");
+
+  const renderFilteredFaq = () => {
+    faqAccordion.replaceChildren();
+    const query = (state.faqFilter || "").trim().toLocaleLowerCase("az");
+    const matched = faqItemsData.filter((item) => {
+      if (!query) return true;
+      return item.question.toLocaleLowerCase("az").includes(query) || item.category.toLocaleLowerCase("az").includes(query);
+    });
+
+    if (!matched.length) {
+      faqAccordion.appendChild(element("p", "faq-no-results", "Axtarışınıza uyğun sual tapılmadı."));
+      return;
+    }
+
+    matched.forEach((item, idx) => {
+      const details = document.createElement("details");
+      details.className = "faq-item";
+      details.id = item.id;
+      if (state.faqExpandedAll || idx === 0) details.open = true;
+
+      const summary = element("summary", "faq-summary");
+      const summaryLeft = element("div", "faq-summary-left");
+      summaryLeft.append(
+        element("span", "faq-category-badge", item.category),
+        element("span", "faq-question-text", item.question),
+      );
+      const chevron = element("span", "faq-chevron", "›");
+      summary.append(summaryLeft, chevron);
+
+      const bodyWrap = element("div", "faq-body-wrap");
+      bodyWrap.appendChild(item.renderBody());
+
+      details.append(summary, bodyWrap);
+      faqAccordion.appendChild(details);
+    });
+  };
+
+  searchInput.addEventListener("input", () => {
+    state.faqFilter = searchInput.value;
+    renderFilteredFaq();
+  });
+
+  renderFilteredFaq();
+  container.appendChild(faqAccordion);
+  return container;
+}
+
+function buildRoadmapView(strategy) {
+  const container = element("div", "strategy-roadmap-container");
+
+  // Timeline
+  const actionPlan = element("section", "strategy-work-section");
+  actionPlan.id = "execution";
+  actionPlan.appendChild(createSectionHeading("İCRA MƏRHƏLƏLƏRİ", "Strategiyadan hərəkətə", "Hər bir mərhələnin hədəfləri və gözlənilən nəticələri"));
+  const timeline = element("div", "roadmap-timeline");
+  strategy.actionPlan.forEach((phase, index) => {
+    const card = element("article", "roadmap-phase-card");
+    const phaseHeader = element("div", "phase-card-header");
+    const phaseBadge = element("span", "phase-badge", `Mərhələ ${index + 1}`);
+    const phaseTitle = element("h3", "phase-title", phase.phase);
+    phaseHeader.append(phaseBadge, phaseTitle);
+
+    const actionList = element("ul", "phase-action-list");
+    phase.actions.forEach((action) => {
+      const li = element("li");
+      li.append(element("span", "action-dot", "•"), document.createTextNode(action));
+      actionList.appendChild(li);
+    });
+
+    card.append(phaseHeader, actionList);
+
+    if (phase.expectedOutcome) {
+      const outcome = element("div", "phase-outcome");
+      outcome.append(
+        element("span", "outcome-icon", "🎯"),
+        element("strong", "", "Gözlənilən nəticə: "),
+        document.createTextNode(phase.expectedOutcome),
+      );
+      card.appendChild(outcome);
+    }
+    timeline.appendChild(card);
+  });
+  actionPlan.appendChild(timeline);
+
+  // Next Steps Checklist
+  const closeout = element("section", "strategy-work-section next-actions-section");
+  closeout.id = "next";
+  closeout.appendChild(createSectionHeading("NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addımlar"));
+  const checklistGrid = element("div", "action-checklist-grid");
+  const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+  const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
+  groupLabels.forEach((label, groupIndex) => {
+    const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
+    if (!items.length) return;
+    const groupCard = element("section", "checklist-group-card");
+    groupCard.appendChild(element("h3", "checklist-group-title", label));
+    const itemsList = element("div", "checklist-items-list");
+    items.forEach((item, itemIndex) => {
+      const checkboxLabel = element("label", "checklist-item");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.dataset.key = `roadmap-${groupIndex}-${itemIndex}`;
+      checkboxLabel.append(checkbox, element("span", "checklist-item-text", item));
+      itemsList.appendChild(checkboxLabel);
+    });
+    groupCard.appendChild(itemsList);
+    checklistGrid.appendChild(groupCard);
+  });
+  closeout.appendChild(checklistGrid);
+
+  // KPI checkpoints
+  const measurement = element("section", "strategy-work-section");
+  measurement.id = "kpi";
+  measurement.appendChild(createSectionHeading("UĞUR VƏ KPI YOXLAMA NÖQTƏLƏRİ", "Ölçü və hədəf siqnalları"));
+  const kpiGrid = element("div", "kpi-cards-grid");
+  strategy.kpis.forEach((kpi) => {
+    const card = element("article", "kpi-card");
+    const top = element("div", "kpi-card-top");
+    top.append(element("h3", "kpi-name", kpi.name), element("span", "kpi-target-tag", kpi.target || "Ölçüm dövrü"));
+    card.append(top, element("p", "kpi-desc", kpi.reason));
+    kpiGrid.appendChild(card);
+  });
+  measurement.appendChild(kpiGrid);
+
+  container.append(actionPlan, closeout, measurement);
+  return container;
 }
 
 function renderStrategyWorkspace() {
@@ -1057,11 +1742,15 @@ function renderStrategyWorkspace() {
   const strategy = state.strategy;
   const view = element("div", `strategy-view${state.status === "refining" ? " is-refining" : ""}`);
 
+  // Toolbar
   const toolbar = element("div", "strategy-toolbar");
   const crumb = button(`Strategiyalar / ${strategy.title}`, "strategy-breadcrumb", () => {
     state.view = "list";
     render();
   });
+
+  const switcher = buildFormatSwitcher();
+
   const toolbarActions = element("div", "toolbar-actions");
   const refineButton = button("Dəyişiklik istə", "secondary-button compact", () => document.querySelector("#refinementInput")?.focus());
   const exportWrap = element("div", "export-wrap");
@@ -1077,178 +1766,52 @@ function renderStrategyWorkspace() {
   const saveButton = button(state.savedId ? "Yadda saxlanıb" : "Yadda saxla", "primary-button compact", saveStrategy);
   saveButton.disabled = Boolean(state.savedId) || state.status === "refining";
   toolbarActions.append(refineButton, exportWrap, saveButton);
-  toolbar.append(crumb, toolbarActions);
 
-  const header = element("header", "strategy-overview");
-  header.id = "overview";
-  const status = element("span", `status-badge status-${state.status}`);
-  status.append(element("span", "status-dot"), document.createTextNode(STATUS_LABELS[state.status]));
-  const title = element("h1", "strategy-title", strategy.title);
-  const meta = element("div", "strategy-meta");
-  meta.append(
-    status,
-    element("span", "meta-divider", "·"),
-    element("span", "", `Versiya ${state.versions.length}`),
-    element("span", "meta-divider", "·"),
-    element("span", "", `Yenilənib ${formatDate(state.updatedAt)}`),
-  );
-  const thesis = element("p", "strategy-lede", firstSentences(strategy.summary, 2));
-  header.append(meta, title, thesis);
-  if (state.changeSummary) header.append(element("div", "change-note", state.changeSummary));
+  toolbar.append(crumb, switcher, toolbarActions);
 
-  const metrics = element("dl", "overview-metrics");
-  [
-    [shortValue(strategy.actionPlan[0]?.phase || "Planlı"), "İlk mərhələ"],
-    [budgetSignal(state.brief), "Marketinq büdcəsi"],
-    [shortValue(strategy.priorities[0]?.title || "Fokuslu"), "Əsas prioritet"],
-    [shortValue(strategy.context.targetAudience), "Əsas auditoriya"],
-  ].forEach(([value, label]) => {
-    const item = element("div", "overview-metric");
-    item.append(element("dd", "", value), element("dt", "", label));
-    metrics.appendChild(item);
-  });
-  header.appendChild(metrics);
-  const essence = element("div", "strategy-essence");
-  essence.append(element("h2", "", "Strategiyanın mahiyyəti"), element("p", "", firstSentences(strategy.summary, 3)));
-  header.appendChild(essence);
+  // Header
+  const header = buildStrategyHeader(strategy);
 
-  const priorities = element("section", "strategy-work-section");
-  priorities.id = "priorities";
-  priorities.appendChild(createSectionHeading("PRİORİTETLƏR", "Əvvəl nə vacibdir"));
-  const priorityGrid = element("div", "priority-rows");
-  strategy.priorities.forEach((priority, index) => {
-    const card = element("article", "priority-row");
-    const level = element("span", `priority-level priority-${priority.priority}`, priority.priority);
-    const copy = element("div", "priority-row-copy");
-    copy.append(element("h3", "", `${String(index + 1).padStart(2, "0")}  ${priority.title}`), element("p", "", firstSentences(priority.description, 1)));
-    card.append(copy, level);
-    priorityGrid.appendChild(card);
-  });
-  priorities.appendChild(priorityGrid);
+  // Canvas
+  const documentCanvas = element("main", "strategy-document-canvas");
+  documentCanvas.appendChild(header);
 
-  const direction = element("section", "strategy-work-section");
-  direction.id = "strategy";
-  direction.appendChild(createSectionHeading("STRATEGİYA", "Qərarlar və yanaşma"));
-  const sections = element("div", "strategy-sections");
-  strategy.sections.forEach((section, index) => {
-    const article = element("article", "decision-section");
-    article.append(element("h3", "", `${String(index + 1).padStart(2, "0")} — ${section.title}`));
-    const decision = element("div", "decision-field");
-    decision.append(element("strong", "", "Qərar"), element("p", "", section.summary || firstSentences(section.content, 1)));
-    const rationale = element("div", "decision-field");
-    rationale.append(element("strong", "", "Niyə"), element("p", "", firstSentences(section.content, 3)));
-    article.append(decision, rationale);
-    if (section.bullets.length) {
-      const actions = element("div", "decision-field");
-      actions.append(element("strong", "", "Et"));
-      const list = element("ul", "decision-list");
-      section.bullets.forEach((item) => list.appendChild(element("li", "", item)));
-      actions.appendChild(list);
-      article.appendChild(actions);
-    }
-    sections.appendChild(article);
-  });
-  direction.appendChild(sections);
-
-  const actionPlan = element("section", "strategy-work-section");
-  actionPlan.id = "execution";
-  actionPlan.appendChild(createSectionHeading("İCRA PLANI", "Strategiyadan hərəkətə"));
-  const timeline = element("div", "timeline");
-  strategy.actionPlan.forEach((phase, index) => {
-    const row = element("article", "timeline-row");
-    const rail = element("div", "timeline-rail");
-    rail.append(element("span", "timeline-dot", String(index + 1)), element("span", "timeline-line"));
-    const body = element("div", "timeline-body");
-    body.append(element("h3", "", phase.phase));
-    const list = element("ul", "decision-list compact-list");
-    phase.actions.slice(0, 3).forEach((action) => list.appendChild(element("li", "", action)));
-    body.appendChild(list);
-    if (phase.actions.length > 3) {
-      const details = document.createElement("details");
-      details.className = "timeline-details";
-      details.appendChild(element("summary", "", "Detalları göstər"));
-      const extra = element("ul", "decision-list compact-list");
-      phase.actions.slice(3).forEach((action) => extra.appendChild(element("li", "", action)));
-      details.appendChild(extra);
-      body.appendChild(details);
-    }
-    if (phase.expectedOutcome) {
-      const outcome = element("p", "expected-outcome");
-      outcome.append(element("strong", "", "Gözlənilən nəticə: "), document.createTextNode(phase.expectedOutcome));
-      body.appendChild(outcome);
-    }
-    row.append(rail, body);
-    timeline.appendChild(row);
-  });
-  actionPlan.appendChild(timeline);
-
-  const measurement = element("section", "strategy-work-section");
-  measurement.id = "kpi";
-  measurement.appendChild(createSectionHeading("KPI", "Ölçü və uğur siqnalları"));
-  const kpiGrid = element("div", "kpi-table");
-  const kpiHead = element("div", "kpi-row kpi-head");
-  kpiHead.append(element("span", "", "KPI"), element("span", "", "Nəyi göstərir"), element("span", "", "İlk siqnal"));
-  kpiGrid.appendChild(kpiHead);
-  strategy.kpis.forEach((kpi) => {
-    const row = element("details", "kpi-row");
-    const summary = element("summary", "kpi-summary");
-    summary.append(element("strong", "", kpi.name), element("span", "", firstSentences(kpi.reason, 1)), element("span", "kpi-signal", kpi.target || "İlk ölçüm dövrü"));
-    row.append(summary, element("p", "kpi-detail", kpi.reason));
-    kpiGrid.appendChild(row);
-  });
-  measurement.appendChild(kpiGrid);
-
-  const risks = element("section", "strategy-work-section");
-  risks.id = "risks";
-  risks.appendChild(createSectionHeading("RİSKLƏR", "Nə planı poza bilər"));
-  const riskList = element("div", "risk-table");
-  if (strategy.risks.length) {
-    strategy.risks.forEach((risk, index) => {
-      const row = element("article", "risk-compact-row");
-      const riskCopy = element("div", "risk-main");
-      riskCopy.append(element("span", "risk-severity", index < 2 ? "HIGH" : "MEDIUM"), element("strong", "", risk.risk));
-      row.append(riskCopy, element("p", "", risk.mitigation));
-      riskList.appendChild(row);
-    });
+  let tocItems = [];
+  if (state.strategyFormat === "faq") {
+    documentCanvas.appendChild(buildFaqView(strategy));
+    tocItems = [
+      ["overview", "Xülasə & Kontekst"],
+      ["faq-goal", "Məqsəd"],
+      ["faq-audience", "Auditoriya"],
+      ["faq-priorities", "Prioritetlər"],
+      ["faq-decisions", "Qərarlar"],
+      ["faq-execution", "İcra Planı"],
+      ["faq-kpi", "KPI Metrikləri"],
+      ["faq-risks", "Risklər"],
+      ["faq-next", "İlk Addımlar"],
+    ];
+  } else if (state.strategyFormat === "roadmap") {
+    documentCanvas.appendChild(buildRoadmapView(strategy));
+    tocItems = [
+      ["overview", "Xülasə"],
+      ["execution", "Mərhələlər"],
+      ["next", "Növbəti Addımlar"],
+      ["kpi", "KPI Nöqtələri"],
+    ];
   } else {
-    riskList.appendChild(element("p", "section-empty", "Əlavə kritik risk müəyyən edilməyib."));
+    documentCanvas.appendChild(buildBlogView(strategy));
+    tocItems = [
+      ["overview", "Xülasə & Kontekst"],
+      ["priorities", "01. Prioritetlər"],
+      ["decisions", "02. Strateji Qərarlar"],
+      ["execution", "03. İcra Planı"],
+      ["kpi", "04. KPI Hədəfləri"],
+      ["risks", "05. Risklər və Həlli"],
+      ["next", "06. Növbəti Addımlar"],
+    ];
   }
-  risks.appendChild(riskList);
 
-  const closeout = element("section", "strategy-work-section next-actions-section");
-  closeout.id = "next";
-  closeout.appendChild(createSectionHeading("NÖVBƏTİ ADDIMLAR", "İndi nə etməli"));
-  const checklist = element("div", "action-checklist");
-  const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
-  const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
-  groupLabels.forEach((label, groupIndex) => {
-    const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
-    if (!items.length) return;
-    const group = element("section", "checklist-group");
-    group.appendChild(element("h3", "", label));
-    items.forEach((item, itemIndex) => {
-      const checkboxLabel = element("label", "checklist-item");
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.dataset.key = `${groupIndex}-${itemIndex}`;
-      checkboxLabel.append(checkbox, element("span", "", item));
-      group.appendChild(checkboxLabel);
-    });
-    checklist.appendChild(group);
-  });
-  closeout.appendChild(checklist);
-
-  const assumptions = document.createElement("details");
-  assumptions.className = "assumptions-panel";
-  assumptions.appendChild(element("summary", "", "Fərziyyələr və əsas kontekst"));
-  const assumptionList = element("ul", "decision-list");
-  strategy.assumptions.forEach((item) => assumptionList.appendChild(element("li", "", item)));
-  assumptions.append(assumptionList);
-
-  const tocItems = [
-    ["overview", "Ümumi baxış"], ["priorities", "Prioritetlər"], ["strategy", "Strategiya"],
-    ["execution", "İcra planı"], ["kpi", "KPI"], ["risks", "Risklər"], ["next", "Növbəti addımlar"],
-  ];
+  // Sticky TOC
   const toc = element("nav", "strategy-toc");
   toc.setAttribute("aria-label", "Strategiya bölmələri");
   tocItems.forEach(([id, label], index) => {
@@ -1256,8 +1819,7 @@ function renderStrategyWorkspace() {
     link.href = `#${id}`;
     toc.appendChild(link);
   });
-  const documentCanvas = element("main", "strategy-document-canvas");
-  documentCanvas.append(header, priorities, direction, actionPlan, measurement, risks, closeout, assumptions);
+
   const shell = element("div", "strategy-local-shell");
   shell.append(toc, documentCanvas);
   view.append(toolbar, shell, buildRefinementPanel());
