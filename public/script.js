@@ -171,7 +171,7 @@ function showRegistrationNotice() {
     element(
       "p",
       "",
-      "Təəssüf ki, hazırda qeydiyyat prosesində texniki çətinlik müşahidə olunur. Komandamız problemi ən qısa zaman ərzində aradan qaldıracaq.",
+      "Təəssüf ki, hazırda qeydiyyat prosesində texniki çətinlik müşahidə olunur, müvəqqəti olaraq üçüncü tərəf qeydiyyat vasitəsilə davam edə bilərsiniz. Komandamız problemi ən qısa zaman ərzində aradan qaldıracaq.",
     ),
   );
   document.body.appendChild(notice);
