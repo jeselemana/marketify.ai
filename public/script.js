@@ -1185,6 +1185,24 @@ function buildStrategyHeader(strategy) {
   return header;
 }
 
+function buildKpiCard(kpi) {
+  const card = element("article", "kpi-card");
+  const header = element("div", "kpi-card-header");
+  const kicker = element("span", "kpi-card-kicker", "📊 KPI Metriki");
+  const name = element("h3", "kpi-name", kpi.name);
+  header.append(kicker, name);
+
+  const targetBox = element("div", "kpi-target-box");
+  targetBox.append(
+    element("span", "kpi-target-label", "Hədəf / İlk Siqnal:"),
+    element("p", "kpi-target-value", kpi.target || "İlk ölçüm dövrü"),
+  );
+
+  const desc = element("p", "kpi-desc", kpi.reason);
+  card.append(header, targetBox, desc);
+  return card;
+}
+
 function buildBlogView(strategy) {
   const container = element("div", "strategy-blog-container");
 
@@ -1298,14 +1316,7 @@ function buildBlogView(strategy) {
   measurement.appendChild(createSectionHeading("04. KPI GÖSTƏRİCİLƏRİ", "Ölçü və uğur siqnalları", "Strategiyanın effektivliyini izləmək üçün əsas performans göstəriciləri"));
   const kpiGrid = element("div", "kpi-cards-grid");
   strategy.kpis.forEach((kpi) => {
-    const card = element("article", "kpi-card");
-    const top = element("div", "kpi-card-top");
-    const name = element("h3", "kpi-name", kpi.name);
-    const target = element("span", "kpi-target-tag", kpi.target || "Ölçüm dövrü");
-    top.append(name, target);
-    const desc = element("p", "kpi-desc", kpi.reason);
-    card.append(top, desc);
-    kpiGrid.appendChild(card);
+    kpiGrid.appendChild(buildKpiCard(kpi));
   });
   measurement.appendChild(kpiGrid);
 
@@ -1525,11 +1536,7 @@ function buildFaqView(strategy) {
         const body = element("div", "faq-body-content");
         const kpiGrid = element("div", "kpi-cards-grid");
         strategy.kpis.forEach((kpi) => {
-          const card = element("article", "kpi-card");
-          const top = element("div", "kpi-card-top");
-          top.append(element("h3", "kpi-name", kpi.name), element("span", "kpi-target-tag", kpi.target || "Ölçüm dövrü"));
-          card.append(top, element("p", "kpi-desc", kpi.reason));
-          kpiGrid.appendChild(card);
+          kpiGrid.appendChild(buildKpiCard(kpi));
         });
         body.appendChild(kpiGrid);
         return body;
@@ -1725,11 +1732,7 @@ function buildRoadmapView(strategy) {
   measurement.appendChild(createSectionHeading("UĞUR VƏ KPI YOXLAMA NÖQTƏLƏRİ", "Ölçü və hədəf siqnalları"));
   const kpiGrid = element("div", "kpi-cards-grid");
   strategy.kpis.forEach((kpi) => {
-    const card = element("article", "kpi-card");
-    const top = element("div", "kpi-card-top");
-    top.append(element("h3", "kpi-name", kpi.name), element("span", "kpi-target-tag", kpi.target || "Ölçüm dövrü"));
-    card.append(top, element("p", "kpi-desc", kpi.reason));
-    kpiGrid.appendChild(card);
+    kpiGrid.appendChild(buildKpiCard(kpi));
   });
   measurement.appendChild(kpiGrid);
 
@@ -1742,7 +1745,7 @@ function renderStrategyWorkspace() {
   const strategy = state.strategy;
   const view = element("div", `strategy-view${state.status === "refining" ? " is-refining" : ""}`);
 
-  // Toolbar
+  // Toolbar - Clean Top Navigation with Breadcrumb and Format Switcher
   const toolbar = element("div", "strategy-toolbar");
   const crumb = button(`Strategiyalar / ${strategy.title}`, "strategy-breadcrumb", () => {
     state.view = "list";
@@ -1750,24 +1753,7 @@ function renderStrategyWorkspace() {
   });
 
   const switcher = buildFormatSwitcher();
-
-  const toolbarActions = element("div", "toolbar-actions");
-  const refineButton = button("Dəyişiklik istə", "secondary-button compact", () => document.querySelector("#refinementInput")?.focus());
-  const exportWrap = element("div", "export-wrap");
-  const exportButton = button("İxrac", "secondary-button compact");
-  exportButton.setAttribute("aria-haspopup", "menu");
-  exportButton.setAttribute("aria-expanded", "false");
-  const menu = buildExportMenu(exportButton);
-  exportButton.addEventListener("click", () => {
-    const open = menu.classList.toggle("is-open");
-    exportButton.setAttribute("aria-expanded", String(open));
-  });
-  exportWrap.append(exportButton, menu);
-  const saveButton = button(state.savedId ? "Yadda saxlanıb" : "Yadda saxla", "primary-button compact", saveStrategy);
-  saveButton.disabled = Boolean(state.savedId) || state.status === "refining";
-  toolbarActions.append(refineButton, exportWrap, saveButton);
-
-  toolbar.append(crumb, switcher, toolbarActions);
+  toolbar.append(crumb, switcher);
 
   // Header
   const header = buildStrategyHeader(strategy);
@@ -1862,14 +1848,77 @@ function budgetSignal(brief) {
 
 function buildRefinementPanel() {
   const panel = element("section", "refinement-dock");
-  panel.setAttribute("aria-label", "Strategiyanı yenilə");
+  panel.setAttribute("aria-label", "Strategiyanı idarə et və yenilə");
+
+  // Top Action Buttons Strip: Dəyişiklik istə, İxrac, Yadda saxla
+  const actionsStrip = element("div", "dock-actions-strip");
+
+  // 1. Refine button with minimalist pencil/wand icon
+  const refineBtn = button("", "dock-action-btn dock-refine-btn", () => {
+    const input = document.querySelector("#refinementInput");
+    input?.focus();
+  });
+  refineBtn.innerHTML = `
+    <svg class="dock-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 20h9"/>
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/>
+    </svg>
+    <span>Dəyişiklik istə</span>
+  `;
+
+  // 2. Export wrap + button with minimalist download/export icon + menu
+  const exportWrap = element("div", "export-wrap dock-export-wrap");
+  const exportBtn = button("", "dock-action-btn dock-export-btn");
+  exportBtn.setAttribute("aria-haspopup", "menu");
+  exportBtn.setAttribute("aria-expanded", "false");
+  exportBtn.innerHTML = `
+    <svg class="dock-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    <span>İxrac</span>
+  `;
+  const menu = buildExportMenu(exportBtn);
+  exportBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = menu.classList.toggle("is-open");
+    exportBtn.setAttribute("aria-expanded", String(open));
+  });
+  exportWrap.append(exportBtn, menu);
+
+  // Close export menu when clicking outside
+  document.addEventListener("click", (e) => {
+    if (!exportWrap.contains(e.target)) {
+      menu.classList.remove("is-open");
+      exportBtn.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  // 3. Save button with minimalist bookmark/check icon
+  const saveBtn = button("", `dock-action-btn dock-save-btn${state.savedId ? " is-saved" : ""}`, saveStrategy);
+  saveBtn.disabled = Boolean(state.savedId) || state.status === "refining";
+  const saveIconSvg = state.savedId
+    ? `<polyline points="20 6 9 17 4 12"/>`
+    : `<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>`;
+  saveBtn.innerHTML = `
+    <svg class="dock-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+      ${saveIconSvg}
+    </svg>
+    <span>${state.savedId ? "Yadda saxlanıb" : "Yadda saxla"}</span>
+  `;
+
+  actionsStrip.append(refineBtn, exportWrap, saveBtn);
+
+  // Middle: Quick suggestions
   const quick = element("div", "quick-actions");
   QUICK_ACTIONS.forEach(([action, label]) => {
     const actionButton = button(label, "quick-action", () => requestRefinement(action, ""));
     actionButton.disabled = state.status === "refining";
     quick.appendChild(actionButton);
   });
-  panel.appendChild(quick);
+
+  // Bottom: Refinement input form
   const form = element("form", "refinement-form");
   const label = element("label", "sr-only", "Dəyişiklik istəyi");
   label.htmlFor = "refinementInput";
@@ -1883,8 +1932,9 @@ function buildRefinementPanel() {
   submit.type = "submit";
   submit.disabled = true;
   submit.setAttribute("aria-label", "Dəyişiklik istəyini göndər");
-  submit.append(element("span", "", "→"));
+  submit.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
   form.append(label, input, submit);
+
   input.addEventListener("input", () => {
     submit.disabled = input.value.trim().length < 3 || state.status === "refining";
   });
@@ -1899,7 +1949,8 @@ function buildRefinementPanel() {
     const request = input.value.trim();
     if (request.length >= 3) requestRefinement("custom", request);
   });
-  panel.appendChild(form);
+
+  panel.append(actionsStrip, quick, form);
   return panel;
 }
 
