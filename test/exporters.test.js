@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createDocumentExport, createSpreadsheetExport } from "../public/exporters.js";
+import { createDocumentExport, createSpreadsheetExport, createPdfPrintDocument } from "../public/exporters.js";
 
 const strategy = {
   title: "Launch <script>alert(1)</script>",
@@ -28,4 +28,15 @@ test("spreadsheet export keeps action-plan, priority, KPI, and risk rows separat
   assert.match(file.content, /"Fəaliyyət planı"/);
   assert.match(file.content, /"KPI"/);
   assert.match(file.content, /"Risk"/);
+});
+
+test("pdf printable document escapes untrusted content and renders all key sections", () => {
+  const html = createPdfPrintDocument(strategy);
+  assert.match(html, /Marketify/);
+  assert.match(html, /&lt;script&gt;alert/);
+  assert.match(html, /01\. Strateji Prioritetlər/);
+  assert.match(html, /03\. İcra Mərhələləri/);
+  assert.match(html, /04\. Uğur və KPI Hədəfləri/);
+  assert.match(html, /05\. Risklər və Həll Yolları/);
+  assert.match(html, /06\. Növbəti Addımlar/);
 });

@@ -1,4 +1,4 @@
-import { createDocumentExport, createSpreadsheetExport } from "./exporters.js";
+import { createDocumentExport, createSpreadsheetExport, exportStrategyToPDF } from "./exporters.js";
 import { authRequest, initializeAuthentication, logout } from "./auth.js";
 
 const workspace = document.querySelector("#workspace");
@@ -2256,19 +2256,30 @@ function buildExportMenu(trigger) {
   menu.setAttribute("role", "menu");
   const title = element("span", "export-label", "İxrac et");
   menu.appendChild(title);
-  const doc = button("HTML sənədi", "export-option", () => {
+
+  const pdf = button("PDF sənədi (.pdf)", "export-option", () => {
+    trackEvent("export_requested", { format: "pdf" });
+    menu.classList.remove("is-open");
+    trigger.setAttribute("aria-expanded", "false");
+    showToast("PDF generasiya edilir və açılır…");
+    exportStrategyToPDF(state.strategy);
+  });
+
+  const doc = button("HTML sənədi (.html)", "export-option", () => {
     trackEvent("export_requested", { format: "document" });
     downloadExport(createDocumentExport(state.strategy));
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
   });
-  const csv = button("CSV / məlumat", "export-option", () => {
+
+  const csv = button("CSV / Cədvəl (.csv)", "export-option", () => {
     trackEvent("export_requested", { format: "spreadsheet" });
     downloadExport(createSpreadsheetExport(state.strategy));
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
   });
-  menu.append(doc, csv, element("div", "export-separator"), element("span", "export-label", "İnteqrasiyalar"));
+
+  menu.append(pdf, doc, csv, element("div", "export-separator"), element("span", "export-label", "İnteqrasiyalar"));
   ["Google Docs", "Google Sheets"].forEach((label) => {
     const option = element("div", "export-integration");
     option.append(element("span", "", label), element("small", "", "Coming soon"));
