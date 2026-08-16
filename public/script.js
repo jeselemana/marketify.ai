@@ -1813,7 +1813,7 @@ function renderStrategyWorkspace() {
 
   // Toolbar - Clean Top Navigation with Breadcrumb and Format Switcher
   const toolbar = element("div", "strategy-toolbar");
-  const crumb = button(`Strategiyalar / ${strategy.title}`, "strategy-breadcrumb", () => {
+  const crumb = button(`Arxiv / ${strategy.title}`, "strategy-breadcrumb", () => {
     state.view = "list";
     render();
   });
@@ -2402,7 +2402,7 @@ function renderStrategyList() {
   const view = element("section", "strategies-view");
   const heading = element("div", "list-heading");
   const copy = element("div");
-  copy.append(element("span", "section-kicker", "WORKSPACE"), element("h1", "", "Strategiyalar"), element("p", "", "Yadda saxladığın strategiyaları tap, aç və davam etdir."));
+  copy.append(element("span", "section-kicker", "WORKSPACE"), element("h1", "", "Arxiv"), element("p", "", "Yadda saxladığın bütün strategiyalar və işlər."));
   heading.append(copy, button("＋ Yeni strategiya", "primary-button", resetStrategy));
   view.appendChild(heading);
 
@@ -2410,7 +2410,7 @@ function renderStrategyList() {
     const empty = element("div", "empty-state");
     empty.append(
       element("span", "empty-icon", "✦"),
-      element("h2", "", "Strategiyalar burada görünəcək"),
+      element("h2", "", "Arxivdə hələ heç nə yoxdur"),
       element("p", "", "İlk strategiyanı qur və yadda saxla."),
       button("Yeni strategiya", "primary-button", resetStrategy),
     );
@@ -2419,8 +2419,8 @@ function renderStrategyList() {
     const controls = element("div", "library-controls");
     const search = element("input", "library-search");
     search.type = "search";
-    search.placeholder = "Strategiyalarda axtar";
-    search.setAttribute("aria-label", "Strategiyalarda axtar");
+    search.placeholder = "Arxivdə axtar";
+    search.setAttribute("aria-label", "Arxivdə axtar");
     const filters = element("div", "library-filters");
     ["Hamısı", "Son", "Yadda saxlanmış"].forEach((label, index) => filters.appendChild(button(label, `library-filter${index === 0 ? " is-active" : ""}`)));
     const sort = element("span", "library-sort", "Son yenilənən ↓");
