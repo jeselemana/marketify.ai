@@ -4771,6 +4771,7 @@ body {
   }
 
   .app-main {
+    position: relative;
     min-height: 100dvh;
   }
 
@@ -4781,8 +4782,8 @@ body {
     grid-template-columns: 44px minmax(0, 1fr) 44px;
     align-items: center;
     padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
-    border-bottom: 1px solid rgba(20, 27, 42, 0.07);
-    background: rgba(248, 249, 251, 0.96);
+    border-bottom: 0;
+    background: var(--bg-canvas);
     box-shadow: none;
     backdrop-filter: blur(14px);
   }
@@ -4792,6 +4793,17 @@ body {
     width: 44px;
     height: 44px;
     border-radius: 13px;
+    background: rgba(255, 255, 255, 0.86);
+    box-shadow: 0 8px 24px rgba(31, 41, 55, 0.065);
+  }
+
+  .mobile-header #mobileMenuButton {
+    grid-column: 1;
+  }
+
+  .mobile-header .mobile-new {
+    grid-column: 3;
+    justify-self: end;
   }
 
   .mobile-header #mobileMenuButton span {
@@ -4806,7 +4818,7 @@ body {
   }
 
   .mobile-brand {
-    justify-self: center;
+    display: none;
   }
 
   .mobile-brand strong {
@@ -4816,19 +4828,27 @@ body {
   }
 
   .mode-header {
-    min-height: 54px;
-    height: 54px;
-    align-items: flex-start;
-    padding-top: 12px;
+    position: absolute;
+    z-index: 21;
+    top: calc(env(safe-area-inset-top) + 9px);
+    right: 64px;
+    left: 64px;
+    min-height: 42px;
+    height: 42px;
+    padding: 0;
+    pointer-events: none;
+    background: transparent;
   }
 
   .mode-switch {
-    width: min(calc(100% - 32px), 288px);
-    height: 40px;
+    width: min(100%, 210px);
+    height: 42px;
     padding: 3px;
     border: 0;
     border-radius: 14px;
-    background: #eceef2;
+    pointer-events: auto;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 10px 28px rgba(31, 41, 55, 0.075);
   }
 
   .mode-option {
@@ -4840,48 +4860,52 @@ body {
   }
 
   .mode-option.is-active {
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(31, 41, 55, 0.1), 0 4px 12px rgba(31, 41, 55, 0.045);
+    background: #eceef1;
+    box-shadow: none;
   }
 
   .mode-header + .workspace,
   .workspace-ask,
   .ask-shell {
-    min-height: calc(100dvh - 114px - env(safe-area-inset-top));
+    min-height: calc(100dvh - 60px - env(safe-area-inset-top));
   }
 
   .mode-header + .workspace-centered {
-    display: block;
-    min-height: calc(100dvh - 114px - env(safe-area-inset-top));
+    display: flex;
+    min-height: calc(100dvh - 60px - env(safe-area-inset-top));
     padding: 0 16px calc(14px + env(safe-area-inset-bottom));
+    background: var(--bg-canvas);
   }
 
   .workspace-centered .intake-view {
     display: flex;
     width: 100%;
     max-width: 100%;
+    min-height: calc(100dvh - 74px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     flex-direction: column;
     animation-duration: 260ms;
   }
 
   .workspace-centered .intake-intro {
+    display: grid;
     order: 1;
     width: 100%;
     max-width: 440px;
-    margin: 32px auto 0;
+    min-height: 180px;
+    flex: 1 1 auto;
+    place-items: center;
+    margin: 0 auto;
     text-align: center;
   }
 
   .workspace-centered .product-eyebrow {
-    margin-bottom: 12px;
-    font-size: 10px;
-    letter-spacing: 0.14em;
+    display: none;
   }
 
   .workspace-centered .intake-title {
     max-width: 408px;
     margin-inline: auto;
-    font-size: clamp(36px, 9.5vw, 42px);
+    font-size: clamp(38px, 9.5vw, 42px);
     font-weight: 700;
     letter-spacing: -0.048em;
     line-height: 1.01;
@@ -4889,12 +4913,7 @@ body {
   }
 
   .workspace-centered .intake-description {
-    max-width: 340px;
-    margin: 13px auto 0;
-    color: rgba(70, 78, 94, 0.82);
-    font-size: 15.5px;
-    line-height: 1.45;
-    text-align: center;
+    display: none;
   }
 
   .workspace-centered .examples,
@@ -4913,7 +4932,7 @@ body {
     order: 2;
     width: 100%;
     max-width: 100%;
-    margin: clamp(24px, 4dvh, 34px) 0 0;
+    margin: 0;
     padding: 0 16px 2px 0;
   }
 
@@ -4958,7 +4977,7 @@ body {
     grid-template-columns: 44px minmax(0, 1fr) 48px;
     align-items: end;
     gap: 8px;
-    margin-top: 22px;
+    margin-top: 12px;
     padding: 8px 8px 8px 10px;
     overflow: hidden;
     border-radius: 22px;
@@ -5041,8 +5060,14 @@ body {
   .ask-shell.is-empty .ask-thread {
     width: 100%;
     max-width: 100%;
-    min-height: 0;
-    padding: 32px 0 0;
+    min-height: 180px;
+    padding: 0;
+  }
+
+  .ask-shell.is-empty .ask-thread {
+    display: grid;
+    flex: 1 1 auto;
+    place-items: center;
   }
 
   .ask-intro {
@@ -5052,18 +5077,14 @@ body {
   .ask-title {
     max-width: 408px;
     margin-inline: auto;
-    font-size: clamp(36px, 9.5vw, 42px);
+    font-size: clamp(38px, 9.5vw, 42px);
     font-weight: 700;
     line-height: 1.01;
     text-wrap: wrap;
   }
 
   .ask-subtitle {
-    max-width: 340px;
-    margin-top: 13px;
-    color: rgba(70, 78, 94, 0.82);
-    font-size: 15.5px;
-    line-height: 1.45;
+    display: none;
   }
 
   .ask-composer-area,
@@ -5071,7 +5092,7 @@ body {
     position: relative;
     width: 100%;
     max-width: 100%;
-    margin: clamp(24px, 4dvh, 34px) 0 0;
+    margin: 0;
     padding: 0 0 calc(12px + env(safe-area-inset-bottom));
     background: transparent;
   }
@@ -5086,7 +5107,7 @@ body {
   .ask-suggestions {
     width: 100%;
     max-width: 100%;
-    margin: 0 0 22px;
+    margin: 0 0 12px;
     padding: 0 16px 2px 0;
   }
 
@@ -5131,6 +5152,10 @@ body {
     display: none;
   }
 
+  .ask-shell.is-empty .ask-composer-meta {
+    display: none;
+  }
+
   .ask-message {
     gap: 9px;
   }
@@ -5156,7 +5181,7 @@ body {
   .ask-thread,
   .ask-shell.is-empty .ask-thread {
     padding-top: 0;
-    margin-top: 28px;
+    margin-top: 0;
   }
 
   .workspace-centered .intake-title,
@@ -5172,7 +5197,7 @@ body {
   }
 
   .mode-switch {
-    width: min(calc(100% - 28px), 288px);
+    width: min(100%, 210px);
   }
 
   .mode-header + .workspace-centered,
@@ -5184,7 +5209,7 @@ body {
   .workspace-centered .intake-intro,
   .ask-thread,
   .ask-shell.is-empty .ask-thread {
-    margin-top: 24px;
+    margin-top: 0;
   }
 
   .workspace-centered .intake-title,
