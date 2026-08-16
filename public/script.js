@@ -300,7 +300,7 @@ function renderIntake() {
   const textarea = element("textarea", "composer-input");
   textarea.id = "briefInput";
   textarea.name = "brief";
-  textarea.rows = 2;
+  textarea.rows = 1;
   textarea.maxLength = 8000;
   textarea.placeholder = "Biznes məqsədini və ya həll etmək istədiyin problemi yaz…";
   textarea.value = state.brief;
