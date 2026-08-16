@@ -299,22 +299,17 @@ function render() {
 
 function renderIntake() {
   workspace.classList.add("workspace-centered");
+
   const view = element("section", "intake-view");
   view.setAttribute("aria-labelledby", "intakeTitle");
 
   const intro = element("div", "intake-intro");
-  const eyebrow = element("div", "product-eyebrow");
-  eyebrow.append(element("span", "eyebrow-mark", "✦"), document.createTextNode(" MARKETIFY STRATEGY"));
-  intro.append(
-    eyebrow,
-    element("h1", "intake-title", "Növbəti strategiyanı quraq."),
-    element(
-      "p",
-      "intake-description",
-      "Məqsədini yaz — Marketify onu aydın qərarlara və icra planına çevirsin.",
-    ),
-  );
 
+  intro.append(
+    element("h1", "intake-title", "Növbəti strategiyanı quraq."),
+   
+  );
+  
   const form = element("form", "composer-card");
   const label = element("label", "sr-only", "Strategiya brifi");
   label.htmlFor = "briefInput";
@@ -357,10 +352,11 @@ function renderIntake() {
   });
   const hint = element("span", "composer-hint", "Enter göndərir · Shift + Enter yeni sətir");
   composerTools.append(attach, hint);
-  const submit = button("Başlat", "primary-button composer-submit");
-  submit.type = "submit";
-  submit.disabled = state.brief.trim().length < 8;
-  submit.appendChild(element("span", "button-arrow", "→"));
+ const submit = button("", "primary-button composer-submit");
+submit.type = "submit";
+submit.disabled = state.brief.trim().length < 8;
+submit.setAttribute("aria-label", "Strategiyanı qur");
+submit.appendChild(element("span", "button-arrow", "↑"));
   footer.append(composerTools, submit);
   form.append(label, textarea, fileInput, footer);
 
@@ -368,7 +364,7 @@ function renderIntake() {
     state.brief = textarea.value;
     submit.disabled = textarea.value.trim().length < 8;
     textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 260)}px`;
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
   });
   textarea.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing && window.innerWidth > 700) {

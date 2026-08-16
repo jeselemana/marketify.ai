@@ -1,13 +1,29 @@
 const authRoot = document.querySelector("#authRoot");
 const appShell = document.querySelector("#appShell");
-const AUTH_PATHS = new Set(["/login", "/signup", "/forgot-password", "/reset-password"]);
+
+const GOOGLE_CLIENT_ID =
+  "121941263403-i4qt374rqirc8uord3r5omdtqvcnamb9.apps.googleusercontent.com";
+
+const AUTH_PATHS = new Set([
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/reset-password",
+]);
+
 let pendingReturnPath = "/";
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;",
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
   })[character]);
 }
+
+
 
 function safeInternalPath(value) {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return "/";
@@ -147,46 +163,151 @@ async function completeAuthentication(user) {
   await authenticatedCallback?.(user);
 }
 
+async function handleGoogleCredential(response) {
+  try {
+    const data = await request("/api/auth/google", {
+      method: "POST",
+      body: JSON.stringify({
+        credential: response.credential,
+      }),
+    });
+
+    await completeAuthentication(data.user);
+  } catch (error) {
+    console.error("Google login xətası:", error);
+  }
+}
+
+function googleSignInButton() {
+  const wrapper = document.createElement("div");
+  wrapper.className = "google-auth-wrapper";
+
+  const target = document.createElement("div");
+  target.className = "google-auth-button";
+
+  wrapper.appendChild(target);
+
+  const renderGoogleButton = () => {
+    if (!window.google?.accounts?.id) {
+      setTimeout(renderGoogleButton, 100);
+      return;
+    }
+
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCredential,
+    });
+
+    google.accounts.id.renderButton(target, {
+      type: "standard",
+      theme: "outline",
+      size: "large",
+      text: "continue_with",
+      shape: "rectangular",
+      width: 400,
+    });
+  };
+
+  requestAnimationFrame(renderGoogleButton);
+
+  return wrapper;
+}
+
 function renderLogin() {
   document.title = "Daxil ol — Marketify";
-  const content = shell("Yenidən xoş gəldin", "Strategiyalarına və Marketify workspace-inə davam et.");
-  const { form, submit } = formBase("Daxil ol");
-  form.append(
-    field({ label: "E-poçt və ya istifadəçi adı", name: "identifier", autocomplete: "username", placeholder: "ad@şirkət.az və ya username" }),
-    field({ label: "Şifrə", name: "password", type: "password", autocomplete: "current-password", placeholder: "Şifrən" }),
+
+  const content = shell(
+    "Yenidən xoş gəldin",
+    "Strategiyalarına və Marketify workspace-inə davam et."
   );
+
+  const { form, submit } = formBase("Daxil ol");
+
+  form.append(
+    field({
+      label: "E-poçt və ya istifadəçi adı",
+      name: "identifier",
+      autocomplete: "username",
+      placeholder: "ad@şirkət.az və ya username",
+    }),
+    field({
+      label: "Şifrə",
+      name: "password",
+      type: "password",
+      autocomplete: "current-password",
+      placeholder: "Şifrən",
+    }),
+  );
+
   const helpers = document.createElement("div");
   helpers.className = "auth-form-helpers";
-  helpers.append(document.createElement("span"), linkButton("Şifrəni unutmusansa", "/forgot-password"));
+  helpers.append(
+    document.createElement("span"),
+    linkButton("Şifrəni unutmusansa", "/forgot-password"),
+  );
+
   form.append(helpers, submit);
+
+  const divider = document.createElement("div");
+  divider.className = "auth-divider";
+  divider.innerHTML = "<span>və ya</span>";
+
+  form.append(
+    divider,
+    googleSignInButton(),
+  );
+
   const switcher = document.createElement("p");
   switcher.className = "auth-switch";
-  switcher.append("Hesabın yoxdur? ", linkButton("Pulsuz hesab yarat", "/signup"));
-  form.append(switcher, guestAccessButton());
+  switcher.append(
+    "Hesabın yoxdur? ",
+    linkButton("Pulsuz hesab yarat", "/signup"),
+  );
+
+  form.append(
+    switcher,
+    guestAccessButton(),
+  );
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+
     setFormError(form, "");
     submitState(submit, true, "Daxil ol");
+
     try {
       const data = await request("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ identifier: form.identifier.value, password: form.password.value }),
+        body: JSON.stringify({
+          identifier: form.identifier.value,
+          password: form.password.value,
+        }),
       });
+
       await completeAuthentication(data.user);
     } catch (error) {
       setFormError(form, error.message);
       submitState(submit, false, "Daxil ol");
     }
   });
+
   content.appendChild(form);
+
   setTimeout(() => form.identifier.focus(), 0);
 }
-
 function renderSignup() {
   document.title = "Hesab yarat — Marketify";
   const content = shell("Marketify hesabını yarat", "Strategiyalarını təhlükəsiz saxla və istənilən cihazdan davam et.");
   const { form, submit } = formBase("Hesab yarat");
   const fullName = field({ label: "Ad və soyad", name: "fullName", autocomplete: "name", placeholder: "Ad Soyad" });
+  const divider = document.createElement("div");
+divider.className = "auth-divider";
+divider.innerHTML = "<span>və ya</span>";
+
+form.append(
+  divider,
+  googleSignInButton(),
+);
   const username = field({ label: "İstifadəçi adı", name: "username", autocomplete: "username", placeholder: "marketinq.lideri", hint: "3–30 simvol · hərf, rəqəm, nöqtə və alt xətt" });
   username.classList.add("auth-username-field");
   const usernamePrefix = document.createElement("span");
@@ -221,6 +342,7 @@ function renderSignup() {
     event.preventDefault();
     setFormError(form, "");
     submitState(submit, true, "Hesab yarat");
+    
     try {
       const data = await request("/api/auth/signup", {
         method: "POST",
@@ -343,6 +465,10 @@ function renderRoute() {
   if (path === "/reset-password") return renderReset();
   if (path !== "/login") route("/login", true);
   return renderLogin();
+  form.append(
+  divider,
+  // googleSignInButton(),
+);
 }
 
 export async function initializeAuthentication(onAuthenticated) {

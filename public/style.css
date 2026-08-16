@@ -632,51 +632,110 @@ body.sidebar-open .app-main {
   line-height: 1.6;
 }
 
-.composer-card {
-  overflow: hidden;
+/* Compact Build input — Ask style */
+
+.workspace-centered .composer-card {
+  display: grid;
+  width: min(100%, 760px);
+  min-height: 62px;
+  grid-template-columns: 40px minmax(0, 1fr) 42px;
+  align-items: end;
+  gap: 8px;
+
+  margin-inline: auto;
+  padding: 8px;
+
+  overflow: visible;
+
   border: 1px solid var(--border-subtle);
-  border-radius: 20px;
+  border-radius: 24px;
   background: var(--bg-elevated);
-  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.22);
-  transition: border-color 180ms ease, box-shadow 180ms ease;
+
+  box-shadow: 0 14px 38px rgba(31, 41, 55, 0.11);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
-.composer-card:focus-within {
-  border-color: rgba(99, 128, 255, 0.5);
-  box-shadow: 0 20px 58px rgba(0, 0, 0, 0.26), 0 0 0 3px rgba(99, 128, 255, 0.1);
+.workspace-centered .composer-card:focus-within {
+  border-color: rgba(79, 110, 232, 0.4);
+  box-shadow:
+    0 16px 42px rgba(31, 41, 55, 0.12),
+    0 0 0 3px rgba(79, 110, 232, 0.08);
 }
 
-.composer-input {
+.workspace-centered .composer-input {
+  grid-column: 2;
+  grid-row: 1;
+
   width: 100%;
-  min-height: 96px;
-  max-height: 280px;
-  padding: 22px 22px 10px;
+  min-height: 42px;
+  max-height: 160px;
+
+  padding: 10px 0;
+
+  overflow-y: auto;
   resize: none;
+
   border: 0;
   outline: 0;
   background: transparent;
+
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.workspace-centered .composer-footer {
+  display: contents;
+}
+
+.workspace-centered .composer-tools {
+  display: contents;
+}
+
+.workspace-centered .composer-tool {
+  grid-column: 1;
+  grid-row: 1;
+
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.workspace-centered .composer-tool:hover {
+  background: var(--bg-hover);
   color: var(--text-primary);
-  font-size: 16px;
-  line-height: 1.65;
 }
 
-.composer-input::placeholder,
-.refinement-input::placeholder,
-.question-input::placeholder {
-  color: #9aa2af;
+.workspace-centered .composer-hint {
+  display: none;
 }
 
-.workspace-centered .composer-input::placeholder {
-  color: #98989f;
+.workspace-centered .composer-submit {
+  grid-column: 3;
+  grid-row: 1;
+
+  display: grid;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+
+  place-items: center;
+
+  padding: 0;
+  border-radius: 50%;
+
+  font-size: 0;
 }
 
-.composer-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 8px 10px 10px 22px;
-  border-top: 0;
+.workspace-centered .composer-submit .button-arrow {
+  font-size: 18px;
 }
 
 .composer-tools {
@@ -2879,6 +2938,16 @@ body.sidebar-open .refinement-dock {
   background: #151516;
 }
 
+@media (min-width: 821px) {
+  .mode-header + .workspace-centered {
+    display: grid;
+    min-height: calc(100vh - 64px);
+    padding: 0 32px;
+    place-items: center;
+    transform: translateY(-105px);
+  }
+}
+
 .mode-option {
   border-radius: 20px;
   background: transparent;
@@ -3346,9 +3415,11 @@ body.sidebar-open .refinement-dock {
 }
 
 .ask-context-plus {
-  font-size: 25px;
+  display: block;
+  font-size: 24px;
   font-weight: 300;
   line-height: 1;
+  transform: translateY(-4px);
 }
 
 .ask-context-popover {
@@ -5313,4 +5384,57 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ===== AUTH SSO POLISH ===== */
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 22px 0;
+  color: var(--text-tertiary, #98a0ad);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e2e5ea;
+}
+
+.auth-divider span {
+  white-space: nowrap;
+}
+
+
+/* Google düyməsinin container-i */
+.google-auth-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 0 0 22px;
+}
+
+.google-auth-button {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+
+/* Google-dan sonrakı signup mətni */
+.auth-switch {
+  margin: 4px 0 20px;
+  text-align: center;
+}
+
+
+/* Guest düyməsi */
+.auth-guest-button {
+  margin-top: 0;
 }
