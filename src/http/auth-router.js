@@ -75,9 +75,10 @@ async function startSession(req, res, authStore, userId) {
 export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, appUrl }) {
   const router = express.Router();
 
-  router.get("/username-availability", limit(authStore, "username", 60, 60), asyncRoute(async (req, res) => {
-    const parsed = UsernameSchema.safeParse(req.query.username);
-    if (!parsed.success) return res.json({ available: false, valid: false });
+  router.get("/username-availability", limit(authStore, "username", 120, 60), asyncRoute(async (req, res) => {
+    const raw = String(req.query.username || "").trim().replace(/^@+/, "");
+    const parsed = UsernameSchema.safeParse(raw);
+    if (!parsed.success) return res.json({ available: false, valid: false, error: parsed.error.issues[0]?.message });
     const existing = await userRepository.findByUsername(parsed.data);
     return res.json({ available: !existing, valid: true });
   }));
@@ -120,26 +121,8 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     let user = await userRepository.findByEmail(email);
 
     if (!user) {
-      let baseUsername = email
-        .split("@")[0]
-        .toLowerCase()
-        .replace(/[^a-z0-9._]/g, "")
-        .replace(/^[._]+|[._]+$/g, "");
-
-      if (!baseUsername || baseUsername.length < 3) {
-        baseUsername = `user${Date.now().toString().slice(-6)}`;
-      }
-
-      baseUsername = baseUsername.slice(0, 24);
-
-      let username = baseUsername;
-      let suffix = 1;
-
-      while (await userRepository.findByUsername(username)) {
-        username = `${baseUsername.slice(0, 24)}${suffix}`;
-        suffix += 1;
-      }
-
+      const baseRaw = email.split("@")[0] || profile.name || "user";
+      const username = await userRepository.findUniqueUsername(baseRaw);
       const randomPassword = randomBytes(48).toString("base64url");
       const passwordHash = await hashPassword(randomPassword);
 
@@ -148,9 +131,6 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
         username,
         email,
         passwordHash,
-      });
-
-      user = await userRepository.update(user.id, {
         emailVerifiedAt: new Date().toISOString(),
         avatarUrl: profile.picture || null,
         googleSub: profile.sub,

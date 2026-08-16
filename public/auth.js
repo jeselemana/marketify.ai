@@ -320,17 +320,38 @@ form.append(
 );
   const availability = username.querySelector("small");
   let timer;
+  let isUsernameAvailable = null;
   form.username.addEventListener("input", () => {
     clearTimeout(timer);
+    const clean = form.username.value.trim().replace(/^@+/, "");
+    if (!clean) {
+      availability.className = "";
+      availability.textContent = "3–30 simvol · hərf, rəqəm, nöqtə və alt xətt";
+      isUsernameAvailable = null;
+      return;
+    }
     availability.className = "";
     availability.textContent = "Yoxlanılır…";
     timer = setTimeout(async () => {
       try {
-        const data = await request(`/api/auth/username-availability?username=${encodeURIComponent(form.username.value)}`);
-        availability.textContent = data.valid ? (data.available ? `@${form.username.value.trim().toLowerCase()} mövcuddur` : "Bu istifadəçi adı artıq götürülüb") : "3–30 simvol · hərf, rəqəm, nöqtə və alt xətt";
-        availability.className = data.valid && data.available ? "is-valid" : data.valid ? "is-invalid" : "";
-      } catch { availability.textContent = "Mövcudluğu indi yoxlamaq mümkün olmadı."; }
-    }, 400);
+        const data = await request(`/api/auth/username-availability?username=${encodeURIComponent(clean)}`);
+        if (!data.valid) {
+          availability.textContent = data.error || "3–30 simvol · hərf, rəqəm, nöqtə və alt xətt";
+          availability.className = "is-invalid";
+          isUsernameAvailable = false;
+        } else if (data.available) {
+          availability.textContent = `@${clean.toLowerCase()} istifadəyə uyğundur`;
+          availability.className = "is-valid";
+          isUsernameAvailable = true;
+        } else {
+          availability.textContent = "Bu istifadəçi adı artıq götürülüb";
+          availability.className = "is-invalid";
+          isUsernameAvailable = false;
+        }
+      } catch {
+        availability.textContent = "Mövcudluğu indi yoxlamaq mümkün olmadı.";
+      }
+    }, 250);
   });
   const terms = document.createElement("p");
   terms.className = "auth-terms";
@@ -341,13 +362,19 @@ form.append(
   form.append(terms, switcher, guestAccessButton("İndi hesab yaratmadan davam et"));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (isUsernameAvailable === false) {
+      setFormError(form, "Bu istifadəçi adı artıq götürülüb. Başqa ad seç.", "username");
+      return;
+    }
     setFormError(form, "");
     submitState(submit, true, "Hesab yarat");
     
     try {
+      const formData = Object.fromEntries(new FormData(form));
+      formData.username = String(formData.username || "").trim().replace(/^@+/, "");
       const data = await request("/api/auth/signup", {
         method: "POST",
-        body: JSON.stringify(Object.fromEntries(new FormData(form))),
+        body: JSON.stringify(formData),
       });
       await completeAuthentication(data.user);
     } catch (error) {

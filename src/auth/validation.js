@@ -34,7 +34,7 @@ const PasswordSchema = z
 
 export const SignupSchema = z.object({
   fullName: z.string().trim().min(2, "Ad və soyadı daxil et.").max(80),
-  username: UsernameSchema,
+  username: z.string().trim().transform((val) => val.replace(/^@+/, "")).pipe(UsernameSchema),
   email: z.string().trim().email("Düzgün e-poçt ünvanı daxil et.").max(254).transform(normalizeEmail),
   password: PasswordSchema,
 });
@@ -60,7 +60,7 @@ export const ResetPasswordSchema = z.object({
 
 export const AccountUpdateSchema = z.object({
   fullName: z.string().trim().min(2, "Ad və soyadı daxil et.").max(80),
-  username: UsernameSchema,
+  username: z.string().trim().transform((val) => val.replace(/^@+/, "")).pipe(UsernameSchema),
   email: z.string().trim().email("Düzgün e-poçt ünvanı daxil et.").max(254).transform(normalizeEmail),
 });
 

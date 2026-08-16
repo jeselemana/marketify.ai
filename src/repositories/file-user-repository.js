@@ -114,15 +114,17 @@ export class FileUserRepository {
   }
 
   async findByUsername(username) {
-    const normalized = normalizeUsername(username);
+    const normalized = normalizeUsername(username).replace(/^@+/, "");
+    if (!normalized) return null;
     const { users } = await this.readStore();
-    return users.find((user) => user.username === normalized) || null;
+    return users.find((user) => normalizeUsername(user.username).replace(/^@+/, "") === normalized) || null;
   }
 
   async findByEmail(email) {
     const normalized = normalizeEmail(email);
+    if (!normalized) return null;
     const { users } = await this.readStore();
-    return users.find((user) => user.email === normalized) || null;
+    return users.find((user) => normalizeEmail(user.email) === normalized) || null;
   }
 
   async findByIdentifier(identifier) {
@@ -140,13 +142,42 @@ export class FileUserRepository {
     return this.findByUsername(raw);
   }
 
+  async findUniqueUsername(desiredUsername) {
+    const clean = normalizeUsername(desiredUsername)
+      .replace(/^@+/, "")
+      .replace(/[^a-z0-9._]/g, "")
+      .replace(/^[._]+|[._]+$/g, "");
+    const base = clean.length >= 3 ? clean.slice(0, 24) : `user${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const { users } = await this.readStore();
+    const existingSet = new Set(users.map((u) => normalizeUsername(u.username).replace(/^@+/, "")));
+
+    if (!existingSet.has(base)) {
+      return base;
+    }
+
+    let counter = 1;
+    while (counter < 1000) {
+      const candidate = `${base.slice(0, 24)}${counter}`;
+      if (!existingSet.has(candidate)) {
+        return candidate;
+      }
+      counter += 1;
+    }
+    return `${base.slice(0, 18)}_${Date.now().toString().slice(-6)}`;
+  }
+
   create(payload) {
     return this.enqueue(async () => {
       const store = await this.readStore();
-      const username = normalizeUsername(payload.username);
+      const username = normalizeUsername(payload.username).replace(/^@+/, "");
       const email = normalizeEmail(payload.email);
-      if (store.users.some((user) => user.username === username)) throw new UserConflictError("username");
-      if (store.users.some((user) => user.email === email)) throw new UserConflictError("email");
+      if (store.users.some((user) => normalizeUsername(user.username).replace(/^@+/, "") === username)) {
+        throw new UserConflictError("username");
+      }
+      if (store.users.some((user) => normalizeEmail(user.email) === email)) {
+        throw new UserConflictError("email");
+      }
       const now = new Date().toISOString();
       const user = {
         id: `usr_${randomUUID()}`,
@@ -154,10 +185,10 @@ export class FileUserRepository {
         username,
         email,
         passwordHash: payload.passwordHash,
-        avatarUrl: null,
-        emailVerifiedAt: null,
-        onboardingFocus: null,
-        onboardingCompletedAt: null,
+        avatarUrl: payload.avatarUrl || null,
+        emailVerifiedAt: payload.emailVerifiedAt || null,
+        onboardingFocus: payload.onboardingFocus || null,
+        onboardingCompletedAt: payload.onboardingCompletedAt || null,
         passwordChangedAt: now,
         lastLoginAt: now,
         createdAt: now,
@@ -174,10 +205,14 @@ export class FileUserRepository {
       const store = await this.readStore();
       const index = store.users.findIndex((user) => user.id === id);
       if (index === -1) return null;
-      const username = changes.username ? normalizeUsername(changes.username) : store.users[index].username;
-      const email = changes.email ? normalizeEmail(changes.email) : store.users[index].email;
-      if (store.users.some((user, i) => i !== index && user.username === username)) throw new UserConflictError("username");
-      if (store.users.some((user, i) => i !== index && user.email === email)) throw new UserConflictError("email");
+      const username = changes.username ? normalizeUsername(changes.username).replace(/^@+/, "") : normalizeUsername(store.users[index].username).replace(/^@+/, "");
+      const email = changes.email ? normalizeEmail(changes.email) : normalizeEmail(store.users[index].email);
+      if (store.users.some((user, i) => i !== index && normalizeUsername(user.username).replace(/^@+/, "") === username)) {
+        throw new UserConflictError("username");
+      }
+      if (store.users.some((user, i) => i !== index && normalizeEmail(user.email) === email)) {
+        throw new UserConflictError("email");
+      }
       store.users[index] = {
         ...store.users[index],
         ...changes,
