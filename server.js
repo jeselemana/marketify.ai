@@ -17,6 +17,7 @@ import {
   strategyErrorHandler,
 } from "./src/http/strategy-router.js";
 import { FileStrategyRepository } from "./src/repositories/file-strategy-repository.js";
+import { FileChatRepository } from "./src/repositories/file-chat-repository.js";
 import { aiConfig } from "./src/services/ai/config.js";
 
 dotenv.config();
@@ -143,9 +144,11 @@ const KNOWLEDGE_LOG_PATH = path.join(DATA_DIR, "knowledge_log.json");
 const BASE_PATH = path.join(DATA_DIR, "marketify_base.json");
 const TRASH_PATH = path.join(DATA_DIR, "marketify_trash.json");
 const STRATEGIES_PATH = path.join(DATA_DIR, "strategies.json");
+const CHATS_PATH = path.join(DATA_DIR, "chats.json");
 const USERS_PATH = path.join(DATA_DIR, "users.json");
 const AUTH_STORE_PATH = path.join(DATA_DIR, "auth-store.json");
 const strategyRepository = new FileStrategyRepository(STRATEGIES_PATH);
+const chatRepository = new FileChatRepository(CHATS_PATH);
 const userRepository = new FileUserRepository(USERS_PATH);
 const authStore = redis?.isReady ? new RedisAuthStore(redis) : new FileAuthStore(AUTH_STORE_PATH);
 const emailService = new PasswordResetEmailService({ dataDir: DATA_DIR });
@@ -163,6 +166,7 @@ app.use("/api/auth", createAuthRouter({
   authStore,
   emailService,
   strategyRepository,
+  chatRepository,
   appUrl: APP_URL,
 }));
 
@@ -178,6 +182,37 @@ function askSafetyIdentifier(ownerId) {
   return createHash("sha256").update(ownerId).digest("hex").slice(0, 32);
 }
 
+app.get("/api/ask/chats", async (req, res) => {
+  try {
+    const chats = await chatRepository.list(req.ownerId);
+    return res.json({ chats });
+  } catch (error) {
+    console.error("Ask chats list error:", error);
+    return res.status(500).json({ error: "Söhbətləri yükləmək mümkün olmadı." });
+  }
+});
+
+app.get("/api/ask/chats/:id", async (req, res) => {
+  try {
+    const chat = await chatRepository.getById(req.params.id, req.ownerId);
+    if (!chat) return res.status(404).json({ error: "Söhbət tapılmadı." });
+    return res.json({ chat });
+  } catch (error) {
+    console.error("Ask chat get error:", error);
+    return res.status(500).json({ error: "Söhbəti yükləmək mümkün olmadı." });
+  }
+});
+
+app.delete("/api/ask/chats/:id", async (req, res) => {
+  try {
+    const ok = await chatRepository.delete(req.params.id, req.ownerId);
+    return res.json({ ok });
+  } catch (error) {
+    console.error("Ask chat delete error:", error);
+    return res.status(500).json({ error: "Söhbəti silmək mümkün olmadı." });
+  }
+});
+
 app.post("/api/ask", async (req, res) => {
   try {
     if (!openai) {
@@ -186,9 +221,13 @@ app.post("/api/ask", async (req, res) => {
 
     const messages = Array.isArray(req.body.messages)
       ? req.body.messages
-          .slice(-12)
+          .slice(-20)
           .filter((message) => ["user", "assistant"].includes(message?.role) && typeof message?.content === "string")
-          .map((message) => ({ role: message.role, content: message.content.trim().slice(0, 5000) }))
+          .map((message) => ({
+            role: message.role,
+            content: message.content.trim().slice(0, 5000),
+            strategyTitle: typeof message.strategyTitle === "string" ? message.strategyTitle : undefined,
+          }))
           .filter((message) => message.content)
       : [];
 
@@ -197,6 +236,7 @@ app.post("/api/ask", async (req, res) => {
     }
 
     const strategyId = typeof req.body.strategyId === "string" ? req.body.strategyId.trim() : "";
+    const chatId = typeof req.body.chatId === "string" ? req.body.chatId.trim() : "";
     let selectedStrategy = null;
     if (strategyId) {
       if (!/^[0-9a-f-]{36}$/i.test(strategyId)) {
@@ -219,7 +259,7 @@ app.post("/api/ask", async (req, res) => {
     const response = await openai.responses.create({
       model: ASK_MODEL,
       instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
-      input: messages,
+      input: messages.map(({ role, content }) => ({ role, content })),
       reasoning: { effort: "low" },
       max_output_tokens: 2500,
       safety_identifier: askSafetyIdentifier(req.ownerId),
@@ -227,7 +267,18 @@ app.post("/api/ask", async (req, res) => {
     const reply = response.output_text?.trim();
     if (!reply) throw new Error("Ask mode returned an empty response.");
 
-    return res.json({ reply });
+    const updatedMessages = [
+      ...messages,
+      { role: "assistant", content: reply, createdAt: new Date().toISOString() },
+    ];
+    const savedChat = await chatRepository.saveChat({
+      id: chatId || undefined,
+      ownerId: req.ownerId,
+      messages: updatedMessages,
+      strategyId: strategyId || null,
+    });
+
+    return res.json({ reply, chat: savedChat });
   } catch (error) {
     console.error("Ask mode error:", error?.message || error);
     const code = error?.status === 401 ? "AI_AUTH_ERROR" : "ASK_ERROR";

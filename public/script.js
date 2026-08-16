@@ -8,8 +8,9 @@ const mobileMenuButton = document.querySelector("#mobileMenuButton");
 const railMenuButton = document.querySelector("#railMenuButton");
 const railHomeButton = document.querySelector("#railHomeButton");
 const railStrategiesButton = document.querySelector("#railStrategiesButton");
-const railNewButton = document.querySelector("#railNewButton");
 const sidebarClose = document.querySelector("#sidebarClose");
+const newStrategyButton = document.querySelector("#newStrategyButton");
+const sidebarLabel = document.querySelector(".sidebar-label");
 const toastRegion = document.querySelector("#toastRegion");
 const recentList = document.querySelector("#recentList");
 const strategyCount = document.querySelector("#strategyCount");
@@ -63,6 +64,8 @@ const state = {
   error: null,
   retry: null,
   changeSummary: "",
+  askChatId: null,
+  savedChats: [],
   askMessages: [],
   askLoading: false,
   askError: "",
@@ -106,12 +109,35 @@ function trackEvent(name, metadata = {}) {
 
 function formatDate(value) {
   if (!value) return "İndi";
-  return new Intl.DateTimeFormat("az-AZ", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "İndi";
+  
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+  
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const time = `${hours}:${minutes}`;
+  
+  if (isToday) {
+    return `Bu gün, ${time}`;
+  }
+  if (isYesterday) {
+    return `Dünən, ${time}`;
+  }
+  
+  const months = ["Yan", "Fev", "Mar", "Apr", "May", "İyn", "İyl", "Avq", "Sen", "Okt", "Noy", "Dek"];
+  const day = date.getDate();
+  const month = months[date.getMonth()] || "";
+  
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${day} ${month}, ${time}`;
+  }
+  return `${day} ${month} ${date.getFullYear()}`;
 }
 
 function slugify(value) {
@@ -233,11 +259,25 @@ function closeSidebar() {
 
 function syncNav() {
   const isBuild = state.mode === "build";
-  homeNav.classList.toggle("is-active", isBuild && !["list", "settings"].includes(state.view));
+  homeNav.classList.toggle("is-active", isBuild ? !["list", "settings"].includes(state.view) : state.view !== "settings");
   strategiesNav.classList.toggle("is-active", isBuild && state.view === "list");
   settingsNav.classList.toggle("is-active", state.view === "settings");
-  railHomeButton.classList.toggle("is-active", isBuild && !["list", "settings"].includes(state.view));
+  railHomeButton.classList.toggle("is-active", isBuild ? !["list", "settings"].includes(state.view) : state.view !== "settings");
   railStrategiesButton.classList.toggle("is-active", isBuild && state.view === "list");
+
+  const homeLabel = homeNav.querySelector("span");
+  if (homeLabel) {
+    homeLabel.textContent = isBuild ? "Başlanğıc" : "Sual-Cavab";
+  }
+
+  const newButtonSpan = newStrategyButton?.querySelector("span");
+  if (newButtonSpan) {
+    newButtonSpan.textContent = isBuild ? "Yeni strategiya" : "Yeni söhbət";
+  }
+
+  if (sidebarLabel) {
+    sidebarLabel.textContent = isBuild ? "Son işlər" : "Keçmiş söhbətlər";
+  }
 }
 
 function syncMode() {
@@ -252,7 +292,25 @@ function syncMode() {
 function setMode(mode) {
   if (!['build', 'ask'].includes(mode) || state.mode === mode) return;
   state.mode = mode;
+  state.view = "home";
   syncMode();
+  syncNav();
+  renderRecentList();
+  render();
+  closeSidebar();
+  if (mode === "ask" && !state.savedChats.length) {
+    loadSavedChats();
+  }
+}
+
+function startNewChat() {
+  clearInterval(progressTimer);
+  state.mode = "ask";
+  state.view = "home";
+  state.askChatId = null;
+  state.askMessages = [];
+  state.askStrategyId = "";
+  state.askError = "";
   render();
   closeSidebar();
 }
@@ -766,11 +824,19 @@ async function submitAskMessage(message) {
   try {
     const data = await api("/api/ask", {
       method: "POST",
-      body: JSON.stringify({ messages: state.askMessages, strategyId: state.askStrategyId || undefined }),
+      body: JSON.stringify({
+        messages: state.askMessages,
+        strategyId: state.askStrategyId || undefined,
+        chatId: state.askChatId || undefined,
+      }),
     });
     const response = { role: "assistant", content: data.reply };
     freshAskResponses.add(response);
     state.askMessages.push(response);
+    if (data.chat?.id) {
+      state.askChatId = data.chat.id;
+      loadSavedChats();
+    }
     setTimeout(() => freshAskResponses.delete(response), 1000);
   } catch (error) {
     state.askError = error.message;
@@ -2075,18 +2141,103 @@ async function loadSavedStrategies() {
   }
 }
 
+async function loadSavedChats() {
+  try {
+    const data = await api("/api/ask/chats");
+    state.savedChats = data.chats || [];
+    renderRecentList();
+  } catch (error) {
+    console.error("Failed to load chats:", error);
+  }
+}
+
+async function openSavedChat(chatId) {
+  try {
+    const data = await api(`/api/ask/chats/${chatId}`);
+    if (!data.chat) return;
+    state.mode = "ask";
+    state.view = "home";
+    state.askChatId = data.chat.id;
+    state.askMessages = data.chat.messages || [];
+    state.askStrategyId = data.chat.strategyId || "";
+    state.askError = "";
+    syncMode();
+    syncNav();
+    render();
+    closeSidebar();
+  } catch (error) {
+    showToast("Söhbəti yükləmək mümkün olmadı.", "error");
+  }
+}
+
+async function deleteSavedChat(event, chatId) {
+  event.stopPropagation();
+  try {
+    await api(`/api/ask/chats/${chatId}`, { method: "DELETE" });
+    if (state.askChatId === chatId) {
+      startNewChat();
+    }
+    await loadSavedChats();
+    showToast("Söhbət silindi.");
+  } catch (error) {
+    showToast("Söhbəti silmək mümkün olmadı.", "error");
+  }
+}
+
 function renderRecentList() {
   recentList.replaceChildren();
+
+  if (state.mode === "ask") {
+    if (!state.savedChats.length) {
+      const empty = element("div", "recent-empty");
+      empty.append(
+        element("strong", "", "Söhbətlər burada görünəcək."),
+        element("span", "", "Marketify Ask ilə apardığın söhbətlər burada saxlanılır.")
+      );
+      recentList.appendChild(empty);
+      return;
+    }
+
+    state.savedChats.forEach((chat) => {
+      const item = button("", "recent-item", () => openSavedChat(chat.id));
+      item.classList.toggle("is-active", state.askChatId === chat.id);
+
+      const icon = element("span", "recent-icon-wrap");
+      icon.innerHTML = `<svg class="recent-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+
+      const textWrap = element("div", "recent-text-wrap");
+      textWrap.append(
+        element("span", "recent-title", chat.title || "Söhbət"),
+        element("span", "recent-date", formatDate(chat.updatedAt || chat.createdAt))
+      );
+
+      const deleteBtn = button("", "recent-delete-btn", (e) => deleteSavedChat(e, chat.id));
+      deleteBtn.setAttribute("aria-label", "Söhbəti sil");
+      deleteBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+
+      item.append(icon, textWrap, deleteBtn);
+      recentList.appendChild(item);
+    });
+    return;
+  }
+
   if (!state.savedStrategies.length) {
     const empty = element("div", "recent-empty");
     empty.append(element("strong", "", "Strategiyalar burada görünəcək."), element("span", "", "Yadda saxladığın işlər bu bölmədə qalır."));
     recentList.appendChild(empty);
     return;
   }
-  state.savedStrategies.slice(0, 5).forEach((record) => {
+  state.savedStrategies.slice(0, 6).forEach((record) => {
     const item = button("", "recent-item", () => openSavedStrategy(record.id));
     item.classList.toggle("is-active", state.savedId === record.id);
-    item.append(element("span", "recent-title", record.title), element("span", "recent-date", formatDate(record.updatedAt)));
+
+    const icon = element("span", "recent-icon-wrap");
+    icon.innerHTML = `<svg class="recent-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+
+    const textWrap = element("div", "recent-text-wrap");
+    textWrap.append(element("span", "recent-title", record.title), element("span", "recent-date", formatDate(record.updatedAt)));
+
+    item.append(icon, textWrap);
     recentList.appendChild(item);
   });
 }
@@ -2333,21 +2484,32 @@ async function openSavedStrategy(id) {
   }
 }
 
-document.querySelector("#newStrategyButton").addEventListener("click", resetStrategy);
-document.querySelector("#mobileNewButton").addEventListener("click", resetStrategy);
+newStrategyButton?.addEventListener("click", () => {
+  if (state.mode === "ask") startNewChat();
+  else resetStrategy();
+});
+document.querySelector("#mobileNewButton")?.addEventListener("click", () => {
+  if (state.mode === "ask") startNewChat();
+  else resetStrategy();
+});
 mobileMenuButton.addEventListener("click", openSidebar);
 railMenuButton.addEventListener("click", () => (sidebar.classList.contains("is-open") ? closeSidebar() : openSidebar()));
-railHomeButton.addEventListener("click", resetStrategy);
+railHomeButton.addEventListener("click", () => {
+  if (state.mode === "ask") startNewChat();
+  else resetStrategy();
+});
 railStrategiesButton.addEventListener("click", () => {
   state.mode = "build";
   state.view = "list";
   render();
   closeSidebar();
 });
-railNewButton.addEventListener("click", resetStrategy);
 sidebarClose.addEventListener("click", closeSidebar);
 mobileOverlay.addEventListener("click", closeSidebar);
-homeNav.addEventListener("click", resetStrategy);
+homeNav.addEventListener("click", () => {
+  if (state.mode === "ask") startNewChat();
+  else resetStrategy();
+});
 strategiesNav.addEventListener("click", () => {
   state.mode = "build";
   state.view = "list";
@@ -2376,5 +2538,5 @@ initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
   render();
   showRegistrationNotice();
-  await loadSavedStrategies();
+  await Promise.allSettled([loadSavedStrategies(), loadSavedChats()]);
 });
