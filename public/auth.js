@@ -194,7 +194,7 @@ function googleSignInButton() {
     }
 
     google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
+      client_id: 121941263403-i4qt374rqirc8uord3r5omdtqvcnamb9.apps.googleusercontent.com,
       callback: handleGoogleCredential,
     });
 
