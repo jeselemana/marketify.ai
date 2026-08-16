@@ -3425,13 +3425,28 @@ body.sidebar-open .refinement-dock {
   display: flex;
   gap: 6px;
   flex-wrap: nowrap;
-  margin-bottom: 7px;
+  max-height: 0;
+  margin: 0;
   overflow-x: auto;
+  overflow-y: hidden;
+  opacity: 0;
+  pointer-events: none;
   scrollbar-width: none;
+  transition: max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              margin 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 160ms ease;
 }
 
 .refinement-dock .quick-actions::-webkit-scrollbar {
   display: none;
+}
+
+.refinement-dock:focus-within .quick-actions,
+.refinement-dock.is-focused .quick-actions {
+  max-height: 40px;
+  margin-bottom: 7px;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .refinement-dock .quick-action {
@@ -4790,6 +4805,10 @@ body.sidebar-open .refinement-dock {
   .refinement-dock .quick-actions {
     margin-right: 0;
     padding-right: 0;
+  }
+
+  .refinement-dock:focus-within .quick-actions,
+  .refinement-dock.is-focused .quick-actions {
     margin-bottom: 6px;
   }
 
