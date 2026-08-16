@@ -64,6 +64,7 @@ const state = {
 };
 
 let progressTimer;
+const freshAskResponses = new WeakSet();
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -488,6 +489,31 @@ function renderAskRichText(value) {
   return root;
 }
 
+async function copyAskResponse(content, successMessage = "Cavab kopyalandı.") {
+  try {
+    await navigator.clipboard.writeText(content);
+    showToast(successMessage, "neutral");
+    return true;
+  } catch {
+    showToast("Cavabı kopyalamaq mümkün olmadı.", "error");
+    return false;
+  }
+}
+
+async function shareAskResponse(content) {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Marketify cavabı", text: content });
+      trackEvent("ask_response_shared", { method: "native" });
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  const copied = await copyAskResponse(content, "Paylaşmaq üçün cavab kopyalandı.");
+  if (copied) trackEvent("ask_response_shared", { method: "clipboard" });
+}
+
 function renderAsk() {
   workspace.classList.add("workspace-ask");
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
@@ -504,24 +530,28 @@ function renderAsk() {
     thread.appendChild(intro);
   } else {
     state.askMessages.forEach((message) => {
-      const row = element("article", `ask-message ask-message-${message.role}`);
+      const isFreshResponse = message.role === "assistant" && freshAskResponses.has(message);
+      const row = element("article", `ask-message ask-message-${message.role}${isFreshResponse ? " is-fresh" : ""}`);
       const content = element("div", "ask-message-content");
       if (message.role === "assistant") {
         content.appendChild(renderAskRichText(message.content));
         const actions = element("div", "ask-message-actions");
-        const copy = button("", "ask-copy-action", async () => {
-          try {
-            await navigator.clipboard.writeText(message.content);
-            showToast("Cavab kopyalandı.", "neutral");
-          } catch {
-            showToast("Cavabı kopyalamaq mümkün olmadı.", "error");
-          }
-        });
+        actions.setAttribute("aria-label", "Cavab əməliyyatları");
+        const copy = button("", "ask-response-action", () => copyAskResponse(message.content));
         copy.setAttribute("aria-label", "Cavabı kopyala");
         copy.title = "Kopyala";
-        copy.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>';
-        actions.appendChild(copy);
+        copy.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Kopyala</span>';
+        const share = button("", "ask-response-action", () => shareAskResponse(message.content));
+        share.setAttribute("aria-label", "Cavabı paylaş");
+        share.title = "Paylaş";
+        share.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg><span>Paylaş</span>';
+        actions.append(copy, share);
         content.appendChild(actions);
+        if (isFreshResponse) {
+          const caret = element("span", "ask-answer-caret");
+          content.appendChild(caret);
+          setTimeout(() => caret.remove(), 900);
+        }
       } else {
         content.textContent = message.content;
         if (message.strategyTitle) {
@@ -534,8 +564,28 @@ function renderAsk() {
     if (state.askLoading) {
       const row = element("article", "ask-message ask-message-assistant is-loading");
       row.setAttribute("aria-live", "polite");
-      row.appendChild(element("span", "ask-typing", "Cavab hazırlanır"));
+      const thinking = element("div", "ask-thinking");
+      const mark = element("span", "ask-thinking-mark");
+      mark.append(element("i"), element("i"), element("i"));
+      const thinkingLabel = element("span", "ask-thinking-label", "Kontekst nəzərdən keçirilir");
+      const dots = element("span", "ask-thinking-dots");
+      dots.append(element("i"), element("i"), element("i"));
+      thinking.append(mark, thinkingLabel, dots);
+      row.appendChild(thinking);
       thread.appendChild(row);
+      const thinkingPhrases = ["Kontekst nəzərdən keçirilir", "Cavab strukturlaşdırılır", "Yekun cavab hazırlanır"];
+      let thinkingPhase = 0;
+      progressTimer = setInterval(() => {
+        if (!thinkingLabel.isConnected) return clearInterval(progressTimer);
+        thinkingPhase = (thinkingPhase + 1) % thinkingPhrases.length;
+        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          thinkingLabel.animate(
+            [{ opacity: 0, transform: "translateY(3px)" }, { opacity: 1, transform: "translateY(0)" }],
+            { duration: 180, easing: "ease-out" },
+          );
+        }
+        thinkingLabel.textContent = thinkingPhrases[thinkingPhase];
+      }, 1400);
     }
   }
 
@@ -680,7 +730,10 @@ async function submitAskMessage(message) {
       method: "POST",
       body: JSON.stringify({ messages: state.askMessages, strategyId: state.askStrategyId || undefined }),
     });
-    state.askMessages.push({ role: "assistant", content: data.reply });
+    const response = { role: "assistant", content: data.reply };
+    freshAskResponses.add(response);
+    state.askMessages.push(response);
+    setTimeout(() => freshAskResponses.delete(response), 1000);
   } catch (error) {
     state.askError = error.message;
   } finally {
