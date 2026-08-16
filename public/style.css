@@ -1855,6 +1855,51 @@ body.sidebar-open .app-main {
   background: var(--accent);
 }
 
+.entry-notice {
+  position: fixed;
+  z-index: 90;
+  top: 20px;
+  right: 20px;
+  display: grid;
+  width: min(520px, calc(100vw - 40px));
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: start;
+  gap: 11px;
+  padding: 13px 15px;
+  border: 1px solid rgba(79, 110, 232, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 44px rgba(31, 41, 55, 0.13);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 200ms ease, transform 200ms ease;
+  backdrop-filter: blur(14px);
+}
+
+.entry-notice.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.entry-notice p {
+  margin: 0;
+}
+
+.entry-notice-mark {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* Strategy workflow */
 .loading-view {
   width: min(100%, 680px);
@@ -4887,6 +4932,7 @@ body {
   }
 
   .workspace-centered .intake-intro {
+    position: relative;
     display: grid;
     order: 1;
     width: 100%;
@@ -4896,6 +4942,26 @@ body {
     place-items: center;
     margin: 0 auto;
     text-align: center;
+    isolation: isolate;
+  }
+
+  .workspace-centered .intake-intro::before,
+  .ask-intro::before {
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: 50%;
+    width: min(88vw, 430px);
+    height: 260px;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(79, 110, 232, 0.13) 0%,
+      rgba(79, 110, 232, 0.055) 40%,
+      transparent 72%
+    );
+    content: "";
+    pointer-events: none;
+    transform: translate(-50%, -50%);
   }
 
   .workspace-centered .product-eyebrow {
@@ -5071,7 +5137,9 @@ body {
   }
 
   .ask-intro {
+    position: relative;
     max-width: 430px;
+    isolation: isolate;
   }
 
   .ask-title {
@@ -5173,6 +5241,14 @@ body {
 
   .ask-message-actions {
     opacity: 1;
+  }
+
+  .entry-notice {
+    top: calc(70px + env(safe-area-inset-top));
+    right: 14px;
+    left: 14px;
+    width: auto;
+    font-size: 11.5px;
   }
 }
 

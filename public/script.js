@@ -161,6 +161,27 @@ function showToast(message, tone = "success") {
   }, 3600);
 }
 
+function showRegistrationNotice() {
+  if (document.querySelector(".entry-notice")) return;
+  const notice = element("aside", "entry-notice");
+  notice.setAttribute("role", "status");
+  notice.setAttribute("aria-live", "polite");
+  notice.append(
+    element("span", "entry-notice-mark", "i"),
+    element(
+      "p",
+      "",
+      "Təəssüf ki, hazırda qeydiyyat prosesində texniki çətinlik müşahidə olunur. Komandamız problemi ən qısa zaman ərzində aradan qaldıracaq.",
+    ),
+  );
+  document.body.appendChild(notice);
+  requestAnimationFrame(() => notice.classList.add("is-visible"));
+  setTimeout(() => {
+    notice.classList.remove("is-visible");
+    setTimeout(() => notice.remove(), 220);
+  }, 10_000);
+}
+
 function setError(error, retry, returnStatus = "draft") {
   state.error = error?.message || "Gözlənilməz xəta baş verdi.";
   state.retry = retry;
@@ -1745,5 +1766,6 @@ document.addEventListener("keydown", (event) => {
 initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
   render();
+  showRegistrationNotice();
   await loadSavedStrategies();
 });
