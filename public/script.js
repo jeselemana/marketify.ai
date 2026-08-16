@@ -1,4 +1,5 @@
 import { createDocumentExport, createSpreadsheetExport } from "./exporters.js";
+import { authRequest, initializeAuthentication, logout } from "./auth.js";
 
 const workspace = document.querySelector("#workspace");
 const sidebar = document.querySelector("#sidebar");
@@ -14,6 +15,11 @@ const recentList = document.querySelector("#recentList");
 const strategyCount = document.querySelector("#strategyCount");
 const homeNav = document.querySelector("#homeNav");
 const strategiesNav = document.querySelector("#strategiesNav");
+const settingsNav = document.querySelector("#settingsNav");
+const accountButton = document.querySelector("#accountButton");
+const workspaceAvatar = document.querySelector("#workspaceAvatar");
+const workspaceName = document.querySelector("#workspaceName");
+const workspaceMeta = document.querySelector("#workspaceMeta");
 const buildModeButton = document.querySelector("#buildModeButton");
 const askModeButton = document.querySelector("#askModeButton");
 
@@ -61,6 +67,8 @@ const state = {
   askLoading: false,
   askError: "",
   askStrategyId: "",
+  currentUser: null,
+  settingsTab: "account",
 };
 
 let progressTimer;
@@ -125,6 +133,9 @@ async function api(path, options = {}) {
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401 && data.code === "AUTH_REQUIRED") {
+      window.dispatchEvent(new CustomEvent("marketify:auth-required"));
+    }
     const safeMessage = path === "/api/ask"
       ? data.error || "Cavabı hazırlamaq mümkün olmadı."
       : ["AI_AUTH_ERROR", "AI_NOT_CONFIGURED", "STRATEGY_ERROR"].includes(data.code)
@@ -198,9 +209,10 @@ function closeSidebar() {
 
 function syncNav() {
   const isBuild = state.mode === "build";
-  homeNav.classList.toggle("is-active", isBuild && state.view !== "list");
+  homeNav.classList.toggle("is-active", isBuild && !["list", "settings"].includes(state.view));
   strategiesNav.classList.toggle("is-active", isBuild && state.view === "list");
-  railHomeButton.classList.toggle("is-active", isBuild && state.view !== "list");
+  settingsNav.classList.toggle("is-active", state.view === "settings");
+  railHomeButton.classList.toggle("is-active", isBuild && !["list", "settings"].includes(state.view));
   railStrategiesButton.classList.toggle("is-active", isBuild && state.view === "list");
 }
 
@@ -255,6 +267,7 @@ function render() {
   workspace.replaceChildren();
   workspace.className = "workspace";
 
+  if (state.view === "settings") return renderSettings();
   if (state.mode === "ask") return renderAsk();
   if (state.view === "list") return renderStrategyList();
   if (["analyzing", "generating"].includes(state.status)) return renderLoading();
@@ -1446,6 +1459,138 @@ function renderRecentList() {
   });
 }
 
+function updateWorkspaceIdentity(user) {
+  state.currentUser = user;
+  const initials = user.fullName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toLocaleUpperCase("az"))
+    .join("") || "M";
+  workspaceAvatar.textContent = initials;
+  workspaceName.textContent = user.fullName;
+  workspaceMeta.textContent = `@${user.username} · Şəxsi hesab`;
+}
+
+function settingsField(label, name, value, type = "text", autocomplete = "off") {
+  const wrapper = element("label", "settings-field");
+  const input = element("input", "settings-input");
+  input.name = name;
+  input.type = type;
+  input.value = value || "";
+  input.autocomplete = autocomplete;
+  input.setAttribute("aria-label", label);
+  wrapper.append(element("span", "", label), input);
+  return wrapper;
+}
+
+function settingsMessage(form, message, tone = "error") {
+  let node = form.querySelector(".settings-form-message");
+  if (!node) {
+    node = element("p", "settings-form-message");
+    form.prepend(node);
+  }
+  node.className = `settings-form-message is-${tone}`;
+  node.textContent = message;
+}
+
+function renderSettings() {
+  workspace.classList.add("workspace-settings");
+  workspace.replaceChildren();
+  const view = element("section", "settings-view");
+  const header = element("header", "settings-header");
+  header.append(element("span", "section-kicker", "WORKSPACE"), element("h1", "", "Parametrlər"), element("p", "", "Hesab məlumatlarını və giriş təhlükəsizliyini idarə et."));
+  const tabs = element("div", "settings-tabs");
+  const accountTab = button("Hesab", `settings-tab${state.settingsTab === "account" ? " is-active" : ""}`, () => {
+    state.settingsTab = "account";
+    renderSettings();
+  });
+  const securityTab = button("Təhlükəsizlik", `settings-tab${state.settingsTab === "security" ? " is-active" : ""}`, () => {
+    state.settingsTab = "security";
+    renderSettings();
+  });
+  tabs.append(accountTab, securityTab);
+  view.append(header, tabs);
+
+  if (state.settingsTab === "account") {
+    const panel = element("section", "settings-panel");
+    panel.append(element("h2", "", "Hesab məlumatları"), element("p", "settings-panel-intro", "Workspace-də görünən adını və giriş məlumatlarını yenilə."));
+    const form = element("form", "settings-form");
+    form.append(
+      settingsField("Ad və soyad", "fullName", state.currentUser.fullName, "text", "name"),
+      settingsField("İstifadəçi adı", "username", state.currentUser.username, "text", "username"),
+      settingsField("E-poçt", "email", state.currentUser.email, "email", "email"),
+    );
+    const save = button("Dəyişiklikləri saxla", "primary-button");
+    save.type = "submit";
+    form.appendChild(save);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      save.disabled = true;
+      save.textContent = "Saxlanılır…";
+      try {
+        const data = await authRequest("/api/auth/account", {
+          method: "PATCH",
+          body: JSON.stringify(Object.fromEntries(new FormData(form))),
+        });
+        updateWorkspaceIdentity(data.user);
+        settingsMessage(form, "Hesab məlumatları yeniləndi.", "success");
+      } catch (error) {
+        settingsMessage(form, error.message);
+      } finally {
+        save.disabled = false;
+        save.textContent = "Dəyişiklikləri saxla";
+      }
+    });
+    panel.appendChild(form);
+    view.appendChild(panel);
+  } else {
+    const panel = element("section", "settings-panel");
+    panel.append(element("h2", "", "Şifrə və sessiyalar"), element("p", "settings-panel-intro", "Şifrəni dəyişdikdə bu cihazdan başqa bütün aktiv sessiyalar bağlanacaq."));
+    const form = element("form", "settings-form");
+    form.append(
+      settingsField("Cari şifrə", "currentPassword", "", "password", "current-password"),
+      settingsField("Yeni şifrə", "newPassword", "", "password", "new-password"),
+      settingsField("Yeni şifrəni təsdiqlə", "confirmNewPassword", "", "password", "new-password"),
+    );
+    const save = button("Şifrəni dəyiş", "primary-button");
+    save.type = "submit";
+    form.appendChild(save);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (form.newPassword.value !== form.confirmNewPassword.value) {
+        settingsMessage(form, "Yeni şifrələr eyni deyil.");
+        return;
+      }
+      save.disabled = true;
+      save.textContent = "Yenilənir…";
+      try {
+        await authRequest("/api/auth/change-password", {
+          method: "POST",
+          body: JSON.stringify({
+            currentPassword: form.currentPassword.value,
+            newPassword: form.newPassword.value,
+          }),
+        });
+        form.reset();
+        settingsMessage(form, "Şifrə yeniləndi. Digər sessiyalar bağlandı.", "success");
+      } catch (error) {
+        settingsMessage(form, error.message);
+      } finally {
+        save.disabled = false;
+        save.textContent = "Şifrəni dəyiş";
+      }
+    });
+    const signOut = element("div", "settings-signout");
+    const copy = element("div");
+    copy.append(element("strong", "", "Bu cihazdan çıx"), element("p", "", "Marketify sessiyanı təhlükəsiz şəkildə bağlayacaq."));
+    signOut.append(copy, button("Hesabdan çıx", "danger-button", logout));
+    panel.append(form, signOut);
+    view.appendChild(panel);
+  }
+  workspace.appendChild(view);
+}
+
 function renderStrategyList() {
   workspace.classList.add("workspace-list");
   workspace.replaceChildren();
@@ -1555,11 +1700,26 @@ strategiesNav.addEventListener("click", () => {
   render();
   closeSidebar();
 });
+settingsNav.addEventListener("click", () => {
+  state.mode = "build";
+  state.view = "settings";
+  render();
+  closeSidebar();
+});
+accountButton.addEventListener("click", () => {
+  state.mode = "build";
+  state.view = "settings";
+  render();
+  closeSidebar();
+});
 buildModeButton.addEventListener("click", () => setMode("build"));
 askModeButton.addEventListener("click", () => setMode("ask"));
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeSidebar();
 });
 
-render();
-loadSavedStrategies();
+initializeAuthentication(async (user) => {
+  updateWorkspaceIdentity(user);
+  render();
+  await loadSavedStrategies();
+});

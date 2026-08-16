@@ -17,11 +17,32 @@ Marketify AI is an AI strategy workspace built on the project's existing Express
 - `OPENAI_ASK_MODEL` — optional server-only model override for Ask mode.
 - `MAX_CLARIFICATION_ROUNDS` — defaults to `2`.
 - `PORT` — defaults to `5050`.
-- `REDIS_URL` — optional and used only by the preserved legacy analytics chat endpoint.
+- `APP_URL` — the canonical public origin, for example `https://marketify-ai.com`.
+- `TRUSTED_ORIGINS` — optional comma-separated additional browser origins.
+- `REDIS_URL` — recommended in production; used as the primary session, password-reset-token, and auth rate-limit store, plus the preserved legacy analytics limit.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` — password reset delivery. SMTP is required for reset emails in production; development writes messages to the ignored `data/email-outbox.json`.
+- `ADMIN_USERNAMES` — comma-separated usernames allowed to access the preserved admin interface. With no value the admin interface is closed.
 
 ## Data and ownership
 
-The current MVP stores saved strategies in `data/strategies.json`, isolated behind `FileStrategyRepository`. Access is scoped to a random, HTTP-only guest cookie. This preserves ownership between visits on the same browser but is not a replacement for production authentication or a transactional database.
+Marketify uses first-party username/email + password authentication. Passwords are hashed with Argon2id. An opaque, cryptographically random session token is stored only in the `marketify_session` HttpOnly, SameSite cookie; only its SHA-256 digest is used as the server-side session key. Product APIs require an authenticated user and saved strategies are scoped to that immutable user ID.
+
+The MVP user repository is an atomically written, versioned `data/users.json` store. `src/repositories/auth-store-migrations.js` upgrades the persisted schema without rewriting strategy records. Existing guest-owned strategies are claimed by the new user on the first successful signup/login from that browser. For multi-instance production deploys, attach a persistent disk for `data/users.json` and `data/strategies.json`, and configure Redis for sessions. A later SQL migration can replace the repository implementation without changing the auth/API contract.
+
+Password reset tokens are random, stored only as hashes, expire after 20 minutes, and are consumed once. Changing or resetting a password invalidates other/all active sessions respectively. State-changing browser requests are origin-checked, CORS is allowlisted, and security headers are applied globally.
+
+## Authentication API
+
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+- `GET /api/auth/username-availability`
+- `PATCH /api/auth/account`
+- `POST /api/auth/change-password`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
+- `POST /api/auth/onboarding`
 
 ## Export status
 
@@ -32,5 +53,5 @@ The current MVP stores saved strategies in `data/strategies.json`, isolated behi
 ## Verification
 
 - `npm run check` — JavaScript syntax checks.
-- `npm test` — domain, refinement-context, versioning, and ownership tests.
+- `npm test` — auth hashing/session/reset flows plus domain, refinement-context, versioning, and ownership tests.
 - `npm run build` — complete static-app validation (`check` + `test`).

@@ -1,0 +1,212 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs/promises";
+import express from "express";
+import { hashOpaqueToken, hashPassword, verifyPassword } from "../src/auth/password.js";
+import { FileAuthStore } from "../src/auth/auth-store.js";
+import { SignupSchema, normalizeEmail, normalizeUsername } from "../src/auth/validation.js";
+import { createIdentityMiddleware, requireAuth } from "../src/http/auth-middleware.js";
+import { authErrorHandler, createAuthRouter } from "../src/http/auth-router.js";
+import { migrateAuthUserStore } from "../src/repositories/auth-store-migrations.js";
+import { FileUserRepository } from "../src/repositories/file-user-repository.js";
+
+test("auth normalization, validation, and Argon2id hashing", async () => {
+  assert.equal(normalizeUsername("  Market.Lead_1 "), "market.lead_1");
+  assert.equal(normalizeEmail("  USER@Example.COM "), "user@example.com");
+  assert.equal(SignupSchema.safeParse({ fullName: "Test User", username: "ok_user", email: "a@b.co", password: "strongpass1" }).success, true);
+  assert.equal(SignupSchema.safeParse({ fullName: "Test User", username: "admin", email: "a@b.co", password: "strongpass1" }).success, false);
+  assert.equal(SignupSchema.safeParse({ fullName: "Test User", username: ".leading", email: "a@b.co", password: "strongpass1" }).success, false);
+  assert.equal(SignupSchema.safeParse({ fullName: "Test User", username: "double..dot", email: "a@b.co", password: "strongpass1" }).success, false);
+  const hash = await hashPassword("strongpass1");
+  assert.match(hash, /^\$argon2id\$/);
+  assert.equal(await verifyPassword(hash, "strongpass1"), true);
+  assert.equal(await verifyPassword(hash, "wrongpass1"), false);
+});
+
+test("user store migration and uniqueness are deterministic", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-users-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  assert.deepEqual(migrateAuthUserStore([]), { schemaVersion: 1, users: [] });
+  const repository = new FileUserRepository(path.join(directory, "users.json"));
+  const passwordHash = await hashPassword("strongpass1");
+  await repository.create({ fullName: "Test User", username: "Test.User", email: "TEST@example.com", passwordHash });
+  await assert.rejects(
+    repository.create({ fullName: "Other", username: "test.user", email: "other@example.com", passwordHash }),
+    (error) => error.code === "USER_CONFLICT" && error.field === "username",
+  );
+  await assert.rejects(
+    repository.create({ fullName: "Other", username: "other", email: "test@EXAMPLE.com", passwordHash }),
+    (error) => error.code === "USER_CONFLICT" && error.field === "email",
+  );
+});
+
+test("signup, session, login, reset, and single-use reset token work end to end", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-auth-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const users = new FileUserRepository(path.join(directory, "users.json"));
+  const store = new FileAuthStore(path.join(directory, "sessions.json"));
+  const sent = [];
+  const emailService = { sendPasswordResetEmail: async (message) => sent.push(message) };
+  const app = express();
+  app.use(express.json());
+  app.use(createIdentityMiddleware({ authStore: store, userRepository: users }));
+  app.use("/api/auth", createAuthRouter({
+    userRepository: users,
+    authStore: store,
+    emailService,
+    strategyRepository: { claimOwner: async () => 0 },
+    appUrl: "http://localhost",
+  }));
+  app.get("/protected", requireAuth, (req, res) => res.json({ ownerId: req.ownerId }));
+  app.use(authErrorHandler);
+  const server = app.listen(0);
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const blocked = await fetch(`${base}/protected`);
+  assert.equal(blocked.status, 401);
+
+  const invalidSignup = await fetch(`${base}/api/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fullName: "M", username: "x", email: "invalid", password: "weak" }),
+  });
+  assert.equal(invalidSignup.status, 400);
+
+  const signup = await fetch(`${base}/api/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fullName: "Market Lead", username: "market.lead", email: "lead@example.com", password: "strongpass1" }),
+  });
+  assert.equal(signup.status, 201);
+  const cookie = signup.headers.get("set-cookie").split(";")[0];
+  const created = await signup.json();
+  assert.equal(created.user.username, "market.lead");
+  assert.equal("passwordHash" in created.user, false);
+
+  const duplicateSignup = await fetch(`${base}/api/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fullName: "Other", username: "MARKET.LEAD", email: "other@example.com", password: "strongpass1" }),
+  });
+  assert.equal(duplicateSignup.status, 409);
+
+  const me = await fetch(`${base}/api/auth/me`, { headers: { Cookie: cookie } });
+  assert.equal(me.status, 200);
+  assert.equal((await me.json()).user.email, "lead@example.com");
+  const protectedResponse = await fetch(`${base}/protected`, { headers: { Cookie: cookie } });
+  assert.equal(protectedResponse.status, 200);
+
+  const wrongLogin = await fetch(`${base}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier: "market.lead", password: "incorrect1" }),
+  });
+  assert.equal(wrongLogin.status, 401);
+  assert.equal((await wrongLogin.json()).error, "E-poçt/istifadəçi adı və ya şifrə yanlışdır.");
+
+  const usernameLogin = await fetch(`${base}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier: "MARKET.LEAD", password: "strongpass1" }),
+  });
+  assert.equal(usernameLogin.status, 200);
+  const usernameCookie = usernameLogin.headers.get("set-cookie").split(";")[0];
+  const logout = await fetch(`${base}/api/auth/logout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: usernameCookie },
+    body: "{}",
+  });
+  assert.equal(logout.status, 204);
+  assert.equal((await fetch(`${base}/api/auth/me`, { headers: { Cookie: usernameCookie } })).status, 401);
+
+  const emailLogin = await fetch(`${base}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier: "LEAD@example.com", password: "strongpass1" }),
+  });
+  assert.equal(emailLogin.status, 200);
+  const otherSessionCookie = emailLogin.headers.get("set-cookie").split(";")[0];
+
+  const wrongChange = await fetch(`${base}/api/auth/change-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: cookie },
+    body: JSON.stringify({ currentPassword: "wrongpass1", newPassword: "changedpass2" }),
+  });
+  assert.equal(wrongChange.status, 400);
+  const changed = await fetch(`${base}/api/auth/change-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: cookie },
+    body: JSON.stringify({ currentPassword: "strongpass1", newPassword: "changedpass2" }),
+  });
+  assert.equal(changed.status, 200);
+  assert.equal((await fetch(`${base}/api/auth/me`, { headers: { Cookie: otherSessionCookie } })).status, 401);
+  const oldPasswordLogin = await fetch(`${base}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier: "market.lead", password: "strongpass1" }),
+  });
+  assert.equal(oldPasswordLogin.status, 401);
+
+  const changedPasswordLogin = await fetch(`${base}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier: "lead@example.com", password: "changedpass2" }),
+  });
+  assert.equal(changedPasswordLogin.status, 200);
+  const changedPasswordCookie = changedPasswordLogin.headers.get("set-cookie").split(";")[0];
+
+  const unknownForgot = await fetch(`${base}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "missing@example.com" }),
+  });
+  const unknownForgotBody = await unknownForgot.json();
+  assert.equal(unknownForgot.status, 200);
+
+  const expiredRawToken = "expired-reset-token-value-1234567890";
+  await store.createResetToken(hashOpaqueToken(expiredRawToken), created.user.id, -1);
+  const expiredReset = await fetch(`${base}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: expiredRawToken, password: "newstrongpass2" }),
+  });
+  assert.equal(expiredReset.status, 400);
+
+  const forgot = await fetch(`${base}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "lead@example.com" }),
+  });
+  assert.equal(forgot.status, 200);
+  assert.equal((await forgot.json()).message, unknownForgotBody.message);
+  assert.equal(sent.length, 1);
+  const token = new URL(sent[0].resetUrl).searchParams.get("token");
+  assert.ok(token);
+
+  const reset = await fetch(`${base}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password: "newstrongpass2" }),
+  });
+  assert.equal(reset.status, 200);
+  const reused = await fetch(`${base}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password: "anotherpass3" }),
+  });
+  assert.equal(reused.status, 400);
+  const expiredSession = await fetch(`${base}/api/auth/me`, { headers: { Cookie: cookie } });
+  assert.equal(expiredSession.status, 401);
+  assert.equal((await fetch(`${base}/api/auth/me`, { headers: { Cookie: changedPasswordCookie } })).status, 401);
+
+  const login = await fetch(`${base}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier: "LEAD@example.com", password: "newstrongpass2" }),
+  });
+  assert.equal(login.status, 200);
+});

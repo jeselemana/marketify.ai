@@ -6,7 +6,11 @@ import fs from "fs";
 import path from "path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "url";
-import { guestSession } from "./src/http/session.js";
+import { FileUserRepository } from "./src/repositories/file-user-repository.js";
+import { FileAuthStore, RedisAuthStore } from "./src/auth/auth-store.js";
+import { PasswordResetEmailService } from "./src/auth/email-service.js";
+import { createIdentityMiddleware, requireAuth } from "./src/http/auth-middleware.js";
+import { authErrorHandler, createAuthRouter } from "./src/http/auth-router.js";
 import {
   createStrategyRouter,
   strategyErrorHandler,
@@ -33,13 +37,17 @@ redis?.on("connect", () => console.log("🔥 Redis connected"));
 redis?.on("error", (err) => console.error("❌ Redis error:", err));
 
 // Render-da auto-reconnect üçün
-redis?.connect().catch((err) =>
-  console.error("❌ Redis connection error:", err)
-);
+if (redis) {
+  try {
+    await redis.connect();
+  } catch (err) {
+    console.error("❌ Redis connection error:", err.message);
+  }
+}
 
 // Günlük limit yoxlama funksiyası
 async function canUseAnalytics(ip) {
-  if (!redis) return true;
+  if (!redis?.isReady) return true;
   const today = new Date().toISOString().slice(0, 10);
   const key = `analytics:${ip}:${today}`;
 
@@ -57,10 +65,53 @@ async function canUseAnalytics(ip) {
 
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.static("public"));
-app.use(guestSession);
+app.set("trust proxy", 1);
+
+const APP_PORT = process.env.PORT || 5050;
+const APP_URL = process.env.APP_URL || `http://localhost:${APP_PORT}`;
+const trustedOrigins = new Set([
+  APP_URL.replace(/\/$/, ""),
+  ...String(process.env.TRUSTED_ORIGINS || "")
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/$/, ""))
+    .filter(Boolean),
+]);
+if (process.env.NODE_ENV !== "production") {
+  trustedOrigins.add(`http://localhost:${APP_PORT}`);
+  trustedOrigins.add(`http://127.0.0.1:${APP_PORT}`);
+}
+
+app.use((req, res, next) => {
+  res.set({
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; connect-src 'self'; font-src 'self' data: https://fonts.gstatic.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+  });
+  next();
+});
+app.use(cors({
+  credentials: true,
+  origin(origin, callback) {
+    if (!origin || trustedOrigins.has(origin.replace(/\/$/, ""))) return callback(null, true);
+    const error = new Error("Origin is not allowed.");
+    error.code = "ORIGIN_NOT_ALLOWED";
+    return callback(error);
+  },
+}));
+app.use(express.json({ limit: "1mb" }));
+app.use((req, res, next) => {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) return next();
+  const source = req.get("Origin") || (() => {
+    try { return new URL(req.get("Referer")).origin; } catch { return ""; }
+  })();
+  if (source && trustedOrigins.has(source.replace(/\/$/, ""))) return next();
+  if (!source && process.env.NODE_ENV !== "production") return next();
+  return res.status(403).json({ error: "Sorğunun mənbəyi təsdiqlənmədi.", code: "CSRF_ORIGIN_REJECTED" });
+});
+app.use(express.static("public", { index: false }));
 
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -72,9 +123,29 @@ const KNOWLEDGE_LOG_PATH = path.join(DATA_DIR, "knowledge_log.json");
 const BASE_PATH = path.join(DATA_DIR, "marketify_base.json");
 const TRASH_PATH = path.join(DATA_DIR, "marketify_trash.json");
 const STRATEGIES_PATH = path.join(DATA_DIR, "strategies.json");
+const USERS_PATH = path.join(DATA_DIR, "users.json");
+const AUTH_STORE_PATH = path.join(DATA_DIR, "auth-store.json");
 const strategyRepository = new FileStrategyRepository(STRATEGIES_PATH);
+const userRepository = new FileUserRepository(USERS_PATH);
+const authStore = redis?.isReady ? new RedisAuthStore(redis) : new FileAuthStore(AUTH_STORE_PATH);
+const emailService = new PasswordResetEmailService({ dataDir: DATA_DIR });
+const adminUsernames = new Set(String(process.env.ADMIN_USERNAMES || "").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean));
 
-app.use("/api/strategy", createStrategyRouter(strategyRepository));
+function requireAdmin(req, res, next) {
+  if (req.user && adminUsernames.has(req.user.username)) return next();
+  return res.status(404).json({ error: "Yol tapılmadı.", code: "NOT_FOUND" });
+}
+
+app.use(createIdentityMiddleware({ authStore, userRepository }));
+app.use("/api/auth", createAuthRouter({
+  userRepository,
+  authStore,
+  emailService,
+  strategyRepository,
+  appUrl: APP_URL,
+}));
+
+app.use("/api/strategy", requireAuth, createStrategyRouter(strategyRepository));
 
 const ASK_MODEL = aiConfig.askModel;
 const ASK_INSTRUCTIONS = `You are Marketify Ask, a precise and helpful AI assistant inside the Marketify workspace.
@@ -86,7 +157,7 @@ function askSafetyIdentifier(ownerId) {
   return createHash("sha256").update(ownerId).digest("hex").slice(0, 32);
 }
 
-app.post("/api/ask", async (req, res) => {
+app.post("/api/ask", requireAuth, async (req, res) => {
   try {
     if (!openai) {
       return res.status(503).json({ error: "AI xidməti hələ konfiqurasiya edilməyib." });
@@ -435,10 +506,10 @@ function learnFromGPT(userMessage, gptReply, intent) {
 }
 
 // 💬 Sadə yaddaş (RAM-da saxlanır)
-let conversationHistory = [];
+const conversationHistoryByOwner = new Map();
 
 // 🧠 CHAT ENDPOINT
-app.post("/api/chat", async (req, res) => {
+app.post("/api/chat", requireAuth, async (req, res) => {
   try {
     if (!openai) {
       return res.status(503).json({
@@ -470,10 +541,10 @@ if (selectedModel === "gpt-5.1-analytics") {
     }
 
     // 🔹 Mesajı tarixçəyə əlavə et
+    let conversationHistory = conversationHistoryByOwner.get(req.ownerId) || [];
     conversationHistory.push({ role: "user", content: userMessage });
-    if (conversationHistory.length > 3) {
-      conversationHistory = conversationHistory.slice(-3);
-    }
+    if (conversationHistory.length > 3) conversationHistory = conversationHistory.slice(-3);
+    conversationHistoryByOwner.set(req.ownerId, conversationHistory);
 
     // 🏷️ İntentlərin İstifadəçi Dostu Adları (hazırda yalnız suggestion üçün idi, amma qalsın)
     const INTENT_LABELS = {
@@ -842,6 +913,7 @@ Məqsəd: qısa, aydın və yüksək səviyyəli analitik cavab verməkdir.
       "Cavab alınmadı 😅";
 
     conversationHistory.push({ role: "assistant", content: reply });
+    conversationHistoryByOwner.set(req.ownerId, conversationHistory.slice(-3));
 
     // 🧠 Marketify Brain — bu cavabdan öyrənir (BÜTÜN GPT modellərində)
     learnFromGPT(userMessage, reply, intent);
@@ -854,8 +926,8 @@ Məqsəd: qısa, aydın və yüksək səviyyəli analitik cavab verməkdir.
 });
 
 // 💡 Söhbəti sıfırlama (Clear düyməsi üçün)
-app.post("/api/clear", (req, res) => {
-  conversationHistory = [];
+app.post("/api/clear", requireAuth, (req, res) => {
+  conversationHistoryByOwner.delete(req.ownerId);
   res.json({ ok: true });
 });
 
@@ -864,7 +936,7 @@ app.post("/api/clear", (req, res) => {
 //
 
 // Stats
-app.get("/admin/api/stats", (req, res) => {
+app.get("/admin/api/stats", requireAuth, requireAdmin, (req, res) => {
   try {
     ensureDataFiles();
     const base = safeLoadJSON(BASE_PATH, {});
@@ -888,7 +960,7 @@ app.get("/admin/api/stats", (req, res) => {
 });
 
 // Bütün template-lər + trash
-app.get("/admin/api/templates", (req, res) => {
+app.get("/admin/api/templates", requireAuth, requireAdmin, (req, res) => {
   try {
     ensureDataFiles();
     const base = safeLoadJSON(BASE_PATH, {});
@@ -901,7 +973,7 @@ app.get("/admin/api/templates", (req, res) => {
 });
 
 // Template sil → trash-ə at
-app.post("/admin/api/templates/delete", (req, res) => {
+app.post("/admin/api/templates/delete", requireAuth, requireAdmin, (req, res) => {
   try {
     const { intent, index } = req.body || {};
     if (!intent || typeof index !== "number") {
@@ -939,7 +1011,7 @@ app.post("/admin/api/templates/delete", (req, res) => {
 });
 
 // Trash → geri qaytar
-app.post("/admin/api/templates/restore", (req, res) => {
+app.post("/admin/api/templates/restore", requireAuth, requireAdmin, (req, res) => {
   try {
     const { intent, index } = req.body || {};
     if (!intent || typeof index !== "number") {
@@ -977,7 +1049,7 @@ app.post("/admin/api/templates/restore", (req, res) => {
 });
 
 // Log-lar (son 50)
-app.get("/admin/api/logs", (req, res) => {
+app.get("/admin/api/logs", requireAuth, requireAdmin, (req, res) => {
   try {
     ensureDataFiles();
     const log = safeLoadJSON(KNOWLEDGE_LOG_PATH, []);
@@ -991,7 +1063,7 @@ app.get("/admin/api/logs", (req, res) => {
 });
 
 // Admin UI
-app.get("/admin", (req, res) => {
+app.get("/admin", requireAuth, requireAdmin, (req, res) => {
   const adminPath = path.join(__dirname, "public", "admin", "index.html");
   const altPath = path.join(__dirname, "public", "index_admin.html");
 
@@ -1006,14 +1078,16 @@ app.get("/admin", (req, res) => {
   return res.status(404).send("Admin panel tapılmadı.");
 });
 
+app.use(authErrorHandler);
 app.use(strategyErrorHandler);
+app.use("/api", (req, res) => res.status(404).json({ error: "API yolu tapılmadı.", code: "NOT_FOUND" }));
 
 // 🌐 Frontend üçün fallback
 app.get("*", (req, res) => {
   res.sendFile(process.cwd() + "/public/index.html");
 });
 
-const PORT = process.env.PORT || 5050;
+const PORT = APP_PORT;
 app.listen(PORT, () =>
   console.log(`✅ Marketify AI is live on port ${PORT}`)
 );

@@ -2,3 +2,8 @@
 node_modules
 data/strategies.json
 data/strategies.json.*.tmp
+data/users.json
+data/users.json.*.tmp
+data/auth-store.json
+data/auth-store.json.*.tmp
+data/email-outbox.json

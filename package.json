@@ -8,14 +8,16 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check public/script.js && node --check public/exporters.js && node --check src/domain/strategy.js && node --check src/http/session.js && node --check src/http/strategy-router.js && node --check src/repositories/file-strategy-repository.js && node --check src/services/ai/client.js && node --check src/services/ai/config.js && node --check src/services/ai/prompts.js && node --check src/services/ai/strategy-service.js",
+    "check": "node --check server.js && node --check public/script.js && node --check public/auth.js && node --check public/exporters.js && node --check src/auth/auth-store.js && node --check src/auth/email-service.js && node --check src/auth/password.js && node --check src/auth/validation.js && node --check src/domain/strategy.js && node --check src/http/auth-middleware.js && node --check src/http/auth-router.js && node --check src/http/strategy-router.js && node --check src/repositories/auth-store-migrations.js && node --check src/repositories/file-user-repository.js && node --check src/repositories/file-strategy-repository.js && node --check src/services/ai/client.js && node --check src/services/ai/config.js && node --check src/services/ai/prompts.js && node --check src/services/ai/strategy-service.js",
     "test": "node --test",
     "build": "npm run check && npm test"
   },
   "dependencies": {
+    "argon2": "^0.45.1",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.19.2",
+    "nodemailer": "^9.0.5",
     "openai": "^4.0.0",
     "redis": "^5.10.0",
     "zod": "^3.25.76"

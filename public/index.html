@@ -19,10 +19,14 @@
     <link rel="stylesheet" href="/style.css" />
     <script src="/script.js" type="module"></script>
   </head>
-  <body>
+  <body class="auth-loading">
     <a class="skip-link" href="#workspace">Əsas hissəyə keç</a>
 
-    <div class="app-shell">
+    <main class="auth-root" id="authRoot" aria-live="polite">
+      <div class="auth-boot"><span class="auth-boot-mark">M</span><span>Marketify açılır…</span></div>
+    </main>
+
+    <div class="app-shell" id="appShell" hidden>
       <nav class="navigation-rail" aria-label="Sürətli naviqasiya">
         <button class="rail-button rail-menu" id="railMenuButton" type="button" aria-label="Workspace menyusunu aç" aria-expanded="false" data-tooltip="Menyu">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
@@ -74,6 +78,13 @@
             Strategiyalar
             <span class="nav-count" id="strategyCount">0</span>
           </button>
+          <button class="nav-item" id="settingsNav" type="button">
+            <svg class="nav-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.09a1.7 1.7 0 0 0-.4-1.1 1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 3.8 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2V9.6h.09a1.7 1.7 0 0 0 1.1-.4 1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8.2 3.8a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V2h4v.09a1.7 1.7 0 0 0 .4 1.1 1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 8.2a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.09v4h-.09a1.7 1.7 0 0 0-1.1.4 1.7 1.7 0 0 0-.6 1Z" />
+            </svg>
+            Parametrlər
+          </button>
         </nav>
 
         <div class="recent-section">
@@ -83,13 +94,14 @@
           </div>
         </div>
 
-        <div class="sidebar-footer">
-          <div class="workspace-avatar" aria-hidden="true">M</div>
+        <button class="sidebar-footer" id="accountButton" type="button">
+          <div class="workspace-avatar" id="workspaceAvatar" aria-hidden="true">M</div>
           <div>
-            <strong>Marketify workspace</strong>
-            <span>Şəxsi · bu cihazda</span>
+            <strong id="workspaceName">Marketify workspace</strong>
+            <span id="workspaceMeta">Şəxsi hesab</span>
           </div>
-        </div>
+          <span class="account-chevron" aria-hidden="true">›</span>
+        </button>
       </aside>
 
       <div class="mobile-overlay" id="mobileOverlay" hidden></div>

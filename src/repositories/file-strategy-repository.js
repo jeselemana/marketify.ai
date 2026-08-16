@@ -115,4 +115,17 @@ export class FileStrategyRepository {
     await this.writeAll(records);
     return records[index];
   }
+
+  async claimOwner(previousOwnerId, ownerId) {
+    if (!previousOwnerId || previousOwnerId === ownerId) return 0;
+    const records = await this.readAll();
+    let claimed = 0;
+    const migrated = records.map((record) => {
+      if (record.ownerId !== previousOwnerId) return record;
+      claimed += 1;
+      return { ...record, ownerId, updatedAt: new Date().toISOString() };
+    });
+    if (claimed) await this.writeAll(migrated);
+    return claimed;
+  }
 }
