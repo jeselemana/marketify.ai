@@ -58,7 +58,11 @@ export class FileAuthStore {
   }
 
   async getSession(id) {
-    return this.mutate((store) => store.sessions[id] || null);
+    const store = await this.read();
+    const session = store.sessions[id];
+    if (!session) return null;
+    if (session.expiresAt <= Date.now()) return null;
+    return session;
   }
 
   async deleteSession(id) {

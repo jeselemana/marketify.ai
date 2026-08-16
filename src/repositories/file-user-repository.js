@@ -68,9 +68,18 @@ export class FileUserRepository {
   }
 
   async findByIdentifier(identifier) {
-    return String(identifier).includes("@")
-      ? this.findByEmail(identifier)
-      : this.findByUsername(identifier);
+    const raw = String(identifier || "").trim();
+    if (!raw) return null;
+    // Treat leading @ as a username (UI shows @username)
+    if (raw.startsWith("@")) {
+      return this.findByUsername(raw.slice(1));
+    }
+    // If it looks like an email, try email first, then fall back to username
+    if (raw.includes("@")) {
+      const byEmail = await this.findByEmail(raw);
+      if (byEmail) return byEmail;
+    }
+    return this.findByUsername(raw);
   }
 
   create(payload) {

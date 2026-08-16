@@ -15,7 +15,8 @@ export function parseCookies(header = "") {
 }
 
 function secureRequest(req) {
-  return process.env.NODE_ENV === "production" || req.secure || req.headers["x-forwarded-proto"] === "https";
+  const forwarded = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  return req.secure || forwarded === "https";
 }
 
 export function setSessionCookie(req, res, token) {
