@@ -1,4 +1,4 @@
-import { loadJSONFromR2, saveJSONToR2 } from "./src/services/r2-storage.js";
+import { loadJSONFromR2, saveJSONToR2 } from "./src/http/r2-storage.js";
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
