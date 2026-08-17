@@ -1002,7 +1002,8 @@ function renderLoading() {
   );
   reassurance.append(sparkIcon, reassuranceText);
 
-  const topActions = element("div", "loading-top-actions");
+  // Desktop Top Right Actions
+  const topActions = element("div", "loading-top-actions loading-desktop-actions");
   topActions.id = "loadingTopActions";
 
   const cancelBtn = element("button", "loading-cancel-button");
@@ -1041,10 +1042,42 @@ function renderLoading() {
 
   topActions.append(cancelBtn, historyBtn);
 
+  // Mobile Under-Card Actions
+  const cardActions = element("div", "loading-card-actions");
+  const mobileCancelBtn = element("button", "loading-cancel-btn-mobile");
+  mobileCancelBtn.type = "button";
+  mobileCancelBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <rect x="9" y="9" width="6" height="6" fill="currentColor" rx="1"/>
+    </svg>
+    <span>Dayandır</span>
+  `;
+  mobileCancelBtn.addEventListener("click", () => {
+    const confirmed = window.confirm("Brif analizini dayandırmaq istədiyinizdən əminsiniz?");
+    if (confirmed) {
+      cancelCurrentAnalysis();
+    }
+  });
+
+  const mobileHistoryBtn = element("button", "loading-history-btn-mobile");
+  mobileHistoryBtn.type = "button";
+  mobileHistoryBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <polyline points="12 7 12 12 15 15"/>
+    </svg>
+    <span>Tarixçə</span>
+    ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
+  `;
+  mobileHistoryBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
+
+  cardActions.append(mobileCancelBtn, mobileHistoryBtn);
+
   document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn").forEach((el) => el.remove());
   document.body.appendChild(topActions);
 
-  view.append(statusLine, title, intro, activity, timelineWrap, reassurance);
+  view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
   workspace.appendChild(view);
 
   progressTimer = setInterval(() => {

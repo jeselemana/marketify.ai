@@ -2190,6 +2190,80 @@ body.sidebar-open .app-main {
   font-variant-numeric: tabular-nums;
 }
 
+/* Card actions on Mobile (below brief analysis card) */
+.loading-card-actions {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 22px auto 0;
+  width: 100%;
+}
+
+.loading-card-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 42px;
+  flex: 1;
+  max-width: 170px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: all 140ms ease;
+}
+
+.loading-card-actions .loading-cancel-btn-mobile {
+  border: 1px solid #fee2e2;
+  background: #fff5f5;
+  color: #dc2626;
+}
+
+.loading-card-actions .loading-cancel-btn-mobile:hover,
+.loading-card-actions .loading-cancel-btn-mobile:active {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+}
+
+.loading-card-actions .loading-history-btn-mobile {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+}
+
+.loading-card-actions .loading-history-btn-mobile:hover,
+.loading-card-actions .loading-history-btn-mobile:active {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+
+.loading-card-actions .loading-history-btn-mobile svg {
+  color: #64748b;
+}
+
+.loading-card-actions .loading-history-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
 .analysis-history-drag-handle {
   display: none;
   width: 36px;
@@ -2411,43 +2485,13 @@ body.sidebar-open .app-main {
   animation: live-ring 2s ease-in-out infinite;
 }
 
-@media (max-width: 820px) {
-  body:has(.loading-view) .mobile-header .mobile-new {
+@media (max-width: 640px) {
+  .loading-desktop-actions {
     display: none !important;
   }
-}
 
-@media (max-width: 640px) {
-  .loading-top-actions {
-    top: calc(env(safe-area-inset-top, 0px) + 11px) !important;
-    right: 14px !important;
-    gap: 6px !important;
-  }
-
-  .loading-cancel-button {
-    height: 36px !important;
-    padding: 0 11px !important;
-    font-size: 12px !important;
-    border-radius: 99px !important;
-    background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(8px) !important;
-  }
-
-  .loading-cancel-button:active {
-    transform: scale(0.96) !important;
-  }
-
-  .loading-history-button {
-    height: 36px !important;
-    padding: 0 11px !important;
-    font-size: 12px !important;
-    border-radius: 99px !important;
-    background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(8px) !important;
-  }
-
-  .loading-history-button:active {
-    transform: scale(0.96) !important;
+  .loading-card-actions {
+    display: flex;
   }
 
   /* History Bottom Sheet */
