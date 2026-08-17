@@ -2738,6 +2738,9 @@ function renderPlannerView() {
   taskInput.placeholder = "Yeni tapşırıq yaz və əlavə et…";
   taskInput.required = true;
 
+  const actionsRow = element("div", "planner-composer-actions");
+
+  const selectWrap = element("div", "planner-select-wrap");
   const groupSelect = document.createElement("select");
   groupSelect.className = "planner-select";
   ["Bu gün", "Növbəti 48 saat", "Bu həftə", "Ümumi"].forEach((opt) => {
@@ -2746,11 +2749,13 @@ function renderPlannerView() {
     option.textContent = opt;
     groupSelect.appendChild(option);
   });
+  selectWrap.appendChild(groupSelect);
 
-  const submitBtn = button("＋ Əlavə et", "primary-button");
+  const submitBtn = button("＋ Əlavə et", "primary-button planner-add-btn");
   submitBtn.type = "submit";
 
-  composer.append(taskInput, groupSelect, submitBtn);
+  actionsRow.append(selectWrap, submitBtn);
+  composer.append(taskInput, actionsRow);
   composer.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = taskInput.value.trim();

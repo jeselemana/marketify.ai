@@ -6644,18 +6644,211 @@ body {
   color: #ef4444;
 }
 
+.planner-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.planner-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 @media (max-width: 767px) {
+  .planner-view {
+    padding: 18px 16px 80px;
+  }
+
+  .planner-view .list-heading h1 {
+    font-size: 24px;
+    letter-spacing: -0.025em;
+    margin: 4px 0 4px;
+  }
+
+  .planner-view .list-heading p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+  }
+
   .planner-quick-add {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
+    margin: 16px 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: #ffffff;
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.03);
   }
-  .planner-select {
+
+  .planner-input {
     width: 100%;
+    min-width: 0;
+    font-size: 14px;
+    padding: 2px 0 6px;
   }
-  .checklist-item .item-plan-btn {
-    opacity: 1;
+
+  .planner-composer-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0, 0, 0, 0.04);
   }
+
+  .planner-select-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .planner-select {
+    padding: 5px 22px 5px 9px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+    background: #f1f4f9;
+    color: var(--text-secondary);
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 7px center;
+  }
+
+  .planner-add-btn {
+    min-height: 32px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 8px;
+  }
+
+  .planner-view .library-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 0 16px;
+  }
+
+  .planner-view .library-search {
+    width: 100%;
+    height: 36px;
+    font-size: 13px;
+    border-radius: 9px;
+    border: 1px solid var(--border-subtle);
+    background: #f8fafc;
+  }
+
+  .planner-view .library-filters {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px;
+    border-radius: 8px;
+    background: #eef0f3;
+    border: 1px solid var(--border-subtle);
+    width: fit-content;
+  }
+
+  .planner-view .library-filter {
+    padding: 4px 10px;
+    font-size: 11.5px;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+
+  .planner-view .library-filter.is-active {
+    background: #ffffff;
+    color: var(--text-primary);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  .planner-view .clear-completed-btn {
+    font-size: 11.5px;
+    color: var(--text-tertiary);
+    padding: 2px 0;
+    align-self: flex-start;
+    margin-left: 0;
+  }
+
+  .planner-tasks-container {
+    gap: 18px;
+    margin-top: 14px;
+  }
+
+  .planner-group-header {
+    padding-bottom: 5px;
+  }
+
+  .planner-group-name {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .planner-group-badge {
+    font-size: 10.5px;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: #f1f4f9;
+  }
+
+  .planner-task-row {
+    padding: 11px 12px;
+    border-radius: 11px;
+    gap: 10px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+  }
+
+  .planner-check-wrap input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+  }
+
+  .planner-task-text {
+    font-size: 13px;
+    line-height: 1.44;
+    color: #1e293b;
+  }
+
+  .planner-task-meta {
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .planner-strategy-tag {
+    max-width: 200px;
+    font-size: 10.5px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #dbeafe;
+  }
+
+  .planner-date {
+    font-size: 10px;
+    color: #94a3b8;
+  }
+
   .planner-delete-btn {
+    opacity: 0.6;
+    padding: 3px;
+    font-size: 12px;
+  }
+
+  .checklist-item .item-plan-btn {
     opacity: 1;
   }
 }
