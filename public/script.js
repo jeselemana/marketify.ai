@@ -26,6 +26,8 @@ const workspaceName = document.querySelector("#workspaceName");
 const workspaceMeta = document.querySelector("#workspaceMeta");
 const buildModeButton = document.querySelector("#buildModeButton");
 const askModeButton = document.querySelector("#askModeButton");
+const sidebarBuildModeButton = document.querySelector("#sidebarBuildModeButton");
+const sidebarAskModeButton = document.querySelector("#sidebarAskModeButton");
 
 const STATUS_LABELS = {
   draft: "Qaralama",
@@ -289,10 +291,16 @@ function syncNav() {
 
 function syncMode() {
   const isBuild = state.mode === "build";
-  buildModeButton.classList.toggle("is-active", isBuild);
-  askModeButton.classList.toggle("is-active", !isBuild);
-  buildModeButton.setAttribute("aria-selected", String(isBuild));
-  askModeButton.setAttribute("aria-selected", String(!isBuild));
+  buildModeButton?.classList.toggle("is-active", isBuild);
+  askModeButton?.classList.toggle("is-active", !isBuild);
+  buildModeButton?.setAttribute("aria-selected", String(isBuild));
+  askModeButton?.setAttribute("aria-selected", String(!isBuild));
+
+  sidebarBuildModeButton?.classList.toggle("is-active", isBuild);
+  sidebarAskModeButton?.classList.toggle("is-active", !isBuild);
+  sidebarBuildModeButton?.setAttribute("aria-selected", String(isBuild));
+  sidebarAskModeButton?.setAttribute("aria-selected", String(!isBuild));
+
   document.body.dataset.mode = state.mode;
 }
 
@@ -3108,8 +3116,10 @@ document.querySelector("#sidebarPrivacyBtn")?.addEventListener("click", () => {
 document.querySelector("#legalModalOverlay")?.addEventListener("click", (event) => {
   if (event.target === document.querySelector("#legalModalOverlay")) closeLegalModal();
 });
-buildModeButton.addEventListener("click", () => setMode("build"));
-askModeButton.addEventListener("click", () => setMode("ask"));
+buildModeButton?.addEventListener("click", () => setMode("build"));
+askModeButton?.addEventListener("click", () => setMode("ask"));
+sidebarBuildModeButton?.addEventListener("click", () => setMode("build"));
+sidebarAskModeButton?.addEventListener("click", () => setMode("ask"));
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeSidebar();
