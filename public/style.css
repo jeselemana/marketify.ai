@@ -4266,12 +4266,17 @@ body.sidebar-open .refinement-dock {
   width: min(100%, 760px);
   margin: auto auto 0;
   padding: 14px 0 max(18px, env(safe-area-inset-bottom));
+  background: transparent;
+}
+
+.ask-shell.has-messages .ask-composer-area {
   background: linear-gradient(to bottom, transparent, var(--bg-canvas) 18%);
 }
 
 .ask-shell.is-empty .ask-composer-area {
   position: relative;
   margin-top: 20px;
+  background: transparent;
 }
 
 .ask-suggestions {
@@ -5353,7 +5358,7 @@ body {
   color: var(--text-tertiary);
 }
 
-.ask-composer-area {
+.ask-shell.has-messages .ask-composer-area {
   background: linear-gradient(to bottom, transparent, var(--bg-canvas) 18%);
 }
 
