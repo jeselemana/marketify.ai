@@ -402,7 +402,7 @@ function render() {
   clearInterval(progressTimer);
   syncMode();
   syncNav();
-  document.querySelectorAll(".loading-history-button").forEach((btn) => btn.remove());
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn").forEach((btn) => btn.remove());
   workspace.replaceChildren();
   workspace.className = "workspace";
 
@@ -1002,11 +1002,14 @@ function renderLoading() {
   );
   reassurance.append(sparkIcon, reassuranceText);
 
-  const actionsWrap = element("div", "loading-actions");
+  const topActions = element("div", "loading-top-actions");
+  topActions.id = "loadingTopActions";
+
   const cancelBtn = element("button", "loading-cancel-button");
   cancelBtn.type = "button";
   cancelBtn.id = "cancelAnalysisBtn";
   cancelBtn.setAttribute("aria-label", "Brif analizini dayandır");
+  cancelBtn.title = "Analizi dayandır";
   cancelBtn.innerHTML = `
     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/>
@@ -1020,7 +1023,6 @@ function renderLoading() {
       cancelCurrentAnalysis();
     }
   });
-  actionsWrap.appendChild(cancelBtn);
 
   const historyBtn = element("button", "loading-history-button");
   historyBtn.type = "button";
@@ -1036,10 +1038,13 @@ function renderLoading() {
     ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
   `;
   historyBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
-  document.querySelectorAll(".loading-history-button, #analysisHistoryBtn").forEach((el) => el.remove());
-  document.body.appendChild(historyBtn);
 
-  view.append(statusLine, title, intro, activity, timelineWrap, actionsWrap, reassurance);
+  topActions.append(cancelBtn, historyBtn);
+
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn").forEach((el) => el.remove());
+  document.body.appendChild(topActions);
+
+  view.append(statusLine, title, intro, activity, timelineWrap, reassurance);
   workspace.appendChild(view);
 
   progressTimer = setInterval(() => {
@@ -1064,7 +1069,7 @@ function cancelCurrentAnalysis() {
     currentAbortController.abort();
     currentAbortController = null;
   }
-  document.querySelectorAll(".loading-history-button, #analysisHistoryBtn").forEach((el) => el.remove());
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn").forEach((el) => el.remove());
   state.status = "draft";
   showToast("Brif analizi dayandırıldı.", "default");
   render();
