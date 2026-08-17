@@ -148,6 +148,15 @@ function formatDate(value) {
   return `${day} ${month} ${date.getFullYear()}`;
 }
 
+function formatTimeOnly(value) {
+  if (!value) return "00:00";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "00:00";
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
 function slugify(value) {
   return (value || "marketify-strategy")
     .toLocaleLowerCase("az")
@@ -2721,41 +2730,88 @@ function renderPlannerView() {
   workspace.replaceChildren();
 
   const view = element("section", "planner-view");
-  const heading = element("div", "list-heading");
-  const copy = element("div");
-  copy.append(
+
+  // Header Row with 3D Calendar Hero Badge
+  const headerRow = element("header", "planner-header-row");
+  const headerText = element("div", "planner-header-text");
+  headerText.append(
     element("span", "section-kicker", "WORKSPACE"),
     element("h1", "", "Planlaşdırılanlar"),
     element("p", "", "Strategiyalardan əlavə etdiyin və şəxsi tapşırıqlarının icra planı.")
   );
-  heading.appendChild(copy);
-  view.appendChild(heading);
 
-  // Quick Add Composer
-  const composer = element("form", "planner-quick-add");
-  const taskInput = element("input", "planner-input");
+  const heroCard = element("div", "planner-hero-card");
+  heroCard.setAttribute("aria-hidden", "true");
+  heroCard.innerHTML = `
+    <div class="planner-hero-glow"></div>
+    <div class="planner-hero-dot dot-1"></div>
+    <div class="planner-hero-dot dot-2"></div>
+    <div class="planner-hero-icon-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.8"/>
+        <line x1="16" y1="2" x2="16" y2="6" stroke="#2563eb" stroke-width="2"/>
+        <line x1="8" y1="2" x2="8" y2="6" stroke="#2563eb" stroke-width="2"/>
+        <line x1="3" y1="10" x2="21" y2="10" stroke="#2563eb" stroke-width="1.6"/>
+        <polyline points="9 15 11 17 15 13" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  `;
+  headerRow.append(headerText, heroCard);
+  view.appendChild(headerRow);
+
+  // Quick Add Composer Card
+  const composer = element("form", "planner-composer-card");
+  const taskInput = element("input", "planner-composer-input");
   taskInput.type = "text";
   taskInput.placeholder = "Yeni tapşırıq yaz və əlavə et…";
   taskInput.required = true;
 
-  const actionsRow = element("div", "planner-composer-actions");
+  const composerBottom = element("div", "planner-composer-bottom");
 
-  const selectWrap = element("div", "planner-select-wrap");
+  const selectPill = element("div", "planner-time-select-pill");
+  const selectLabel = element("span", "planner-select-label", "Bu gün");
   const groupSelect = document.createElement("select");
-  groupSelect.className = "planner-select";
+  groupSelect.className = "planner-select-native";
   ["Bu gün", "Növbəti 48 saat", "Bu həftə", "Ümumi"].forEach((opt) => {
     const option = document.createElement("option");
     option.value = opt;
     option.textContent = opt;
     groupSelect.appendChild(option);
   });
-  selectWrap.appendChild(groupSelect);
+  groupSelect.addEventListener("change", () => {
+    selectLabel.textContent = groupSelect.value;
+  });
 
-  const submitBtn = button("＋ Əlavə et", "primary-button planner-add-btn");
+  selectPill.innerHTML = `
+    <svg class="planner-cal-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="3"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  `;
+  selectPill.appendChild(selectLabel);
+  selectPill.appendChild(groupSelect);
+
+  const chevronSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  chevronSvg.setAttribute("class", "planner-chevron-icon");
+  chevronSvg.setAttribute("viewBox", "0 0 24 24");
+  chevronSvg.setAttribute("width", "12");
+  chevronSvg.setAttribute("height", "12");
+  chevronSvg.setAttribute("fill", "none");
+  chevronSvg.setAttribute("stroke", "currentColor");
+  chevronSvg.setAttribute("stroke-width", "2");
+  chevronSvg.setAttribute("stroke-linecap", "round");
+  chevronSvg.setAttribute("stroke-linejoin", "round");
+  chevronSvg.innerHTML = `<polyline points="6 9 12 15 18 9"/>`;
+  selectPill.appendChild(chevronSvg);
+
+  const submitBtn = button("＋ Əlavə et", "planner-submit-btn");
   submitBtn.type = "submit";
 
-  actionsRow.append(selectWrap, submitBtn);
-  composer.append(taskInput, actionsRow);
+  composerBottom.append(selectPill, submitBtn);
+  composer.append(taskInput, composerBottom);
+
   composer.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = taskInput.value.trim();
@@ -2784,54 +2840,46 @@ function renderPlannerView() {
   });
   view.appendChild(composer);
 
-  // Filter & Search Controls
-  const controls = element("div", "library-controls");
-  const search = element("input", "library-search");
-  search.type = "search";
-  search.placeholder = "Tapşırıqlarda axtar…";
-  search.setAttribute("aria-label", "Tapşırıqlarda axtar");
+  // Search Bar
+  const searchBar = element("div", "planner-search-bar");
+  searchBar.innerHTML = `
+    <svg class="planner-search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+  `;
+  const searchInput = element("input", "planner-search-input");
+  searchInput.type = "search";
+  searchInput.placeholder = "Tapşırıqlarda axtar…";
+  searchInput.setAttribute("aria-label", "Tapşırıqlarda axtar");
+  searchBar.appendChild(searchInput);
+  view.appendChild(searchBar);
 
-  const filters = element("div", "library-filters");
+  // Filter Pills Row
+  const filterRow = element("div", "planner-filter-row");
+  const filterPills = element("div", "planner-filter-pills");
   const filterOptions = [
     { key: "all", label: "Hamısı" },
     { key: "active", label: "Aktiv" },
     { key: "completed", label: "Tamamlanmış" },
   ];
   filterOptions.forEach((opt) => {
-    const btn = button(opt.label, `library-filter${state.plannerFilter === opt.key ? " is-active" : ""}`, () => {
+    const btn = button(opt.label, `planner-filter-pill${state.plannerFilter === opt.key ? " is-active" : ""}`, () => {
       state.plannerFilter = opt.key;
-      [...filters.children].forEach((b) => b.classList.remove("is-active"));
+      [...filterPills.children].forEach((b) => b.classList.remove("is-active"));
       btn.classList.add("is-active");
       drawPlannerList();
     });
-    filters.appendChild(btn);
+    filterPills.appendChild(btn);
   });
-
-  const clearBtn = button("Tamamlanmışları təmizlə", "text-button clear-completed-btn", async () => {
-    const completedCount = state.plannerTasks.filter((t) => t.completed).length;
-    if (!completedCount) {
-      showToast("Tamamlanmış tapşırıq yoxdur", "info");
-      return;
-    }
-    try {
-      await authRequest("/api/planner/completed", { method: "DELETE" });
-      state.plannerTasks = state.plannerTasks.filter((t) => !t.completed);
-      updatePlannerBadge();
-      drawPlannerList();
-      showToast("Tamamlanmış tapşırıqlar təmizləndi ✓", "success");
-    } catch (err) {
-      showToast(err.message || "Xəta baş verdi", "error");
-    }
-  });
-
-  controls.append(search, filters, clearBtn);
-  view.appendChild(controls);
+  filterRow.appendChild(filterPills);
+  view.appendChild(filterRow);
 
   const listContainer = element("div", "planner-tasks-container");
   view.appendChild(listContainer);
 
   const drawPlannerList = () => {
-    const query = search.value.trim().toLocaleLowerCase("az");
+    const query = searchInput.value.trim().toLocaleLowerCase("az");
     let tasks = state.plannerTasks;
 
     if (state.plannerFilter === "active") tasks = tasks.filter((t) => !t.completed);
@@ -2881,22 +2929,25 @@ function renderPlannerView() {
       const groupHeader = element("div", "planner-group-header");
       const activeCount = groupTasks.filter((t) => !t.completed).length;
       groupHeader.append(
-        element("h3", "planner-group-name", groupName),
-        element("span", "planner-group-badge", `${activeCount} aktiv / ${groupTasks.length}`)
+        element("h3", "planner-group-name", groupName.toUpperCase()),
+        element("span", "planner-group-badge", `${activeCount} aktiv`)
       );
       groupEl.appendChild(groupHeader);
 
       const taskList = element("div", "planner-task-list");
       groupTasks.forEach((task) => {
-        const row = element("div", `planner-task-row${task.completed ? " is-done" : ""}`);
+        const card = element("div", `planner-task-card${task.completed ? " is-done" : ""}`);
 
+        const cardTop = element("div", "planner-card-top");
+
+        // Custom checkbox
         const checkWrap = element("label", "planner-check-wrap");
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.checked = Boolean(task.completed);
         checkbox.addEventListener("change", async () => {
           task.completed = checkbox.checked;
-          row.classList.toggle("is-done", task.completed);
+          card.classList.toggle("is-done", task.completed);
           updatePlannerBadge();
           try {
             await authRequest(`/api/planner/${task.id}`, {
@@ -2906,34 +2957,19 @@ function renderPlannerView() {
           } catch (err) {
             checkbox.checked = !task.completed;
             task.completed = checkbox.checked;
-            row.classList.toggle("is-done", task.completed);
+            card.classList.toggle("is-done", task.completed);
             updatePlannerBadge();
             showToast(err.message || "Yeniləmək mümkün olmadı", "error");
           }
         });
-        checkWrap.appendChild(checkbox);
+        const customBox = element("span", "planner-custom-checkbox");
+        checkWrap.append(checkbox, customBox);
 
-        const body = element("div", "planner-task-body");
         const textEl = element("p", "planner-task-text", task.text);
 
-        const meta = element("div", "planner-task-meta");
-        if (task.strategyTitle) {
-          const stratTag = button(`✦ ${task.strategyTitle}`, "planner-strategy-tag", () => {
-            if (task.strategyId) openSavedStrategy(task.strategyId);
-            else {
-              state.mode = "build";
-              state.view = "list";
-              render();
-            }
-          });
-          meta.appendChild(stratTag);
-        }
-        meta.appendChild(element("span", "planner-date", formatDate(task.createdAt)));
-
-        body.append(textEl, meta);
-
-        const deleteBtn = button("", "icon-button planner-delete-btn", async () => {
-          row.style.opacity = "0.5";
+        const menuBtn = button("", "planner-menu-btn", async (e) => {
+          e.stopPropagation();
+          card.style.opacity = "0.4";
           try {
             await authRequest(`/api/planner/${task.id}`, { method: "DELETE" });
             state.plannerTasks = state.plannerTasks.filter((t) => t.id !== task.id);
@@ -2941,15 +2977,52 @@ function renderPlannerView() {
             drawPlannerList();
             showToast("Tapşırıq silindi ✓", "info");
           } catch (err) {
-            row.style.opacity = "1";
+            card.style.opacity = "1";
             showToast(err.message || "Silmək mümkün olmadı", "error");
           }
         });
-        deleteBtn.setAttribute("aria-label", "Tapşırığı sil");
-        deleteBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+        menuBtn.setAttribute("aria-label", "Tapşırığı sil");
+        menuBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <circle cx="12" cy="5" r="1.8"/>
+            <circle cx="12" cy="12" r="1.8"/>
+            <circle cx="12" cy="19" r="1.8"/>
+          </svg>
+        `;
 
-        row.append(checkWrap, body, deleteBtn);
-        taskList.appendChild(row);
+        cardTop.append(checkWrap, textEl, menuBtn);
+
+        const cardBottom = element("div", "planner-card-bottom");
+        if (task.strategyTitle) {
+          const stratChip = button("", "planner-strategy-chip", () => {
+            if (task.strategyId) openSavedStrategy(task.strategyId);
+            else {
+              state.mode = "build";
+              state.view = "list";
+              render();
+            }
+          });
+          stratChip.innerHTML = `
+            <span class="planner-chip-star">✦</span>
+            <span class="planner-chip-title">${task.strategyTitle}</span>
+          `;
+          cardBottom.appendChild(stratChip);
+        } else {
+          cardBottom.appendChild(element("div"));
+        }
+
+        const timeText = element("span", "planner-time-text");
+        timeText.innerHTML = `
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          ${formatTimeOnly(task.createdAt)}
+        `;
+        cardBottom.appendChild(timeText);
+
+        card.append(cardTop, cardBottom);
+        taskList.appendChild(card);
       });
 
       groupEl.appendChild(taskList);
@@ -2957,7 +3030,7 @@ function renderPlannerView() {
     });
   };
 
-  search.addEventListener("input", drawPlannerList);
+  searchInput.addEventListener("input", drawPlannerList);
   drawPlannerList();
   workspace.appendChild(view);
 }
