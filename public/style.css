@@ -764,7 +764,8 @@ body.sidebar-open .app-main {
   justify-items: center;
   padding: clamp(112px, 20vh, 208px) 32px 64px;
   background:
-    radial-gradient(circle at 50% 34%, rgba(99, 128, 255, 0.05), transparent 30%),
+    radial-gradient(ellipse 72% 56% at 50% 48%, rgba(186, 220, 255, 0.65) 0%, rgba(219, 234, 254, 0.42) 35%, rgba(239, 246, 255, 0.18) 58%, transparent 75%),
+    radial-gradient(ellipse 46% 38% at 50% 45%, rgba(147, 197, 253, 0.4) 0%, transparent 60%),
     var(--bg-canvas);
 }
 
@@ -3816,12 +3817,12 @@ body.sidebar-open .refinement-dock {
 /* Build / Ask modes */
 .mode-header {
   position: relative;
-  z-index: 16;
+  z-index: 15;
   display: flex;
   min-height: 64px;
   align-items: center;
   justify-content: center;
-  background: var(--bg-canvas);
+  background: transparent;
 }
 
 .mode-switch {
@@ -3880,7 +3881,10 @@ body.sidebar-open .refinement-dock {
 .workspace-ask {
   min-height: calc(100vh - 64px);
   padding: 0 28px;
-  background: var(--bg-canvas);
+  background:
+    radial-gradient(ellipse 72% 56% at 50% 48%, rgba(186, 220, 255, 0.65) 0%, rgba(219, 234, 254, 0.42) 35%, rgba(239, 246, 255, 0.18) 58%, transparent 75%),
+    radial-gradient(ellipse 46% 38% at 50% 45%, rgba(147, 197, 253, 0.4) 0%, transparent 60%),
+    var(--bg-canvas);
 }
 
 .ask-shell {
@@ -5136,7 +5140,8 @@ body {
 
 .workspace-centered {
   background:
-    radial-gradient(circle at 50% 32%, rgba(79, 110, 232, 0.065), transparent 31%),
+    radial-gradient(ellipse 72% 56% at 50% 48%, rgba(186, 220, 255, 0.65) 0%, rgba(219, 234, 254, 0.42) 35%, rgba(239, 246, 255, 0.18) 58%, transparent 75%),
+    radial-gradient(ellipse 46% 38% at 50% 45%, rgba(147, 197, 253, 0.4) 0%, transparent 60%),
     var(--bg-canvas);
 }
 
@@ -5925,7 +5930,10 @@ body {
     display: flex;
     min-height: calc(100dvh - 60px - env(safe-area-inset-top));
     padding: 0 16px calc(14px + env(safe-area-inset-bottom));
-    background: var(--bg-canvas);
+    background:
+      radial-gradient(ellipse 90% 65% at 50% 44%, rgba(186, 220, 255, 0.65) 0%, rgba(219, 234, 254, 0.42) 35%, rgba(239, 246, 255, 0.18) 58%, transparent 75%),
+      radial-gradient(ellipse 55% 45% at 50% 42%, rgba(147, 197, 253, 0.38) 0%, transparent 60%),
+      var(--bg-canvas);
   }
 
   .workspace-centered .intake-view {
