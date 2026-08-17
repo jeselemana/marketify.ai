@@ -763,6 +763,11 @@ body.sidebar-open .app-main {
   align-items: start;
   justify-items: center;
   padding: clamp(112px, 20vh, 208px) 32px 64px;
+  background: var(--bg-canvas);
+}
+
+.workspace-intake,
+.workspace-centered:has(.intake-view) {
   background:
     radial-gradient(ellipse 72% 56% at 50% 48%, rgba(186, 220, 255, 0.65) 0%, rgba(219, 234, 254, 0.42) 35%, rgba(239, 246, 255, 0.18) 58%, transparent 75%),
     radial-gradient(ellipse 46% 38% at 50% 45%, rgba(147, 197, 253, 0.4) 0%, transparent 60%),
@@ -3886,10 +3891,20 @@ body.sidebar-open .refinement-dock {
 .workspace-ask {
   min-height: calc(100vh - 64px);
   padding: 0 28px;
+  background: var(--bg-canvas);
+}
+
+.workspace-ask.is-empty,
+.workspace-ask:has(.ask-shell.is-empty) {
   background:
     radial-gradient(ellipse 72% 56% at 50% 48%, rgba(186, 220, 255, 0.65) 0%, rgba(219, 234, 254, 0.42) 35%, rgba(239, 246, 255, 0.18) 58%, transparent 75%),
     radial-gradient(ellipse 46% 38% at 50% 45%, rgba(147, 197, 253, 0.4) 0%, transparent 60%),
     var(--bg-canvas);
+}
+
+.workspace-ask.has-messages,
+.workspace-ask:has(.ask-shell.has-messages) {
+  background: var(--bg-canvas);
 }
 
 .ask-shell {
@@ -5149,6 +5164,11 @@ body {
 }
 
 .workspace-centered {
+  background: var(--bg-canvas);
+}
+
+.workspace-intake,
+.workspace-centered:has(.intake-view) {
   background:
     radial-gradient(ellipse 72% 56% at 50% 48%, rgba(186, 220, 255, 0.65) 0%, rgba(219, 234, 254, 0.42) 35%, rgba(239, 246, 255, 0.18) 58%, transparent 75%),
     radial-gradient(ellipse 46% 38% at 50% 45%, rgba(147, 197, 253, 0.4) 0%, transparent 60%),
@@ -5940,6 +5960,11 @@ body {
     display: flex;
     min-height: calc(100dvh - 60px - env(safe-area-inset-top));
     padding: 0 16px calc(14px + env(safe-area-inset-bottom));
+    background: var(--bg-canvas);
+  }
+
+  .mode-header + .workspace-intake,
+  .mode-header + .workspace-centered:has(.intake-view) {
     background:
       radial-gradient(ellipse 90% 65% at 50% 44%, rgba(186, 220, 255, 0.65) 0%, rgba(219, 234, 254, 0.42) 35%, rgba(239, 246, 255, 0.18) 58%, transparent 75%),
       radial-gradient(ellipse 55% 45% at 50% 42%, rgba(147, 197, 253, 0.38) 0%, transparent 60%),
@@ -6136,6 +6161,20 @@ body {
 
   .workspace-ask {
     padding: 0 16px;
+    background: var(--bg-canvas);
+  }
+
+  .workspace-ask.is-empty,
+  .workspace-ask:has(.ask-shell.is-empty) {
+    background:
+      radial-gradient(ellipse 90% 65% at 50% 44%, rgba(186, 220, 255, 0.65) 0%, rgba(219, 234, 254, 0.42) 35%, rgba(239, 246, 255, 0.18) 58%, transparent 75%),
+      radial-gradient(ellipse 55% 45% at 50% 42%, rgba(147, 197, 253, 0.38) 0%, transparent 60%),
+      var(--bg-canvas);
+  }
+
+  .workspace-ask.has-messages,
+  .workspace-ask:has(.ask-shell.has-messages) {
+    background: var(--bg-canvas);
   }
 
   .ask-shell {

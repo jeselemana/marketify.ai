@@ -399,7 +399,7 @@ function render() {
 }
 
 function renderIntake() {
-  workspace.classList.add("workspace-centered");
+  workspace.classList.add("workspace-centered", "workspace-intake");
 
   const view = element("section", "intake-view");
   view.setAttribute("aria-labelledby", "intakeTitle");
@@ -648,8 +648,12 @@ async function shareAskResponse(content) {
 
 function renderAsk() {
   workspace.classList.add("workspace-ask");
+  const isChatActive = Boolean(state.askMessages.length || state.askLoading);
+  workspace.classList.toggle("has-messages", isChatActive);
+  workspace.classList.toggle("is-empty", !isChatActive);
+
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
-  const shell = element("section", `ask-shell${state.askMessages.length ? " has-messages" : " is-empty"}`);
+  const shell = element("section", `ask-shell${isChatActive ? " has-messages" : " is-empty"}`);
   shell.setAttribute("aria-label", "Ask");
   const thread = element("div", "ask-thread");
 
