@@ -405,10 +405,9 @@ function renderIntake() {
   view.setAttribute("aria-labelledby", "intakeTitle");
 
   const intro = element("div", "intake-intro");
-
   intro.append(
     element("h1", "intake-title", "Növbəti strategiyanı quraq."),
-   
+    element("p", "intake-description", "Biznes məqsədini, ideyanı və ya həll etmək istədiyin problemi yaz."),
   );
   
   const form = element("form", "composer-card");
