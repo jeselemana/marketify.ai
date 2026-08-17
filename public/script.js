@@ -1081,12 +1081,20 @@ function showAnalysisHistoryModal(isAssessment = true) {
 
   const overlay = element("div", "analysis-history-overlay");
   const drawer = element("div", "analysis-history-drawer");
+  const dragHandle = element("div", "analysis-history-drag-handle");
+  dragHandle.setAttribute("aria-hidden", "true");
 
   const header = element("div", "analysis-history-header");
   const titleGroup = element("div", "analysis-history-title-group");
   const title = element("h3", "", "Söhbət və Brif Tarixçəsi");
   const subtitle = element("p", "", "Daxil edilmiş məlumatlar və dəqiqləşdirmə dialoqu");
   titleGroup.append(title, subtitle);
+
+  const closeModal = () => {
+    document.body.style.overflow = "";
+    overlay.remove();
+    document.removeEventListener("keydown", handleKeydown);
+  };
 
   const closeBtn = element("button", "analysis-history-close");
   closeBtn.type = "button";
@@ -1097,7 +1105,7 @@ function showAnalysisHistoryModal(isAssessment = true) {
       <line x1="6" y1="6" x2="18" y2="18"/>
     </svg>
   `;
-  closeBtn.addEventListener("click", () => overlay.remove());
+  closeBtn.addEventListener("click", closeModal);
 
   header.append(titleGroup, closeBtn);
 
@@ -1178,21 +1186,21 @@ function showAnalysisHistoryModal(isAssessment = true) {
     </div>
   `;
 
-  drawer.append(header, body, footer);
+  drawer.append(dragHandle, header, body, footer);
   overlay.appendChild(drawer);
 
   overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) overlay.remove();
+    if (e.target === overlay) closeModal();
   });
 
   const handleKeydown = (e) => {
     if (e.key === "Escape") {
-      overlay.remove();
-      document.removeEventListener("keydown", handleKeydown);
+      closeModal();
     }
   };
   document.addEventListener("keydown", handleKeydown);
 
+  document.body.style.overflow = "hidden";
   document.body.appendChild(overlay);
 }
 
