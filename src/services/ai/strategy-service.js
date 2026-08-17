@@ -24,16 +24,20 @@ function clarificationContext(answers) {
   return answers.map((item) => `${item.question}\nAnswer: ${item.answer}`).join("\n\n");
 }
 
-async function parseStructured({ model, schema, name, instructions, input, maxOutputTokens, reasoning, ownerId }) {
-  const response = await getOpenAIClient().responses.parse({
-    model,
-    instructions,
-    input,
-    text: { format: zodTextFormat(schema, name) },
-    reasoning: { effort: reasoning },
-    max_output_tokens: maxOutputTokens,
-    safety_identifier: privacySafeIdentifier(ownerId),
-  });
+async function parseStructured({ model, schema, name, instructions, input, maxOutputTokens, reasoning, ownerId, signal }) {
+  const requestOptions = signal ? { signal } : undefined;
+  const response = await getOpenAIClient().responses.parse(
+    {
+      model,
+      instructions,
+      input,
+      text: { format: zodTextFormat(schema, name) },
+      reasoning: { effort: reasoning },
+      max_output_tokens: maxOutputTokens,
+      safety_identifier: privacySafeIdentifier(ownerId),
+    },
+    requestOptions,
+  );
 
   if (!response.output_parsed) {
     const error = new Error("The AI response could not be validated.");
@@ -44,7 +48,7 @@ async function parseStructured({ model, schema, name, instructions, input, maxOu
   return response.output_parsed;
 }
 
-export async function assessBrief({ brief, answers, round, ownerId }) {
+export async function assessBrief({ brief, answers, round, ownerId, signal }) {
   const signals = analyzeBriefSignals(brief);
   const forceDecision = round >= aiConfig.maxClarificationRounds;
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake signals (advisory only):\n${JSON.stringify(signals)}\n\nClarification round: ${round} of ${aiConfig.maxClarificationRounds}.\n${
@@ -62,6 +66,7 @@ export async function assessBrief({ brief, answers, round, ownerId }) {
     maxOutputTokens: aiConfig.assessmentMaxOutputTokens,
     reasoning: "low",
     ownerId,
+    signal,
   });
 
   const assessment = validateAssessment(parsed);
@@ -78,7 +83,7 @@ export async function assessBrief({ brief, answers, round, ownerId }) {
   return assessment;
 }
 
-export async function generateStrategy({ brief, answers, assumptions, ownerId }) {
+export async function generateStrategy({ brief, answers, assumptions, ownerId, signal }) {
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
     assumptions.length ? assumptions.join("\n- ") : "None supplied."
   }`;
@@ -92,10 +97,11 @@ export async function generateStrategy({ brief, answers, assumptions, ownerId })
     maxOutputTokens: aiConfig.strategyMaxOutputTokens,
     reasoning: "medium",
     ownerId,
+    signal,
   });
 }
 
-export async function refineStrategy(payload, ownerId) {
+export async function refineStrategy(payload, ownerId, signal) {
   return parseStructured({
     model: aiConfig.strategyModel,
     schema: StrategySchema,
@@ -105,5 +111,6 @@ export async function refineStrategy(payload, ownerId) {
     maxOutputTokens: aiConfig.refinementMaxOutputTokens,
     reasoning: payload.action === "think_deeper" ? "high" : "medium",
     ownerId,
+    signal,
   });
 }

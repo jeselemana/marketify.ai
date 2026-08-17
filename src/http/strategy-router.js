@@ -56,9 +56,15 @@ export function createStrategyRouter(repository) {
   router.post(
     "/assess",
     asyncRoute(async (req, res) => {
+      const abortController = new AbortController();
+      req.on("close", () => {
+        if (!res.writableEnded) abortController.abort();
+      });
       const payload = parse(AssessRequestSchema, req.body);
-      const assessment = await assessBrief({ ...payload, ownerId: req.ownerId });
-      res.json({ assessment });
+      const assessment = await assessBrief({ ...payload, ownerId: req.ownerId, signal: abortController.signal });
+      if (!res.writableEnded) {
+        res.json({ assessment });
+      }
     }),
   );
 
@@ -67,9 +73,16 @@ export function createStrategyRouter(repository) {
     asyncRoute(async (req, res) => {
       const payload = parse(GenerateRequestSchema, req.body);
       const requestKey = `${req.ownerId}:${payload.idempotencyKey}`;
+      const abortController = new AbortController();
+      req.on("close", () => {
+        if (!res.writableEnded) {
+          abortController.abort();
+          activeGenerations.delete(requestKey);
+        }
+      });
       let generation = activeGenerations.get(requestKey);
       if (!generation) {
-        generation = generateStrategy({ ...payload, ownerId: req.ownerId });
+        generation = generateStrategy({ ...payload, ownerId: req.ownerId, signal: abortController.signal });
         activeGenerations.set(requestKey, generation);
         generation.then(
           () => setTimeout(() => activeGenerations.delete(requestKey), 60_000).unref(),
@@ -77,16 +90,24 @@ export function createStrategyRouter(repository) {
         );
       }
       const strategy = await generation;
-      res.json({ strategy });
+      if (!res.writableEnded) {
+        res.json({ strategy });
+      }
     }),
   );
 
   router.post(
     "/refine",
     asyncRoute(async (req, res) => {
+      const abortController = new AbortController();
+      req.on("close", () => {
+        if (!res.writableEnded) abortController.abort();
+      });
       const payload = parse(RefineRequestSchema, req.body);
-      const strategy = await refineStrategy(payload, req.ownerId);
-      res.json({ strategy });
+      const strategy = await refineStrategy(payload, req.ownerId, abortController.signal);
+      if (!res.writableEnded) {
+        res.json({ strategy });
+      }
     }),
   );
 

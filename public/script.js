@@ -176,14 +176,22 @@ function slugify(value) {
     .slice(0, 64) || "marketify-strategy";
 }
 
+let currentAbortController = null;
+
 async function api(path, options = {}) {
   let response;
   try {
     response = await fetch(path, {
       ...options,
+      signal: options.signal,
       headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     });
-  } catch {
+  } catch (error) {
+    if (error.name === "AbortError" || options.signal?.aborted) {
+      const abortErr = new Error("İcra dayandırıldı.");
+      abortErr.name = "AbortError";
+      throw abortErr;
+    }
     throw new Error(navigator.onLine ? "Strategiyanı hazırlamaq mümkün olmadı. Bir neçə saniyə sonra yenidən yoxla." : "İnternet bağlantısı yoxdur.");
   }
   const data = await response.json().catch(() => ({}));
@@ -994,6 +1002,26 @@ function renderLoading() {
   );
   reassurance.append(sparkIcon, reassuranceText);
 
+  const actionsWrap = element("div", "loading-actions");
+  const cancelBtn = element("button", "loading-cancel-button");
+  cancelBtn.type = "button";
+  cancelBtn.id = "cancelAnalysisBtn";
+  cancelBtn.setAttribute("aria-label", "Brif analizini dayandır");
+  cancelBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <rect x="9" y="9" width="6" height="6" fill="currentColor" rx="1"/>
+    </svg>
+    <span>Dayandır</span>
+  `;
+  cancelBtn.addEventListener("click", () => {
+    const confirmed = window.confirm("Brif analizini dayandırmaq istədiyinizdən əminsiniz?");
+    if (confirmed) {
+      cancelCurrentAnalysis();
+    }
+  });
+  actionsWrap.appendChild(cancelBtn);
+
   const historyBtn = element("button", "loading-history-button");
   historyBtn.type = "button";
   historyBtn.id = "analysisHistoryBtn";
@@ -1011,7 +1039,7 @@ function renderLoading() {
   document.querySelectorAll(".loading-history-button, #analysisHistoryBtn").forEach((el) => el.remove());
   document.body.appendChild(historyBtn);
 
-  view.append(statusLine, title, intro, activity, timelineWrap, reassurance);
+  view.append(statusLine, title, intro, activity, timelineWrap, actionsWrap, reassurance);
   workspace.appendChild(view);
 
   progressTimer = setInterval(() => {
@@ -1028,6 +1056,18 @@ function renderLoading() {
     });
     if (currentPhase === phases.length - 1) clearInterval(progressTimer);
   }, 1500);
+}
+
+function cancelCurrentAnalysis() {
+  clearInterval(progressTimer);
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+  document.querySelectorAll(".loading-history-button, #analysisHistoryBtn").forEach((el) => el.remove());
+  state.status = "draft";
+  showToast("Brif analizi dayandırıldı.", "default");
+  render();
 }
 
 function showAnalysisHistoryModal(isAssessment = true) {
@@ -1154,17 +1194,21 @@ function showAnalysisHistoryModal(isAssessment = true) {
 async function startAssessment() {
   if (state.round === 0 && state.answers.length === 0) trackEvent("strategy_started");
   clearError();
+  currentAbortController?.abort();
+  currentAbortController = new AbortController();
   setStatus("analyzing");
   render();
   try {
     const data = await api("/api/strategy/assess", {
       method: "POST",
+      signal: currentAbortController.signal,
       body: JSON.stringify({
         brief: state.brief,
         answers: state.answers,
         round: state.round,
       }),
     });
+    currentAbortController = null;
     const assessment = data.assessment;
     state.understanding = assessment.understanding;
     state.assumptions = assessment.assumptions || [];
@@ -1179,6 +1223,9 @@ async function startAssessment() {
     }
     await startGeneration();
   } catch (error) {
+    if (error.name === "AbortError" || currentAbortController?.signal?.aborted) {
+      return;
+    }
     setError(error, startAssessment, state.answers.length ? "needs_clarification" : "draft");
   }
 }
@@ -1308,11 +1355,14 @@ function renderClarification() {
 
 async function startGeneration() {
   clearError();
+  currentAbortController?.abort();
+  currentAbortController = new AbortController();
   setStatus("generating");
   render();
   try {
     const data = await api("/api/strategy/generate", {
       method: "POST",
+      signal: currentAbortController.signal,
       body: JSON.stringify({
         brief: state.brief,
         answers: state.answers,
@@ -1320,6 +1370,7 @@ async function startGeneration() {
         idempotencyKey: state.clientSaveId,
       }),
     });
+    currentAbortController = null;
     state.strategy = data.strategy;
     state.updatedAt = new Date().toISOString();
     state.versions = [
@@ -1334,6 +1385,9 @@ async function startGeneration() {
     setStatus("ready");
     render();
   } catch (error) {
+    if (error.name === "AbortError" || currentAbortController?.signal?.aborted) {
+      return;
+    }
     setError(error, startGeneration, state.questions.length ? "needs_clarification" : "draft");
   }
 }
