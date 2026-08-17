@@ -9,6 +9,7 @@ const railMenuButton = document.querySelector("#railMenuButton");
 const railHomeButton = document.querySelector("#railHomeButton");
 const railStrategiesButton = document.querySelector("#railStrategiesButton");
 const railPlannerButton = document.querySelector("#railPlannerButton");
+const railModeToggleButton = document.querySelector("#railModeToggleButton");
 const sidebarClose = document.querySelector("#sidebarClose");
 const newStrategyButton = document.querySelector("#newStrategyButton");
 const sidebarLabel = document.querySelector(".sidebar-label");
@@ -300,6 +301,17 @@ function syncMode() {
   sidebarAskModeButton?.classList.toggle("is-active", !isBuild);
   sidebarBuildModeButton?.setAttribute("aria-selected", String(isBuild));
   sidebarAskModeButton?.setAttribute("aria-selected", String(!isBuild));
+
+  if (railModeToggleButton) {
+    railModeToggleButton.setAttribute(
+      "data-tooltip",
+      isBuild ? "Rejim: Build (Ask-a keç)" : "Rejim: Ask (Build-ə keç)",
+    );
+    railModeToggleButton.setAttribute(
+      "aria-label",
+      isBuild ? "Ask rejiminə keç" : "Build rejiminə keç",
+    );
+  }
 
   document.body.dataset.mode = state.mode;
 }
@@ -3120,6 +3132,7 @@ buildModeButton?.addEventListener("click", () => setMode("build"));
 askModeButton?.addEventListener("click", () => setMode("ask"));
 sidebarBuildModeButton?.addEventListener("click", () => setMode("build"));
 sidebarAskModeButton?.addEventListener("click", () => setMode("ask"));
+railModeToggleButton?.addEventListener("click", () => setMode(state.mode === "build" ? "ask" : "build"));
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeSidebar();
