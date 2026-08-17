@@ -6905,6 +6905,14 @@ body {
   text-decoration: line-through;
 }
 
+.planner-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .planner-menu-btn {
   width: 24px;
   height: 24px;
@@ -6915,15 +6923,76 @@ body {
   background: transparent;
   color: #94a3b8;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 0;
   flex-shrink: 0;
-  transition: color 130ms ease;
+  transition: color 130ms ease, background 130ms ease;
 }
 
 .planner-menu-btn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.planner-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  z-index: 20;
+  min-width: 110px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(16, 24, 40, 0.12), 0 4px 10px rgba(0, 0, 0, 0.04);
+  padding: 4px;
+  animation: planner-drop-fade 140ms ease-out;
+}
+
+@keyframes planner-drop-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.planner-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 550;
+  cursor: pointer;
+  text-align: left;
+  transition: all 120ms ease;
+}
+
+.planner-dropdown-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.planner-dropdown-item.is-danger {
   color: #ef4444;
-  background: rgba(239, 68, 68, 0.08);
+}
+
+.planner-dropdown-item.is-danger:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.planner-dropdown-item svg {
+  flex-shrink: 0;
 }
 
 .planner-card-bottom {

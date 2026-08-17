@@ -2978,21 +2978,43 @@ function renderPlannerView() {
 
         const textEl = element("p", "planner-task-text", task.text);
 
-        const menuBtn = button("", "planner-menu-btn", async (e) => {
+        const menuWrap = element("div", "planner-menu-wrap");
+        const menuBtn = button("", "planner-menu-btn", (e) => {
           e.stopPropagation();
-          card.style.opacity = "0.4";
-          try {
-            await authRequest(`/api/planner/${task.id}`, { method: "DELETE" });
-            state.plannerTasks = state.plannerTasks.filter((t) => t.id !== task.id);
-            updatePlannerBadge();
-            drawPlannerList();
-            showToast("Tapşırıq silindi ✓", "info");
-          } catch (err) {
-            card.style.opacity = "1";
-            showToast(err.message || "Silmək mümkün olmadı", "error");
-          }
+          const existingMenu = menuWrap.querySelector(".planner-dropdown-menu");
+          document.querySelectorAll(".planner-dropdown-menu").forEach((m) => m.remove());
+          if (existingMenu) return;
+
+          const dropdown = element("div", "planner-dropdown-menu");
+          const deleteItem = button("", "planner-dropdown-item is-danger", async (ev) => {
+            ev.stopPropagation();
+            dropdown.remove();
+            if (!window.confirm("Bu tapşırığı silmək istədiyinizdən əminsiniz?")) {
+              return;
+            }
+            card.style.opacity = "0.4";
+            try {
+              await authRequest(`/api/planner/${task.id}`, { method: "DELETE" });
+              state.plannerTasks = state.plannerTasks.filter((t) => t.id !== task.id);
+              updatePlannerBadge();
+              drawPlannerList();
+              showToast("Tapşırıq silindi ✓", "info");
+            } catch (err) {
+              card.style.opacity = "1";
+              showToast(err.message || "Silmək mümkün olmadı", "error");
+            }
+          });
+          deleteItem.innerHTML = `
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <span>Sil</span>
+          `;
+          dropdown.appendChild(deleteItem);
+          menuWrap.appendChild(dropdown);
         });
-        menuBtn.setAttribute("aria-label", "Tapşırığı sil");
+
+        menuBtn.setAttribute("aria-label", "Əməliyyatlar");
         menuBtn.innerHTML = `
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <circle cx="12" cy="5" r="1.8"/>
@@ -3000,8 +3022,9 @@ function renderPlannerView() {
             <circle cx="12" cy="19" r="1.8"/>
           </svg>
         `;
+        menuWrap.appendChild(menuBtn);
 
-        cardTop.append(checkWrap, textEl, menuBtn);
+        cardTop.append(checkWrap, textEl, menuWrap);
 
         const cardBottom = element("div", "planner-card-bottom");
         if (task.strategyTitle) {
@@ -3040,6 +3063,13 @@ function renderPlannerView() {
       listContainer.appendChild(groupEl);
     });
   };
+
+  const onDocClick = (e) => {
+    if (!e.target.closest(".planner-menu-wrap")) {
+      document.querySelectorAll(".planner-dropdown-menu").forEach((m) => m.remove());
+    }
+  };
+  document.addEventListener("click", onDocClick, { once: false });
 
   searchInput.addEventListener("input", drawPlannerList);
   drawPlannerList();
