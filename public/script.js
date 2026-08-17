@@ -385,6 +385,7 @@ function render() {
   clearInterval(progressTimer);
   syncMode();
   syncNav();
+  document.querySelectorAll(".loading-history-button").forEach((btn) => btn.remove());
   workspace.replaceChildren();
   workspace.className = "workspace";
 
@@ -986,10 +987,11 @@ function renderLoading() {
 
   const historyBtn = element("button", "loading-history-button");
   historyBtn.type = "button";
+  historyBtn.id = "analysisHistoryBtn";
   historyBtn.setAttribute("aria-label", "Tarixçə");
   historyBtn.title = "Söhbət və brif tarixçəsi";
   historyBtn.innerHTML = `
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="9"/>
       <polyline points="12 7 12 12 15 15"/>
     </svg>
@@ -997,8 +999,10 @@ function renderLoading() {
     ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
   `;
   historyBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
+  document.querySelectorAll(".loading-history-button, #analysisHistoryBtn").forEach((el) => el.remove());
+  document.body.appendChild(historyBtn);
 
-  view.append(historyBtn, statusLine, title, intro, activity, timelineWrap, reassurance);
+  view.append(statusLine, title, intro, activity, timelineWrap, reassurance);
   workspace.appendChild(view);
 
   progressTimer = setInterval(() => {
