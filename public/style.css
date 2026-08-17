@@ -6660,45 +6660,7 @@ body {
   }
 }
 
-/* ===== WORKSPACE FOOTER & LEGAL MODAL ===== */
-
-.workspace-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 40px;
-  padding: 16px 0;
-  font-size: 12px;
-  color: var(--text-tertiary, #94a3b8);
-}
-
-.footer-copyright {
-  font-weight: 500;
-}
-
-.footer-dot {
-  opacity: 0.5;
-  user-select: none;
-}
-
-.footer-link {
-  background: none;
-  border: none;
-  padding: 0;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary, #64748b);
-  cursor: pointer;
-  transition: color 140ms ease;
-  text-decoration: none;
-}
-
-.footer-link:hover {
-  color: var(--accent, #2563eb);
-  text-decoration: underline;
-}
+/* ===== LEGAL MODAL & SIDEBAR LINKS ===== */
 
 /* Sidebar Legal */
 .sidebar-legal {

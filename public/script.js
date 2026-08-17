@@ -489,15 +489,7 @@ submit.appendChild(element("span", "button-arrow", "↑"));
 
   const banner = errorBanner();
   if (banner) view.appendChild(banner);
-
-  const footerEl = element("footer", "workspace-footer");
-  const copyright = element("span", "footer-copyright", "Marketify AI © 2026");
-  const termsLink = button("İstifadə şərtləri", "footer-link", () => openLegalModal("terms"));
-  const dot = element("span", "footer-dot", "•");
-  const privacyLink = button("Məxfilik siyasəti", "footer-link", () => openLegalModal("privacy"));
-  footerEl.append(copyright, termsLink, dot, privacyLink);
-
-  view.append(intro, form, examples, footerEl);
+  view.append(intro, form, examples);
   workspace.appendChild(view);
   if (window.innerWidth > 767) setTimeout(() => textarea.focus(), 0);
 }
