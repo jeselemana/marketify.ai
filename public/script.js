@@ -670,14 +670,26 @@ function renderAsk() {
         content.appendChild(renderAskRichText(message.content));
         const actions = element("div", "ask-message-actions");
         actions.setAttribute("aria-label", "Cavab əməliyyatları");
-        const copy = button("", "ask-response-action", () => copyAskResponse(message.content));
+        const copy = button("", "ask-response-action", async () => {
+          const ok = await copyAskResponse(message.content);
+          if (ok) {
+            copy.classList.add("is-copied");
+            copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Kopyalandı</span>';
+            setTimeout(() => {
+              copy.classList.remove("is-copied");
+              copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Kopyala</span>';
+            }, 1800);
+          }
+        });
         copy.setAttribute("aria-label", "Cavabı kopyala");
         copy.title = "Kopyala";
-        copy.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Kopyala</span>';
+        copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Kopyala</span>';
+
         const share = button("", "ask-response-action", () => shareAskResponse(message.content));
         share.setAttribute("aria-label", "Cavabı paylaş");
         share.title = "Paylaş";
-        share.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg><span>Paylaş</span>';
+        share.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg><span>Paylaş</span>';
+
         actions.append(copy, share);
         content.appendChild(actions);
         if (isFreshResponse) {
