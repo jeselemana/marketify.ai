@@ -30,6 +30,15 @@ const askModeButton = document.querySelector("#askModeButton");
 const sidebarBuildModeButton = document.querySelector("#sidebarBuildModeButton");
 const sidebarAskModeButton = document.querySelector("#sidebarAskModeButton");
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const STATUS_LABELS = {
   draft: "Qaralama",
   analyzing: "Analiz edilir",
