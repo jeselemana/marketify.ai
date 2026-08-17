@@ -64,18 +64,43 @@ function shell(title, subtitle) {
   const layout = document.createElement("div");
   layout.className = "auth-layout";
   layout.innerHTML = `
-    <section class="auth-story" aria-label="Marketify haqqında">
-      <a class="auth-brand" href="/login"><span>M</span><strong>Marketify</strong></a>
-      <div class="auth-story-copy">
-        <span class="auth-eyebrow">AI STRATEGY WORKSPACE</span>
-        <h1>Məqsəddən aydın strategiyaya.</h1>
-        <p>Marketify biznes kontekstini anlayır, vacib detalları dəqiqləşdirir və icra oluna bilən plan qurur.</p>
+    <section class="auth-story" aria-label="Marketify">
+      <div class="auth-story-bg-glow"></div>
+      <div class="auth-story-header">
+        <a class="auth-brand" href="/login">
+          <div class="auth-brand-info">
+            <strong>Marketify</strong>
+          </div>
+        </a>
       </div>
-      <p class="auth-story-note">Strategiya qur · təkmilləşdir · yadda saxla</p>
+
+      <div class="auth-story-body">
+        <div class="auth-brand-statement">
+          <h2>Strategiyanı düşünməkdən<br>icraya keç.</h2>
+          <p class="auth-brand-subtext">AI-powered strategy workspace</p>
+        </div>
+      </div>
+
+      <div class="auth-story-footer">
+        <span class="auth-story-copyright">© Marketify AI</span>
+      </div>
     </section>
+
     <section class="auth-panel">
-      <div class="auth-card">
-        <div class="auth-heading"><span class="auth-mobile-mark">M</span><h2>${escapeHtml(title)}</h2><p>${escapeHtml(subtitle)}</p></div>
+      <div class="auth-container">
+        <div class="auth-mobile-header">
+          <a class="auth-brand" href="/login">
+            <div class="auth-brand-info">
+              <strong>Marketify</strong>
+            </div>
+          </a>
+        </div>
+
+        <div class="auth-header">
+          <h1>${escapeHtml(title)}</h1>
+          <p>${escapeHtml(subtitle)}</p>
+        </div>
+
         <div class="auth-content"></div>
       </div>
     </section>`;
@@ -86,16 +111,32 @@ function shell(title, subtitle) {
 function field({ label, name, type = "text", autocomplete, placeholder = "", hint = "" }) {
   const wrapper = document.createElement("label");
   wrapper.className = "auth-field";
-  wrapper.innerHTML = `<span>${label}</span><span class="auth-input-wrap"><input name="${name}" type="${type}" autocomplete="${autocomplete || "off"}" placeholder="${placeholder}" required /><button class="password-toggle" type="button" aria-label="Şifrəni göstər" ${type === "password" ? "" : "hidden"}>Göstər</button></span><small>${hint}</small>`;
+  wrapper.innerHTML = `
+    <span class="auth-field-label">${label}</span>
+    <span class="auth-input-wrap">
+      <input name="${name}" type="${type}" autocomplete="${autocomplete || "off"}" placeholder="${placeholder}" required />
+      <button class="password-toggle" type="button" aria-label="Şifrəni göstər" ${type === "password" ? "" : "hidden"}>
+        <svg class="icon-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </span>
+    <small class="auth-field-hint">${hint}</small>
+  `;
   const input = wrapper.querySelector("input");
   input.setAttribute("aria-label", label);
   const toggle = wrapper.querySelector(".password-toggle");
-  if (type === "password") toggle.addEventListener("click", () => {
-    const visible = input.type === "text";
-    input.type = visible ? "password" : "text";
-    toggle.textContent = visible ? "Göstər" : "Gizlət";
-    toggle.setAttribute("aria-label", visible ? "Şifrəni göstər" : "Şifrəni gizlət");
-  });
+  if (type === "password") {
+    toggle.addEventListener("click", () => {
+      const visible = input.type === "text";
+      input.type = visible ? "password" : "text";
+      toggle.setAttribute("aria-label", visible ? "Şifrəni göstər" : "Şifrəni gizlət");
+      toggle.innerHTML = visible
+        ? `<svg class="icon-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`
+        : `<svg class="icon-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`;
+    });
+  }
   return wrapper;
 }
 
@@ -146,12 +187,20 @@ async function enterGuestWorkspace() {
 }
 
 function guestAccessButton(label = "Hesabsız davam et") {
+  const wrap = document.createElement("div");
+  wrap.className = "auth-guest-wrap";
   const guest = document.createElement("button");
   guest.type = "button";
-  guest.className = "auth-guest-button";
-  guest.innerHTML = `<strong>${escapeHtml(label)}</strong><span>Strategiyalar bu cihazda saxlanacaq</span>`;
+  guest.className = "auth-guest-link";
+  guest.innerHTML = `
+    <span>${escapeHtml(label)}</span>
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 12h14M12 5l7 7-7 7"/>
+    </svg>
+  `;
   guest.addEventListener("click", enterGuestWorkspace);
-  return guest;
+  wrap.appendChild(guest);
+  return wrap;
 }
 
 async function completeAuthentication(user) {
@@ -193,11 +242,11 @@ function googleSignInButton() {
       return;
     }
 
- google.accounts.id.initialize({
-  client_id: GOOGLE_CLIENT_ID,
-  callback: handleGoogleCredential,
-  ux_mode: "popup",
-});
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCredential,
+      ux_mode: "popup",
+    });
 
     google.accounts.id.renderButton(target, {
       type: "standard",
@@ -205,7 +254,7 @@ function googleSignInButton() {
       size: "large",
       text: "continue_with",
       shape: "rectangular",
-      width: 400,
+      width: 380,
     });
   };
 
@@ -218,8 +267,8 @@ function renderLogin() {
   document.title = "Daxil ol — Marketify";
 
   const content = shell(
-    "Yenidən xoş gəldin",
-    "Strategiyalarına və Marketify workspace-inə davam et."
+    "Daxil ol",
+    "Strategiyalarına davam etmək üçün daxil ol."
   );
 
   const { form, submit } = formBase("Daxil ol");
@@ -229,7 +278,7 @@ function renderLogin() {
       label: "E-poçt və ya istifadəçi adı",
       name: "identifier",
       autocomplete: "username",
-      placeholder: "ad@şirkət.az və ya username",
+      placeholder: "ad@sirket.az və ya username",
     }),
     field({
       label: "Şifrə",
@@ -267,7 +316,7 @@ function renderLogin() {
 
   form.append(
     switcher,
-    guestAccessButton(),
+    guestAccessButton("Hesabsız davam et"),
   );
 
   form.addEventListener("submit", async (event) => {
@@ -297,27 +346,28 @@ function renderLogin() {
   setTimeout(() => form.identifier.focus(), 0);
 }
 function renderSignup() {
-  document.title = "Hesab yarat — Marketify";
-  const content = shell("Marketify hesabını yarat", "Strategiyalarını təhlükəsiz saxla və istənilən cihazdan davam et.");
+  document.title = "Hesabını yarat — Marketify";
+  const content = shell("Hesabını yarat", "Marketify workspace-inə başlamaq üçün hesab yarat.");
   const { form, submit } = formBase("Hesab yarat");
-  const fullName = field({ label: "Ad və soyad", name: "fullName", autocomplete: "name", placeholder: "Ad Soyad" });
-  const username = field({ label: "İstifadəçi adı", name: "username", autocomplete: "username", placeholder: "marketinq.lideri", hint: "3–30 simvol · hərf, rəqəm, nöqtə və alt xətt" });
+  const fullName = field({ label: "Ad və soyad", name: "fullName", autocomplete: "name", placeholder: "Ad və Soyad" });
+  const username = field({ label: "İstifadəçi adı", name: "username", autocomplete: "username", placeholder: "marketoloq" });
   username.classList.add("auth-username-field");
   const usernamePrefix = document.createElement("span");
   usernamePrefix.className = "auth-username-prefix";
   usernamePrefix.textContent = "@";
   username.querySelector(".auth-input-wrap").prepend(usernamePrefix);
-  const email = field({ label: "E-poçt", name: "email", type: "email", autocomplete: "email", placeholder: "ad@şirkət.az" });
-  const password = field({ label: "Şifrə", name: "password", type: "password", autocomplete: "new-password", placeholder: "Ən azı 10 simvol", hint: "Ən azı 10 simvol, bir hərf və bir rəqəm" });
+  const email = field({ label: "E-poçt", name: "email", type: "email", autocomplete: "email", placeholder: "ad@sirket.az" });
+  const password = field({ label: "Şifrə", name: "password", type: "password", autocomplete: "new-password", placeholder: "Ən azı 10 simvol" });
   form.append(fullName, username, email, password, submit);
-    const divider = document.createElement("div");
-divider.className = "auth-divider";
-divider.innerHTML = "<span>və ya</span>";
 
-form.append(
-  divider,
-  googleSignInButton(),
-);
+  const divider = document.createElement("div");
+  divider.className = "auth-divider";
+  divider.innerHTML = "<span>və ya</span>";
+
+  form.append(
+    divider,
+    googleSignInButton(),
+  );
   const availability = username.querySelector("small");
   let timer;
   let isUsernameAvailable = null;
@@ -325,41 +375,45 @@ form.append(
     clearTimeout(timer);
     const clean = form.username.value.trim().replace(/^@+/, "");
     if (!clean) {
-      availability.className = "";
-      availability.textContent = "3–30 simvol · hərf, rəqəm, nöqtə və alt xətt";
+      availability.className = "auth-field-hint";
+      availability.textContent = "";
       isUsernameAvailable = null;
       return;
     }
-    availability.className = "";
+    availability.className = "auth-field-hint";
     availability.textContent = "Yoxlanılır…";
     timer = setTimeout(async () => {
       try {
         const data = await request(`/api/auth/username-availability?username=${encodeURIComponent(clean)}`);
         if (!data.valid) {
           availability.textContent = data.error || "3–30 simvol · hərf, rəqəm, nöqtə və alt xətt";
-          availability.className = "is-invalid";
+          availability.className = "auth-field-hint is-invalid";
           isUsernameAvailable = false;
         } else if (data.available) {
           availability.textContent = `@${clean.toLowerCase()} istifadəyə uyğundur`;
-          availability.className = "is-valid";
+          availability.className = "auth-field-hint is-valid";
           isUsernameAvailable = true;
         } else {
           availability.textContent = "Bu istifadəçi adı artıq götürülüb";
-          availability.className = "is-invalid";
+          availability.className = "auth-field-hint is-invalid";
           isUsernameAvailable = false;
         }
       } catch {
-        availability.textContent = "Mövcudluğu indi yoxlamaq mümkün olmadı.";
+        availability.textContent = "";
       }
     }, 250);
   });
-  const terms = document.createElement("p");
-  terms.className = "auth-terms";
-  terms.textContent = "Davam etməklə Marketify hesabının təhlükəsizlik qaydalarını qəbul edirsən.";
+
   const switcher = document.createElement("p");
   switcher.className = "auth-switch";
   switcher.append("Artıq hesabın var? ", linkButton("Daxil ol", "/login"));
-  form.append(terms, switcher, guestAccessButton("İndi hesab yaratmadan davam et"));
+
+  const terms = document.createElement("p");
+  terms.className = "auth-terms";
+  terms.textContent = "Davam etməklə Marketify-in istifadə və məxfilik şərtlərini qəbul edirsən.";
+
+  form.append(switcher, guestAccessButton("Hesabsız davam et"), terms);
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (isUsernameAvailable === false) {
@@ -387,10 +441,10 @@ form.append(
 }
 
 function renderForgot() {
-  document.title = "Şifrəni yenilə — Marketify";
-  const content = shell("Şifrəni unutmusansa", "E-poçtunu yaz. Hesab mövcuddursa, təhlükəsiz yeniləmə keçidi göndərəcəyik.");
+  document.title = "Şifrəni bərpa et — Marketify";
+  const content = shell("Şifrəni bərpa et", "E-poçtunu daxil et, bərpa keçidi göndərək.");
   const { form, submit } = formBase("Keçid göndər");
-  form.append(field({ label: "E-poçt", name: "email", type: "email", autocomplete: "email", placeholder: "ad@şirkət.az" }), submit);
+  form.append(field({ label: "E-poçt", name: "email", type: "email", autocomplete: "email", placeholder: "ad@sirket.az" }), submit);
   const back = document.createElement("p");
   back.className = "auth-switch";
   back.append(linkButton("← Daxil olmağa qayıt", "/login"));
@@ -416,7 +470,7 @@ function renderForgot() {
 
 function renderReset() {
   document.title = "Yeni şifrə — Marketify";
-  const content = shell("Yeni şifrə yarat", "Hesabın üçün güclü və başqa xidmətlərdə istifadə etmədiyin şifrə seç.");
+  const content = shell("Yeni şifrə", "Hesabın üçün yeni güclü şifrə təyin et.");
   const token = new URLSearchParams(location.search).get("token") || "";
   const { form, submit } = formBase("Şifrəni yenilə");
   form.append(
@@ -426,7 +480,7 @@ function renderReset() {
   );
   const newLink = document.createElement("p");
   newLink.className = "auth-switch";
-  newLink.append(linkButton("Yeni yeniləmə keçidi istə", "/forgot-password"));
+  newLink.append(linkButton("Yeni bərpa keçidi istə", "/forgot-password"));
   form.appendChild(newLink);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
