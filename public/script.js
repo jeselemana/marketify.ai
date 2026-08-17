@@ -940,33 +940,65 @@ function renderLoading() {
   const activityLabel = element("span", "loading-activity-label", "Hazırda");
   const activityCount = element("span", "loading-activity-count", `01 / ${String(phases.length).padStart(2, "0")}`);
   activityTop.append(activityLabel, activityCount);
+
   const activityBody = element("div", "loading-activity-body");
-  const activityIndicator = element("span", "loading-activity-indicator");
-  activityIndicator.append(element("span", "loading-activity-spark"));
+  const activityIcon = element("div", "loading-activity-icon");
+  activityIcon.innerHTML = `
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+    </svg>
+  `;
   const activityText = element("div", "loading-activity-text");
-  const activityTitle = element("strong", "", phases[0][0]);
+  const activityTitleRow = element("div", "loading-activity-title-row");
+  const activityTitle = element("strong", "loading-activity-title", phases[0][0]);
+  const processingDots = element("span", "loading-processing-dots");
+  processingDots.innerHTML = `<span></span><span></span><span></span>`;
+  activityTitleRow.append(activityTitle, processingDots);
   const copy = element("p", "loading-copy", phases[0][1]);
-  activityText.append(activityTitle, copy);
-  activityBody.append(activityIndicator, activityText);
+  activityText.append(activityTitleRow, copy);
+  activityBody.append(activityIcon, activityText);
   activity.append(activityTop, activityBody);
 
+  const timelineWrap = element("div", "loading-timeline-wrap");
   const progress = element("ol", "generation-steps");
   phases.forEach(([phase], index) => {
     const step = element("li", index === 0 ? "is-current" : "is-upcoming");
-    step.append(
-      element("span", "generation-step-mark", index === 0 ? "01" : String(index + 1).padStart(2, "0")),
-      element("span", "generation-step-label", phase),
-    );
+    const rail = element("div", "generation-step-rail");
+    const meta = element("div", "generation-step-meta");
+    const mark = element("span", "generation-step-mark", index === 0 ? "01" : String(index + 1).padStart(2, "0"));
+    const label = element("span", "generation-step-label", phase);
+    meta.append(mark, label);
+    step.append(rail, meta);
     progress.appendChild(step);
   });
-  const reassurance = element(
-    "p",
-    "loading-reassurance",
+  timelineWrap.appendChild(progress);
+
+  const reassurance = element("p", "loading-reassurance");
+  const sparkIcon = element("span", "loading-reassurance-icon", "✦");
+  const reassuranceText = element(
+    "span",
+    "",
     isAssessment
       ? "Vacib detal çatışmasa, yalnız zəruri sualları verəcəyik."
       : "Məzmun hazır olduqda birbaşa strategiya iş sahəsinə keçəcəksən.",
   );
-  view.append(statusLine, title, intro, activity, progress, reassurance);
+  reassurance.append(sparkIcon, reassuranceText);
+
+  const historyBtn = element("button", "loading-history-button");
+  historyBtn.type = "button";
+  historyBtn.setAttribute("aria-label", "Tarixçə");
+  historyBtn.title = "Söhbət və brif tarixçəsi";
+  historyBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <polyline points="12 7 12 12 15 15"/>
+    </svg>
+    <span>Tarixçə</span>
+    ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
+  `;
+  historyBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
+
+  view.append(historyBtn, statusLine, title, intro, activity, timelineWrap, reassurance);
   workspace.appendChild(view);
 
   progressTimer = setInterval(() => {
@@ -976,10 +1008,134 @@ function renderLoading() {
     activityCount.textContent = `${String(currentPhase + 1).padStart(2, "0")} / ${String(phases.length).padStart(2, "0")}`;
     [...progress.children].forEach((step, index) => {
       step.className = index < currentPhase ? "is-complete" : index === currentPhase ? "is-current" : "is-upcoming";
-      step.querySelector(".generation-step-mark").textContent = index < currentPhase ? "✓" : String(index + 1).padStart(2, "0");
+      const mark = step.querySelector(".generation-step-mark");
+      if (mark) {
+        mark.textContent = index < currentPhase ? "✓" : String(index + 1).padStart(2, "0");
+      }
     });
     if (currentPhase === phases.length - 1) clearInterval(progressTimer);
   }, 1500);
+}
+
+function showAnalysisHistoryModal(isAssessment = true) {
+  const existing = document.querySelector(".analysis-history-overlay");
+  if (existing) existing.remove();
+
+  const overlay = element("div", "analysis-history-overlay");
+  const drawer = element("div", "analysis-history-drawer");
+
+  const header = element("div", "analysis-history-header");
+  const titleGroup = element("div", "analysis-history-title-group");
+  const title = element("h3", "", "Söhbət və Brif Tarixçəsi");
+  const subtitle = element("p", "", "Daxil edilmiş məlumatlar və dəqiqləşdirmə dialoqu");
+  titleGroup.append(title, subtitle);
+
+  const closeBtn = element("button", "analysis-history-close");
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  `;
+  closeBtn.addEventListener("click", () => overlay.remove());
+
+  header.append(titleGroup, closeBtn);
+
+  const body = element("div", "analysis-history-body");
+
+  // 1. Initial Brief
+  if (state.brief) {
+    const briefItem = element("div", "history-item history-item-brief");
+    briefItem.innerHTML = `
+      <div class="history-item-header">
+        <span class="history-item-icon user-icon">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        <strong class="history-item-sender">İlkin Brif</strong>
+        <span class="history-item-tag">İstifadəçi</span>
+      </div>
+      <div class="history-item-content">
+        <p>${escapeHtml(state.brief)}</p>
+      </div>
+    `;
+    body.appendChild(briefItem);
+  }
+
+  // 2. Clarification Questions & Answers
+  if (state.answers && state.answers.length > 0) {
+    state.answers.forEach((item, idx) => {
+      const qaGroup = element("div", "history-qa-group");
+
+      const qItem = element("div", "history-item history-item-model");
+      qItem.innerHTML = `
+        <div class="history-item-header">
+          <span class="history-item-icon ai-icon">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+          </span>
+          <strong class="history-item-sender">Dəqiqləşdirmə Sualı #${idx + 1}</strong>
+          <span class="history-item-tag ai-tag">Marketify AI</span>
+        </div>
+        <div class="history-item-content">
+          <p>${escapeHtml(item.question)}</p>
+        </div>
+      `;
+
+      const aItem = element("div", "history-item history-item-user");
+      aItem.innerHTML = `
+        <div class="history-item-header">
+          <span class="history-item-icon user-icon">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </span>
+          <strong class="history-item-sender">Cavabınız</strong>
+          <span class="history-item-tag">İstifadəçi</span>
+        </div>
+        <div class="history-item-content">
+          <p>${escapeHtml(item.answer)}</p>
+        </div>
+      `;
+
+      qaGroup.append(qItem, aItem);
+      body.appendChild(qaGroup);
+    });
+  } else if (!state.brief) {
+    const emptyState = element("div", "history-empty-state");
+    emptyState.innerHTML = `<p>Hələlik qeydə alınmış məlumat yoxdur.</p>`;
+    body.appendChild(emptyState);
+  }
+
+  const footer = element("div", "analysis-history-footer");
+  footer.innerHTML = `
+    <div class="history-status-indicator">
+      <span class="history-pulse-dot"></span>
+      <span>${isAssessment ? "Brif analiz olunur…" : "Strategiya formalaşdırılır…"}</span>
+    </div>
+  `;
+
+  drawer.append(header, body, footer);
+  overlay.appendChild(drawer);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  const handleKeydown = (e) => {
+    if (e.key === "Escape") {
+      overlay.remove();
+      document.removeEventListener("keydown", handleKeydown);
+    }
+  };
+  document.addEventListener("keydown", handleKeydown);
+
+  document.body.appendChild(overlay);
 }
 
 async function startAssessment() {
