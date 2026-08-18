@@ -1,13 +1,30 @@
 export const aiConfig = Object.freeze({
-  fastModel: process.env.OPENAI_FAST_MODEL || "gpt-5.6-terra",
-  strategyModel: process.env.OPENAI_STRATEGY_MODEL || "gpt-5.6-terra",
-  askModel: process.env.OPENAI_ASK_MODEL || Buffer.from("Z3B0LTUuNi1sdW5h", "base64").toString("utf8"),
+  fastModel: process.env.GEMINI_FAST_MODEL || process.env.OPENAI_FAST_MODEL || "gemini-3.7-flash",
+  strategyModel: process.env.GEMINI_STRATEGY_MODEL || process.env.OPENAI_STRATEGY_MODEL || "gemini-3.7-flash",
+  askModel: process.env.GEMINI_ASK_MODEL || process.env.OPENAI_ASK_MODEL || "gemini-3.7-flash",
   maxClarificationRounds: Number.parseInt(process.env.MAX_CLARIFICATION_ROUNDS || "2", 10),
-  assessmentMaxOutputTokens: 1800,
-  strategyMaxOutputTokens: 9000,
-  refinementMaxOutputTokens: 9000,
+  assessmentMaxOutputTokens: 2500,
+  strategyMaxOutputTokens: 8192,
+  refinementMaxOutputTokens: 8192,
 });
+
+export function hasGeminiConfiguration() {
+  return Boolean(
+    process.env.GEMINI_API_KEY?.trim() ||
+    process.env.GOOGLE_API_KEY?.trim()
+  );
+}
 
 export function hasOpenAIConfiguration() {
   return Boolean(process.env.OPENAI_API_KEY?.trim());
+}
+
+export function hasAIConfiguration() {
+  return hasGeminiConfiguration() || hasOpenAIConfiguration();
+}
+
+export function getAIProvider() {
+  if (hasGeminiConfiguration()) return "gemini";
+  if (hasOpenAIConfiguration()) return "openai";
+  return null;
 }

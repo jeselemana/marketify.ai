@@ -21,7 +21,8 @@ import { FileStrategyRepository } from "./src/repositories/file-strategy-reposit
 import { FileChatRepository } from "./src/repositories/file-chat-repository.js";
 import { FilePlannerRepository } from "./src/repositories/file-planner-repository.js";
 import { createPlannerRouter } from "./src/http/planner-router.js";
-import { aiConfig } from "./src/services/ai/config.js";
+import { aiConfig, getAIProvider, hasAIConfiguration } from "./src/services/ai/config.js";
+import { executeGeminiChat, getOpenAIClient } from "./src/services/ai/client.js";
 
 dotenv.config();
 
@@ -233,7 +234,7 @@ app.delete("/api/ask/chats/:id", async (req, res) => {
 
 app.post("/api/ask", async (req, res) => {
   try {
-    if (!openai) {
+    if (!hasAIConfiguration()) {
       return res.status(503).json({ error: "AI xidməti hələ konfiqurasiya edilməyib." });
     }
 
@@ -274,15 +275,29 @@ app.post("/api/ask", async (req, res) => {
         })}\n</saved_strategy_json>`
       : "";
 
-    const response = await openai.responses.create({
-      model: ASK_MODEL,
-      instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
-      input: messages.map(({ role, content }) => ({ role, content })),
-      reasoning: { effort: "low" },
-      max_output_tokens: 2500,
-      safety_identifier: askSafetyIdentifier(req.ownerId),
-    });
-    const reply = response.output_text?.trim();
+    const provider = getAIProvider();
+    let reply = "";
+
+    if (provider === "gemini") {
+      reply = await executeGeminiChat({
+        model: ASK_MODEL,
+        instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
+        messages,
+        maxOutputTokens: 2500,
+        temperature: 0.7,
+      });
+    } else {
+      const response = await getOpenAIClient().responses.create({
+        model: ASK_MODEL,
+        instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
+        input: messages.map(({ role, content }) => ({ role, content })),
+        reasoning: { effort: "low" },
+        max_output_tokens: 2500,
+        safety_identifier: askSafetyIdentifier(req.ownerId),
+      });
+      reply = response.output_text?.trim() || "";
+    }
+
     if (!reply) throw new Error("Ask mode returned an empty response.");
 
     const updatedMessages = [
