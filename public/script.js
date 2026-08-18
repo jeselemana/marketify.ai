@@ -114,6 +114,31 @@ const state = {
 let progressTimer;
 const freshAskResponses = new WeakSet();
 
+// Background Jobs — analysis processes that continue when user leaves loading page
+let backgroundJobs = loadBackgroundJobs();
+
+function loadBackgroundJobs() {
+  try {
+    return JSON.parse(localStorage.getItem("marketify_bg_jobs") || "[]");
+  } catch { return []; }
+}
+
+function persistBackgroundJobs() {
+  try {
+    localStorage.setItem("marketify_bg_jobs", JSON.stringify(backgroundJobs));
+  } catch {}
+}
+
+function removeBackgroundJob(id) {
+  backgroundJobs = backgroundJobs.filter((j) => j.id !== id);
+  persistBackgroundJobs();
+}
+
+function clearCompletedBackgroundJobs() {
+  backgroundJobs = backgroundJobs.filter((j) => j.status === "generating");
+  persistBackgroundJobs();
+}
+
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -1069,6 +1094,20 @@ function renderLoading() {
   `;
   historyBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
 
+  // Back button — only during generation (after clarification is done)
+  if (!isAssessment) {
+    const backBtn = element("button", "loading-back-button");
+    backBtn.type = "button";
+    backBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      <span>Geri</span>
+    `;
+    backBtn.addEventListener("click", minimizeToBackground);
+    topActions.prepend(backBtn);
+  }
+
   topActions.append(cancelBtn, historyBtn);
 
   // Mobile Under-Card Actions
@@ -1100,6 +1139,20 @@ function renderLoading() {
     ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
   `;
   mobileHistoryBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
+
+  // Mobile back button — only during generation
+  if (!isAssessment) {
+    const mobileBackBtn = element("button", "loading-back-btn-mobile");
+    mobileBackBtn.type = "button";
+    mobileBackBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      <span>Arxa plana keçir</span>
+    `;
+    mobileBackBtn.addEventListener("click", minimizeToBackground);
+    cardActions.appendChild(mobileBackBtn);
+  }
 
   cardActions.append(mobileCancelBtn, mobileHistoryBtn);
 
@@ -1158,6 +1211,178 @@ function cancelCurrentAnalysis() {
   state.status = "draft";
   showToast("Brif analizi dayandırıldı.", "default");
   render();
+}
+
+function minimizeToBackground() {
+  if (state.status !== "generating") return;
+
+  const job = {
+    id: crypto.randomUUID(),
+    brief: state.brief,
+    answers: [...state.answers],
+    assumptions: [...state.assumptions],
+    idempotencyKey: state.clientSaveId,
+    status: "generating",
+    strategy: null,
+    versions: [],
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    error: null,
+    savedId: null,
+  };
+
+  // Cancel any previous background job
+  backgroundJobs.forEach((j) => {
+    if (j.status === "generating") j.status = "error";
+  });
+
+  backgroundJobs.unshift(job);
+  persistBackgroundJobs();
+
+  // Do NOT abort currentAbortController — let the fetch continue
+  // Detach the controller so resetStrategy doesn't abort it
+  const detachedController = currentAbortController;
+  currentAbortController = null;
+
+  // Reset state to home without aborting
+  clearInterval(progressTimer);
+  clearInterval(loadingAskPlaceholderTimer);
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay").forEach((el) => el.remove());
+  Object.assign(state, {
+    view: "home",
+    status: "draft",
+    brief: "",
+    questions: [],
+    clarificationIndex: 0,
+    clarificationDrafts: {},
+    answers: [],
+    assumptions: [],
+    understanding: "",
+    round: 0,
+    strategy: null,
+    versions: [],
+    savedId: null,
+    clientSaveId: crypto.randomUUID(),
+    updatedAt: null,
+    error: null,
+    retry: null,
+    changeSummary: "",
+    strategyFormat: "blog",
+    faqFilter: "",
+    faqExpandedAll: false,
+  });
+  render();
+  showToast("Analiz arxa planda davam edir ✦", "default");
+
+  // The fetch promise from startGeneration will resolve/reject and write to the bgJob
+  // This is handled by the modified startGeneration() which checks backgroundJobs
+}
+
+async function autoSaveBackgroundJob(job) {
+  try {
+    const data = await api("/api/strategy/save", {
+      method: "POST",
+      body: JSON.stringify({
+        clientSaveId: job.idempotencyKey,
+        brief: job.brief,
+        answers: job.answers,
+        strategy: job.strategy,
+        versions: job.versions,
+      }),
+    });
+    job.savedId = data.strategy.id;
+    persistBackgroundJobs();
+    await loadSavedStrategies();
+  } catch {}
+}
+
+function resumeBackgroundJobs() {
+  backgroundJobs.forEach((job) => {
+    if (job.status !== "generating") return;
+
+    api("/api/strategy/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        brief: job.brief,
+        answers: job.answers,
+        assumptions: job.assumptions,
+        idempotencyKey: job.idempotencyKey,
+      }),
+    }).then((data) => {
+      // Check if user restored this job to foreground while in flight
+      if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
+        state.strategy = data.strategy;
+        state.updatedAt = new Date().toISOString();
+        state.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: state.updatedAt }];
+        setStatus("ready");
+        render();
+        showToast("Strategiya hazırdır ✓");
+        return;
+      }
+
+      job.status = "ready";
+      job.strategy = data.strategy;
+      job.completedAt = new Date().toISOString();
+      job.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: job.completedAt }];
+      persistBackgroundJobs();
+      autoSaveBackgroundJob(job);
+      showToast("Arxa plandakı analiz tamamlandı ✓");
+      if (state.view === "list") render();
+      renderRecentList();
+    }).catch((err) => {
+      if (err.name !== "AbortError") {
+        if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
+          setError(err, startGeneration, state.questions?.length ? "needs_clarification" : "draft");
+          return;
+        }
+        job.status = "error";
+        job.error = err.message || "Xəta baş verdi";
+        persistBackgroundJobs();
+        if (state.view === "list") render();
+      }
+    });
+  });
+}
+
+function openBackgroundJob(jobId) {
+  const job = backgroundJobs.find((j) => j.id === jobId);
+  if (!job) return;
+
+  if (job.status === "ready" && job.strategy) {
+    Object.assign(state, {
+      view: "home",
+      status: job.savedId ? "saved" : "ready",
+      brief: job.brief,
+      answers: job.answers || [],
+      assumptions: job.strategy.assumptions || [],
+      strategy: job.strategy,
+      versions: job.versions || [],
+      savedId: job.savedId || null,
+      updatedAt: job.completedAt,
+      error: null,
+      retry: null,
+    });
+    removeBackgroundJob(jobId);
+    render();
+    closeSidebar();
+  } else if (job.status === "generating") {
+    // Restore to loading view
+    Object.assign(state, {
+      view: "home",
+      status: "generating",
+      brief: job.brief,
+      answers: job.answers || [],
+      assumptions: job.assumptions || [],
+      clientSaveId: job.idempotencyKey,
+    });
+    removeBackgroundJob(jobId);
+    render();
+    closeSidebar();
+  } else if (job.status === "error") {
+    showToast(job.error || "Xəta baş verdi", "error");
+    removeBackgroundJob(jobId);
+    if (state.view === "list") render();
+  }
 }
 
 function showAnalysisHistoryModal(isAssessment = true) {
@@ -1479,6 +1704,11 @@ async function startAssessment() {
   clearError();
   currentAbortController?.abort();
   currentAbortController = new AbortController();
+  // Cancel previous in-progress background jobs to avoid duplicate generation load
+  backgroundJobs.forEach((j) => {
+    if (j.status === "generating") j.status = "error";
+  });
+  persistBackgroundJobs();
   setStatus("analyzing");
   render();
   try {
@@ -1640,6 +1870,7 @@ async function startGeneration() {
   clearError();
   currentAbortController?.abort();
   currentAbortController = new AbortController();
+  const generationKey = state.clientSaveId;
   setStatus("generating");
   render();
   try {
@@ -1654,6 +1885,22 @@ async function startGeneration() {
       }),
     });
     currentAbortController = null;
+
+    // Check if this generation was moved to background while awaiting
+    const bgJob = backgroundJobs.find((j) => j.idempotencyKey === generationKey && j.status === "generating");
+    if (bgJob) {
+      bgJob.status = "ready";
+      bgJob.strategy = data.strategy;
+      bgJob.completedAt = new Date().toISOString();
+      bgJob.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: bgJob.completedAt }];
+      persistBackgroundJobs();
+      autoSaveBackgroundJob(bgJob);
+      showToast("Arxa plandakı analiz tamamlandı ✓");
+      if (state.view === "list") render();
+      renderRecentList();
+      return;
+    }
+
     state.strategy = data.strategy;
     state.updatedAt = new Date().toISOString();
     state.versions = [
@@ -1669,6 +1916,15 @@ async function startGeneration() {
     render();
   } catch (error) {
     if (error.name === "AbortError" || currentAbortController?.signal?.aborted) {
+      return;
+    }
+    // Check if this generation was moved to background
+    const bgJob = backgroundJobs.find((j) => j.idempotencyKey === generationKey && j.status === "generating");
+    if (bgJob) {
+      bgJob.status = "error";
+      bgJob.error = error.message || "Xəta baş verdi";
+      persistBackgroundJobs();
+      if (state.view === "list") render();
       return;
     }
     setError(error, startGeneration, state.questions.length ? "needs_clarification" : "draft");
@@ -2935,12 +3191,26 @@ function renderRecentList() {
     return;
   }
 
-  if (!state.savedStrategies.length) {
+  if (!state.savedStrategies.length && !backgroundJobs.some((j) => j.status === "generating")) {
     const empty = element("div", "recent-empty");
     empty.append(element("strong", "", "Strategiyalar burada görünəcək."), element("span", "", "Yadda saxladığın işlər bu bölmədə qalır."));
     recentList.appendChild(empty);
     return;
   }
+
+  // Show active background jobs at top of recent list
+  backgroundJobs.filter((j) => j.status === "generating").forEach((job) => {
+    const item = button("", "recent-item is-bg-job", () => openBackgroundJob(job.id));
+    const icon = element("span", "recent-icon-wrap");
+    icon.innerHTML = `<svg class="recent-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+    const pulse = element("span", "recent-bg-pulse");
+    icon.appendChild(pulse);
+    const textWrap = element("div", "recent-text-wrap");
+    textWrap.append(element("span", "recent-title", "Hazırlanır..."), element("span", "recent-date", formatDate(job.startedAt)));
+    item.append(icon, textWrap);
+    recentList.appendChild(item);
+  });
+
   state.savedStrategies.slice(0, 6).forEach((record) => {
     const item = button("", "recent-item", () => openSavedStrategy(record.id));
     item.classList.toggle("is-active", state.savedId === record.id);
@@ -3150,7 +3420,43 @@ function renderStrategyList() {
   heading.append(copy, button("＋ Yeni strategiya", "primary-button", resetStrategy));
   view.appendChild(heading);
 
-  if (!state.savedStrategies.length) {
+  // Background jobs section (always rendered if any exist)
+  const activeBgJobs = backgroundJobs.filter((j) => j.status === "generating" || j.status === "ready" || j.status === "error");
+  if (activeBgJobs.length) {
+    const bgSection = element("div", "strategy-library bg-jobs-section");
+    activeBgJobs.forEach((job) => {
+      const row = element("article", `strategy-library-row ${job.status === "generating" ? "library-row-progress" : job.status === "error" ? "library-row-error" : ""}`);
+      const main = element("div", "library-row-main");
+      const briefPreview = (job.brief || "").slice(0, 120) + ((job.brief || "").length > 120 ? "…" : "");
+      main.append(
+        element("h2", "", job.status === "generating" ? "Strategiya hazırlanır..." : job.status === "error" ? "Xəta baş verdi" : "Strategiya hazırdır"),
+        element("p", "", briefPreview),
+      );
+      const meta = element("div", "library-row-meta");
+      meta.append(element("span", "", `Başladı ${formatDate(job.startedAt)}`));
+
+      if (job.status === "generating") {
+        const statusEl = element("span", "bg-job-status");
+        const pulse = element("span", "bg-job-pulse");
+        statusEl.append(pulse, document.createTextNode("Analiz davam edir..."));
+        const openBtn = button("Bax →", "text-button", () => openBackgroundJob(job.id));
+        row.append(main, meta, statusEl, openBtn);
+      } else if (job.status === "ready") {
+        const statusEl = element("span", "saved-status", "Hazırdır ✓");
+        const openBtn = button("Aç →", "text-button", () => openBackgroundJob(job.id));
+        row.append(main, meta, statusEl, openBtn);
+      } else if (job.status === "error") {
+        const statusEl = element("span", "saved-status", "Xəta");
+        const retryBtn = button("Sil", "bg-job-retry-btn", () => { removeBackgroundJob(job.id); render(); });
+        row.append(main, meta, statusEl, retryBtn);
+      }
+
+      bgSection.appendChild(row);
+    });
+    view.appendChild(bgSection);
+  }
+
+  if (!state.savedStrategies.length && !activeBgJobs.length) {
     const empty = element("div", "empty-state");
     empty.append(
       element("span", "empty-icon", "✦"),
@@ -3159,7 +3465,7 @@ function renderStrategyList() {
       button("Yeni strategiya", "primary-button", resetStrategy),
     );
     view.appendChild(empty);
-  } else {
+  } else if (state.savedStrategies.length) {
     const controls = element("div", "library-controls");
     const search = element("input", "library-search");
     search.type = "search";
@@ -3763,6 +4069,7 @@ document.addEventListener("keydown", (event) => {
 
 initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
+  resumeBackgroundJobs();
   render();
   showRegistrationNotice();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks()]);
