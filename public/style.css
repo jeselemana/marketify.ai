@@ -2264,57 +2264,45 @@ body.sidebar-open .app-main {
   font-variant-numeric: tabular-nums;
 }
 
-/* Brief Analysis Ask Marketify Bar */
+/* Refined Minimal Ask Marketify Command Bar */
 .loading-ask-card {
-  width: min(100%, 540px);
-  margin: 24px auto 0;
-  padding: 14px 18px 16px;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
+  width: min(100%, 520px);
+  margin: 20px auto 0;
+  padding: 11px 13px 11px 15px;
+  border-radius: 14px;
+  border: 1px solid #e5e9f0;
   background: #ffffff;
-  box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.035), 0 1px 2px rgba(15, 23, 42, 0.02);
   text-align: left;
-  transition: all 180ms ease;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .loading-ask-card:hover {
   border-color: #cbd5e1;
-  box-shadow: 0 6px 24px -4px rgba(15, 23, 42, 0.07);
+  box-shadow: 0 4px 12px -3px rgba(15, 23, 42, 0.05);
 }
 
 .loading-ask-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 7px;
+  padding: 0 1px;
 }
 
 .loading-ask-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #0f172a;
-  font-size: 12.5px;
-  font-weight: 650;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .loading-ask-spark {
   color: #2563eb;
   font-size: 12px;
-}
-
-.loading-ask-model-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  border-radius: 6px;
-  background: rgba(37, 99, 235, 0.07);
-  border: 1px solid rgba(37, 99, 235, 0.14);
-  color: #2563eb;
-  font-size: 10.5px;
-  font-weight: 650;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  line-height: 1;
 }
 
 .loading-ask-form {
@@ -2325,31 +2313,33 @@ body.sidebar-open .app-main {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 4px 4px 14px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  padding: 3px 3px 3px 12px;
+  border-radius: 10px;
+  border: 1px solid #edf2f7;
   background: #f8fafc;
-  transition: all 150ms ease;
+  transition: all 130ms ease;
 }
 
 .loading-ask-input-row:focus-within {
   background: #ffffff;
   border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
 }
 
 .loading-ask-input {
   flex: 1;
   border: none;
   background: transparent;
-  padding: 6px 0;
-  font-size: 13px;
+  padding: 5px 0;
+  font-size: 13.5px;
   color: #0f172a;
   outline: none;
+  font-family: inherit;
 }
 
 .loading-ask-input::placeholder {
   color: #94a3b8;
+  font-size: 13px;
   transition: opacity 160ms ease;
 }
 
@@ -2361,7 +2351,7 @@ body.sidebar-open .app-main {
 .loading-ask-send-btn {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 9px;
   border: none;
   background: #2563eb;
   color: #ffffff;
@@ -2370,18 +2360,17 @@ body.sidebar-open .app-main {
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 140ms ease;
+  transition: background-color 130ms ease, transform 130ms ease;
 }
 
 .loading-ask-submit-btn:hover,
 .loading-ask-send-btn:hover {
   background: #1d4ed8;
-  transform: translateY(-1px);
 }
 
 .loading-ask-submit-btn:active,
 .loading-ask-send-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
 /* Ask Modal / Drawer Overlay */

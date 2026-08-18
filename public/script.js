@@ -1097,8 +1097,7 @@ function renderLoading() {
   const askHeader = element("div", "loading-ask-header");
   const askBadge = element("div", "loading-ask-badge");
   askBadge.innerHTML = `<span class="loading-ask-spark">✦</span><span>Marketify-dan soruş</span>`;
-  const askModel = element("span", "loading-ask-model-tag", "gpt-5.6-luna");
-  askHeader.append(askBadge, askModel);
+  askHeader.appendChild(askBadge);
 
   const askForm = element("form", "loading-ask-form");
   const askInputWrap = element("div", "loading-ask-input-row");
@@ -1323,8 +1322,7 @@ function showLoadingAskModal(initialQuery) {
   const titleGroup = element("div", "loading-ask-modal-title-group");
   const titleRow = element("div", "loading-ask-modal-title-row");
   const title = element("h3", "", "Marketify-dan soruş");
-  const modelTag = element("span", "loading-ask-model-tag", "gpt-5.6-luna");
-  titleRow.append(title, modelTag);
+  titleRow.appendChild(title);
 
   const statusSub = element("div", "loading-ask-modal-status");
   statusSub.innerHTML = `
@@ -1418,7 +1416,6 @@ function showLoadingAskModal(initialQuery) {
       <div class="ask-thread-msg-header">
         <span class="history-item-icon ai-icon">✦</span>
         <strong>Marketify AI</strong>
-        <span class="loading-ask-model-tag">gpt-5.6-luna</span>
       </div>
       <div class="ask-thread-msg-content">
         <div class="loading-processing-dots">
