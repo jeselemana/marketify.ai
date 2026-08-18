@@ -876,8 +876,17 @@ function renderAsk() {
     const error = element("div", "ask-error");
     error.append(
       element("strong", "", state.askError),
-      element("span", "", navigator.onLine ? "Bir neçə saniyə sonra yenidən yoxla." : "İnternet bağlantını yoxla."),
+      element("span", "", navigator.onLine ? "Bir neçə saniyə sonra yenidən yoxla və ya Standart modeli seç." : "İnternet bağlantını yoxla."),
     );
+    if (state.selectedModel === "flash") {
+      const switchBtn = button("Standart (OpenAI) modelinə keç →", "ask-switch-model-btn", () => {
+        state.selectedModel = "standart";
+        localStorage.setItem("marketify_selected_model", "standart");
+        state.askError = "";
+        render();
+      });
+      error.appendChild(switchBtn);
+    }
     thread.appendChild(error);
   }
 
