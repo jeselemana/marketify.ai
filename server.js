@@ -277,38 +277,34 @@ app.post("/api/ask", async (req, res) => {
 
     const selectedModel = typeof req.body.model === "string" ? req.body.model : "flash";
     const { provider, model: chosenModel } = resolveAIModel({ mode: "ask", selectedModel });
-    let reply = "";
+    const isFlash = selectedModel === "flash";
+    const modelIdentity = isFlash
+      ? "You are Marketify AI, powered by Google Gemini 3.7 Flash. If asked about your model or system, clearly state that you are Marketify AI running on Google Gemini 3.7 Flash."
+      : "You are Marketify AI, powered by OpenAI GPT-5.6. If asked about your model or system, clearly state that you are Marketify AI running on OpenAI Standart.";
+
+    const dynamicInstructions = `${ASK_INSTRUCTIONS}\n\n${modelIdentity}${strategyContext}`;
 
     if (provider === "gemini") {
       try {
         reply = await executeGeminiChat({
           model: chosenModel,
-          instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
+          instructions: dynamicInstructions,
           messages,
           maxOutputTokens: 2500,
           temperature: 0.7,
         });
       } catch (geminiError) {
-        if (process.env.OPENAI_API_KEY) {
-          console.warn("[Ask Mode] Gemini error, falling back to OpenAI:", geminiError.message);
-          const openAIModel = aiConfig.openAIBaseAskModel || "gpt-5.6-luna";
-          const response = await getOpenAIClient().responses.create({
-            model: openAIModel,
-            instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
-            input: messages.map(({ role, content }) => ({ role, content })),
-            reasoning: { effort: "low" },
-            max_output_tokens: 2500,
-            safety_identifier: askSafetyIdentifier(req.ownerId),
+        if (geminiError.status === 429 || geminiError.message?.includes("quota") || geminiError.message?.includes("Quota")) {
+          return res.status(429).json({
+            error: "Google Gemini 3.7 Flash kvotası dolub. Zəhmət olmasa bir qədər sonra yenidən cəhd edin və ya Standart (OpenAI) modelinə keçin.",
           });
-          reply = response.output_text?.trim() || "";
-        } else {
-          throw geminiError;
         }
+        throw geminiError;
       }
     } else {
       const response = await getOpenAIClient().responses.create({
         model: chosenModel,
-        instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
+        instructions: dynamicInstructions,
         input: messages.map(({ role, content }) => ({ role, content })),
         reasoning: { effort: "low" },
         max_output_tokens: 2500,

@@ -160,12 +160,12 @@ async function parseStructured({ selectedModel = "flash", schema, name, instruct
 
       return validated.data;
     } catch (geminiError) {
-      if (process.env.OPENAI_API_KEY) {
-        console.warn("[AI Provider] Gemini error, falling back to OpenAI:", geminiError.message);
-        // Fallback to OpenAI
-      } else {
-        throw geminiError;
+      if (geminiError.status === 429 || geminiError.message?.includes("quota") || geminiError.message?.includes("Quota")) {
+        const error = new Error("Google Gemini 3.7 Flash kvotası dolub. Standart (OpenAI) modelini seçərək davam edə bilərsiniz.");
+        error.code = "AI_QUOTA_EXCEEDED";
+        throw error;
       }
+      throw geminiError;
     }
   }
 
