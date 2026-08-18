@@ -58,6 +58,23 @@ const QUICK_ACTIONS = [
   ["budget_optimize", "Büdcəni optimallaşdır"],
 ];
 
+const LOADING_ASK_PLACEHOLDERS = [
+  "Brendinq prosesi nə qədər vaxt aparır?",
+  "Hədəf auditoriyanı necə dəqiq seqmentləşdirim?",
+  "Marketinq büdcəsini kanallar üzrə necə bölüşdürməliyəm?",
+  "Rəqib analizində ən vacib 3 metrikan nədir?",
+  "B2B üçün ən effektiv satış kanalları hansılardır?",
+  "CAC və LTV nisbətini necə optimallaşdıraq?",
+  "Instagram reklamlarında ROAS-ı necə artıraq?",
+  "Startap üçün ilkin böyümə (growth) taktikaları nələrdir?",
+  "Strategiya hazır olduqdan sonra ilk addım nə olmalıdır?",
+  "Məhsulun unikal satış təklifini (USP) necə formalaşdıraq?",
+  "E-ticarətdə səbət tərketmə faizini necə azalda bilərik?",
+  "Kontent marketinqi ilə orqanik trafiki necə artıraq?",
+];
+
+let loadingAskPlaceholderTimer = null;
+
 const state = {
   mode: "build",
   view: "home",
@@ -400,9 +417,10 @@ function resetStrategy() {
 
 function render() {
   clearInterval(progressTimer);
+  clearInterval(loadingAskPlaceholderTimer);
   syncMode();
   syncNav();
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn").forEach((btn) => btn.remove());
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-modal-overlay").forEach((btn) => btn.remove());
   workspace.replaceChildren();
   workspace.className = "workspace";
 
@@ -1074,10 +1092,64 @@ function renderLoading() {
 
   cardActions.append(mobileCancelBtn, mobileHistoryBtn);
 
+  // Ask Marketify Quick Bar
+  const askSection = element("div", "loading-ask-card");
+  const askHeader = element("div", "loading-ask-header");
+  const askBadge = element("div", "loading-ask-badge");
+  askBadge.innerHTML = `<span class="loading-ask-spark">✦</span><span>Marketify-dan soruş</span>`;
+  const askModel = element("span", "loading-ask-model-tag", "gpt-5.6-luna");
+  askHeader.append(askBadge, askModel);
+
+  const askForm = element("form", "loading-ask-form");
+  const askInputWrap = element("div", "loading-ask-input-row");
+  const askInput = element("input", "loading-ask-input");
+  askInput.type = "text";
+  askInput.autocomplete = "off";
+  askInput.maxLength = 1000;
+
+  let placeholderIndex = Math.floor(Math.random() * LOADING_ASK_PLACEHOLDERS.length);
+  askInput.placeholder = LOADING_ASK_PLACEHOLDERS[placeholderIndex];
+
+  const askSubmit = element("button", "loading-ask-submit-btn");
+  askSubmit.type = "submit";
+  askSubmit.setAttribute("aria-label", "Sualı göndər");
+  askSubmit.title = "Sualı göndər";
+  askSubmit.innerHTML = `
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="19" x2="12" y2="5"></line>
+      <polyline points="5 12 12 5 19 12"></polyline>
+    </svg>
+  `;
+
+  askInputWrap.append(askInput, askSubmit);
+  askForm.appendChild(askInputWrap);
+  askSection.append(askHeader, askForm);
+
+  clearInterval(loadingAskPlaceholderTimer);
+  loadingAskPlaceholderTimer = setInterval(() => {
+    if (!askInput || document.activeElement === askInput || askInput.value.trim().length > 0) {
+      return;
+    }
+    placeholderIndex = (placeholderIndex + 1) % LOADING_ASK_PLACEHOLDERS.length;
+    askInput.classList.add("placeholder-fading");
+    setTimeout(() => {
+      askInput.placeholder = LOADING_ASK_PLACEHOLDERS[placeholderIndex];
+      askInput.classList.remove("placeholder-fading");
+    }, 160);
+  }, 3000);
+
+  askForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const question = askInput.value.trim() || askInput.placeholder;
+    if (!question) return;
+    askInput.value = "";
+    showLoadingAskModal(question);
+  });
+
   document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn").forEach((el) => el.remove());
   document.body.appendChild(topActions);
 
-  view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
+  view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions, askSection);
   workspace.appendChild(view);
 
   progressTimer = setInterval(() => {
@@ -1098,11 +1170,12 @@ function renderLoading() {
 
 function cancelCurrentAnalysis() {
   clearInterval(progressTimer);
+  clearInterval(loadingAskPlaceholderTimer);
   if (currentAbortController) {
     currentAbortController.abort();
     currentAbortController = null;
   }
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn").forEach((el) => el.remove());
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-modal-overlay").forEach((el) => el.remove());
   state.status = "draft";
   showToast("Brif analizi dayandırıldı.", "default");
   render();
@@ -1235,6 +1308,167 @@ function showAnalysisHistoryModal(isAssessment = true) {
 
   document.body.style.overflow = "hidden";
   document.body.appendChild(overlay);
+}
+
+function showLoadingAskModal(initialQuery) {
+  const existing = document.querySelector(".loading-ask-modal-overlay");
+  if (existing) existing.remove();
+
+  const overlay = element("div", "loading-ask-modal-overlay");
+  const modal = element("div", "loading-ask-modal");
+  const dragHandle = element("div", "analysis-history-drag-handle");
+  dragHandle.setAttribute("aria-hidden", "true");
+
+  const header = element("div", "loading-ask-modal-header");
+  const titleGroup = element("div", "loading-ask-modal-title-group");
+  const titleRow = element("div", "loading-ask-modal-title-row");
+  const title = element("h3", "", "Marketify-dan soruş");
+  const modelTag = element("span", "loading-ask-model-tag", "gpt-5.6-luna");
+  titleRow.append(title, modelTag);
+
+  const statusSub = element("div", "loading-ask-modal-status");
+  statusSub.innerHTML = `
+    <span class="history-pulse-dot"></span>
+    <span>Brif analizi arxa planda davam edir…</span>
+  `;
+  titleGroup.append(titleRow, statusSub);
+
+  const closeModal = () => {
+    document.body.style.overflow = "";
+    overlay.remove();
+    document.removeEventListener("keydown", handleKeydown);
+  };
+
+  const closeBtn = element("button", "analysis-history-close");
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  `;
+  closeBtn.addEventListener("click", closeModal);
+  header.append(titleGroup, closeBtn);
+
+  const messagesBody = element("div", "loading-ask-modal-body");
+  const formWrap = element("div", "loading-ask-modal-footer");
+  const modalForm = element("form", "loading-ask-modal-form");
+  const modalInput = element("input", "loading-ask-modal-input");
+  modalInput.type = "text";
+  modalInput.placeholder = "Əlavə sualını yaz…";
+  modalInput.autocomplete = "off";
+  modalInput.maxLength = 1000;
+
+  const modalSend = element("button", "loading-ask-send-btn");
+  modalSend.type = "submit";
+  modalSend.setAttribute("aria-label", "Göndər");
+  modalSend.innerHTML = `
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="19" x2="12" y2="5"></line>
+      <polyline points="5 12 12 5 19 12"></polyline>
+    </svg>
+  `;
+  modalForm.append(modalInput, modalSend);
+  formWrap.appendChild(modalForm);
+
+  modal.append(dragHandle, header, messagesBody, formWrap);
+  overlay.appendChild(modal);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  const handleKeydown = (e) => {
+    if (e.key === "Escape") {
+      closeModal();
+    }
+  };
+  document.addEventListener("keydown", handleKeydown);
+
+  document.body.style.overflow = "hidden";
+  document.body.appendChild(overlay);
+
+  const thread = [];
+
+  const appendUserMessage = (text) => {
+    const item = element("div", "ask-thread-msg is-user");
+    item.innerHTML = `
+      <div class="ask-thread-msg-header">
+        <span class="history-item-icon user-icon">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        <strong>Siz</strong>
+      </div>
+      <div class="ask-thread-msg-content"><p>${escapeHtml(text)}</p></div>
+    `;
+    messagesBody.appendChild(item);
+    messagesBody.scrollTop = messagesBody.scrollHeight;
+  };
+
+  const askAssistant = async (queryText) => {
+    appendUserMessage(queryText);
+    thread.push({ role: "user", content: queryText });
+
+    const loadingItem = element("div", "ask-thread-msg is-assistant is-thinking");
+    loadingItem.innerHTML = `
+      <div class="ask-thread-msg-header">
+        <span class="history-item-icon ai-icon">✦</span>
+        <strong>Marketify AI</strong>
+        <span class="loading-ask-model-tag">gpt-5.6-luna</span>
+      </div>
+      <div class="ask-thread-msg-content">
+        <div class="loading-processing-dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    `;
+    messagesBody.appendChild(loadingItem);
+    messagesBody.scrollTop = messagesBody.scrollHeight;
+
+    try {
+      const data = await api("/api/ask", {
+        method: "POST",
+        body: JSON.stringify({
+          messages: thread,
+          chatId: state.askChatId || undefined,
+        }),
+      });
+
+      loadingItem.classList.remove("is-thinking");
+      const contentWrap = loadingItem.querySelector(".ask-thread-msg-content");
+      contentWrap.innerHTML = "";
+      contentWrap.appendChild(renderAskRichText(data.reply));
+      thread.push({ role: "assistant", content: data.reply });
+
+      if (data.chat?.id) {
+        state.askChatId = data.chat.id;
+        loadSavedChats();
+      }
+    } catch (err) {
+      loadingItem.classList.remove("is-thinking");
+      const contentWrap = loadingItem.querySelector(".ask-thread-msg-content");
+      contentWrap.innerHTML = `<p class="ask-thread-error">${escapeHtml(err.message || "Cavab almaq mümkün olmadı.")}</p>`;
+    } finally {
+      messagesBody.scrollTop = messagesBody.scrollHeight;
+      modalInput.focus();
+    }
+  };
+
+  modalForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const val = modalInput.value.trim();
+    if (!val) return;
+    modalInput.value = "";
+    askAssistant(val);
+  });
+
+  if (initialQuery) {
+    askAssistant(initialQuery);
+  }
 }
 
 async function startAssessment() {
