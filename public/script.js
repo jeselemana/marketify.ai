@@ -109,7 +109,6 @@ const state = {
   strategyFormat: "blog",
   faqFilter: "",
   faqExpandedAll: false,
-  selectedModel: localStorage.getItem("marketify_selected_model") || "flash",
 };
 
 let progressTimer;
@@ -138,87 +137,6 @@ function removeBackgroundJob(id) {
 function clearCompletedBackgroundJobs() {
   backgroundJobs = backgroundJobs.filter((j) => j.status === "generating");
   persistBackgroundJobs();
-}
-
-function renderModelSelector(customClass = "") {
-  const container = element("div", `model-selector-wrap ${customClass}`.trim());
-  const isFlash = state.selectedModel !== "standart";
-
-  const trigger = element("button", "model-selector-trigger");
-  trigger.type = "button";
-  trigger.setAttribute("aria-haspopup", "listbox");
-  trigger.setAttribute("aria-expanded", "false");
-  trigger.setAttribute("aria-label", "Model seçimi");
-
-  const iconSpan = element("span", "model-trigger-icon", isFlash ? "⚡" : "✦");
-  const nameSpan = element("span", "model-trigger-name", isFlash ? "Flash" : "Standart");
-  const chevron = element("span", "model-trigger-chevron", "▾");
-
-  trigger.append(iconSpan, nameSpan, chevron);
-
-  const dropdown = element("div", "model-selector-dropdown");
-  dropdown.setAttribute("role", "listbox");
-
-  const createOption = (id, title, subtitle, icon, isRecommended = false) => {
-    const isSelected = (id === "flash" && isFlash) || (id === "standart" && !isFlash);
-    const opt = element("div", `model-selector-option${isSelected ? " is-active" : ""}`);
-    opt.setAttribute("role", "option");
-    opt.setAttribute("aria-selected", isSelected ? "true" : "false");
-
-    const header = element("div", "model-opt-header");
-    const optIcon = element("span", "model-opt-icon", icon);
-    const optTitle = element("strong", "model-opt-title", title);
-    header.append(optIcon, optTitle);
-
-    if (isRecommended) {
-      const badge = element("span", "model-opt-badge", "3.7");
-      header.appendChild(badge);
-    }
-
-    if (isSelected) {
-      const check = element("span", "model-opt-check", "✓");
-      header.appendChild(check);
-    }
-
-    const desc = element("p", "model-opt-desc", subtitle);
-    opt.append(header, desc);
-
-    opt.addEventListener("click", (e) => {
-      e.stopPropagation();
-      state.selectedModel = id;
-      localStorage.setItem("marketify_selected_model", id);
-      dropdown.classList.remove("is-open");
-      trigger.setAttribute("aria-expanded", "false");
-      render();
-    });
-
-    return opt;
-  };
-
-  const flashOpt = createOption("flash", "Flash", "Sürətlə performansın birləşimi", "⚡", true);
-  const stdOpt = createOption("standart", "Standart", "Dərin analitika və yüksək dəqiqlik", "✦", false);
-
-  dropdown.append(flashOpt, stdOpt);
-
-  trigger.addEventListener("click", (e) => {
-    e.stopPropagation();
-    document.querySelectorAll(".model-selector-dropdown.is-open").forEach((d) => {
-      if (d !== dropdown) d.classList.remove("is-open");
-    });
-    const isOpen = dropdown.classList.toggle("is-open");
-    trigger.setAttribute("aria-expanded", isOpen ? "true" : "false");
-  });
-
-  const closeDropdown = (e) => {
-    if (!container.contains(e.target)) {
-      dropdown.classList.remove("is-open");
-      trigger.setAttribute("aria-expanded", "false");
-    }
-  };
-  document.addEventListener("click", closeDropdown);
-
-  container.append(trigger, dropdown);
-  return container;
 }
 
 function element(tag, className, text) {
@@ -584,10 +502,9 @@ function renderIntake() {
     }
     fileInput.value = "";
   });
-  const modelSelector = renderModelSelector("composer-model-selector");
   const hint = element("span", "composer-hint", "Enter göndərir · Shift + Enter yeni sətir");
-  composerTools.append(attach, modelSelector, hint);
-  const submit = button("", "primary-button composer-submit");
+  composerTools.append(attach, hint);
+ const submit = button("", "primary-button composer-submit");
 submit.type = "submit";
 submit.disabled = state.brief.trim().length < 8;
 submit.setAttribute("aria-label", "Strategiyanı qur");
@@ -876,17 +793,8 @@ function renderAsk() {
     const error = element("div", "ask-error");
     error.append(
       element("strong", "", state.askError),
-      element("span", "", navigator.onLine ? "Bir neçə saniyə sonra yenidən yoxla və ya Standart modeli seç." : "İnternet bağlantını yoxla."),
+      element("span", "", navigator.onLine ? "Bir neçə saniyə sonra yenidən yoxla." : "İnternet bağlantını yoxla."),
     );
-    if (state.selectedModel === "flash") {
-      const switchBtn = button("Standart (OpenAI) modelinə keç →", "ask-switch-model-btn", () => {
-        state.selectedModel = "standart";
-        localStorage.setItem("marketify_selected_model", "standart");
-        state.askError = "";
-        render();
-      });
-      error.appendChild(switchBtn);
-    }
     thread.appendChild(error);
   }
 
@@ -974,8 +882,7 @@ function renderAsk() {
   form.append(contextMenu, label, input, submit);
   const helper = element("div", "ask-composer-meta");
   const contextMeta = element("span", "ask-context-meta", selectedStrategy ? `Kontekst: ${selectedStrategy.title}` : "Marketify");
-  const askModelSelector = renderModelSelector("ask-model-selector");
-  helper.append(contextMeta, askModelSelector, element("span", "ask-meta-hint", "Enter ilə göndər"));
+  helper.append(contextMeta, element("span", "", "Enter ilə göndər · Shift + Enter yeni sətir"));
   composerArea.append(form, helper);
   shell.append(thread, composerArea);
   workspace.appendChild(shell);
@@ -1025,7 +932,6 @@ async function submitAskMessage(message) {
         messages: state.askMessages,
         strategyId: state.askStrategyId || undefined,
         chatId: state.askChatId || undefined,
-        model: state.selectedModel,
       }),
     });
     const response = { role: "assistant", content: data.reply };
@@ -1323,7 +1229,6 @@ function minimizeToBackground() {
     answers: [...state.answers],
     assumptions: [...state.assumptions],
     idempotencyKey: state.clientSaveId,
-    model: state.selectedModel,
     status: "generating",
     strategy: null,
     versions: [],
@@ -1374,11 +1279,13 @@ function minimizeToBackground() {
     faqExpandedAll: false,
   });
   render();
-  showToast("Analiz arxa fonda davam edir. Hazır olanda arxivdə görünəcək.");
+  showToast("Analiz arxa planda davam edir ✦", "default");
+
+  // The fetch promise from startGeneration will resolve/reject and write to the bgJob
+  // This is handled by the modified startGeneration() which checks backgroundJobs
 }
 
 async function autoSaveBackgroundJob(job) {
-  if (!job.strategy) return;
   try {
     const data = await api("/api/strategy/save", {
       method: "POST",
@@ -1424,7 +1331,6 @@ function resumeBackgroundJobs() {
           answers: job.answers,
           assumptions: job.assumptions,
           idempotencyKey: job.idempotencyKey,
-          model: job.model || state.selectedModel,
         }),
       });
 
@@ -1863,7 +1769,6 @@ async function startAssessment() {
         brief: state.brief,
         answers: state.answers,
         round: state.round,
-        model: state.selectedModel,
       }),
     });
     currentAbortController = null;
@@ -2027,7 +1932,6 @@ async function startGeneration() {
         answers: state.answers,
         assumptions: state.assumptions,
         idempotencyKey: state.clientSaveId,
-        model: state.selectedModel,
       }),
     });
     currentAbortController = null;
@@ -3140,7 +3044,6 @@ async function requestRefinement(action, request) {
         strategy: state.strategy,
         action,
         request,
-        model: state.selectedModel,
       }),
     });
     const record = data.strategy;

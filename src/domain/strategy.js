@@ -112,7 +112,6 @@ export const AssessRequestSchema = z.object({
   brief: z.string().trim().min(8).max(8000),
   answers: z.array(ClarificationAnswerSchema).max(10).default([]),
   round: z.number().int().min(0).max(2).default(0),
-  model: z.enum(["flash", "standart", "standard"]).default("flash").optional(),
 });
 
 export const GenerateRequestSchema = z.object({
@@ -120,7 +119,6 @@ export const GenerateRequestSchema = z.object({
   answers: z.array(ClarificationAnswerSchema).max(10).default([]),
   assumptions: z.array(shortText).max(12).default([]),
   idempotencyKey: z.string().trim().min(8).max(120),
-  model: z.enum(["flash", "standart", "standard"]).default("flash").optional(),
 });
 
 export const RefineRequestSchema = z
@@ -130,7 +128,6 @@ export const RefineRequestSchema = z
     strategy: StrategySchema,
     action: z.enum(refinementActions),
     request: z.string().trim().max(2000).default(""),
-    model: z.enum(["flash", "standart", "standard"]).default("flash").optional(),
   })
   .superRefine((value, context) => {
     if (value.action === "custom" && value.request.length < 3) {

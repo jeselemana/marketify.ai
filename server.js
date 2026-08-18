@@ -21,8 +21,7 @@ import { FileStrategyRepository } from "./src/repositories/file-strategy-reposit
 import { FileChatRepository } from "./src/repositories/file-chat-repository.js";
 import { FilePlannerRepository } from "./src/repositories/file-planner-repository.js";
 import { createPlannerRouter } from "./src/http/planner-router.js";
-import { aiConfig, getAIProvider, hasAIConfiguration, resolveAIModel } from "./src/services/ai/config.js";
-import { executeGeminiChat, getOpenAIClient } from "./src/services/ai/client.js";
+import { aiConfig } from "./src/services/ai/config.js";
 
 dotenv.config();
 
@@ -234,7 +233,7 @@ app.delete("/api/ask/chats/:id", async (req, res) => {
 
 app.post("/api/ask", async (req, res) => {
   try {
-    if (!hasAIConfiguration()) {
+    if (!openai) {
       return res.status(503).json({ error: "AI xidməti hələ konfiqurasiya edilməyib." });
     }
 
@@ -275,44 +274,15 @@ app.post("/api/ask", async (req, res) => {
         })}\n</saved_strategy_json>`
       : "";
 
-    const selectedModel = typeof req.body.model === "string" ? req.body.model : "flash";
-    const { provider, model: chosenModel } = resolveAIModel({ mode: "ask", selectedModel });
-    const isFlash = selectedModel === "flash";
-    const modelIdentity = isFlash
-      ? "You are Marketify AI, powered by Google Gemini 3.7 Flash. If asked about your model or system, clearly state that you are Marketify AI running on Google Gemini 3.7 Flash."
-      : "You are Marketify AI, powered by OpenAI GPT-5.6. If asked about your model or system, clearly state that you are Marketify AI running on OpenAI Standart.";
-
-    const dynamicInstructions = `${ASK_INSTRUCTIONS}\n\n${modelIdentity}${strategyContext}`;
-
-    if (provider === "gemini") {
-      try {
-        reply = await executeGeminiChat({
-          model: chosenModel,
-          instructions: dynamicInstructions,
-          messages,
-          maxOutputTokens: 2500,
-          temperature: 0.7,
-        });
-      } catch (geminiError) {
-        if (geminiError.status === 429 || geminiError.message?.includes("quota") || geminiError.message?.includes("Quota")) {
-          return res.status(429).json({
-            error: "Google Gemini 3.7 Flash kvotası dolub. Zəhmət olmasa bir qədər sonra yenidən cəhd edin və ya Standart (OpenAI) modelinə keçin.",
-          });
-        }
-        throw geminiError;
-      }
-    } else {
-      const response = await getOpenAIClient().responses.create({
-        model: chosenModel,
-        instructions: dynamicInstructions,
-        input: messages.map(({ role, content }) => ({ role, content })),
-        reasoning: { effort: "low" },
-        max_output_tokens: 2500,
-        safety_identifier: askSafetyIdentifier(req.ownerId),
-      });
-      reply = response.output_text?.trim() || "";
-    }
-
+    const response = await openai.responses.create({
+      model: ASK_MODEL,
+      instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
+      input: messages.map(({ role, content }) => ({ role, content })),
+      reasoning: { effort: "low" },
+      max_output_tokens: 2500,
+      safety_identifier: askSafetyIdentifier(req.ownerId),
+    });
+    const reply = response.output_text?.trim();
     if (!reply) throw new Error("Ask mode returned an empty response.");
 
     const updatedMessages = [
