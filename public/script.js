@@ -266,26 +266,6 @@ function showToast(message, tone = "success") {
   }, 3600);
 }
 
-function showRegistrationNotice() {
-  if (document.querySelector(".entry-notice")) return;
-  const notice = element("aside", "entry-notice");
-  notice.setAttribute("role", "status");
-  notice.setAttribute("aria-live", "polite");
-  notice.append(
-    element("span", "entry-notice-mark", "i"),
-    element(
-      "p",
-      "",
-      "Profilə giriş/qeydiyyat üzrə yaranan texniki çətinlik aradan qaldırılmışdır. Profilinizə asanlıqla daxil ola, keçmiş söhbətlərinizi görə və sessiyanı aktiv saxlaya bilərsiniz.",
-    ),
-  );
-  document.body.appendChild(notice);
-  requestAnimationFrame(() => notice.classList.add("is-visible"));
-  setTimeout(() => {
-    notice.classList.remove("is-visible");
-    setTimeout(() => notice.remove(), 220);
-  }, 10_000);
-}
 
 function setError(error, retry, returnStatus = "draft") {
   state.error = error?.message || "Gözlənilməz xəta baş verdi.";
@@ -4109,7 +4089,6 @@ initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
   resumeBackgroundJobs();
   render();
-  showRegistrationNotice();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks()]);
   if (window.location.hash === "#terms" || window.location.pathname === "/terms") {
     openLegalModal("terms");
