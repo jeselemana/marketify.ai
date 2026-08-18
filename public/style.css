@@ -7071,6 +7071,9 @@ body {
 
   .mobile-header {
     display: grid;
+    position: sticky;
+    top: 0;
+    z-index: 20;
     height: calc(60px + env(safe-area-inset-top));
     min-height: calc(60px + env(safe-area-inset-top));
     grid-template-columns: 44px minmax(0, 1fr) 44px;
@@ -7122,8 +7125,8 @@ body {
   }
 
   .mode-header {
-    position: absolute;
-    z-index: 21;
+    position: fixed;
+    z-index: 25;
     top: calc(env(safe-area-inset-top) + 9px);
     right: 64px;
     left: 64px;
