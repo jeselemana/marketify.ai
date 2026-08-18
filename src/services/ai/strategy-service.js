@@ -104,67 +104,77 @@ async function parseStructured({ model, schema, name, instructions, input, maxOu
   const provider = getAIProvider();
 
   if (provider === "gemini") {
-    const systemInstruction = `${instructions}\n\n${schemaGuide(name)}\n\nIMPORTANT: Return pure valid JSON only without markdown formatting or backticks.`;
-    const rawText = await executeGeminiGenerate({
-      model,
-      systemInstruction,
-      prompt: input,
-      responseFormat: "application/json",
-      temperature: 0.2,
-      maxOutputTokens,
-      signal,
-    });
-
-    let cleanText = (rawText || "").trim();
-    if (cleanText.startsWith("```json")) {
-      cleanText = cleanText.replace(/^```json\s*/, "").replace(/```$/, "").trim();
-    } else if (cleanText.startsWith("```")) {
-      cleanText = cleanText.replace(/^```\s*/, "").replace(/```$/, "").trim();
-    }
-
-    let parsed;
     try {
-      parsed = JSON.parse(cleanText);
-    } catch (parseError) {
-      console.error("Gemini JSON parse failed:", parseError, "Raw text:", cleanText.slice(0, 300));
-      const error = new Error("The AI response could not be parsed as JSON.");
-      error.code = "AI_INVALID_OUTPUT";
-      throw error;
-    }
+      const systemInstruction = `${instructions}\n\n${schemaGuide(name)}\n\nIMPORTANT: Return pure valid JSON only without markdown formatting or backticks.`;
+      const rawText = await executeGeminiGenerate({
+        model,
+        systemInstruction,
+        prompt: input,
+        responseFormat: "application/json",
+        temperature: 0.2,
+        maxOutputTokens,
+        signal,
+      });
 
-    // Auto-repair minor array structures if omitted
-    if (name === "marketify_strategy" || name === "marketify_refined_strategy") {
-      if (Array.isArray(parsed.sections)) {
-        parsed.sections = parsed.sections.map((sec, idx) => ({
-          id: sec.id || `section_${idx + 1}`,
-          title: sec.title || `Bölmə ${idx + 1}`,
-          summary: sec.summary || "",
-          content: sec.content || "",
-          bullets: Array.isArray(sec.bullets) ? sec.bullets : [],
-        }));
+      let cleanText = (rawText || "").trim();
+      if (cleanText.startsWith("```json")) {
+        cleanText = cleanText.replace(/^```json\s*/, "").replace(/```$/, "").trim();
+      } else if (cleanText.startsWith("```")) {
+        cleanText = cleanText.replace(/^```\s*/, "").replace(/```$/, "").trim();
       }
-      if (!Array.isArray(parsed.assumptions)) parsed.assumptions = [];
-      if (!Array.isArray(parsed.risks)) parsed.risks = [];
-      if (!Array.isArray(parsed.nextSteps)) parsed.nextSteps = ["Strategiyanı nəzərdən keçirmək"];
-    }
 
-    const validated = schema.safeParse(parsed);
-    if (!validated.success) {
-      console.error("Gemini schema validation failed:", JSON.stringify(validated.error.issues, null, 2));
-      const error = new Error("The AI response could not be validated.");
-      error.code = "AI_INVALID_OUTPUT";
-      error.details = validated.error.issues;
-      throw error;
-    }
+      let parsed;
+      try {
+        parsed = JSON.parse(cleanText);
+      } catch (parseError) {
+        console.error("Gemini JSON parse failed:", parseError, "Raw text:", cleanText.slice(0, 300));
+        const error = new Error("The AI response could not be parsed as JSON.");
+        error.code = "AI_INVALID_OUTPUT";
+        throw error;
+      }
 
-    return validated.data;
+      // Auto-repair minor array structures if omitted
+      if (name === "marketify_strategy" || name === "marketify_refined_strategy") {
+        if (Array.isArray(parsed.sections)) {
+          parsed.sections = parsed.sections.map((sec, idx) => ({
+            id: sec.id || `section_${idx + 1}`,
+            title: sec.title || `Bölmə ${idx + 1}`,
+            summary: sec.summary || "",
+            content: sec.content || "",
+            bullets: Array.isArray(sec.bullets) ? sec.bullets : [],
+          }));
+        }
+        if (!Array.isArray(parsed.assumptions)) parsed.assumptions = [];
+        if (!Array.isArray(parsed.risks)) parsed.risks = [];
+        if (!Array.isArray(parsed.nextSteps)) parsed.nextSteps = ["Strategiyanı nəzərdən keçirmək"];
+      }
+
+      const validated = schema.safeParse(parsed);
+      if (!validated.success) {
+        console.error("Gemini schema validation failed:", JSON.stringify(validated.error.issues, null, 2));
+        const error = new Error("The AI response could not be validated.");
+        error.code = "AI_INVALID_OUTPUT";
+        error.details = validated.error.issues;
+        throw error;
+      }
+
+      return validated.data;
+    } catch (geminiError) {
+      if (process.env.OPENAI_API_KEY) {
+        console.warn("[AI Provider] Gemini error, falling back to OpenAI:", geminiError.message);
+        // Fallback to OpenAI
+      } else {
+        throw geminiError;
+      }
+    }
   }
 
-  // OpenAI Provider
+  // OpenAI Provider (primary or fallback)
+  const openAIModel = process.env.OPENAI_STRATEGY_MODEL || "gpt-5.6-terra";
   const requestOptions = signal ? { signal } : undefined;
   const response = await getOpenAIClient().responses.parse(
     {
-      model,
+      model: openAIModel,
       instructions,
       input,
       text: { format: zodTextFormat(schema, name) },

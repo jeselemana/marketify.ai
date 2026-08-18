@@ -279,16 +279,35 @@ app.post("/api/ask", async (req, res) => {
     let reply = "";
 
     if (provider === "gemini") {
-      reply = await executeGeminiChat({
-        model: ASK_MODEL,
-        instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
-        messages,
-        maxOutputTokens: 2500,
-        temperature: 0.7,
-      });
+      try {
+        reply = await executeGeminiChat({
+          model: ASK_MODEL,
+          instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
+          messages,
+          maxOutputTokens: 2500,
+          temperature: 0.7,
+        });
+      } catch (geminiError) {
+        if (process.env.OPENAI_API_KEY) {
+          console.warn("[Ask Mode] Gemini error, falling back to OpenAI:", geminiError.message);
+          const openAIModel = process.env.OPENAI_ASK_MODEL || "gpt-5.6-terra";
+          const response = await getOpenAIClient().responses.create({
+            model: openAIModel,
+            instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
+            input: messages.map(({ role, content }) => ({ role, content })),
+            reasoning: { effort: "low" },
+            max_output_tokens: 2500,
+            safety_identifier: askSafetyIdentifier(req.ownerId),
+          });
+          reply = response.output_text?.trim() || "";
+        } else {
+          throw geminiError;
+        }
+      }
     } else {
+      const openAIModel = process.env.OPENAI_ASK_MODEL || "gpt-5.6-terra";
       const response = await getOpenAIClient().responses.create({
-        model: ASK_MODEL,
+        model: openAIModel,
         instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
         input: messages.map(({ role, content }) => ({ role, content })),
         reasoning: { effort: "low" },
