@@ -4621,20 +4621,25 @@ body.sidebar-open .app-main {
   font-size: 14px;
 }
 
+/* ==========================================================================
+   Modern Refinement Command Bar (Floating Dock)
+   ========================================================================== */
+
 .refinement-dock {
   position: fixed;
-  z-index: 25;
-  bottom: 20px;
+  z-index: 40;
+  bottom: 24px;
   left: calc(var(--rail-width) + (100vw - var(--rail-width)) / 2);
-  width: min(780px, calc(100vw - var(--rail-width) - 48px));
+  width: min(760px, calc(100vw - var(--rail-width) - 40px));
   padding: 10px 12px 10px;
-  border: 1px solid rgba(20, 27, 42, 0.12);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 20px 48px -10px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.95);
   transform: translateX(-50%);
-  transition: left 190ms ease, border-color 160ms ease, box-shadow 160ms ease;
-  backdrop-filter: blur(20px);
+  transition: left 190ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
 }
 
 body.sidebar-open .refinement-dock {
@@ -4642,78 +4647,79 @@ body.sidebar-open .refinement-dock {
 }
 
 .refinement-dock:focus-within {
-  border-color: rgba(79, 110, 232, 0.45);
-  box-shadow: 0 20px 54px rgba(79, 110, 232, 0.16), 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-color: rgba(79, 110, 232, 0.35);
+  box-shadow: 0 24px 60px -10px rgba(79, 110, 232, 0.2), 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
-/* Dock Actions Strip (Top layer of the dock) */
+/* 1. Top Action Strip: Sleek Floating Pill Buttons */
 .dock-actions-strip {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0;
+  justify-content: flex-start;
+  gap: 8px;
   margin-bottom: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .dock-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  min-height: 30px;
-  padding: 0 14px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 600;
-  transition: all 150ms ease;
+  font-weight: 550;
+  transition: all 140ms cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   white-space: nowrap;
-  border-radius: 0;
-  margin-left: -1px;
-}
-
-.dock-action-btn:first-child,
-.dock-actions-strip > :first-child .dock-action-btn {
-  border-radius: 7px 0 0 7px;
-  margin-left: 0;
-}
-
-.dock-action-btn:last-child,
-.dock-actions-strip > :last-child .dock-action-btn {
-  border-radius: 0 7px 7px 0;
-}
-
-/* When the export wrap is the middle child, target its button */
-.dock-export-wrap .dock-action-btn {
-  border-radius: 0;
+  backdrop-filter: blur(8px);
 }
 
 .dock-action-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--border-hover);
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.14);
   color: var(--text-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
+}
+
+.dock-action-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.dock-action-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .dock-btn-icon {
   width: 14px;
   height: 14px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
   flex-shrink: 0;
+  stroke: currentColor;
 }
 
-.dock-save-btn {
-  border-color: var(--border-subtle);
+.dock-chevron-icon {
+  width: 11px;
+  height: 11px;
+  margin-left: 1px;
+  opacity: 0.6;
 }
 
 .dock-save-btn.is-saved {
-  color: var(--success);
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.25);
+  color: #15803d;
+  font-weight: 600;
+}
+
+.dock-save-btn.is-saved .dock-btn-icon {
+  color: #16a34a;
 }
 
 .dock-export-wrap {
@@ -4724,101 +4730,149 @@ body.sidebar-open .refinement-dock {
   position: absolute;
   top: auto;
   bottom: calc(100% + 8px);
-  right: 0;
-  width: 210px;
+  left: 0;
+  width: 220px;
   padding: 6px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  background: var(--bg-elevated);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 100;
 }
 
+/* 2. Quick Suggestions (Chips with subtle glow) */
 .refinement-dock .quick-actions {
   display: flex;
+  align-items: center;
   gap: 6px;
   flex-wrap: nowrap;
-  max-height: 0;
-  margin: 0;
+  margin-bottom: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  opacity: 0;
-  pointer-events: none;
   scrollbar-width: none;
-  transition: max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
-              margin 200ms cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 160ms ease;
+  -ms-overflow-style: none;
+  padding: 2px 0;
 }
 
 .refinement-dock .quick-actions::-webkit-scrollbar {
   display: none;
 }
 
-.refinement-dock:focus-within .quick-actions,
-.refinement-dock.is-focused .quick-actions {
-  max-height: 40px;
-  margin-bottom: 7px;
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .refinement-dock .quick-action {
-  min-height: 26px;
-  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 27px;
+  padding: 0 11px;
   flex: 0 0 auto;
-  border-radius: 6px;
-  background: var(--bg-soft);
-  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.035);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   color: var(--text-secondary);
   font-size: 11.5px;
   font-weight: 500;
-  transition: all 140ms ease;
+  cursor: pointer;
+  transition: all 130ms cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.quick-action-icon {
+  font-size: 11.5px;
+  line-height: 1;
 }
 
 .refinement-dock .quick-action:hover:not(:disabled) {
-  background: var(--accent-soft);
+  background: rgba(79, 110, 232, 0.08);
   color: var(--accent);
-  border-color: rgba(79, 110, 232, 0.25);
+  border-color: rgba(79, 110, 232, 0.22);
+  transform: translateY(-1px);
 }
 
+.refinement-dock .quick-action:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+/* 3. Refinement Input Form: Minimalist Glass Bar */
 .refinement-dock .refinement-form {
+  position: relative;
   margin: 0;
-  padding: 3px 3px 3px 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  background: var(--bg-soft);
+  padding: 5px 6px 5px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  background: #ffffff;
   display: flex;
   align-items: center;
-  box-shadow: none;
+  gap: 8px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.refinement-dock .refinement-form:focus-within {
+  border-color: rgba(79, 110, 232, 0.4);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02), 0 0 0 3px rgba(79, 110, 232, 0.08);
+}
+
+.refine-input-prefix {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  opacity: 0.7;
 }
 
 .refinement-dock .refinement-input {
-  min-height: 38px;
-  max-height: 100px;
-  padding: 8px 4px;
+  min-height: 28px;
+  max-height: 120px;
+  padding: 4px 0;
   resize: none;
   background: transparent;
   border: 0;
   outline: 0;
   color: var(--text-primary);
   font-size: 13.5px;
+  line-height: 1.45;
+  font-family: inherit;
   flex: 1;
 }
 
+.refinement-dock .refinement-input::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.75;
+}
+
 .refinement-dock .refine-submit {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #18181b;
+  color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 150ms ease;
+  border: none;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.refinement-dock .refine-submit:disabled {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-tertiary);
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .refinement-dock .refine-submit:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--accent);
+  box-shadow: 0 4px 12px rgba(79, 110, 232, 0.3);
+  transform: scale(1.05);
+}
+
+.refinement-dock .refine-submit:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .export-integration {
@@ -6145,22 +6199,22 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
 
   .refinement-dock,
   body.sidebar-open .refinement-dock {
-    bottom: max(8px, env(safe-area-inset-bottom));
+    bottom: max(10px, env(safe-area-inset-bottom));
     left: 50%;
     width: calc(100vw - 16px);
-    padding: 8px 10px 8px;
+    padding: 8px 10px;
+    border-radius: 18px;
   }
 
   .dock-actions-strip {
-    gap: 0;
+    gap: 6px;
     margin-bottom: 6px;
-    padding-bottom: 6px;
   }
 
   .dock-action-btn {
-    padding: 0 8px;
+    padding: 0 10px;
     font-size: 11px;
-    min-height: 28px;
+    height: 28px;
     gap: 4px;
   }
 
@@ -6170,13 +6224,13 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   }
 
   .refinement-dock .quick-actions {
-    margin-right: 0;
-    padding-right: 0;
+    margin-bottom: 6px;
   }
 
-  .refinement-dock:focus-within .quick-actions,
-  .refinement-dock.is-focused .quick-actions {
-    margin-bottom: 6px;
+  .refinement-dock .quick-action {
+    height: 25px;
+    padding: 0 9px;
+    font-size: 11px;
   }
 
   .library-controls {
@@ -6429,11 +6483,6 @@ body {
 .toast {
   background: rgba(255, 255, 255, 0.96);
   box-shadow: var(--shadow-lg);
-}
-
-.refinement-dock {
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 44px rgba(31, 41, 55, 0.13);
 }
 
 .mode-switch {

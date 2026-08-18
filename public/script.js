@@ -2925,15 +2925,14 @@ function buildRefinementPanel() {
   // Top Action Buttons Strip: Dəyişiklik istə, İxrac, Yadda saxla
   const actionsStrip = element("div", "dock-actions-strip");
 
-  // 1. Refine button with minimalist pencil/wand icon
+  // 1. Refine button with minimalist magic wand / edit icon
   const refineBtn = button("", "dock-action-btn dock-refine-btn", () => {
     const input = document.querySelector("#refinementInput");
     input?.focus();
   });
   refineBtn.innerHTML = `
-    <svg class="dock-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 20h9"/>
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/>
+    <svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
     </svg>
     <span>Dəyişiklik istə</span>
   `;
@@ -2944,12 +2943,13 @@ function buildRefinementPanel() {
   exportBtn.setAttribute("aria-haspopup", "menu");
   exportBtn.setAttribute("aria-expanded", "false");
   exportBtn.innerHTML = `
-    <svg class="dock-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
       <polyline points="7 10 12 15 17 10"/>
       <line x1="12" y1="15" x2="12" y2="3"/>
     </svg>
     <span>İxrac</span>
+    <svg class="dock-chevron-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
   `;
   const menu = buildExportMenu(exportBtn);
   exportBtn.addEventListener("click", (e) => {
@@ -2971,21 +2971,28 @@ function buildRefinementPanel() {
   const saveBtn = button("", `dock-action-btn dock-save-btn${state.savedId ? " is-saved" : ""}`, saveStrategy);
   saveBtn.disabled = Boolean(state.savedId) || state.status === "refining";
   const saveIconSvg = state.savedId
-    ? `<polyline points="20 6 9 17 4 12"/>`
-    : `<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>`;
+    ? `<svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`
+    : `<svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`;
   saveBtn.innerHTML = `
-    <svg class="dock-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-      ${saveIconSvg}
-    </svg>
+    ${saveIconSvg}
     <span>${state.savedId ? "Yadda saxlanıb" : "Yadda saxla"}</span>
   `;
 
   actionsStrip.append(refineBtn, exportWrap, saveBtn);
 
-  // Middle: Quick suggestions
+  // Middle: Quick suggestions with modern icons
   const quick = element("div", "quick-actions");
+  const quickIcons = {
+    shorten: "⚡",
+    localize_azerbaijan: "📍",
+    think_deeper: "✦",
+    make_practical: "💼",
+    budget_optimize: "💰",
+  };
   QUICK_ACTIONS.forEach(([action, label]) => {
-    const actionButton = button(label, "quick-action", () => requestRefinement(action, ""));
+    const icon = quickIcons[action] || "✦";
+    const actionButton = button("", "quick-action", () => requestRefinement(action, ""));
+    actionButton.innerHTML = `<span class="quick-action-icon">${icon}</span><span>${label}</span>`;
     actionButton.disabled = state.status === "refining";
     quick.appendChild(actionButton);
   });
@@ -2994,22 +3001,34 @@ function buildRefinementPanel() {
   const form = element("form", "refinement-form");
   const label = element("label", "sr-only", "Dəyişiklik istəyi");
   label.htmlFor = "refinementInput";
+
+  const inputPrefix = element("div", "refine-input-prefix");
+  inputPrefix.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`;
+
   const input = element("textarea", "refinement-input");
   input.id = "refinementInput";
   input.rows = 1;
   input.maxLength = 2000;
-  input.placeholder = "Strategiyada nəyi dəyişmək istəyirsən?";
+  input.placeholder = window.innerWidth <= 767
+    ? "Strategiyada dəyişiklik istə…"
+    : "Strategiyada nəyi dəyişmək istəyirsən? (məs: auditoriyanı genişləndir, tonu rəsmi et...)";
   input.disabled = state.status === "refining";
+
   const submit = button("", "refine-submit");
   submit.type = "submit";
   submit.disabled = true;
   submit.setAttribute("aria-label", "Dəyişiklik istəyini göndər");
-  submit.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
-  form.append(label, input, submit);
+  submit.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
 
-  input.addEventListener("input", () => {
+  form.append(label, inputPrefix, input, submit);
+
+  const resizeInput = () => {
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 140)}px`;
     submit.disabled = input.value.trim().length < 3 || state.status === "refining";
-  });
+  };
+
+  input.addEventListener("input", resizeInput);
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing && window.innerWidth > 700) {
       event.preventDefault();
