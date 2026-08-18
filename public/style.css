@@ -2867,7 +2867,24 @@ body.sidebar-open .app-main {
     padding: 10px 18px;
   }
 
-  /* Loading View Layout on Mobile */
+  /* Loading View Layout on Mobile (Vertically and Horizontally Centered) */
+  .mode-header + .workspace-centered:has(.loading-view),
+  .workspace-centered:has(.loading-view) {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    padding: calc(60px + env(safe-area-inset-top)) 16px calc(36px + env(safe-area-inset-bottom)) !important;
+    box-sizing: border-box !important;
+  }
+
+  .workspace-centered .loading-view {
+    margin: auto 0 !important;
+    width: 100% !important;
+    max-width: 520px !important;
+  }
+
   .loading-title {
     font-size: clamp(22px, 6vw, 28px);
     margin-bottom: 6px;
