@@ -2318,45 +2318,86 @@ body.sidebar-open .app-main {
 }
 
 /* Background Job Status in Archive */
-.library-row-progress {
-  border-left: 3px solid #22c55e;
-  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+.strategy-library-row.library-row-progress {
+  background: rgba(34, 197, 94, 0.02);
+  border-bottom: 1px solid rgba(34, 197, 94, 0.12);
+  transition: background 160ms ease;
 }
 
-.library-row-progress .saved-status {
+.strategy-library-row.library-row-progress:hover {
+  background: rgba(34, 197, 94, 0.045);
+}
+
+.strategy-library-row.library-row-progress .library-row-main h2 {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.strategy-library-row.library-row-progress .library-row-main p {
   color: #16a34a;
-  font-weight: 600;
+  opacity: 0.9;
 }
 
-.library-row-error {
-  border-left: 3px solid #ef4444;
-  background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+.strategy-library-row.library-row-error {
+  background: rgba(239, 68, 68, 0.02);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.12);
 }
 
-.library-row-error .saved-status {
-  color: #dc2626;
-  font-weight: 600;
-}
-
-.bg-job-status {
+.saved-status.is-generating {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 550;
+  gap: 7px;
+  color: #16a34a;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.saved-status.is-error {
+  color: #dc2626;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .bg-job-pulse {
-  width: 7px;
-  height: 7px;
+  position: relative;
+  display: inline-block;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #22c55e;
-  animation: bg-pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
 }
 
-@keyframes bg-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
+.bg-job-pulse::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.35);
+  animation: bg-beacon-pulse 2s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+@keyframes bg-beacon-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.85;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
 }
 
 .bg-job-retry-btn {
@@ -2395,7 +2436,7 @@ body.sidebar-open .app-main {
   height: 6px;
   border-radius: 50%;
   background: #22c55e;
-  animation: bg-pulse 1.5s ease-in-out infinite;
+  animation: bg-beacon-pulse 2s cubic-bezier(0.25, 1, 0.5, 1) infinite;
 }
 
 /* Floating Ask Marketify Chat Button (Bottom-Right, Brief Analysis Only) */
@@ -4804,7 +4845,7 @@ body.sidebar-open .refinement-dock {
 
 .strategy-library-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(180px, 0.8fr) 70px 48px;
+  grid-template-columns: minmax(0, 1.7fr) minmax(170px, 0.8fr) minmax(84px, 100px) 48px;
   gap: 20px;
   align-items: center;
   min-height: 92px;

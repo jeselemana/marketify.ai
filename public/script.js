@@ -3416,45 +3416,15 @@ function renderStrategyList() {
   const view = element("section", "strategies-view");
   const heading = element("div", "list-heading");
   const copy = element("div");
-  copy.append(element("span", "section-kicker", "WORKSPACE"), element("h1", "", "Arxiv"), element("p", "", "Yadda saxladığın bütün strategiyalar və işlər."));
+  copy.append(
+    element("span", "section-kicker", "WORKSPACE"),
+    element("h1", "", "Arxiv"),
+    element("p", "", "Yadda saxladığın bütün strategiyalar və işlər.")
+  );
   heading.append(copy, button("＋ Yeni strategiya", "primary-button", resetStrategy));
   view.appendChild(heading);
 
-  // Background jobs section (always rendered if any exist)
   const activeBgJobs = backgroundJobs.filter((j) => j.status === "generating" || j.status === "ready" || j.status === "error");
-  if (activeBgJobs.length) {
-    const bgSection = element("div", "strategy-library bg-jobs-section");
-    activeBgJobs.forEach((job) => {
-      const row = element("article", `strategy-library-row ${job.status === "generating" ? "library-row-progress" : job.status === "error" ? "library-row-error" : ""}`);
-      const main = element("div", "library-row-main");
-      const briefPreview = (job.brief || "").slice(0, 120) + ((job.brief || "").length > 120 ? "…" : "");
-      main.append(
-        element("h2", "", job.status === "generating" ? "Strategiya hazırlanır..." : job.status === "error" ? "Xəta baş verdi" : "Strategiya hazırdır"),
-        element("p", "", briefPreview),
-      );
-      const meta = element("div", "library-row-meta");
-      meta.append(element("span", "", `Başladı ${formatDate(job.startedAt)}`));
-
-      if (job.status === "generating") {
-        const statusEl = element("span", "bg-job-status");
-        const pulse = element("span", "bg-job-pulse");
-        statusEl.append(pulse, document.createTextNode("Analiz davam edir..."));
-        const openBtn = button("Bax →", "text-button", () => openBackgroundJob(job.id));
-        row.append(main, meta, statusEl, openBtn);
-      } else if (job.status === "ready") {
-        const statusEl = element("span", "saved-status", "Hazırdır ✓");
-        const openBtn = button("Aç →", "text-button", () => openBackgroundJob(job.id));
-        row.append(main, meta, statusEl, openBtn);
-      } else if (job.status === "error") {
-        const statusEl = element("span", "saved-status", "Xəta");
-        const retryBtn = button("Sil", "bg-job-retry-btn", () => { removeBackgroundJob(job.id); render(); });
-        row.append(main, meta, statusEl, retryBtn);
-      }
-
-      bgSection.appendChild(row);
-    });
-    view.appendChild(bgSection);
-  }
 
   if (!state.savedStrategies.length && !activeBgJobs.length) {
     const empty = element("div", "empty-state");
@@ -3465,7 +3435,7 @@ function renderStrategyList() {
       button("Yeni strategiya", "primary-button", resetStrategy),
     );
     view.appendChild(empty);
-  } else if (state.savedStrategies.length) {
+  } else {
     const controls = element("div", "library-controls");
     const search = element("input", "library-search");
     search.type = "search";
@@ -3475,15 +3445,62 @@ function renderStrategyList() {
     ["Hamısı", "Son", "Yadda saxlanmış"].forEach((label, index) => filters.appendChild(button(label, `library-filter${index === 0 ? " is-active" : ""}`)));
     const sort = element("span", "library-sort", "Son yenilənən ↓");
     controls.append(search, filters, sort);
+    view.appendChild(controls);
+
     const list = element("div", "strategy-library");
+
     const drawRows = () => {
       const query = search.value.trim().toLocaleLowerCase("az");
-      const records = state.savedStrategies.filter((record) => !query || `${record.title} ${record.strategy?.summary || record.brief}`.toLocaleLowerCase("az").includes(query));
       list.replaceChildren();
-      if (!records.length) {
+
+      // Render active background jobs seamlessly at the top of the archive list
+      const matchingBgJobs = activeBgJobs.filter((job) => !query || `${job.brief || ""} ${job.strategy?.summary || ""}`.toLocaleLowerCase("az").includes(query));
+      matchingBgJobs.forEach((job) => {
+        const isGenerating = job.status === "generating";
+        const isError = job.status === "error";
+        const row = element("article", `strategy-library-row ${isGenerating ? "library-row-progress" : isError ? "library-row-error" : ""}`);
+
+        const main = element("div", "library-row-main");
+        const briefTitle = job.brief ? (job.brief.length > 70 ? job.brief.slice(0, 70) + "…" : job.brief) : "Yeni Strategiya";
+        const subtitle = isGenerating
+          ? "Məlumatlar analiz olunur və strateji plan formalaşdırılır…"
+          : isError
+          ? (job.error || "Generasiya zamanı xəta baş verdi.")
+          : (firstSentences(job.strategy?.summary || job.brief, 1));
+        main.append(element("h2", "", isGenerating ? briefTitle : (job.strategy?.title || briefTitle)), element("p", "", subtitle));
+
+        const meta = element("div", "library-row-meta");
+        meta.append(
+          element("span", "", `Başladı ${formatDate(job.startedAt)}`),
+          element("span", "", isGenerating ? "Arxa planda icra" : isError ? "Uğursuz oldu" : "Versiya 1")
+        );
+
+        if (isGenerating) {
+          const statusEl = element("span", "saved-status is-generating");
+          const pulse = element("span", "bg-job-pulse");
+          statusEl.append(pulse, document.createTextNode("Hazırlanır"));
+          const openBtn = button("Bax →", "text-button", () => openBackgroundJob(job.id));
+          row.append(main, meta, statusEl, openBtn);
+        } else if (job.status === "ready") {
+          const statusEl = element("span", "saved-status", "Hazırdır");
+          const openBtn = button("Aç →", "text-button", () => openBackgroundJob(job.id));
+          row.append(main, meta, statusEl, openBtn);
+        } else if (isError) {
+          const statusEl = element("span", "saved-status is-error", "Xəta");
+          const retryBtn = button("Sil", "bg-job-retry-btn", () => { removeBackgroundJob(job.id); render(); });
+          row.append(main, meta, statusEl, retryBtn);
+        }
+
+        list.appendChild(row);
+      });
+
+      const records = state.savedStrategies.filter((record) => !query || `${record.title} ${record.strategy?.summary || record.brief}`.toLocaleLowerCase("az").includes(query));
+
+      if (!records.length && !matchingBgJobs.length) {
         list.appendChild(element("p", "library-no-results", "Bu axtarışa uyğun strategiya tapılmadı."));
         return;
       }
+
       records.forEach((record) => {
         const row = element("article", "strategy-library-row");
         const main = element("div", "library-row-main");
@@ -3496,12 +3513,13 @@ function renderStrategyList() {
         list.appendChild(row);
       });
     };
+
     search.addEventListener("input", drawRows);
     [...filters.children].forEach((filter) => filter.addEventListener("click", () => {
       [...filters.children].forEach((item) => item.classList.toggle("is-active", item === filter));
     }));
     drawRows();
-    view.append(controls, list);
+    view.appendChild(list);
   }
   workspace.appendChild(view);
 }
