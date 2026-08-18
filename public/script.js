@@ -333,8 +333,18 @@ function syncNav() {
   }
 }
 
+function isHomePage() {
+  if (state.view !== "home") return false;
+  if (state.mode === "build") {
+    return state.status === "draft" && !state.strategy;
+  }
+  return true;
+}
+
 function syncMode() {
   const isBuild = state.mode === "build";
+  const isHome = isHomePage();
+
   buildModeButton?.classList.toggle("is-active", isBuild);
   askModeButton?.classList.toggle("is-active", !isBuild);
   buildModeButton?.setAttribute("aria-selected", String(isBuild));
@@ -357,6 +367,7 @@ function syncMode() {
   }
 
   document.body.dataset.mode = state.mode;
+  document.body.dataset.isHome = String(isHome);
 }
 
 function setMode(mode) {

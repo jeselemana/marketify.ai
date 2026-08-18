@@ -4713,6 +4713,12 @@ body.sidebar-open .refinement-dock {
 }
 
 /* Build / Ask modes */
+body:not([data-is-home="true"]) .mode-header,
+body:not([data-is-home="true"]) .sidebar-mode-switch,
+body:not([data-is-home="true"]) .rail-mode-toggle {
+  display: none !important;
+}
+
 .mode-header {
   position: relative;
   z-index: 25;
