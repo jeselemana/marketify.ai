@@ -420,7 +420,7 @@ function render() {
   clearInterval(loadingAskPlaceholderTimer);
   syncMode();
   syncNav();
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-modal-overlay").forEach((btn) => btn.remove());
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay").forEach((btn) => btn.remove());
   workspace.replaceChildren();
   workspace.className = "workspace";
 
@@ -1092,63 +1092,32 @@ function renderLoading() {
 
   cardActions.append(mobileCancelBtn, mobileHistoryBtn);
 
-  // Ask Marketify Quick Bar
-  const askSection = element("div", "loading-ask-card");
-  const askHeader = element("div", "loading-ask-header");
-  const askBadge = element("div", "loading-ask-badge");
-  askBadge.innerHTML = `<span class="loading-ask-spark">✦</span><span>Marketify-dan soruş</span>`;
-  askHeader.appendChild(askBadge);
+  // Floating Ask Marketify Chat Button (Bottom-Right, Brief Analysis Only)
+  const floatingWrap = element("div", "loading-ask-floating-wrap");
+  floatingWrap.id = "loadingAskFloatingWrap";
 
-  const askForm = element("form", "loading-ask-form");
-  const askInputWrap = element("div", "loading-ask-input-row");
-  const askInput = element("input", "loading-ask-input");
-  askInput.type = "text";
-  askInput.autocomplete = "off";
-  askInput.maxLength = 1000;
-
-  let placeholderIndex = Math.floor(Math.random() * LOADING_ASK_PLACEHOLDERS.length);
-  askInput.placeholder = LOADING_ASK_PLACEHOLDERS[placeholderIndex];
-
-  const askSubmit = element("button", "loading-ask-submit-btn");
-  askSubmit.type = "submit";
-  askSubmit.setAttribute("aria-label", "Sualı göndər");
-  askSubmit.title = "Sualı göndər";
-  askSubmit.innerHTML = `
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="12" y1="19" x2="12" y2="5"></line>
-      <polyline points="5 12 12 5 19 12"></polyline>
-    </svg>
+  const floatingBtn = element("button", "loading-ask-floating-btn");
+  floatingBtn.type = "button";
+  floatingBtn.id = "loadingAskFloatingBtn";
+  floatingBtn.setAttribute("aria-label", "Marketify-dan soruş");
+  floatingBtn.title = "Marketify-dan soruş";
+  floatingBtn.innerHTML = `
+    <span class="loading-ask-floating-icon">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span class="loading-ask-floating-spark">✦</span>
+    </span>
+    <span class="loading-ask-floating-label">Marketify-dan soruş</span>
   `;
+  floatingBtn.addEventListener("click", () => showLoadingAskModal(""));
+  floatingWrap.appendChild(floatingBtn);
 
-  askInputWrap.append(askInput, askSubmit);
-  askForm.appendChild(askInputWrap);
-  askSection.append(askHeader, askForm);
-
-  clearInterval(loadingAskPlaceholderTimer);
-  loadingAskPlaceholderTimer = setInterval(() => {
-    if (!askInput || document.activeElement === askInput || askInput.value.trim().length > 0) {
-      return;
-    }
-    placeholderIndex = (placeholderIndex + 1) % LOADING_ASK_PLACEHOLDERS.length;
-    askInput.classList.add("placeholder-fading");
-    setTimeout(() => {
-      askInput.placeholder = LOADING_ASK_PLACEHOLDERS[placeholderIndex];
-      askInput.classList.remove("placeholder-fading");
-    }, 160);
-  }, 3000);
-
-  askForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const question = askInput.value.trim() || askInput.placeholder;
-    if (!question) return;
-    askInput.value = "";
-    showLoadingAskModal(question);
-  });
-
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn").forEach((el) => el.remove());
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap").forEach((el) => el.remove());
   document.body.appendChild(topActions);
+  document.body.appendChild(floatingWrap);
 
-  view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions, askSection);
+  view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
   workspace.appendChild(view);
 
   progressTimer = setInterval(() => {
@@ -1408,6 +1377,11 @@ function showLoadingAskModal(initialQuery) {
   };
 
   const askAssistant = async (queryText) => {
+    const welcome = messagesBody.querySelector(".loading-ask-welcome");
+    if (welcome) welcome.remove();
+    const suggestionsWrap = messagesBody.querySelector(".loading-ask-suggestions");
+    if (suggestionsWrap) suggestionsWrap.remove();
+
     appendUserMessage(queryText);
     thread.push({ role: "user", content: queryText });
 
@@ -1465,6 +1439,27 @@ function showLoadingAskModal(initialQuery) {
 
   if (initialQuery) {
     askAssistant(initialQuery);
+  } else {
+    const welcome = element("div", "loading-ask-welcome");
+    welcome.innerHTML = `
+      <div class="loading-ask-welcome-spark">✦</div>
+      <div class="loading-ask-welcome-text">
+        <strong>Marketify-dan soruş</strong>
+        <p>Brif analizi arxa planda davam edərkən istənilən marketinq sualınızı verə bilərsiniz.</p>
+      </div>
+    `;
+    const suggestionsWrap = element("div", "loading-ask-suggestions");
+    const sampleQuestions = LOADING_ASK_PLACEHOLDERS.slice(0, 4);
+    sampleQuestions.forEach((q) => {
+      const pill = element("button", "loading-ask-suggestion-pill", q);
+      pill.type = "button";
+      pill.addEventListener("click", () => {
+        askAssistant(q);
+      });
+      suggestionsWrap.appendChild(pill);
+    });
+    messagesBody.append(welcome, suggestionsWrap);
+    setTimeout(() => modalInput.focus(), 120);
   }
 }
 

@@ -2264,113 +2264,137 @@ body.sidebar-open .app-main {
   font-variant-numeric: tabular-nums;
 }
 
-/* Refined Minimal Ask Marketify Command Bar */
-.loading-ask-card {
-  width: min(100%, 520px);
-  margin: 20px auto 0;
-  padding: 11px 13px 11px 15px;
-  border-radius: 14px;
-  border: 1px solid #e5e9f0;
-  background: #ffffff;
-  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.035), 0 1px 2px rgba(15, 23, 42, 0.02);
-  text-align: left;
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+/* Floating Ask Marketify Chat Button (Bottom-Right, Brief Analysis Only) */
+.loading-ask-floating-wrap {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 28px !important;
+  z-index: 9990 !important;
+  pointer-events: auto !important;
+  animation: floating-btn-fade 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.loading-ask-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px -3px rgba(15, 23, 42, 0.05);
+@keyframes floating-btn-fade {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.loading-ask-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 7px;
-  padding: 0 1px;
+.loading-ask-floating-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  height: 42px !important;
+  padding: 0 16px 0 12px !important;
+  border-radius: 99px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #1e293b !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.1), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  transition: all 150ms ease !important;
 }
 
-.loading-ask-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #334155;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+.loading-ask-floating-btn:hover {
+  border-color: #cbd5e1 !important;
+  background: #f8fafc !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.14) !important;
 }
 
-.loading-ask-spark {
-  color: #2563eb;
-  font-size: 12px;
-  line-height: 1;
+.loading-ask-floating-btn:active {
+  transform: scale(0.97) !important;
 }
 
-.loading-ask-form {
-  width: 100%;
-}
-
-.loading-ask-input-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 3px 3px 12px;
-  border-radius: 10px;
-  border: 1px solid #edf2f7;
-  background: #f8fafc;
-  transition: all 130ms ease;
-}
-
-.loading-ask-input-row:focus-within {
-  background: #ffffff;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
-}
-
-.loading-ask-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  padding: 5px 0;
-  font-size: 13.5px;
-  color: #0f172a;
-  outline: none;
-  font-family: inherit;
-}
-
-.loading-ask-input::placeholder {
-  color: #94a3b8;
-  font-size: 13px;
-  transition: opacity 160ms ease;
-}
-
-.loading-ask-input.placeholder-fading::placeholder {
-  opacity: 0;
-}
-
-.loading-ask-submit-btn,
-.loading-ask-send-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  border: none;
-  background: #2563eb;
-  color: #ffffff;
+.loading-ask-floating-icon {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.loading-ask-floating-spark {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  font-size: 10px;
+  color: #2563eb;
+  line-height: 1;
+}
+
+.loading-ask-floating-label {
+  line-height: 1;
+}
+
+.loading-ask-welcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.loading-ask-welcome-spark {
+  font-size: 16px;
+  color: #2563eb;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+.loading-ask-welcome-text strong {
+  display: block;
+  font-size: 13.5px;
+  color: #0f172a;
+  margin-bottom: 3px;
+}
+
+.loading-ask-welcome-text p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.loading-ask-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.loading-ask-suggestion-pill {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: 11px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
   cursor: pointer;
-  flex-shrink: 0;
-  transition: background-color 130ms ease, transform 130ms ease;
+  transition: all 130ms ease;
 }
 
-.loading-ask-submit-btn:hover,
-.loading-ask-send-btn:hover {
-  background: #1d4ed8;
-}
-
-.loading-ask-submit-btn:active,
-.loading-ask-send-btn:active {
-  transform: scale(0.96);
+.loading-ask-suggestion-pill:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+  transform: translateX(2px);
 }
 
 /* Ask Modal / Drawer Overlay */
@@ -2880,25 +2904,15 @@ body.sidebar-open .app-main {
     font-size: 10.5px;
   }
 
-  .loading-reassurance {
-    margin: 16px 0 0;
-    font-size: 11.5px;
-    padding: 0 6px;
+  .loading-ask-floating-wrap {
+    bottom: max(18px, calc(env(safe-area-inset-bottom, 0px) + 14px)) !important;
+    right: 16px !important;
   }
 
-  .loading-ask-card {
-    width: 100%;
-    margin: 18px auto 0;
-    padding: 12px 14px 14px;
-    border-radius: 14px;
-  }
-
-  .loading-ask-input-row {
-    padding: 3px 3px 3px 12px;
-  }
-
-  .loading-ask-input {
-    font-size: 12.5px;
+  .loading-ask-floating-btn {
+    height: 40px !important;
+    padding: 0 14px 0 11px !important;
+    font-size: 12px !important;
   }
 
   .loading-ask-modal-overlay {
