@@ -2419,6 +2419,12 @@ body.sidebar-open .app-main {
   }
 }
 
+.bg-job-error-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .bg-job-retry-btn {
   display: inline-flex;
   align-items: center;
@@ -2437,6 +2443,26 @@ body.sidebar-open .app-main {
 .bg-job-retry-btn:hover {
   background: #fef2f2;
   border-color: #f87171;
+}
+
+.bg-job-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: all 130ms ease;
+}
+
+.bg-job-delete-btn:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #cbd5e1;
 }
 
 .recent-item.is-bg-job .recent-title {

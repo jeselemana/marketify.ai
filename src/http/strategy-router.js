@@ -73,22 +73,44 @@ export function createStrategyRouter(repository) {
     asyncRoute(async (req, res) => {
       const payload = parse(GenerateRequestSchema, req.body);
       const requestKey = `${req.ownerId}:${payload.idempotencyKey}`;
-      const abortController = new AbortController();
-      req.on("close", () => {
-        if (!res.writableEnded) {
-          abortController.abort();
-          activeGenerations.delete(requestKey);
-        }
-      });
+      
       let generation = activeGenerations.get(requestKey);
       if (!generation) {
-        generation = generateStrategy({ ...payload, ownerId: req.ownerId, signal: abortController.signal });
+        generation = (async () => {
+          const strategy = await generateStrategy({ ...payload, ownerId: req.ownerId });
+          // Automatically save completed strategy to server repository so it is never lost if user closes browser
+          try {
+            const now = new Date().toISOString();
+            await repository.create(
+              {
+                clientSaveId: payload.idempotencyKey,
+                brief: payload.brief,
+                answers: payload.answers,
+                strategy,
+                versions: [
+                  {
+                    versionNumber: 1,
+                    data: strategy,
+                    changeRequest: "İlkin strategiya",
+                    createdAt: now,
+                  },
+                ],
+              },
+              req.ownerId,
+            );
+          } catch (saveErr) {
+            console.error("Auto-save on server failed:", saveErr);
+          }
+          return strategy;
+        })();
+
         activeGenerations.set(requestKey, generation);
         generation.then(
-          () => setTimeout(() => activeGenerations.delete(requestKey), 60_000).unref(),
+          () => setTimeout(() => activeGenerations.delete(requestKey), 15 * 60 * 1000).unref(),
           () => activeGenerations.delete(requestKey),
         );
       }
+
       const strategy = await generation;
       if (!res.writableEnded) {
         res.json({ strategy });

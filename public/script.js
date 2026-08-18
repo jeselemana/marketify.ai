@@ -1308,18 +1308,32 @@ async function autoSaveBackgroundJob(job) {
 }
 
 function resumeBackgroundJobs() {
-  backgroundJobs.forEach((job) => {
+  if (!backgroundJobs.length) return;
+
+  backgroundJobs.forEach(async (job) => {
+    // Check if the strategy was already saved on server by idempotencyKey or brief
+    const alreadySaved = state.savedStrategies.find(
+      (s) => (s.clientSaveId && s.clientSaveId === job.idempotencyKey) || (s.brief && s.brief === job.brief)
+    );
+    if (alreadySaved) {
+      removeBackgroundJob(job.id);
+      if (state.view === "list") renderStrategyList();
+      return;
+    }
+
     if (job.status !== "generating") return;
 
-    api("/api/strategy/generate", {
-      method: "POST",
-      body: JSON.stringify({
-        brief: job.brief,
-        answers: job.answers,
-        assumptions: job.assumptions,
-        idempotencyKey: job.idempotencyKey,
-      }),
-    }).then((data) => {
+    try {
+      const data = await api("/api/strategy/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          brief: job.brief,
+          answers: job.answers,
+          assumptions: job.assumptions,
+          idempotencyKey: job.idempotencyKey,
+        }),
+      });
+
       // Check if user restored this job to foreground while in flight
       if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
         state.strategy = data.strategy;
@@ -1337,20 +1351,48 @@ function resumeBackgroundJobs() {
       job.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: job.completedAt }];
       persistBackgroundJobs();
       autoSaveBackgroundJob(job);
-    }).catch((err) => {
-      if (err.name !== "AbortError") {
-        if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
-          setError(err, startGeneration, state.questions?.length ? "needs_clarification" : "draft");
+    } catch (err) {
+      if (err.name === "AbortError") return;
+
+      // If temporary network disconnection, keep in generating status and retry on reconnect
+      if (!navigator.onLine) {
+        return;
+      }
+
+      // Check if server already finished and saved it
+      try {
+        await loadSavedStrategies();
+        const savedNow = state.savedStrategies.find(
+          (s) => (s.clientSaveId && s.clientSaveId === job.idempotencyKey) || (s.brief && s.brief === job.brief)
+        );
+        if (savedNow) {
+          removeBackgroundJob(job.id);
+          if (state.view === "list") renderStrategyList();
           return;
         }
-        job.status = "error";
-        job.error = err.message || "Xəta baş verdi";
-        persistBackgroundJobs();
-        if (state.view === "list") render();
+      } catch {}
+
+      if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
+        setError(err, startGeneration, state.questions?.length ? "needs_clarification" : "draft");
+        return;
       }
-    });
+
+      job.status = "error";
+      job.error = err.message || "Xəta baş verdi";
+      persistBackgroundJobs();
+      if (state.view === "list") render();
+    }
   });
 }
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    resumeBackgroundJobs();
+  }
+});
+window.addEventListener("online", () => {
+  resumeBackgroundJobs();
+});
 
 function openBackgroundJob(jobId) {
   const job = backgroundJobs.find((j) => j.id === jobId);
@@ -3492,8 +3534,20 @@ function renderStrategyList() {
           row.append(main, meta, statusEl, openBtn);
         } else if (isError) {
           const statusEl = element("span", "saved-status is-error", "Xəta");
-          const retryBtn = button("Sil", "bg-job-retry-btn", () => { removeBackgroundJob(job.id); render(); });
-          row.append(main, meta, statusEl, retryBtn);
+          const actionsWrap = element("div", "bg-job-error-actions");
+          const retryBtn = button("Yoxla", "bg-job-retry-btn", () => {
+            job.status = "generating";
+            job.error = null;
+            persistBackgroundJobs();
+            resumeBackgroundJobs();
+            render();
+          });
+          const deleteBtn = button("Sil", "bg-job-delete-btn", () => {
+            removeBackgroundJob(job.id);
+            render();
+          });
+          actionsWrap.append(retryBtn, deleteBtn);
+          row.append(main, meta, statusEl, actionsWrap);
         }
 
         list.appendChild(row);
