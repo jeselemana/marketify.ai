@@ -1102,7 +1102,36 @@ function renderLoading() {
   topActions.append(cancelBtn, historyBtn);
 
   // Mobile Under-Card Actions
+  // Mobile Under-Card Actions
   const cardActions = element("div", "loading-card-actions");
+
+  // Mobile background continuation button (prominent full-width button) — only during generation
+  if (!isAssessment) {
+    const mobileBgBtn = element("button", "loading-back-btn-mobile");
+    mobileBgBtn.type = "button";
+    mobileBgBtn.setAttribute("aria-label", "İşi arxa planda davam etdir");
+    mobileBgBtn.title = "İşi arxa planda davam etdir";
+    mobileBgBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+      </svg>
+      <span>İşi arxa planda davam etdir</span>
+    `;
+    mobileBgBtn.addEventListener("click", () => {
+      const confirmed = window.confirm(
+        "Əsas səhifəyə qayıdırsınız bu analizi arxa planda davam etdirmək istədiyinizdən əminsiniz? Daha sonra onunla \"Arxiv\" səhifəsindən tanış ola biləcəksiniz."
+      );
+      if (confirmed) {
+        minimizeToBackground();
+      }
+    });
+    cardActions.appendChild(mobileBgBtn);
+  }
+
+  const secondaryRow = element("div", "loading-card-actions-secondary");
+
   const mobileCancelBtn = element("button", "loading-cancel-btn-mobile");
   mobileCancelBtn.type = "button";
   mobileCancelBtn.innerHTML = `
@@ -1131,32 +1160,8 @@ function renderLoading() {
   `;
   mobileHistoryBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
 
-  // Mobile background continuation button — only during generation
-  if (!isAssessment) {
-    const mobileBgBtn = element("button", "loading-back-btn-mobile");
-    mobileBgBtn.type = "button";
-    mobileBgBtn.setAttribute("aria-label", "İşi arxa planda davam etdir");
-    mobileBgBtn.title = "İşi arxa planda davam etdir";
-    mobileBgBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-        <polyline points="15 3 21 3 21 9"></polyline>
-        <line x1="10" y1="14" x2="21" y2="3"></line>
-      </svg>
-      <span>İşi arxa planda davam etdir</span>
-    `;
-    mobileBgBtn.addEventListener("click", () => {
-      const confirmed = window.confirm(
-        "Əsas səhifəyə qayıdırsınız bu analizi arxa planda davam etdirmək istədiyinizdən əminsiniz? Daha sonra onunla \"Arxiv\" səhifəsindən tanış ola biləcəksiniz."
-      );
-      if (confirmed) {
-        minimizeToBackground();
-      }
-    });
-    cardActions.appendChild(mobileBgBtn);
-  }
-
-  cardActions.append(mobileCancelBtn, mobileHistoryBtn);
+  secondaryRow.append(mobileCancelBtn, mobileHistoryBtn);
+  cardActions.appendChild(secondaryRow);
 
   // Floating Ask Marketify Chat Button (Bottom-Right, Brief Analysis Only)
   const floatingWrap = element("div", "loading-ask-floating-wrap");
