@@ -1094,18 +1094,29 @@ function renderLoading() {
   `;
   historyBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
 
-  // Back button — only during generation (after clarification is done)
+  // Background continuation button — only during generation (after clarification is done)
   if (!isAssessment) {
-    const backBtn = element("button", "loading-back-button");
-    backBtn.type = "button";
-    backBtn.innerHTML = `
+    const bgBtn = element("button", "loading-back-button");
+    bgBtn.type = "button";
+    bgBtn.setAttribute("aria-label", "İşi arxa planda davam etdir");
+    bgBtn.title = "İşi arxa planda davam etdir";
+    bgBtn.innerHTML = `
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="15 18 9 12 15 6"/>
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
       </svg>
-      <span>Geri</span>
+      <span>İşi arxa planda davam etdir</span>
     `;
-    backBtn.addEventListener("click", minimizeToBackground);
-    topActions.prepend(backBtn);
+    bgBtn.addEventListener("click", () => {
+      const confirmed = window.confirm(
+        "Əsas səhifəyə qayıdırsınız bu analizi arxa planda davam etdirmək istədiyinizdən əminsiniz? Daha sonra onunla \"Arxiv\" səhifəsindən tanış ola biləcəksiniz."
+      );
+      if (confirmed) {
+        minimizeToBackground();
+      }
+    });
+    topActions.prepend(bgBtn);
   }
 
   topActions.append(cancelBtn, historyBtn);
@@ -1140,18 +1151,29 @@ function renderLoading() {
   `;
   mobileHistoryBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
 
-  // Mobile back button — only during generation
+  // Mobile background continuation button — only during generation
   if (!isAssessment) {
-    const mobileBackBtn = element("button", "loading-back-btn-mobile");
-    mobileBackBtn.type = "button";
-    mobileBackBtn.innerHTML = `
+    const mobileBgBtn = element("button", "loading-back-btn-mobile");
+    mobileBgBtn.type = "button";
+    mobileBgBtn.setAttribute("aria-label", "İşi arxa planda davam etdir");
+    mobileBgBtn.title = "İşi arxa planda davam etdir";
+    mobileBgBtn.innerHTML = `
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="15 18 9 12 15 6"/>
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
       </svg>
-      <span>Arxa plana keçir</span>
+      <span>İşi arxa planda davam etdir</span>
     `;
-    mobileBackBtn.addEventListener("click", minimizeToBackground);
-    cardActions.appendChild(mobileBackBtn);
+    mobileBgBtn.addEventListener("click", () => {
+      const confirmed = window.confirm(
+        "Əsas səhifəyə qayıdırsınız bu analizi arxa planda davam etdirmək istədiyinizdən əminsiniz? Daha sonra onunla \"Arxiv\" səhifəsindən tanış ola biləcəksiniz."
+      );
+      if (confirmed) {
+        minimizeToBackground();
+      }
+    });
+    cardActions.appendChild(mobileBgBtn);
   }
 
   cardActions.append(mobileCancelBtn, mobileHistoryBtn);
