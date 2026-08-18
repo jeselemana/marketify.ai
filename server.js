@@ -21,7 +21,7 @@ import { FileStrategyRepository } from "./src/repositories/file-strategy-reposit
 import { FileChatRepository } from "./src/repositories/file-chat-repository.js";
 import { FilePlannerRepository } from "./src/repositories/file-planner-repository.js";
 import { createPlannerRouter } from "./src/http/planner-router.js";
-import { aiConfig, getAIProvider, hasAIConfiguration } from "./src/services/ai/config.js";
+import { aiConfig, getAIProvider, hasAIConfiguration, resolveAIModel } from "./src/services/ai/config.js";
 import { executeGeminiChat, getOpenAIClient } from "./src/services/ai/client.js";
 
 dotenv.config();
@@ -275,13 +275,14 @@ app.post("/api/ask", async (req, res) => {
         })}\n</saved_strategy_json>`
       : "";
 
-    const provider = getAIProvider();
+    const selectedModel = typeof req.body.model === "string" ? req.body.model : "flash";
+    const { provider, model: chosenModel } = resolveAIModel({ mode: "ask", selectedModel });
     let reply = "";
 
     if (provider === "gemini") {
       try {
         reply = await executeGeminiChat({
-          model: ASK_MODEL,
+          model: chosenModel,
           instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
           messages,
           maxOutputTokens: 2500,
@@ -290,7 +291,7 @@ app.post("/api/ask", async (req, res) => {
       } catch (geminiError) {
         if (process.env.OPENAI_API_KEY) {
           console.warn("[Ask Mode] Gemini error, falling back to OpenAI:", geminiError.message);
-          const openAIModel = process.env.OPENAI_ASK_MODEL || "gpt-5.6-terra";
+          const openAIModel = aiConfig.openAIBaseAskModel || "gpt-5.6-luna";
           const response = await getOpenAIClient().responses.create({
             model: openAIModel,
             instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
@@ -305,9 +306,8 @@ app.post("/api/ask", async (req, res) => {
         }
       }
     } else {
-      const openAIModel = process.env.OPENAI_ASK_MODEL || "gpt-5.6-terra";
       const response = await getOpenAIClient().responses.create({
-        model: openAIModel,
+        model: chosenModel,
         instructions: `${ASK_INSTRUCTIONS}${strategyContext}`,
         input: messages.map(({ role, content }) => ({ role, content })),
         reasoning: { effort: "low" },

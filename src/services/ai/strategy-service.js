@@ -7,7 +7,7 @@ import {
   validateAssessment,
 } from "../../domain/strategy.js";
 import { executeGeminiGenerate, getOpenAIClient } from "./client.js";
-import { aiConfig, getAIProvider } from "./config.js";
+import { aiConfig, getAIProvider, resolveAIModel } from "./config.js";
 import {
   ASSESSOR_PROMPT,
   REFINEMENT_PROMPT,
@@ -100,8 +100,8 @@ Output must be a raw JSON object with this exact schema:
   return "";
 }
 
-async function parseStructured({ model, schema, name, instructions, input, maxOutputTokens, reasoning, ownerId, signal }) {
-  const provider = getAIProvider();
+async function parseStructured({ selectedModel = "flash", schema, name, instructions, input, maxOutputTokens, reasoning, ownerId, signal }) {
+  const { provider, model } = resolveAIModel({ mode: "build", selectedModel });
 
   if (provider === "gemini") {
     try {
@@ -170,7 +170,7 @@ async function parseStructured({ model, schema, name, instructions, input, maxOu
   }
 
   // OpenAI Provider (primary or fallback)
-  const openAIModel = process.env.OPENAI_STRATEGY_MODEL || "gpt-5.6-terra";
+  const openAIModel = aiConfig.openAIBaseStrategyModel || "gpt-5.6-terra";
   const requestOptions = signal ? { signal } : undefined;
   const response = await getOpenAIClient().responses.parse(
     {
@@ -194,7 +194,7 @@ async function parseStructured({ model, schema, name, instructions, input, maxOu
   return response.output_parsed;
 }
 
-export async function assessBrief({ brief, answers, round, ownerId, signal }) {
+export async function assessBrief({ brief, answers, round, model: selectedModel, ownerId, signal }) {
   const signals = analyzeBriefSignals(brief);
   const forceDecision = round >= aiConfig.maxClarificationRounds;
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake signals (advisory only):\n${JSON.stringify(signals)}\n\nClarification round: ${round} of ${aiConfig.maxClarificationRounds}.\n${
@@ -204,7 +204,7 @@ export async function assessBrief({ brief, answers, round, ownerId, signal }) {
   }`;
 
   const parsed = await parseStructured({
-    model: aiConfig.fastModel,
+    selectedModel,
     schema: StrategyAssessmentSchema,
     name: "strategy_assessment",
     instructions: ASSESSOR_PROMPT,
@@ -229,13 +229,13 @@ export async function assessBrief({ brief, answers, round, ownerId, signal }) {
   return assessment;
 }
 
-export async function generateStrategy({ brief, answers, assumptions, ownerId, signal }) {
+export async function generateStrategy({ brief, answers, assumptions, model: selectedModel, ownerId, signal }) {
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
     assumptions.length ? assumptions.join("\n- ") : "None supplied."
   }`;
 
   return parseStructured({
-    model: aiConfig.strategyModel,
+    selectedModel,
     schema: StrategySchema,
     name: "marketify_strategy",
     instructions: STRATEGY_PROMPT,
@@ -249,7 +249,7 @@ export async function generateStrategy({ brief, answers, assumptions, ownerId, s
 
 export async function refineStrategy(payload, ownerId, signal) {
   return parseStructured({
-    model: aiConfig.strategyModel,
+    selectedModel: payload.model,
     schema: StrategySchema,
     name: "marketify_refined_strategy",
     instructions: REFINEMENT_PROMPT,
