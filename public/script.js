@@ -1291,9 +1291,13 @@ async function autoSaveBackgroundJob(job) {
       }),
     });
     job.savedId = data.strategy.id;
-    persistBackgroundJobs();
+    removeBackgroundJob(job.id);
     await loadSavedStrategies();
-  } catch {}
+    showToast("Strategiya hazırlandı və arxivə saxlanıldı ✓");
+  } catch (error) {
+    console.error("Auto-save background job failed:", error);
+    persistBackgroundJobs();
+  }
 }
 
 function resumeBackgroundJobs() {
@@ -1326,9 +1330,6 @@ function resumeBackgroundJobs() {
       job.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: job.completedAt }];
       persistBackgroundJobs();
       autoSaveBackgroundJob(job);
-      showToast("Arxa plandakı analiz tamamlandı ✓");
-      if (state.view === "list") render();
-      renderRecentList();
     }).catch((err) => {
       if (err.name !== "AbortError") {
         if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
@@ -1895,9 +1896,6 @@ async function startGeneration() {
       bgJob.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: bgJob.completedAt }];
       persistBackgroundJobs();
       autoSaveBackgroundJob(bgJob);
-      showToast("Arxa plandakı analiz tamamlandı ✓");
-      if (state.view === "list") render();
-      renderRecentList();
       return;
     }
 
