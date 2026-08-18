@@ -2926,7 +2926,9 @@ function buildRefinementPanel() {
   const actionsStrip = element("div", "dock-actions-strip");
 
   // 1. Refine button with minimalist magic wand / edit icon
-  const refineBtn = button("", "dock-action-btn dock-refine-btn", () => {
+  const refineBtn = button("", "dock-action-btn dock-refine-btn", (e) => {
+    e.stopPropagation();
+    panel.classList.toggle("is-expanded");
     const input = document.querySelector("#refinementInput");
     input?.focus();
   });
@@ -2959,11 +2961,14 @@ function buildRefinementPanel() {
   });
   exportWrap.append(exportBtn, menu);
 
-  // Close export menu when clicking outside
+  // Close export menu and dock expansion when clicking outside
   document.addEventListener("click", (e) => {
     if (!exportWrap.contains(e.target)) {
       menu.classList.remove("is-open");
       exportBtn.setAttribute("aria-expanded", "false");
+    }
+    if (!panel.contains(e.target)) {
+      panel.classList.remove("is-expanded");
     }
   });
 
@@ -3010,8 +3015,8 @@ function buildRefinementPanel() {
   input.rows = 1;
   input.maxLength = 2000;
   input.placeholder = window.innerWidth <= 767
-    ? "Strategiyada dəyişiklik istə…"
-    : "Strategiyada nəyi dəyişmək istəyirsən? (məs: auditoriyanı genişləndir, tonu rəsmi et...)";
+    ? "Marketify-dan dəyişiklik istə…"
+    : "Marketify-dan dəyişiklik istə (məs., qısalt/lokallaşdır/praktik et)";
   input.disabled = state.status === "refining";
 
   const submit = button("", "refine-submit");
