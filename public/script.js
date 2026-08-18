@@ -3014,9 +3014,7 @@ function buildRefinementPanel() {
   input.id = "refinementInput";
   input.rows = 1;
   input.maxLength = 2000;
-  input.placeholder = window.innerWidth <= 767
-    ? "Marketify-dan dəyişiklik istə…"
-    : "Marketify-dan dəyişiklik istə (məs., qısalt/lokallaşdır/praktik et)";
+  input.placeholder = "Marketify-dan dəyişiklik istə";
   input.disabled = state.status === "refining";
 
   const submit = button("", "refine-submit");
