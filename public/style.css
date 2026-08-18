@@ -2558,12 +2558,49 @@ body.sidebar-open .app-main {
 
 .loading-ask-modal-input {
   flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   padding: 6px 0;
-  font-size: 13px;
+  font-size: 13.5px;
   color: #0f172a;
   outline: none;
+  font-family: inherit;
+}
+
+.loading-ask-modal-input::placeholder {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.loading-ask-send-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: all 130ms ease;
+}
+
+.loading-ask-send-btn:hover {
+  background: #1d4ed8;
+}
+
+.loading-ask-send-btn:active {
+  transform: scale(0.95);
+}
+
+.loading-ask-send-btn svg {
+  display: block;
+  stroke: #ffffff;
+  color: #ffffff;
 }
 
 .analysis-history-drag-handle {
