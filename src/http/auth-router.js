@@ -43,6 +43,9 @@ export function publicUser(user) {
     emailVerified: Boolean(user.emailVerifiedAt),
     onboardingFocus: user.onboardingFocus,
     onboardingCompleted: Boolean(user.onboardingCompletedAt),
+    status: user.status === "pending_deletion" ? "pending_deletion" : "active",
+    deletionRequestedAt: user.deletionRequestedAt || null,
+    scheduledDeletionAt: user.scheduledDeletionAt || null,
     settings: {
       personalIntelligence: settings.personalIntelligence === true,
       brandName: typeof settings.brandName === "string" ? settings.brandName : "",
@@ -135,6 +138,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     const email = normalizeEmail(profile.email);
     let user = await userRepository.findByEmail(email);
 
+    let restoredFromPendingDeletion = false;
     if (!user) {
       const baseRaw = email.split("@")[0] || profile.name || "user";
       const username = await userRepository.findUniqueUsername(baseRaw);
@@ -151,6 +155,18 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
         googleSub: profile.sub,
       });
     } else {
+      if (user.scheduledDeletionAt) {
+        const scheduledTime = new Date(user.scheduledDeletionAt).getTime();
+        if (!isNaN(scheduledTime) && scheduledTime <= Date.now()) {
+          await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore }).catch(() => {});
+          return res.status(401).json({
+            error: "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
+            code: "ACCOUNT_EXPIRED_DELETED",
+          });
+        }
+        await userRepository.cancelDeletion(user.id);
+        restoredFromPendingDeletion = true;
+      }
       user = await userRepository.update(user.id, {
         emailVerifiedAt:
           user.emailVerifiedAt || new Date().toISOString(),
@@ -158,6 +174,9 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
           user.avatarUrl || profile.picture || null,
         googleSub: profile.sub,
         lastLoginAt: new Date().toISOString(),
+        status: "active",
+        deletionRequestedAt: null,
+        scheduledDeletionAt: null,
       });
     }
 
@@ -175,6 +194,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
 
     return res.json({
       user: publicUser(user),
+      restoredFromPendingDeletion,
     });
   }),
 );
@@ -197,6 +217,8 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   }));
 
   router.post("/login", limit(authStore, "login", 12, 15 * 60, (req) => String(req.body?.identifier || "").toLowerCase()), asyncRoute(async (req, res) => {
+    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore }).catch(() => {});
+
     const payload = parseBody(LoginSchema, req.body);
     const user = await userRepository.findByIdentifier(payload.identifier);
     const valid = await verifyPassword(user?.passwordHash || DUMMY_PASSWORD_HASH, payload.password);
@@ -206,18 +228,38 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
         code: "INVALID_CREDENTIALS",
       });
     }
-    await startSession(req, res, authStore, user.id);
-    const updated = await userRepository.markLogin(user.id);
+
+    let restoredFromPendingDeletion = false;
+    let currentUser = user;
+    if (user.scheduledDeletionAt) {
+      const scheduledTime = new Date(user.scheduledDeletionAt).getTime();
+      if (!isNaN(scheduledTime) && scheduledTime <= Date.now()) {
+        await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore }).catch(() => {});
+        return res.status(401).json({
+          error: "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
+          code: "ACCOUNT_EXPIRED_DELETED",
+        });
+      } else {
+        currentUser = await userRepository.cancelDeletion(user.id);
+        restoredFromPendingDeletion = true;
+      }
+    }
+
+    await startSession(req, res, authStore, currentUser.id);
+    const updated = await userRepository.markLogin(currentUser.id);
     if (req.guestOwnerId && strategyRepository?.claimOwner) {
-      await strategyRepository.claimOwner(req.guestOwnerId, user.id);
+      await strategyRepository.claimOwner(req.guestOwnerId, currentUser.id);
     }
     if (req.guestOwnerId && chatRepository?.claimOwner) {
-      await chatRepository.claimOwner(req.guestOwnerId, user.id);
+      await chatRepository.claimOwner(req.guestOwnerId, currentUser.id);
     }
     if (req.guestOwnerId && plannerRepository?.claimOwner) {
-      await plannerRepository.claimOwner(req.guestOwnerId, user.id);
+      await plannerRepository.claimOwner(req.guestOwnerId, currentUser.id);
     }
-    return res.json({ user: publicUser(updated || user) });
+    return res.json({
+      user: publicUser(updated || currentUser),
+      restoredFromPendingDeletion,
+    });
   }));
 
   router.get("/me", (req, res) => {
@@ -229,6 +271,28 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     if (req.auth?.sessionId) await authStore.deleteSession(req.auth.sessionId);
     clearSessionCookie(req, res);
     return res.status(204).end();
+  }));
+
+  router.post("/account/delete-request", asyncRoute(async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+    const updated = await userRepository.scheduleDeletion(req.user.id, 14);
+    if (req.auth?.sessionId) await authStore.deleteSession(req.auth.sessionId);
+    clearSessionCookie(req, res);
+    return res.json({
+      success: true,
+      scheduledDeletionAt: updated.scheduledDeletionAt,
+      message: "Hesabınız 14 günlük silinmə rejiminə keçirildi.",
+    });
+  }));
+
+  router.post("/account/cancel-deletion", asyncRoute(async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+    const updated = await userRepository.cancelDeletion(req.user.id);
+    return res.json({
+      success: true,
+      user: publicUser(updated),
+      message: "Silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.",
+    });
   }));
 
   router.patch("/account", asyncRoute(async (req, res) => {

@@ -221,6 +221,9 @@ async function handleGoogleCredential(response) {
       }),
     });
 
+    if (data.restoredFromPendingDeletion) {
+      window.dispatchEvent(new CustomEvent("marketify:account-restored"));
+    }
     await completeAuthentication(data.user);
   } catch (error) {
     console.error("Google login xətası:", error);
@@ -334,6 +337,9 @@ function renderLogin() {
         }),
       });
 
+      if (data.restoredFromPendingDeletion) {
+        window.dispatchEvent(new CustomEvent("marketify:account-restored"));
+      }
       await completeAuthentication(data.user);
     } catch (error) {
       setFormError(form, error.message);

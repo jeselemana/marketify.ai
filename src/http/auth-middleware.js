@@ -52,6 +52,11 @@ export function createIdentityMiddleware({ authStore, userRepository }) {
         clearSessionCookie(req, res);
         return next();
       }
+      if (user.scheduledDeletionAt && new Date(user.scheduledDeletionAt) <= new Date()) {
+        await authStore.deleteSession(sessionId);
+        clearSessionCookie(req, res);
+        return next();
+      }
       req.auth = { user, sessionId };
       req.user = user;
       req.ownerId = user.id;

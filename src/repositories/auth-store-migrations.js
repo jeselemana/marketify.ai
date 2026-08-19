@@ -1,10 +1,13 @@
-export const AUTH_USER_SCHEMA_VERSION = 2;
+export const AUTH_USER_SCHEMA_VERSION = 3;
 
 function migrateUser(user) {
   if (!user || typeof user !== "object") return user;
   const currentSettings = user.settings && typeof user.settings === "object" ? user.settings : {};
   return {
     ...user,
+    deletionRequestedAt: typeof user.deletionRequestedAt === "string" ? user.deletionRequestedAt : null,
+    scheduledDeletionAt: typeof user.scheduledDeletionAt === "string" ? user.scheduledDeletionAt : null,
+    status: user.status === "pending_deletion" ? "pending_deletion" : "active",
     settings: {
       personalIntelligence: currentSettings.personalIntelligence === true,
       brandName: typeof currentSettings.brandName === "string" ? currentSettings.brandName : "",

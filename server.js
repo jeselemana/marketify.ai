@@ -169,7 +169,14 @@ Promise.allSettled([
   strategyRepository.readAll(),
   chatRepository.readAll(),
   plannerRepository.readAll(),
-]).catch(() => {});
+]).then(() => {
+  userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore }).catch(() => {});
+}).catch(() => {});
+
+// Periodic background check for expired account deletion (every 1 hour)
+setInterval(() => {
+  userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore }).catch(() => {});
+}, 60 * 60 * 1000).unref();
 
 function requireAdmin(req, res, next) {
   if (req.user && adminUsernames.has(req.user.username)) return next();

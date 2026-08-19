@@ -205,4 +205,15 @@ export class FilePlannerRepository {
     }
     return count;
   }
+
+  async deleteAllByOwner(ownerId) {
+    if (!ownerId) return 0;
+    const records = await this.readAll();
+    const remaining = records.filter((r) => r.ownerId !== ownerId);
+    const removedCount = records.length - remaining.length;
+    if (removedCount > 0) {
+      await this.writeAll(remaining);
+    }
+    return removedCount;
+  }
 }

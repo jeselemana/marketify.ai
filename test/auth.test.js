@@ -29,7 +29,7 @@ test("auth normalization, validation, and Argon2id hashing", async () => {
 test("user store migration and uniqueness are deterministic", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-users-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  assert.deepEqual(migrateAuthUserStore([]), { schemaVersion: 2, users: [] });
+  assert.deepEqual(migrateAuthUserStore([]), { schemaVersion: 3, users: [] });
   assert.deepEqual(
     migrateAuthUserStore({ schemaVersion: 1, users: [{ id: "legacy" }] }).users[0].settings,
     {

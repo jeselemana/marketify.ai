@@ -3877,7 +3877,45 @@ function renderSettings() {
     const copy = element("div");
     copy.append(element("strong", "", "Bu cihazdan çıx"), element("p", "", "Marketify sessiyanı təhlükəsiz şəkildə bağlayacaq."));
     signOut.append(copy, button("Hesabdan çıx", "danger-button", logout));
-    panel.append(form, signOut);
+
+    // Danger Zone: Account Deletion (14-day grace period)
+    const isPendingDeletion = state.currentUser?.status === "pending_deletion" || Boolean(state.currentUser?.scheduledDeletionAt);
+    const deleteAccountBox = element("div", `settings-signout settings-danger-zone${isPendingDeletion ? " is-pending-deletion" : ""}`);
+    const deleteCopy = element("div");
+
+    if (isPendingDeletion) {
+      const schedDate = state.currentUser.scheduledDeletionAt
+        ? new Date(state.currentUser.scheduledDeletionAt).toLocaleDateString("az-AZ", { day: "numeric", month: "long", year: "numeric" })
+        : "14 gün sonra";
+      deleteCopy.append(
+        element("strong", "danger-zone-title text-warning", "⚠️ Hesabın silinməsi gözlənilir"),
+        element("p", "", `Hesabınız 14 günlük gözləmə rejimindədir. Yekun silinmə tarixi: ${schedDate}. Bu tarixə qədər silinməni istədiyiniz vaxt ləğv edə bilərsiniz.`)
+      );
+      const cancelDeletionBtn = button("Silinməni ləğv et", "secondary-button experience-restore-btn", async () => {
+        cancelDeletionBtn.disabled = true;
+        cancelDeletionBtn.textContent = "Bərpa edilir…";
+        try {
+          const res = await authRequest("/api/auth/account/cancel-deletion", { method: "POST" });
+          if (res?.user) state.currentUser = res.user;
+          showToast("Silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.", "success");
+          render();
+        } catch (err) {
+          showToast(err.message || "Xəta baş verdi.", "error");
+          cancelDeletionBtn.disabled = false;
+          cancelDeletionBtn.textContent = "Silinməni ləğv et";
+        }
+      });
+      deleteAccountBox.append(deleteCopy, cancelDeletionBtn);
+    } else {
+      deleteCopy.append(
+        element("strong", "danger-zone-title text-danger", "Hesabı sil"),
+        element("p", "", "Hesabın silinməsi üçün 14 günlük təhlükəsiz gözləmə müddəti tətbiq olunur. Bu müddətdə giriş edilməzsə, bütün məlumatlar avtomatik və birdəfəlik silinir.")
+      );
+      const deleteBtn = button("Hesabı sil", "danger-button", openDeleteAccountModal);
+      deleteAccountBox.append(deleteCopy, deleteBtn);
+    }
+
+    panel.append(form, signOut, deleteAccountBox);
     view.appendChild(panel);
   } else {
     const panel = element("section", "settings-panel");
@@ -4912,6 +4950,86 @@ function closeLegalModal() {
   }
   document.body.style.overflow = "";
 }
+
+function openDeleteAccountModal() {
+  const overlay = document.querySelector("#legalModalOverlay");
+  if (!overlay) return;
+
+  overlay.replaceChildren();
+  const card = element("div", "legal-modal-card delete-account-modal-card");
+
+  const header = element("header", "legal-modal-header");
+  const titleGroup = element("div", "legal-modal-title-group");
+  titleGroup.append(
+    element("h2", "", "Hesabın silinməsini təsdiqləyirsiniz?"),
+    element("p", "", "14 günlük təhlükəsizlik və gözləmə müddəti")
+  );
+
+  const closeBtn = button("✕", "legal-modal-close", closeLegalModal);
+  closeBtn.setAttribute("aria-label", "Bağla");
+  header.append(titleGroup, closeBtn);
+
+  const body = element("div", "legal-modal-body delete-account-modal-body");
+  body.innerHTML = `
+    <div class="delete-account-callout">
+      <div class="delete-callout-icon">⚠️</div>
+      <div class="delete-callout-copy">
+        <strong>Hesabınız dərhal silinmir.</strong> 14 günlük təhlükəsiz gözləmə müddəti tətbiq olunur.
+      </div>
+    </div>
+    <div class="delete-rules-container">
+      <div class="delete-rule-item">
+        <span class="delete-rule-bullet">1</span>
+        <div>
+          <strong>Dərhal deaktivasiya:</strong>
+          <p>Təsdiq etdiyiniz an cari sessiyanız bağlanacaq və hesabınız təhlükəsiz gözləmə rejiminə keçəcək.</p>
+        </div>
+      </div>
+      <div class="delete-rule-item">
+        <span class="delete-rule-bullet">2</span>
+        <div>
+          <strong>14 gün ərzində avtomatik bərpa:</strong>
+          <p>14 gün ərzində fikrinizi dəyişsəniz, sadəcə hesabınıza yenidən daxil olmaqla silinməni ləğv edə və hesabınızı tam bərpa edə bilərsiniz.</p>
+        </div>
+      </div>
+      <div class="delete-rule-item">
+        <span class="delete-rule-bullet">3</span>
+        <div>
+          <strong>14 gündən sonra dönməz silinmə:</strong>
+          <p>14 gün ərzində heç bir giriş edilməzsə, bütün marketinq strategiyalarınız, çatlar, planlaşdırıcı qeydləriniz və profiliniz birdəfəlik silinəcək.</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const footer = element("div", "legal-modal-footer delete-modal-footer");
+  const cancelBtn = button("İmtina et", "secondary-button", closeLegalModal);
+  const confirmBtn = button("Bəli, silinmə sorğusu göndər", "danger-button delete-confirm-btn", async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Silinmə tələb edilir…";
+    try {
+      await authRequest("/api/auth/account/delete-request", { method: "POST" });
+      closeLegalModal();
+      state.currentUser = null;
+      showToast("Hesabınız 14 günlük silinmə rejiminə keçirildi. 14 gün ərzində daxil olmasanız, hesabınız birdəfəlik silinəcək.", "info");
+      window.dispatchEvent(new CustomEvent("marketify:auth-required"));
+    } catch (err) {
+      showToast(err.message || "Xəta baş verdi.", "error");
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Bəli, silinmə sorğusu göndər";
+    }
+  });
+
+  footer.append(cancelBtn, confirmBtn);
+  card.append(header, body, footer);
+  overlay.appendChild(card);
+  overlay.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+window.addEventListener("marketify:account-restored", () => {
+  showToast("Xoş gəldiniz! 14 günlük silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.", "success");
+});
 
 newStrategyButton?.addEventListener("click", () => {
   if (state.mode === "ask") startNewChat();

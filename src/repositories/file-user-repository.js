@@ -245,4 +245,65 @@ export class FileUserRepository {
   markLogin(id) {
     return this.update(id, { lastLoginAt: new Date().toISOString() });
   }
+
+  scheduleDeletion(id, days = 14) {
+    const now = new Date();
+    const scheduled = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    return this.update(id, {
+      status: "pending_deletion",
+      deletionRequestedAt: now.toISOString(),
+      scheduledDeletionAt: scheduled.toISOString(),
+    });
+  }
+
+  cancelDeletion(id) {
+    return this.update(id, {
+      status: "active",
+      deletionRequestedAt: null,
+      scheduledDeletionAt: null,
+    });
+  }
+
+  deleteUser(id) {
+    return this.enqueue(async () => {
+      const store = await this.readStore();
+      const initialLength = store.users.length;
+      store.users = store.users.filter((user) => user.id !== id);
+      if (store.users.length !== initialLength) {
+        await this.writeStore(store);
+        return true;
+      }
+      return false;
+    });
+  }
+
+  async purgeExpiredAccounts({ strategyRepository = null, chatRepository = null, plannerRepository = null, authStore = null } = {}) {
+    return this.enqueue(async () => {
+      const store = await this.readStore();
+      const now = new Date();
+      const expiredUsers = store.users.filter((user) => {
+        if (!user.scheduledDeletionAt) return false;
+        const sched = new Date(user.scheduledDeletionAt);
+        return !isNaN(sched.getTime()) && sched <= now;
+      });
+
+      if (expiredUsers.length === 0) return 0;
+
+      const expiredIds = new Set(expiredUsers.map((u) => u.id));
+
+      for (const userId of expiredIds) {
+        try {
+          if (strategyRepository?.deleteAllByOwner) await strategyRepository.deleteAllByOwner(userId);
+          if (chatRepository?.deleteAllByOwner) await chatRepository.deleteAllByOwner(userId);
+          if (plannerRepository?.deleteAllByOwner) await plannerRepository.deleteAllByOwner(userId);
+        } catch (err) {
+          console.error(`Error cascading data deletion for expired user ${userId}:`, err);
+        }
+      }
+
+      store.users = store.users.filter((user) => !expiredIds.has(user.id));
+      await this.writeStore(store);
+      return expiredUsers.length;
+    });
+  }
 }
