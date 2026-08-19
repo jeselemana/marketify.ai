@@ -4194,16 +4194,7 @@ function renderLimitsView() {
         </div>
         <div class="limits-chip-content">
           <strong>Model Dəqiqliyi</strong>
-          <span>Maksimum</span>
-        </div>
-      </div>
-      <div class="limits-chip">
-        <div class="limits-chip-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
-        </div>
-        <div class="limits-chip-content">
-          <strong>Hesablama Sürəti</strong>
-          <span>Ultra Həssas</span>
+          <span>Yüksək*</span>
         </div>
       </div>
       <div class="limits-chip">
