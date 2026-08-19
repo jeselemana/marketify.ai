@@ -4134,7 +4134,7 @@ function renderLimitsView() {
 
   const headerControls = element("div", "limits-header-controls");
 
-  // Period Segmented Filter
+  // Desktop Period Segmented Filter
   const filterPills = element("div", "limits-segmented-control");
   const PERIOD_OPTIONS = [
     { id: "today", label: "Bugün" },
@@ -4150,6 +4150,29 @@ function renderLimitsView() {
     });
     filterPills.appendChild(pill);
   });
+
+  // Mobile Native Select Dropdown
+  const mobileSelectWrap = element("div", "limits-mobile-select-wrap");
+  const mobileSelect = document.createElement("select");
+  mobileSelect.className = "limits-mobile-select";
+  mobileSelect.setAttribute("aria-label", "Dövr seçimi");
+  PERIOD_OPTIONS.forEach(({ id, label }) => {
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = label;
+    if (period === id) opt.selected = true;
+    mobileSelect.appendChild(opt);
+  });
+  mobileSelect.addEventListener("change", (e) => {
+    state.limitsPeriod = e.target.value;
+    renderLimitsView();
+  });
+  mobileSelectWrap.innerHTML = `
+    <svg class="limits-select-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  `;
+  mobileSelectWrap.prepend(mobileSelect);
 
   // Refresh Button
   const refreshBtn = button("", "limits-refresh-btn", async () => {
@@ -4167,7 +4190,7 @@ function renderLimitsView() {
     </svg>
   `;
 
-  headerControls.append(filterPills, refreshBtn);
+  headerControls.append(filterPills, mobileSelectWrap, refreshBtn);
   headerRow.append(headerText, headerControls);
   view.appendChild(headerRow);
 

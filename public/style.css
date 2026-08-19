@@ -8683,6 +8683,10 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+.limits-mobile-select-wrap {
+  display: none;
+}
+
 .limits-refresh-btn {
   width: 32px;
   height: 32px;
@@ -9207,14 +9211,55 @@ body {
   }
 
   .limits-segmented-control {
-    flex: 1;
+    display: none !important;
   }
 
-  .limits-segment-btn {
+  .limits-mobile-select-wrap {
+    display: flex;
+    position: relative;
     flex: 1;
-    text-align: center;
-    padding: 5px 6px;
-    font-size: 11.5px;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .limits-mobile-select {
+    width: 100%;
+    height: 38px;
+    padding: 0 34px 0 14px;
+    font-size: 13.5px;
+    font-weight: 650;
+    color: #0f172a;
+    background: #f8fafc;
+    border: 1px solid rgba(203, 213, 225, 0.9);
+    border-radius: 9px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    outline: none;
+    transition: border-color 140ms ease, background 140ms ease;
+  }
+
+  .limits-mobile-select:focus {
+    border-color: #2563eb;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+
+  .limits-select-chevron {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: #64748b;
+  }
+
+  .limits-refresh-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    flex-shrink: 0;
   }
 
   .limits-hero-card {
