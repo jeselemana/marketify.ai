@@ -5122,6 +5122,57 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+function checkPrivacyPolicyBanner() {
+  const STORAGE_KEY = "marketify_privacy_notice_2026_08";
+  if (localStorage.getItem(STORAGE_KEY) === "acknowledged") return;
+  if (document.querySelector("#privacyNoticeToast")) return;
+
+  const toast = element("aside", "privacy-notice-toast");
+  toast.id = "privacyNoticeToast";
+  toast.setAttribute("role", "status");
+  toast.setAttribute("aria-live", "polite");
+
+  const header = element("div", "privacy-notice-header");
+  const badge = element("div", "privacy-notice-badge");
+  badge.innerHTML = `
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <span>Məxfilik siyasətimiz yeniləndi</span>
+  `;
+
+  const dismiss = () => {
+    localStorage.setItem(STORAGE_KEY, "acknowledged");
+    toast.classList.add("is-dismissing");
+    setTimeout(() => toast.remove(), 260);
+  };
+
+  const closeBtn = button("✕", "privacy-notice-close", dismiss);
+  closeBtn.setAttribute("aria-label", "Bağla");
+  header.append(badge, closeBtn);
+
+  const body = element(
+    "p",
+    "privacy-notice-body",
+    "Məlumatlarınızın təhlükəsizliyini və şəffaflığı artırmaq üçün Məxfilik Siyasətimizi yenilədik. Şərtlərlə tanış ola bilərsiniz. Əgər yenilənmiş şərtlər sizin üçün uyğun deyilsə, istədiyiniz vaxt Təhlükəsizlik bölməsindən hesabınızı silə bilərsiniz."
+  );
+
+  const actions = element("div", "privacy-notice-actions");
+  const readBtn = button("Siyasətlə tanış ol →", "secondary-button privacy-notice-read-btn", () => {
+    openLegalModal("privacy");
+  });
+  readBtn.type = "button";
+
+  const ackBtn = button("Anladım", "primary-button privacy-notice-ack-btn", dismiss);
+  ackBtn.type = "button";
+
+  actions.append(readBtn, ackBtn);
+  toast.append(header, body, actions);
+
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.classList.add("is-visible");
+  });
+}
+
 initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
   resumeBackgroundJobs();
@@ -5132,4 +5183,5 @@ initializeAuthentication(async (user) => {
   } else if (window.location.hash === "#privacy" || window.location.pathname === "/privacy") {
     openLegalModal("privacy");
   }
+  checkPrivacyPolicyBanner();
 });
