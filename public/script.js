@@ -20,7 +20,9 @@ const plannerCount = document.querySelector("#plannerCount");
 const homeNav = document.querySelector("#homeNav");
 const strategiesNav = document.querySelector("#strategiesNav");
 const plannerNav = document.querySelector("#plannerNav");
+const limitsNav = document.querySelector("#limitsNav");
 const settingsNav = document.querySelector("#settingsNav");
+const railLimitsButton = document.querySelector("#railLimitsButton");
 const accountButton = document.querySelector("#accountButton");
 const workspaceAvatar = document.querySelector("#workspaceAvatar");
 const workspaceName = document.querySelector("#workspaceName");
@@ -109,6 +111,10 @@ const state = {
   strategyFormat: "blog",
   faqFilter: "",
   faqExpandedAll: false,
+  limitsPeriod: "today",
+  usageStats: null,
+  limitsStatsExpanded: false,
+  limitsFeaturesExpanded: false,
 };
 
 let progressTimer;
@@ -315,13 +321,16 @@ function closeSidebar() {
 
 function syncNav() {
   const isBuild = state.mode === "build";
-  homeNav.classList.toggle("is-active", isBuild ? !["list", "settings", "planner"].includes(state.view) : state.view !== "settings");
+  const nonHomeViews = ["list", "settings", "planner", "limits"];
+  homeNav.classList.toggle("is-active", isBuild ? !nonHomeViews.includes(state.view) : !["settings", "limits"].includes(state.view));
   strategiesNav.classList.toggle("is-active", isBuild && state.view === "list");
   plannerNav?.classList.toggle("is-active", isBuild && state.view === "planner");
+  limitsNav?.classList.toggle("is-active", state.view === "limits");
   settingsNav.classList.toggle("is-active", state.view === "settings");
-  railHomeButton.classList.toggle("is-active", isBuild ? !["list", "settings", "planner"].includes(state.view) : state.view !== "settings");
+  railHomeButton.classList.toggle("is-active", isBuild ? !nonHomeViews.includes(state.view) : !["settings", "limits"].includes(state.view));
   railStrategiesButton.classList.toggle("is-active", isBuild && state.view === "list");
   railPlannerButton?.classList.toggle("is-active", isBuild && state.view === "planner");
+  railLimitsButton?.classList.toggle("is-active", state.view === "limits");
 
   const homeLabel = homeNav.querySelector("span");
   if (homeLabel) {
@@ -442,6 +451,7 @@ function render() {
 
   if (state.view === "settings") return renderSettings();
   if (state.view === "planner") return renderPlannerView();
+  if (state.view === "limits") return renderLimitsView();
   if (state.mode === "ask") return renderAsk();
   if (state.view === "list") return renderStrategyList();
   if (["analyzing", "generating"].includes(state.status)) return renderLoading();
@@ -3457,7 +3467,7 @@ function renderSettings() {
     );
 
     const apiNotice = element("div", "legal-highlight-box");
-    apiNotice.innerHTML = "<strong>✦ 3-cü Tərəf Süni İntellekt API İnteqrasiyası</strong>Marketify AI xidməti biznes analizləri və strategiya generasiyası üçün qabaqcıl 3-cü tərəf süni intellekt API provayderlərinin (OpenAI, Google) infrastrukturundan istifadə edir.";
+    apiNotice.innerHTML = "<strong>✦ 3-cü Tərəf Süni İntellekt API İnteqrasiyası</strong>Marketify AI xidməti biznes analizləri və strategiya generasiyası üçün qabaqcıl süni intellekt API provayderlərinin rəsmi infrastrukturundan istifadə edir.";
     panel.appendChild(apiNotice);
 
     const docsList = element("div", "settings-legal-list");
@@ -3991,20 +4001,578 @@ function renderPlannerView() {
   workspace.appendChild(view);
 }
 
+/* ===== USAGE LIMITS VIEW & STATS ===== */
+
+async function loadUsageStats() {
+  try {
+    const data = await authRequest("/api/usage/stats");
+    if (data && data.statsByPeriod) {
+      state.usageStats = data;
+      return data;
+    }
+  } catch (err) {
+    console.warn("Could not fetch remote usage stats, computing locally:", err);
+  }
+
+  // Local fallback computation
+  const now = Date.now();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const periods = {
+    today: { start: now - DAY_MS },
+    "7d": { start: now - 7 * DAY_MS },
+    "14d": { start: now - 14 * DAY_MS },
+    "30d": { start: now - 30 * DAY_MS },
+  };
+
+  const strats = state.savedStrategies || [];
+  const chats = state.savedChats || [];
+  const tasks = state.plannerTasks || [];
+
+  const buildEvents = [];
+  strats.forEach((s) => {
+    const t = new Date(s.createdAt || s.updatedAt || now).getTime();
+    buildEvents.push({ type: "strategy_create", timestamp: t });
+    if (Array.isArray(s.versions)) {
+      for (let i = 1; i < s.versions.length; i++) {
+        buildEvents.push({
+          type: "strategy_refine",
+          timestamp: new Date(s.versions[i].createdAt || t).getTime(),
+        });
+      }
+    }
+  });
+
+  const askEvents = [];
+  chats.forEach((c) => {
+    if (Array.isArray(c.messages)) {
+      c.messages.forEach((m) => {
+        const mt = new Date(m.createdAt || c.createdAt || now).getTime();
+        if (m.role === "user") askEvents.push({ type: "ask_question", timestamp: mt });
+        else if (m.role === "assistant") askEvents.push({ type: "ask_response", timestamp: mt });
+      });
+    }
+  });
+
+  const statsByPeriod = {};
+  for (const [key, { start }] of Object.entries(periods)) {
+    const pBuild = buildEvents.filter((e) => e.timestamp >= start);
+    const pAsk = askEvents.filter((e) => e.timestamp >= start);
+    const created = pBuild.filter((e) => e.type === "strategy_create").length;
+    const refined = pBuild.filter((e) => e.type === "strategy_refine").length;
+    const questions = pAsk.filter((e) => e.type === "ask_question").length;
+    const responses = pAsk.filter((e) => e.type === "ask_response").length;
+
+    statsByPeriod[key] = {
+      totalOps: created + refined + questions + responses,
+      build: { total: created + refined, strategiesCreated: created, refinements: refined },
+      ask: { total: questions + responses, questions, responses, activeChats: chats.length },
+      activeProjects: strats.length,
+      plannerTasksCount: tasks.length,
+    };
+  }
+
+  const dailyBreakdown = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now - i * DAY_MS);
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayEnd = dayStart + DAY_MS;
+    const dateStr = d.toLocaleDateString("az-AZ", { month: "short", day: "numeric" });
+    const isoDate = d.toISOString().slice(0, 10);
+    const dayBuild = buildEvents.filter((e) => e.timestamp >= dayStart && e.timestamp < dayEnd).length;
+    const dayAsk = askEvents.filter((e) => e.timestamp >= dayStart && e.timestamp < dayEnd).length;
+    dailyBreakdown.push({
+      date: isoDate,
+      label: i === 0 ? "Bu gün" : dateStr,
+      build: dayBuild,
+      ask: dayAsk,
+      total: dayBuild + dayAsk,
+    });
+  }
+
+  state.usageStats = {
+    plan: {
+      isUnlimited: true,
+      planTitle: "Limitsiz İstifadə Planı",
+      statusText: "Bütün AI Modelləri Aktivdir",
+    },
+    statsByPeriod,
+    dailyBreakdown,
+    totals: {
+      allTimeStrategies: strats.length,
+      allTimeChats: chats.length,
+      allTimeTasks: tasks.length,
+    },
+  };
+
+  return state.usageStats;
+}
+
+function renderLimitsView() {
+  workspace.classList.add("workspace-limits");
+  workspace.replaceChildren();
+
+  if (!state.usageStats) {
+    loadUsageStats().then(() => {
+      if (state.view === "limits") renderLimitsView();
+    });
+  }
+
+  const period = state.limitsPeriod || "today";
+  const stats = state.usageStats?.statsByPeriod?.[period] || {
+    totalOps: 0,
+    build: { total: 0, strategiesCreated: 0, refinements: 0 },
+    ask: { total: 0, questions: 0, responses: 0, activeChats: 0 },
+    activeProjects: state.savedStrategies?.length || 0,
+    plannerTasksCount: state.plannerTasks?.length || 0,
+  };
+
+  const totals = state.usageStats?.totals || {
+    allTimeStrategies: state.savedStrategies?.length || 0,
+    allTimeChats: state.savedChats?.length || 0,
+    allTimeTasks: state.plannerTasks?.length || 0,
+  };
+
+  const view = element("section", "limits-view");
+
+  // 1. Header Row
+  const headerRow = element("header", "limits-header-row");
+  const headerText = element("div", "limits-header-text");
+  headerText.append(
+    element("span", "section-kicker", "WORKSPACE KVOTASI & ANALİTİKA"),
+    element("h1", "", "İstifadə limiti"),
+    element("p", "", "Build və Ask rejimlərindəki fəallığınızı izləyin və model kvotalarınızı nəzarətdə saxlayın.")
+  );
+
+  const headerActions = element("div", "limits-header-actions");
+  const refreshBtn = button("", "limits-refresh-btn", async () => {
+    refreshBtn.disabled = true;
+    refreshBtn.classList.add("is-loading");
+    await loadUsageStats();
+    if (state.view === "limits") renderLimitsView();
+    showToast("Statistikalar yeniləndi ✓", "info");
+  });
+  refreshBtn.setAttribute("title", "Statistikanı yenilə");
+  refreshBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="23 4 23 10 17 10"/>
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+    </svg>
+    <span>Yenilə</span>
+  `;
+  headerActions.appendChild(refreshBtn);
+  headerRow.append(headerText, headerActions);
+  view.appendChild(headerRow);
+
+  // 2. Hero Unlimited Banner
+  const heroCard = element("div", "limits-hero-card");
+  heroCard.innerHTML = `
+    <div class="limits-hero-glow"></div>
+    <div class="limits-hero-top">
+      <div class="limits-status-pill">
+        <span class="limits-pulse-dot"></span>
+        <span class="limits-status-text">Limitsiz AI Girişi — Aktivdir</span>
+      </div>
+      <span class="limits-badge-tier">Məhdudiyyətsiz Plan</span>
+    </div>
+    <div class="limits-hero-body">
+      <h2>Bütün AI Modelləri Limitsiz İstifadəyə Açıqdır</h2>
+      <p>Build və Ask rejimlərində heç bir sorğu və limit məhdudiyyəti yoxdur — tam sərbəst istifadə edə bilərsiniz.</p>
+    </div>
+    <div class="limits-hero-chips">
+      <div class="limits-chip">
+        <div class="limits-chip-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <div class="limits-chip-content">
+          <strong>Sorğu Limiti</strong>
+          <span>Limitsiz (∞)</span>
+        </div>
+      </div>
+      <div class="limits-chip">
+        <div class="limits-chip-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="limits-chip-content">
+          <strong>Model Dəqiqliyi</strong>
+          <span>Maksimum</span>
+        </div>
+      </div>
+      <div class="limits-chip">
+        <div class="limits-chip-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+        </div>
+        <div class="limits-chip-content">
+          <strong>Hesablama Sürəti</strong>
+          <span>Ultra Həssas</span>
+        </div>
+      </div>
+      <div class="limits-chip">
+        <div class="limits-chip-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div class="limits-chip-content">
+          <strong>Eksport & Yaddaş</strong>
+          <span>Tam Sərbəst</span>
+        </div>
+      </div>
+    </div>
+  `;
+  view.appendChild(heroCard);
+
+  // 3. Detailed Mode Comparison Grid (Build vs Ask)
+  const modeSection = element("div", "limits-section-block");
+  const modeHeader = element("div", "limits-section-header");
+  modeHeader.append(
+    element("h3", "", "Rejimlər Üzrə Dərin Təhlil və Kvota Statusu"),
+    element("p", "", "Hər iki iş rejimində həyata keçirilən strateji fəallığın müqayisəsi.")
+  );
+  modeSection.appendChild(modeHeader);
+
+  const modeGrid = element("div", "limits-mode-grid");
+
+  // Build Mode Card
+  const buildModeCard = element("div", "limits-mode-card mode-build-card");
+  buildModeCard.innerHTML = `
+    <div class="limits-mode-card-top">
+      <div class="limits-mode-title-wrap">
+        <div class="limits-mode-icon-box build-icon-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div>
+          <h4>Build Rejimi (Biznes və Marketinq Strategiyası)</h4>
+          <p>Strukturlaşdırılmış strategiya və bazar analizi generasiyası</p>
+        </div>
+      </div>
+      <span class="limits-mode-status-badge is-unlimited">Məhdudiyyətsiz</span>
+    </div>
+    <div class="limits-mode-metrics">
+      <div class="limits-mode-metric-row">
+        <span>Yeni Strategiya Generasiyaları</span>
+        <strong>${stats.build.strategiesCreated}</strong>
+      </div>
+      <div class="limits-mode-metric-row">
+        <span>Dəqiqləşdirmə (Refine) Əməliyyatları</span>
+        <strong>${stats.build.refinements}</strong>
+      </div>
+      <div class="limits-mode-metric-row">
+        <span>Cəmi Strateji Əməliyyat</span>
+        <strong>${stats.build.total}</strong>
+      </div>
+    </div>
+    <div class="limits-mode-progress-wrap">
+      <div class="limits-progress-label-row">
+        <span>İstifadə Statusu</span>
+        <span class="limits-highlight-success">100% Limitsiz Açıqdır</span>
+      </div>
+      <div class="limits-progress-track">
+        <div class="limits-progress-bar bar-build" style="width: 100%;"></div>
+      </div>
+      <div class="limits-progress-sub">Heç bir saatlıq və ya günlük məhdudiyyət tətbiq olunmur</div>
+    </div>
+  `;
+
+  // Ask Mode Card
+  const askModeCard = element("div", "limits-mode-card mode-ask-card");
+  askModeCard.innerHTML = `
+    <div class="limits-mode-card-top">
+      <div class="limits-mode-title-wrap">
+        <div class="limits-mode-icon-box ask-icon-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </div>
+        <div>
+          <h4>Ask Rejimi (İnteraktiv AI Məsləhətçi)</h4>
+          <p>Suallara ani cavablar, ideya inkişafı və strateji təhlil</p>
+        </div>
+      </div>
+      <span class="limits-mode-status-badge is-unlimited">Məhdudiyyətsiz</span>
+    </div>
+    <div class="limits-mode-metrics">
+      <div class="limits-mode-metric-row">
+        <span>İstifadəçi Sualları (Prompts)</span>
+        <strong>${stats.ask.questions}</strong>
+      </div>
+      <div class="limits-mode-metric-row">
+        <span>Alınmış AI Analiz Cavabları</span>
+        <strong>${stats.ask.responses}</strong>
+      </div>
+      <div class="limits-mode-metric-row">
+        <span>Cəmi Sual-Cavab Əməliyyatı</span>
+        <strong>${stats.ask.total}</strong>
+      </div>
+    </div>
+    <div class="limits-mode-progress-wrap">
+      <div class="limits-progress-label-row">
+        <span>İstifadə Statusu</span>
+        <span class="limits-highlight-success">100% Limitsiz Açıqdır</span>
+      </div>
+      <div class="limits-progress-track">
+        <div class="limits-progress-bar bar-ask" style="width: 100%;"></div>
+      </div>
+      <div class="limits-progress-sub">Heç bir saatlıq və ya günlük məhdudiyyət tətbiq olunmur</div>
+    </div>
+  `;
+
+  modeGrid.append(buildModeCard, askModeCard);
+  modeSection.appendChild(modeGrid);
+  view.appendChild(modeSection);
+
+  // 4. Activity Timeline Chart Card
+  const chartSection = element("div", "limits-chart-card");
+  const chartHeader = element("div", "limits-chart-header");
+  chartHeader.innerHTML = `
+    <div>
+      <h3>Fəallıq Dinamikası (Build və Ask Müqayisəsi)</h3>
+      <p>Seçilmiş dövrdə göndərilən sorğuların və generasiyaların vizual bölgüsü.</p>
+    </div>
+    <div class="limits-chart-legend">
+      <div class="legend-item"><span class="legend-dot dot-build"></span><span>Build</span></div>
+      <div class="legend-item"><span class="legend-dot dot-ask"></span><span>Ask</span></div>
+    </div>
+  `;
+  chartSection.appendChild(chartHeader);
+
+  // Determine slice for chart based on period
+  let chartData = state.usageStats?.dailyBreakdown || [];
+  if (period === "today") chartData = chartData.slice(-1);
+  else if (period === "7d") chartData = chartData.slice(-7);
+  else if (period === "14d") chartData = chartData.slice(-14);
+  else if (period === "30d") chartData = chartData.slice(-30);
+
+  const maxTotal = Math.max(...chartData.map((d) => d.total || 0), 4);
+
+  const chartBody = element("div", "limits-chart-body");
+  const barsContainer = element("div", `limits-chart-bars-wrap${period === "today" ? " is-single-day" : ""}`);
+
+  chartData.forEach((dayItem) => {
+    const col = element("div", "limits-chart-col");
+    const buildH = maxTotal > 0 ? Math.round(((dayItem.build || 0) / maxTotal) * 110) : 0;
+    const askH = maxTotal > 0 ? Math.round(((dayItem.ask || 0) / maxTotal) * 110) : 0;
+
+    col.innerHTML = `
+      <div class="limits-chart-tooltip">
+        <strong>${escapeHtml(dayItem.label)}</strong>
+        <div class="tooltip-row"><span class="t-dot dot-build"></span> Build: ${dayItem.build || 0}</div>
+        <div class="tooltip-row"><span class="t-dot dot-ask"></span> Ask: ${dayItem.ask || 0}</div>
+        <div class="tooltip-row t-total">Cəmi: ${dayItem.total || 0}</div>
+      </div>
+      <div class="limits-col-bars-track">
+        <div class="limits-bar-segment segment-build" style="height: ${Math.max(buildH, (dayItem.build ? 6 : 2))}px;"></div>
+        <div class="limits-bar-segment segment-ask" style="height: ${Math.max(askH, (dayItem.ask ? 6 : 2))}px;"></div>
+      </div>
+      <span class="limits-col-label">${escapeHtml(dayItem.label.replace("Bu gün", "Bugün"))}</span>
+    `;
+    barsContainer.appendChild(col);
+  });
+
+  chartBody.appendChild(barsContainer);
+  chartSection.appendChild(chartBody);
+  view.appendChild(chartSection);
+
+  // 5. Dövrlər üzrə İstifadə Statistikası (Collapsible Accordion — Default Closed)
+  const isStatsOpen = Boolean(state.limitsStatsExpanded);
+  const statsAccordionSection = element("div", `limits-accordion-section${isStatsOpen ? " is-open" : " is-collapsed"}`);
+
+  const statsHeaderBtn = button("", "limits-accordion-toggle", () => {
+    state.limitsStatsExpanded = !state.limitsStatsExpanded;
+    renderLimitsView();
+  });
+  statsHeaderBtn.setAttribute("aria-expanded", String(isStatsOpen));
+
+  const statsHeaderText = element("div", "limits-accordion-text");
+  statsHeaderText.innerHTML = `
+    <div class="limits-accordion-title-row">
+      <h3>Dövrlər Üzrə İstifadə Statistikası</h3>
+      <span class="limits-accordion-badge">${stats.totalOps} ümumi sorğu</span>
+    </div>
+    <p>Gün ərzində, 7 gün, 14 gün və 30 günlük fəallıq və sorğu göstəriciləri.</p>
+  `;
+
+  const statsArrow = element("div", "limits-accordion-arrow");
+  statsArrow.innerHTML = `
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  `;
+
+  statsHeaderBtn.append(statsHeaderText, statsArrow);
+  statsAccordionSection.appendChild(statsHeaderBtn);
+
+  const statsAccordionBody = element("div", "limits-accordion-body");
+
+  // Time Filter Row inside accordion
+  const filterRow = element("div", "limits-filter-row");
+  const filterLabel = element("span", "limits-filter-label", "Dövr seçimi:");
+  const filterPills = element("div", "limits-filter-pills");
+
+  const PERIOD_OPTIONS = [
+    { id: "today", label: "Gün ərzində" },
+    { id: "7d", label: "7 gün" },
+    { id: "14d", label: "14 gün" },
+    { id: "30d", label: "30 gün" },
+  ];
+
+  PERIOD_OPTIONS.forEach(({ id, label }) => {
+    const pill = button(label, `limits-pill-btn${period === id ? " is-active" : ""}`, () => {
+      state.limitsPeriod = id;
+      renderLimitsView();
+    });
+    filterPills.appendChild(pill);
+  });
+
+  filterRow.append(filterLabel, filterPills);
+  statsAccordionBody.appendChild(filterRow);
+
+  // 4 Overview Metric Cards Grid
+  const statsGrid = element("div", "limits-stats-grid");
+
+  // Card 1: Total Ops
+  const cardTotal = element("div", "limits-stat-card card-total");
+  cardTotal.innerHTML = `
+    <div class="limits-card-header">
+      <span class="limits-card-title">Ümumi AI Sorğuları</span>
+      <div class="limits-card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M4.93 4.93l2.83 2.83M20 12h-4M2 12h4M19.07 4.93l-2.83 2.83"/><circle cx="12" cy="12" r="9"/><path d="m12 12 3-3"/></svg>
+      </div>
+    </div>
+    <div class="limits-card-value">${stats.totalOps}</div>
+    <div class="limits-card-desc">Seçilmiş dövr üzrə cəmi əməliyyat</div>
+    <div class="limits-card-footer">
+      <span class="limits-tag tag-success">∞ Limitsiz kvota</span>
+    </div>
+  `;
+
+  // Card 2: Build Mode Ops
+  const cardBuild = element("div", "limits-stat-card card-build");
+  cardBuild.innerHTML = `
+    <div class="limits-card-header">
+      <span class="limits-card-title">Build Rejimi İstifadəsi</span>
+      <div class="limits-card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      </div>
+    </div>
+    <div class="limits-card-value">${stats.build.total}</div>
+    <div class="limits-card-desc">${stats.build.strategiesCreated} strategiya, ${stats.build.refinements} düzəliş</div>
+    <div class="limits-card-footer">
+      <span class="limits-tag tag-build">Build Mode</span>
+    </div>
+  `;
+
+  // Card 3: Ask Mode Ops
+  const cardAsk = element("div", "limits-stat-card card-ask");
+  cardAsk.innerHTML = `
+    <div class="limits-card-header">
+      <span class="limits-card-title">Ask Rejimi İstifadəsi</span>
+      <div class="limits-card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+    </div>
+    <div class="limits-card-value">${stats.ask.total}</div>
+    <div class="limits-card-desc">${stats.ask.questions} sual, ${stats.ask.responses} cavab</div>
+    <div class="limits-card-footer">
+      <span class="limits-tag tag-ask">Ask Mode</span>
+    </div>
+  `;
+
+  // Card 4: Active Workspace Sessions
+  const cardSessions = element("div", "limits-stat-card card-sessions");
+  const totalProjects = (totals.allTimeStrategies || 0) + (totals.allTimeChats || 0);
+  cardSessions.innerHTML = `
+    <div class="limits-card-header">
+      <span class="limits-card-title">Aktiv Layihələr & İşlər</span>
+      <div class="limits-card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      </div>
+    </div>
+    <div class="limits-card-value">${totalProjects}</div>
+    <div class="limits-card-desc">${totals.allTimeStrategies || 0} strategiya, ${totals.allTimeChats || 0} söhbət</div>
+    <div class="limits-card-footer">
+      <span class="limits-tag tag-neutral">Sinxronlaşdırılıb</span>
+    </div>
+  `;
+
+  statsGrid.append(cardTotal, cardBuild, cardAsk, cardSessions);
+  statsAccordionBody.appendChild(statsGrid);
+  statsAccordionSection.appendChild(statsAccordionBody);
+  view.appendChild(statsAccordionSection);
+
+  // 6. Platform Capabilities & Model Privileges Matrix (Collapsible Accordion — Default Closed)
+  const isFeaturesOpen = Boolean(state.limitsFeaturesExpanded);
+  const featuresSection = element("div", `limits-accordion-section limits-features-section${isFeaturesOpen ? " is-open" : " is-collapsed"}`);
+
+  const featuresHeaderBtn = button("", "limits-accordion-toggle", () => {
+    state.limitsFeaturesExpanded = !state.limitsFeaturesExpanded;
+    renderLimitsView();
+  });
+  featuresHeaderBtn.setAttribute("aria-expanded", String(isFeaturesOpen));
+
+  const featuresHeaderText = element("div", "limits-accordion-text");
+  featuresHeaderText.innerHTML = `
+    <div class="limits-accordion-title-row">
+      <h3>Süni İntellekt İmkanları və Zəmanətlər</h3>
+      <span class="limits-accordion-badge">3 imkan</span>
+    </div>
+    <p>Workspace daxilində təqdim olunan bütün qabaqcıl alətlər sərbəst şəkildə istifadənizdədir.</p>
+  `;
+
+  const featuresArrow = element("div", "limits-accordion-arrow");
+  featuresArrow.innerHTML = `
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  `;
+
+  featuresHeaderBtn.append(featuresHeaderText, featuresArrow);
+  featuresSection.appendChild(featuresHeaderBtn);
+
+  const featuresAccordionBody = element("div", "limits-accordion-body");
+  const featuresGrid = element("div", "limits-features-grid");
+  featuresGrid.innerHTML = `
+    <div class="limits-feature-card">
+      <div class="limits-feature-icon-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12 2.1 12.5"/></svg>
+      </div>
+      <h4>Qabaqcıl Strateji Zəka</h4>
+      <p>Mürəkkəb bazar araşdırması, hədəf kütlə seqmentasiyası və icra planları ən yüksək dəqiqliklə limitsiz generasiya olunur.</p>
+      <div class="limits-feature-pill">Məhdudiyyətsiz Aktiv</div>
+    </div>
+    <div class="limits-feature-card">
+      <div class="limits-feature-icon-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <h4>Yüksək Sürətli Hesablama</h4>
+      <p>Sorğularınız heç bir növbədə saxlanılmadan yüksək prioritetli süni intellekt infrastrukturu vasitəsilə dərhal emal edilir.</p>
+      <div class="limits-feature-pill">Ultra Sürətli</div>
+    </div>
+    <div class="limits-feature-card">
+      <div class="limits-feature-icon-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </div>
+      <h4>Tam Eksport və Bulud Saxlama</h4>
+      <p>PDF, Excel ixracı, tapşırıqların Planlayıcıya köçürülməsi və layihə arxivləşdirməsi tam məhdudiyyətsizdir.</p>
+      <div class="limits-feature-pill">Limitsiz Saxlama</div>
+    </div>
+  `;
+  featuresAccordionBody.appendChild(featuresGrid);
+  featuresSection.appendChild(featuresAccordionBody);
+  view.appendChild(featuresSection);
+
+  workspace.appendChild(view);
+}
+
 const LEGAL_DOCS = {
   terms: {
     title: "İstifadə Şərtləri",
     subtitle: "Son yenilənmə tarixi: Avqust 2026",
     html: `
       <div class="legal-highlight-box">
-        <strong>✦ 3-cü Tərəf Süni İntellekt API İstifadəsi</strong>
-        Marketify AI xidməti strateji analizləri və marketinq nəticələrini generasiya etmək üçün qabaqcıl üçüncü tərəf süni intellekt provayderlərinin (o cümlədən OpenAI, Google AI və digər etibarlı LLM API infrastrukturlarının) rəsmi API sistemləri ilə fəaliyyət göstərir.
+        <strong>✦ Süni İntellekt API İstifadəsi</strong>
+        Marketify AI xidməti strateji analizləri və marketinq nəticələrini generasiya etmək üçün qabaqcıl süni intellekt və böyük dil modellərinin (LLM) rəsmi API infrastrukturları ilə fəaliyyət göstərir.
       </div>
       <h3>1. Ümumi Müddəalar və Xidmətin Təyinatı</h3>
       <p>Marketify AI platformasına (“Platforma”, “Xidmət”) xoş gəlmisiniz. Bu İstifadə Şərtləri (“Şərtlər”) sizin platformadan istifadənizi tənzimləyir. Xidmətdən istifadə etməklə siz bu şərtləri tam və qeyd-şərtsiz qəbul etmiş olursunuz.</p>
       
-      <h3>2. 3-cü Tərəf API-ləri və Süni İntellekt Emalı</h3>
-      <p>Platformada daxil etdiyiniz biznes brifləri, cavablar və sorğular ən müasir böyük dil modelləri (LLM) vasitəsilə təhlil edilir. Bu proses üçüncü tərəf API provayderləri üzərindən təhlükəsiz şifrələnmiş kanallarla həyata keçirilir.</p>
+      <h3>2. Süni İntellekt Emalı və Təhlükəsizlik</h3>
+      <p>Platformada daxil etdiyiniz biznes brifləri, cavablar və sorğular ən müasir süni intellekt modelləri vasitəsilə təhlil edilir. Bu proses təhlükəsiz və şifrələnmiş kanallarla həyata keçirilir.</p>
       <p>Marketify AI generasiya prosesində ən yüksək dəqiqlik və kontekstual uyğunluq təmin etmək üçün API sorğularını optimallaşdırır.</p>
 
       <h3>3. Əqli Mülkiyyət və Məzmun Hüquqları</h3>
@@ -4015,7 +4583,7 @@ const LEGAL_DOCS = {
       <p>Süni intellekt tərəfindən generasiya olunan nəticələr, proqnozlar və fəaliyyət planları strateji bələdçi və məsləhət xarakteri daşıyır. Marketinq kampaniyalarının icrası, büdcə xərcləri və biznes qərarları üzrə yekun məsuliyyət istifadəçinin üzərindədir.</p>
 
       <h3>5. İstifadəçi Öhdəlikləri</h3>
-      <p>İstifadəçilər qanunvericiliyə zidd, fırıldaqçılıq xarakterli və ya üçüncü şəxslərin hüquqlarını pozan sorğular göndərməməyi və sistemin/API-lərin fəaliyyətinə mane olmamağı öhdələrinə götürürlər.</p>
+      <p>İstifadəçilər qanunvericiliyə zidd, fırıldaqçılıq xarakterli və ya üçüncü şəxslərin hüquqlarını pozan sorğular göndərməməyi və sistemin fəaliyyətinə mane olmamağı öhdələrinə götürürlər.</p>
     `,
   },
   privacy: {
@@ -4023,8 +4591,8 @@ const LEGAL_DOCS = {
     subtitle: "Son yenilənmə tarixi: Avqust 2026",
     html: `
       <div class="legal-highlight-box">
-        <strong>✦ Məlumatların Qorunması və 3-cü Tərəf API Şəffaflığı</strong>
-        Marketify AI istifadəçi məlumatlarının təhlükəsizliyini təmin edir. Sorğuların cavablandırılması üçün 3-cü tərəf süni intellekt API provayderlərindən (OpenAI, Google) istifadə olunur və məlumatlar yalnız cari generasiya sessiyası məqsədilə emal edilir.
+        <strong>✦ Məlumatların Qorunması və Məxfilik Şəffaflığı</strong>
+        Marketify AI istifadəçi məlumatlarının təhlükəsizliyini təmin edir. Sorğuların cavablandırılması təhlükəsiz şifrələnmiş süni intellekt infrastrukturu vasitəsilə aparılır və məlumatlar yalnız cari generasiya sessiyası məqsədilə emal edilir.
       </div>
       <h3>1. Toplanan Məlumatlar</h3>
       <p>• <strong>Profil və Giriş Məlumatları:</strong> Ad, soyad, istifadəçi adı, e-poçt ünvanı və təhlükəsiz şifrələnmiş giriş məlumatları.</p>
@@ -4113,6 +4681,12 @@ railPlannerButton?.addEventListener("click", () => {
   render();
   closeSidebar();
 });
+railLimitsButton?.addEventListener("click", () => {
+  state.mode = "build";
+  state.view = "limits";
+  render();
+  closeSidebar();
+});
 sidebarClose.addEventListener("click", closeSidebar);
 mobileOverlay.addEventListener("click", closeSidebar);
 homeNav.addEventListener("click", () => {
@@ -4128,6 +4702,12 @@ strategiesNav.addEventListener("click", () => {
 plannerNav?.addEventListener("click", () => {
   state.mode = "build";
   state.view = "planner";
+  render();
+  closeSidebar();
+});
+limitsNav?.addEventListener("click", () => {
+  state.mode = "build";
+  state.view = "limits";
   render();
   closeSidebar();
 });
@@ -4170,7 +4750,7 @@ initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
   resumeBackgroundJobs();
   render();
-  await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks()]);
+  await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks(), loadUsageStats()]);
   if (window.location.hash === "#terms" || window.location.pathname === "/terms") {
     openLegalModal("terms");
   } else if (window.location.hash === "#privacy" || window.location.pathname === "/privacy") {

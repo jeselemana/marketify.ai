@@ -200,6 +200,146 @@ function askSafetyIdentifier(ownerId) {
   return createHash("sha256").update(ownerId).digest("hex").slice(0, 32);
 }
 
+app.get("/api/usage/stats", async (req, res) => {
+  try {
+    const [strategies, chats, tasks] = await Promise.all([
+      strategyRepository.readAll().then((r) => (r || []).filter((s) => s.ownerId === req.ownerId)).catch(() => []),
+      chatRepository.readAll().then((r) => (r || []).filter((c) => c.ownerId === req.ownerId)).catch(() => []),
+      plannerRepository.list(req.ownerId).catch(() => []),
+    ]);
+
+    const now = Date.now();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    const periods = {
+      today: { start: now - DAY_MS },
+      "7d": { start: now - 7 * DAY_MS },
+      "14d": { start: now - 14 * DAY_MS },
+      "30d": { start: now - 30 * DAY_MS },
+    };
+
+    const buildEvents = [];
+    for (const strat of (strategies || [])) {
+      const stratCreated = new Date(strat.createdAt || strat.updatedAt || Date.now()).getTime();
+      buildEvents.push({ type: "strategy_create", timestamp: stratCreated });
+
+      if (Array.isArray(strat.versions)) {
+        for (let i = 1; i < strat.versions.length; i++) {
+          const v = strat.versions[i];
+          const vCreated = new Date(v.createdAt || strat.updatedAt || Date.now()).getTime();
+          buildEvents.push({ type: "strategy_refine", timestamp: vCreated });
+        }
+      }
+    }
+
+    const askEvents = [];
+    for (const chat of (chats || [])) {
+      if (Array.isArray(chat.messages)) {
+        for (const msg of chat.messages) {
+          const msgTime = new Date(msg.createdAt || chat.createdAt || Date.now()).getTime();
+          if (msg.role === "user") {
+            askEvents.push({ type: "ask_question", timestamp: msgTime });
+          } else if (msg.role === "assistant") {
+            askEvents.push({ type: "ask_response", timestamp: msgTime });
+          }
+        }
+      }
+    }
+
+    const statsByPeriod = {};
+    for (const [key, { start }] of Object.entries(periods)) {
+      const pBuildEvents = buildEvents.filter((e) => e.timestamp >= start);
+      const pAskEvents = askEvents.filter((e) => e.timestamp >= start);
+
+      const strategiesCreated = pBuildEvents.filter((e) => e.type === "strategy_create").length;
+      const strategyRefinements = pBuildEvents.filter((e) => e.type === "strategy_refine").length;
+      const totalBuild = strategiesCreated + strategyRefinements;
+
+      const askQuestions = pAskEvents.filter((e) => e.type === "ask_question").length;
+      const askResponses = pAskEvents.filter((e) => e.type === "ask_response").length;
+      const totalAsk = askQuestions + askResponses;
+
+      statsByPeriod[key] = {
+        totalOps: totalBuild + totalAsk,
+        build: {
+          total: totalBuild,
+          strategiesCreated,
+          refinements: strategyRefinements,
+        },
+        ask: {
+          total: totalAsk,
+          questions: askQuestions,
+          responses: askResponses,
+          activeChats: (chats || []).filter((c) => new Date(c.updatedAt || c.createdAt || 0).getTime() >= start).length,
+        },
+        activeProjects: (strategies || []).length,
+        plannerTasksCount: (tasks || []).length,
+      };
+    }
+
+    const dailyBreakdown = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now - i * DAY_MS);
+      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const dayEnd = dayStart + DAY_MS;
+
+      const dateStr = d.toLocaleDateString("az-AZ", { month: "short", day: "numeric" });
+      const isoDate = d.toISOString().slice(0, 10);
+
+      const dayBuild = buildEvents.filter((e) => e.timestamp >= dayStart && e.timestamp < dayEnd).length;
+      const dayAsk = askEvents.filter((e) => e.timestamp >= dayStart && e.timestamp < dayEnd).length;
+
+      dailyBreakdown.push({
+        date: isoDate,
+        label: i === 0 ? "Bu gün" : dateStr,
+        build: dayBuild,
+        ask: dayAsk,
+        total: dayBuild + dayAsk,
+      });
+    }
+
+    return res.json({
+      plan: {
+        isUnlimited: true,
+        planTitle: "Limitsiz İstifadə Planı",
+        statusText: "Bütün AI Modelləri Aktivdir",
+        badge: "Limitsiz Plan",
+        accessLevel: "Məhdudiyyətsiz Tam Giriş",
+        models: [
+          {
+            name: "Strateji Zəka Mühərriki",
+            mode: "Build",
+            status: "Limitsiz",
+            description: "Dərin bazar, brendinq və satış strategiyalarının tam avtomatlaşdırılmış generasiyası.",
+          },
+          {
+            name: "İnteraktiv AI Məsləhətçi",
+            mode: "Ask",
+            status: "Limitsiz",
+            description: "Marketinq, böyümə və biznes suallarına real vaxt rejimində ekspert cavabları.",
+          },
+          {
+            name: "Analitik Planlaşdırıcı & Eksport",
+            mode: "Workspace",
+            status: "Limitsiz",
+            description: "PDF və elektron cədvəl eksportları, tapşırıq planlaması və limitsiz layihə yaddaşı.",
+          },
+        ],
+      },
+      statsByPeriod,
+      dailyBreakdown,
+      totals: {
+        allTimeStrategies: (strategies || []).length,
+        allTimeChats: (chats || []).length,
+        allTimeTasks: (tasks || []).length,
+      },
+    });
+  } catch (error) {
+    console.error("Usage stats error:", error);
+    return res.status(500).json({ error: "İstifadə statistikasını əldə etmək mümkün olmadı." });
+  }
+});
+
 app.get("/api/ask/chats", async (req, res) => {
   try {
     const chats = await chatRepository.list(req.ownerId);
