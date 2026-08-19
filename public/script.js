@@ -3377,11 +3377,15 @@ function renderSettings() {
     state.settingsTab = "security";
     renderSettings();
   });
+  const experienceTab = button("Təcrübə", `settings-tab${state.settingsTab === "experience" ? " is-active" : ""}`, () => {
+    state.settingsTab = "experience";
+    renderSettings();
+  });
   const legalTab = button("Hüquqi & Məxfilik", `settings-tab${state.settingsTab === "legal" ? " is-active" : ""}`, () => {
     state.settingsTab = "legal";
     renderSettings();
   });
-  tabs.append(accountTab, securityTab, legalTab);
+  tabs.append(accountTab, experienceTab, securityTab, legalTab);
   view.append(header, tabs);
 
   if (state.settingsTab === "account") {
@@ -3415,6 +3419,49 @@ function renderSettings() {
       }
     });
     panel.appendChild(form);
+    view.appendChild(panel);
+  } else if (state.settingsTab === "experience") {
+    const panel = element("section", "settings-panel");
+    panel.append(
+      element("h2", "", "Fərdiləşdirilmiş təcrübə"),
+      element("p", "settings-panel-intro", "Ask cavablarını sizin seçimlərinizə və əvvəlki istifadə kontekstinizə uyğun fərdiləşdirir."),
+    );
+    const row = element("div", "settings-toggle-row");
+    const copy = element("div", "settings-toggle-copy");
+    copy.append(
+      element("strong", "", "Fərdiləşdirilmiş təcrübə"),
+      element("p", "", "Yalnız cari sualınıza uyğun yadda saxlanmış kontekstdən istifadə edilir."),
+    );
+    const toggle = element("button", "settings-toggle");
+    toggle.type = "button";
+    toggle.setAttribute("role", "switch");
+    toggle.setAttribute("aria-label", "Fərdiləşdirilmiş təcrübə");
+    const syncToggle = () => {
+      const enabled = state.currentUser.settings?.personalIntelligence === true;
+      toggle.classList.toggle("is-active", enabled);
+      toggle.setAttribute("aria-checked", String(enabled));
+    };
+    toggle.appendChild(element("span", "settings-toggle-thumb"));
+    syncToggle();
+    toggle.addEventListener("click", async () => {
+      const previous = state.currentUser.settings?.personalIntelligence === true;
+      toggle.disabled = true;
+      try {
+        const data = await authRequest("/api/auth/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ personalIntelligence: !previous }),
+        });
+        updateWorkspaceIdentity(data.user);
+        syncToggle();
+        showToast(!previous ? "Fərdiləşdirilmiş təcrübə aktiv edildi." : "Fərdiləşdirilmiş təcrübə deaktiv edildi.");
+      } catch (error) {
+        showToast(error.message, "error");
+      } finally {
+        toggle.disabled = false;
+      }
+    });
+    row.append(copy, toggle);
+    panel.appendChild(row);
     view.appendChild(panel);
   } else if (state.settingsTab === "security") {
     const panel = element("section", "settings-panel");

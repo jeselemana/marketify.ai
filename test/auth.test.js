@@ -29,7 +29,11 @@ test("auth normalization, validation, and Argon2id hashing", async () => {
 test("user store migration and uniqueness are deterministic", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-users-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  assert.deepEqual(migrateAuthUserStore([]), { schemaVersion: 1, users: [] });
+  assert.deepEqual(migrateAuthUserStore([]), { schemaVersion: 2, users: [] });
+  assert.deepEqual(
+    migrateAuthUserStore({ schemaVersion: 1, users: [{ id: "legacy" }] }).users[0].settings,
+    { personalIntelligence: false },
+  );
   const repository = new FileUserRepository(path.join(directory, "users.json"));
   const passwordHash = await hashPassword("strongpass1");
   await repository.create({ fullName: "Test User", username: "Test.User", email: "TEST@example.com", passwordHash });
@@ -105,7 +109,25 @@ test("signup, session, login, reset, and single-use reset token work end to end"
   const cookie = signup.headers.get("set-cookie").split(";")[0];
   const created = await signup.json();
   assert.equal(created.user.username, "market.lead");
+  assert.equal(created.user.settings.personalIntelligence, false);
   assert.equal("passwordHash" in created.user, false);
+
+  const enabledSettings = await fetch(`${base}/api/auth/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: cookie },
+    body: JSON.stringify({ personalIntelligence: true }),
+  });
+  assert.equal(enabledSettings.status, 200);
+  assert.equal((await enabledSettings.json()).user.settings.personalIntelligence, true);
+  const refreshedMe = await fetch(`${base}/api/auth/me`, { headers: { Cookie: cookie } });
+  assert.equal((await refreshedMe.json()).user.settings.personalIntelligence, true);
+
+  const unauthenticatedSettings = await fetch(`${base}/api/auth/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ personalIntelligence: true }),
+  });
+  assert.equal(unauthenticatedSettings.status, 401);
 
   const duplicateSignup = await fetch(`${base}/api/auth/signup`, {
     method: "POST",

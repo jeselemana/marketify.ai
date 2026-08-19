@@ -9,6 +9,7 @@ import {
   OnboardingSchema,
   ResetPasswordSchema,
   SignupSchema,
+  UserSettingsSchema,
   UsernameSchema,
   normalizeEmail,
   parseBody,
@@ -40,6 +41,9 @@ export function publicUser(user) {
     emailVerified: Boolean(user.emailVerifiedAt),
     onboardingFocus: user.onboardingFocus,
     onboardingCompleted: Boolean(user.onboardingCompletedAt),
+    settings: {
+      personalIntelligence: user.settings?.personalIntelligence === true,
+    },
     createdAt: user.createdAt,
   };
 }
@@ -220,6 +224,18 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
     const payload = parseBody(AccountUpdateSchema, req.body);
     const updated = await userRepository.update(req.user.id, payload);
+    return res.json({ user: publicUser(updated) });
+  }));
+
+  router.patch("/settings", asyncRoute(async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+    const payload = parseBody(UserSettingsSchema, req.body);
+    const updated = await userRepository.update(req.user.id, {
+      settings: {
+        ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
+        ...payload,
+      },
+    });
     return res.json({ user: publicUser(updated) });
   }));
 

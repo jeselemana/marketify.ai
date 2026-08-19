@@ -189,6 +189,9 @@ export class FileUserRepository {
         emailVerifiedAt: payload.emailVerifiedAt || null,
         onboardingFocus: payload.onboardingFocus || null,
         onboardingCompletedAt: payload.onboardingCompletedAt || null,
+        settings: {
+          personalIntelligence: false,
+        },
         passwordChangedAt: now,
         lastLoginAt: now,
         createdAt: now,

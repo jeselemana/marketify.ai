@@ -68,6 +68,10 @@ export const OnboardingSchema = z.object({
   focus: z.enum(["business", "campaign", "brand", "research", "other"]),
 });
 
+export const UserSettingsSchema = z.object({
+  personalIntelligence: z.boolean(),
+});
+
 export function parseBody(schema, body) {
   const result = schema.safeParse(body);
   if (result.success) return result.data;
