@@ -17,9 +17,21 @@ function relevance(queryTokens, value) {
   const candidateTokens = tokens(value);
   let matches = 0;
   for (const token of queryTokens) {
-    if (candidateTokens.has(token)) matches += 1;
+    const matched = [...candidateTokens].some((candidate) => (
+      candidate === token
+      || (Math.min(candidate.length, token.length) >= 4
+        && (candidate.startsWith(token) || token.startsWith(candidate)))
+    ));
+    if (matched) matches += 1;
   }
   return matches;
+}
+
+function asksForUserName(value) {
+  const normalized = String(value || "").toLocaleLowerCase("az");
+  return /\b(adım|adımı|adımısa|adımın|adınız|ismim|ismimi)\b/u.test(normalized)
+    || /\bmən kiməm\b/u.test(normalized)
+    || /\b(my name|who am i|do you know my name)\b/i.test(normalized);
 }
 
 function clip(value, length = 420) {
@@ -36,6 +48,7 @@ export async function getRelevantUserContext({
   currentChatId = "",
   chatRepository,
   strategyRepository,
+  userProfile = null,
   maxItems = 4,
 }) {
   if (!ownerId || !userMessage) return "";
@@ -76,6 +89,15 @@ export async function getRelevantUserContext({
         value: clip(strategy.brief),
       });
     }
+  }
+
+  if (!candidates.length && asksForUserName(userMessage) && userProfile?.fullName) {
+    candidates.push({
+      score: 1,
+      updatedAt: "",
+      label: "Hesabda saxlanmış ad",
+      value: clip(userProfile.fullName, 80),
+    });
   }
 
   const selected = candidates

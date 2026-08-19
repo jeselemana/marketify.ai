@@ -56,3 +56,43 @@ test("personal context stays empty when saved data is unrelated", async () => {
   });
   assert.equal(context, "");
 });
+
+test("personal context matches Azerbaijani name suffixes across chats", async () => {
+  const context = await getRelevantUserContext({
+    ownerId: "user-a",
+    userMessage: "Adımı bilirsən?",
+    chatRepository: repository([{
+      id: "old-chat",
+      ownerId: "user-a",
+      title: "Tanışlıq",
+      messages: [{ role: "user", content: "Mənim adım Cesurdur." }],
+    }]),
+    strategyRepository: repository([]),
+    userProfile: { fullName: "Hesab Adı" },
+  });
+
+  assert.match(context, /Mənim adım Cesurdur/);
+  assert.doesNotMatch(context, /Hesab Adı/);
+});
+
+test("name questions use the authenticated profile only as a relevant fallback", async () => {
+  const repositories = {
+    chatRepository: repository([]),
+    strategyRepository: repository([]),
+  };
+  const nameContext = await getRelevantUserContext({
+    ownerId: "user-a",
+    userMessage: "Adımı bilirsən?",
+    userProfile: { fullName: "Cesur Elemana" },
+    ...repositories,
+  });
+  const unrelatedContext = await getRelevantUserContext({
+    ownerId: "user-a",
+    userMessage: "Instagram reklamlarını necə yaxşılaşdıraq?",
+    userProfile: { fullName: "Cesur Elemana" },
+    ...repositories,
+  });
+
+  assert.match(nameContext, /Cesur Elemana/);
+  assert.equal(unrelatedContext, "");
+});
