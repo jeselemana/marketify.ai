@@ -889,10 +889,21 @@ function renderAsk() {
   submit.disabled = true;
   submit.setAttribute("aria-label", "Sualı göndər");
   submit.appendChild(element("span", "", "↑"));
-  form.append(contextMenu, label, input, submit);
   const helper = element("div", "ask-composer-meta");
+  const metaLeft = element("div", "ask-meta-left");
   const contextMeta = element("span", "ask-context-meta", selectedStrategy ? `Kontekst: ${selectedStrategy.title}` : "Marketify");
-  helper.append(contextMeta, element("span", "", "Enter ilə göndər · Shift + Enter yeni sətir"));
+  metaLeft.appendChild(contextMeta);
+  if (state.currentUser?.settings?.personalIntelligence === true) {
+    const pBadge = button("⚡ Fərdiləşdirilmiş", "ask-personalization-badge", () => {
+      state.view = "settings";
+      state.settingsTab = "experience";
+      render();
+    });
+    pBadge.type = "button";
+    pBadge.title = "Fərdiləşdirilmiş təcrübə aktivdir. Tənzimləmək üçün klikləyin.";
+    metaLeft.appendChild(pBadge);
+  }
+  helper.append(metaLeft, element("span", "", "Enter ilə göndər · Shift + Enter yeni sətir"));
   composerArea.append(form, helper);
   shell.append(thread, composerArea);
   workspace.appendChild(shell);
@@ -3324,15 +3335,16 @@ function updateWorkspaceIdentity(user) {
   workspaceMeta.textContent = `@${user.username} · Şəxsi hesab`;
 }
 
-function settingsField(label, name, value, type = "text", autocomplete = "off") {
+function settingsField(label, name, value, type = "text", autocomplete = "off", placeholder = "") {
   const wrapper = element("label", "settings-field");
   const input = element("input", "settings-input");
   input.name = name;
   input.type = type;
   input.value = value || "";
   input.autocomplete = autocomplete;
+  if (placeholder) input.placeholder = placeholder;
   input.setAttribute("aria-label", label);
-  wrapper.append(element("span", "", label), input);
+  wrapper.append(element("span", "settings-field-label", label), input);
   return wrapper;
 }
 
@@ -3421,47 +3433,354 @@ function renderSettings() {
     panel.appendChild(form);
     view.appendChild(panel);
   } else if (state.settingsTab === "experience") {
-    const panel = element("section", "settings-panel");
+    const panel = element("section", "settings-panel settings-experience-panel");
     panel.append(
       element("h2", "", "Fərdiləşdirilmiş təcrübə"),
-      element("p", "settings-panel-intro", "Ask cavablarını sizin seçimlərinizə və əvvəlki istifadə kontekstinizə uyğun fərdiləşdirir."),
+      element("p", "settings-panel-intro", "Brendinizi, sahənizi və cavab üslubunuzu təyin edərək Marketify AI-ın sizin biznesinizə tam uyğunlaşmasını təmin edin."),
     );
-    const row = element("div", "settings-toggle-row");
-    const copy = element("div", "settings-toggle-copy");
-    copy.append(
-      element("strong", "", "Fərdiləşdirilmiş təcrübə"),
-      element("p", "", "Yalnız cari sualınıza uyğun yadda saxlanmış kontekstdən istifadə edilir."),
+
+    const userSettings = state.currentUser.settings || {};
+    let currentTone = userSettings.tone || "professional";
+    let memoriesList = Array.isArray(userSettings.memories) ? [...userSettings.memories] : [];
+
+    // Master Switch
+    const masterCard = element("div", "experience-hero-toggle");
+    const masterLeft = element("div", "experience-hero-left");
+    masterLeft.append(
+      element("strong", "", "Fərdiləşdirilmiş cavablar və strategiyalar"),
+      element("p", "", "Aktiv olduqda Ask söhbətləri və Build rejimi aşağıdakı brend profili, üslub və yaddaş qeydləri əsasında cavab verir."),
     );
-    const toggle = element("button", "settings-toggle");
-    toggle.type = "button";
-    toggle.setAttribute("role", "switch");
-    toggle.setAttribute("aria-label", "Fərdiləşdirilmiş təcrübə");
-    const syncToggle = () => {
-      const enabled = state.currentUser.settings?.personalIntelligence === true;
-      toggle.classList.toggle("is-active", enabled);
-      toggle.setAttribute("aria-checked", String(enabled));
+    const masterToggle = element("button", "settings-toggle");
+    masterToggle.type = "button";
+    masterToggle.setAttribute("role", "switch");
+    masterToggle.setAttribute("aria-label", "Fərdiləşdirilmiş təcrübə");
+    let isMasterEnabled = userSettings.personalIntelligence === true;
+    const syncMasterToggle = () => {
+      masterToggle.classList.toggle("is-active", isMasterEnabled);
+      masterToggle.setAttribute("aria-checked", String(isMasterEnabled));
     };
-    toggle.appendChild(element("span", "settings-toggle-thumb"));
-    syncToggle();
-    toggle.addEventListener("click", async () => {
-      const previous = state.currentUser.settings?.personalIntelligence === true;
-      toggle.disabled = true;
+    masterToggle.appendChild(element("span", "settings-toggle-thumb"));
+    syncMasterToggle();
+    masterToggle.addEventListener("click", () => {
+      isMasterEnabled = !isMasterEnabled;
+      syncMasterToggle();
+    });
+    masterCard.append(masterLeft, masterToggle);
+    panel.appendChild(masterCard);
+
+    const form = element("form", "settings-form experience-settings-form");
+
+    function createExperienceAccordion({ title, desc, badgeNode = null, isOpen = false, contentNode }) {
+      const details = document.createElement("details");
+      details.className = "experience-accordion";
+      if (isOpen) details.open = true;
+
+      const summary = element("summary", "experience-accordion-summary");
+      const summaryLeft = element("div", "experience-accordion-left");
+      const titleRow = element("div", "experience-accordion-title-row");
+      titleRow.appendChild(element("strong", "experience-accordion-title", title));
+      if (badgeNode) {
+        titleRow.appendChild(badgeNode);
+      }
+      summaryLeft.appendChild(titleRow);
+      if (desc) {
+        summaryLeft.appendChild(element("p", "experience-accordion-desc", desc));
+      }
+
+      const iconWrap = element("span", "experience-accordion-icon");
+      iconWrap.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+
+      summary.append(summaryLeft, iconWrap);
+      const body = element("div", "experience-accordion-content");
+      body.appendChild(contentNode);
+      details.append(summary, body);
+      return details;
+    }
+
+    // 1. Business Profile (Primary - Open by default)
+    const profileGrid = element("div", "experience-grid-fields");
+    profileGrid.append(
+      settingsField("Brend / Layihə adı", "brandName", userSettings.brandName || "", "text", "organization", "Məs: Marketify AI"),
+      settingsField("Fəaliyyət sahəsi / Sənaye", "industry", userSettings.industry || "", "text", "off", "Məs: B2B SaaS, E-ticarət, Kosmetika"),
+      settingsField("Əsas bazar / Coğrafiya", "primaryMarket", userSettings.primaryMarket || "", "text", "off", "Məs: Azərbaycan (Bakı və regionlar)"),
+      settingsField("Hədəf kütlə", "targetAudience", userSettings.targetAudience || "", "text", "off", "Məs: 20-35 yaş gənclər, startaplar"),
+    );
+    const profileAccordion = createExperienceAccordion({
+      title: "Biznes və brend profili",
+      desc: "Hər dəfə şirkətiniz haqqında təkrar məlumat verməmək üçün əsas detalları daxil edin.",
+      isOpen: true,
+      contentNode: profileGrid,
+    });
+    form.appendChild(profileAccordion);
+
+    // 2. Tone & Voice (Secondary - Collapsible)
+    const toneGrid = element("div", "experience-tone-grid");
+    const toneOptions = [
+      {
+        id: "professional",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>',
+        name: "Peşəkar və Analitik",
+        desc: "Dəqiq biznes arqumentləri, strukturlaşdırılmış təhlil və rəsmi terminlər.",
+      },
+      {
+        id: "creative",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>',
+        name: "Yaradıcı və Cəsarətli",
+        desc: "Fərqli marketinq ideyaları, viral konseptlər və təsirli şüarlar.",
+      },
+      {
+        id: "concise",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+        name: "Qısa və İcra Yönümlü",
+        desc: "Girişsiz, birbaşa icra addımları, qısa bəndlər və dərhal tətbiq olunan həllər.",
+      },
+      {
+        id: "friendly",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        name: "Dostcasına və İzahlı",
+        desc: "Səmimi dil, anlaşıqlı yanaşma və marketinq terminlərinin sadə izahı.",
+      },
+      {
+        id: "data_driven",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+        name: "Nəticə və Satış Yönümlü",
+        desc: "Dönüşüm (conversion), ROAS, satış qıfı və ölçülə bilən KPI fokuslu.",
+      },
+    ];
+
+    const currentToneObj = toneOptions.find((t) => t.id === currentTone) || toneOptions[0];
+    const toneBadge = element("span", "experience-summary-badge", currentToneObj.name);
+
+    toneOptions.forEach((opt) => {
+      const card = element("button", `experience-tone-card${currentTone === opt.id ? " is-selected" : ""}`);
+      card.type = "button";
+      card.innerHTML = `
+        <div class="tone-card-top">
+          <span class="tone-card-icon-wrap">${opt.icon}</span>
+          <strong class="tone-card-title">${opt.name}</strong>
+          <span class="tone-card-check"></span>
+        </div>
+        <p class="tone-card-desc">${opt.desc}</p>
+      `;
+      card.addEventListener("click", () => {
+        currentTone = opt.id;
+        toneBadge.textContent = opt.name;
+        toneGrid.querySelectorAll(".experience-tone-card").forEach((c) => c.classList.remove("is-selected"));
+        card.classList.add("is-selected");
+      });
+      toneGrid.appendChild(card);
+    });
+
+    const toneAccordion = createExperienceAccordion({
+      title: "AI cavab üslubu və tonu",
+      desc: "Cavabların və tərtib olunan strategiyaların hansı tonda təqdim olunmasını seçin.",
+      badgeNode: toneBadge,
+      isOpen: false,
+      contentNode: toneGrid,
+    });
+    form.appendChild(toneAccordion);
+
+    // 3. Custom Instructions (Secondary - Collapsible)
+    const customLabel = element("label", "settings-field");
+    const customTextarea = element("textarea", "settings-input settings-textarea");
+    customTextarea.name = "customInstructions";
+    customTextarea.rows = 3;
+    customTextarea.maxLength = 2000;
+    customTextarea.placeholder = "Məsələn: Təkliflərdə həmişə büdcəyə qənaətcil rəqəmsal kanalları önə çək. Cavablarda addım-addım icra planı və ölçülə bilən KPI cədvəli təqdim et...";
+    customTextarea.value = userSettings.customInstructions || "";
+    customLabel.append(element("span", "settings-field-label", "Təlimat mətni"), customTextarea);
+
+    const customAccordion = createExperienceAccordion({
+      title: "Xüsusi təlimatlar (Custom Instructions)",
+      desc: "Marketify-ın sizin üçün cavab hazırlayarkən riayət etməli olduğu xüsusi qaydalar.",
+      isOpen: false,
+      contentNode: customLabel,
+    });
+    form.appendChild(customAccordion);
+
+    // 4. Memory Hub (Secondary - Collapsible)
+    const memoryWrapper = element("div", "experience-memory-wrapper");
+    const memoryListContainer = element("div", "experience-memory-list");
+    const memoryBadge = element("span", "experience-summary-badge", `${memoriesList.length} qeyd`);
+
+    const renderMemories = () => {
+      memoryListContainer.replaceChildren();
+      memoryBadge.textContent = `${memoriesList.length} qeyd`;
+      if (!memoriesList.length) {
+        const empty = element("p", "experience-memory-empty", "Hələ heç bir yaddaş qeydi saxlanılmayıb.");
+        memoryListContainer.appendChild(empty);
+        return;
+      }
+      memoriesList.forEach((mem) => {
+        const item = element("div", "experience-memory-item");
+        const categoryNames = {
+          business: "Biznes",
+          audience: "Auditoriya",
+          preference: "Üstünlük",
+          constraint: "Məhdudiyyət",
+          general: "Qeyd",
+        };
+        const catLabel = categoryNames[mem.category] || "Qeyd";
+        item.innerHTML = `
+          <div class="memory-item-content">
+            <span class="memory-category-tag tag-${escapeHtml(mem.category || "general")}">${catLabel}</span>
+            <span class="memory-text">${escapeHtml(mem.text)}</span>
+          </div>
+        `;
+        const delBtn = button("", "memory-delete-btn", () => {
+          memoriesList = memoriesList.filter((m) => m.id !== mem.id);
+          renderMemories();
+        });
+        delBtn.type = "button";
+        delBtn.title = "Qeydi sil";
+        delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        item.appendChild(delBtn);
+        memoryListContainer.appendChild(item);
+      });
+    };
+    renderMemories();
+
+    const addMemoryRow = element("div", "experience-add-memory-row");
+    const memoryInput = element("input", "settings-input");
+    memoryInput.type = "text";
+    memoryInput.placeholder = "Yeni fakt əlavə et... məs. Biz yalnız B2B şirkətlərlə işləyirik";
+    memoryInput.maxLength = 500;
+
+    const memoryCategorySelect = element("select", "settings-input settings-select");
+    [
+      { val: "business", label: "Biznes Faktı" },
+      { val: "audience", label: "Hədəf Kütlə" },
+      { val: "preference", label: "Üstünlük" },
+      { val: "constraint", label: "Məhdudiyyət" },
+      { val: "general", label: "Ümumi Qeyd" },
+    ].forEach((c) => {
+      const opt = element("option", "", c.label);
+      opt.value = c.val;
+      memoryCategorySelect.appendChild(opt);
+    });
+
+    const addMemoryBtn = button("Əlavə et", "secondary-button experience-add-btn", () => {
+      const text = memoryInput.value.trim();
+      if (!text) return;
+      if (memoriesList.length >= 50) {
+        showToast("Maksimum 50 yaddaş qeydi saxlanıla bilər.", "error");
+        return;
+      }
+      memoriesList.unshift({
+        id: `mem_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        text,
+        category: memoryCategorySelect.value,
+        createdAt: new Date().toISOString(),
+      });
+      memoryInput.value = "";
+      renderMemories();
+    });
+    addMemoryBtn.type = "button";
+
+    addMemoryRow.append(memoryInput, memoryCategorySelect, addMemoryBtn);
+
+    const memoryFooter = element("div", "experience-memory-footer");
+    const clearMemoriesBtn = button("Bütün yaddaşı təmizlə", "danger-text-button", () => {
+      if (confirm("Bütün yaddaş qeydlərini silmək istədiyinizdən əminsiniz?")) {
+        memoriesList = [];
+        renderMemories();
+      }
+    });
+    clearMemoriesBtn.type = "button";
+    memoryFooter.appendChild(clearMemoriesBtn);
+
+    memoryWrapper.append(memoryListContainer, addMemoryRow, memoryFooter);
+
+    const memoryAccordion = createExperienceAccordion({
+      title: "Aktiv yaddaş qeydləri (Memory Hub)",
+      desc: "Modelin sizin biznesiniz haqqında unutmamasını istədiyiniz konkret faktlar.",
+      badgeNode: memoryBadge,
+      isOpen: false,
+      contentNode: memoryWrapper,
+    });
+    form.appendChild(memoryAccordion);
+
+    // 5. Scopes (Secondary - Collapsible)
+    const scopesWrapper = element("div", "experience-scopes-wrapper");
+    let isAutoContext = userSettings.autoContext !== false;
+    let isStrategyPersonalization = userSettings.strategyPersonalization !== false;
+
+    const createScopeRow = (title, desc, initialVal, onToggle) => {
+      const row = element("div", "settings-toggle-row");
+      const copy = element("div", "settings-toggle-copy");
+      copy.append(element("strong", "", title), element("p", "", desc));
+      const toggle = element("button", "settings-toggle");
+      toggle.type = "button";
+      toggle.setAttribute("role", "switch");
+      let active = initialVal;
+      const sync = () => {
+        toggle.classList.toggle("is-active", active);
+        toggle.setAttribute("aria-checked", String(active));
+      };
+      toggle.appendChild(element("span", "settings-toggle-thumb"));
+      sync();
+      toggle.addEventListener("click", () => {
+        active = !active;
+        sync();
+        onToggle(active);
+      });
+      row.append(copy, toggle);
+      return row;
+    };
+
+    scopesWrapper.append(
+      createScopeRow("Ask söhbətlərində keçmiş kontekstdən istifadə", "Cari sualınızla bağlı olduqda keçmiş söhbətlər və strategiyalardan faydalı məlumatlar avtomatik cəlb edilir.", isAutoContext, (v) => { isAutoContext = v; }),
+      createScopeRow("Build rejimində yeni strategiyalara tətbiq etmə", "Yeni strategiya yaradarkən və dəqiqləşdirərkən yuxarıdakı brend profili və ton nəzərə alınır.", isStrategyPersonalization, (v) => { isStrategyPersonalization = v; }),
+    );
+
+    const scopesAccordion = createExperienceAccordion({
+      title: "Tətbiq rejimləri",
+      desc: "Fərdiləşdirmənin hansı modullarda işləməsini tənzimləyin.",
+      isOpen: false,
+      contentNode: scopesWrapper,
+    });
+    form.appendChild(scopesAccordion);
+
+    // Save bar
+    const save = button("Dəyişiklikləri saxla", "primary-button experience-save-btn");
+    save.type = "submit";
+    form.appendChild(save);
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      save.disabled = true;
+      save.textContent = "Saxlanılır…";
+      const formData = new FormData(form);
+      const payload = {
+        personalIntelligence: isMasterEnabled,
+        brandName: String(formData.get("brandName") || "").trim(),
+        industry: String(formData.get("industry") || "").trim(),
+        primaryMarket: String(formData.get("primaryMarket") || "").trim(),
+        targetAudience: String(formData.get("targetAudience") || "").trim(),
+        tone: currentTone,
+        customInstructions: String(formData.get("customInstructions") || "").trim(),
+        memories: memoriesList,
+        autoContext: isAutoContext,
+        strategyPersonalization: isStrategyPersonalization,
+      };
       try {
         const data = await authRequest("/api/auth/settings", {
           method: "PATCH",
-          body: JSON.stringify({ personalIntelligence: !previous }),
+          body: JSON.stringify(payload),
         });
         updateWorkspaceIdentity(data.user);
-        syncToggle();
-        showToast(!previous ? "Fərdiləşdirilmiş təcrübə aktiv edildi." : "Fərdiləşdirilmiş təcrübə deaktiv edildi.");
+        settingsMessage(form, "Fərdiləşdirilmiş təcrübə parametrləri uğurla yeniləndi.", "success");
+        showToast("Parametrlər yadda saxlanıldı.");
       } catch (error) {
+        settingsMessage(form, error.message);
         showToast(error.message, "error");
       } finally {
-        toggle.disabled = false;
+        save.disabled = false;
+        save.textContent = "Dəyişiklikləri saxla";
       }
     });
-    row.append(copy, toggle);
-    panel.appendChild(row);
+
+    panel.appendChild(form);
     view.appendChild(panel);
   } else if (state.settingsTab === "security") {
     const panel = element("section", "settings-panel");

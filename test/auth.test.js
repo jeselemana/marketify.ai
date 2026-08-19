@@ -32,7 +32,18 @@ test("user store migration and uniqueness are deterministic", async (t) => {
   assert.deepEqual(migrateAuthUserStore([]), { schemaVersion: 2, users: [] });
   assert.deepEqual(
     migrateAuthUserStore({ schemaVersion: 1, users: [{ id: "legacy" }] }).users[0].settings,
-    { personalIntelligence: false },
+    {
+      personalIntelligence: false,
+      brandName: "",
+      industry: "",
+      targetAudience: "",
+      primaryMarket: "",
+      tone: "professional",
+      customInstructions: "",
+      memories: [],
+      autoContext: true,
+      strategyPersonalization: true,
+    },
   );
   const repository = new FileUserRepository(path.join(directory, "users.json"));
   const passwordHash = await hashPassword("strongpass1");

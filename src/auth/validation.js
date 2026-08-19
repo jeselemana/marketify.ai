@@ -68,8 +68,29 @@ export const OnboardingSchema = z.object({
   focus: z.enum(["business", "campaign", "brand", "research", "other"]),
 });
 
+export const UserMemoryItemSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  text: z.string().trim().min(1, "Yaddaş mətni boş ola bilməz.").max(500, "Yaddaş mətni 500 simvoldan çox ola bilməz."),
+  category: z.enum(["business", "audience", "preference", "constraint", "general"]).default("general"),
+  createdAt: z.string().max(80),
+});
+
+export const AddMemoryItemSchema = z.object({
+  text: z.string().trim().min(1, "Qeyd daxil edin.").max(500, "Qeyd 500 simvoldan uzun ola bilməz."),
+  category: z.enum(["business", "audience", "preference", "constraint", "general"]).optional().default("general"),
+});
+
 export const UserSettingsSchema = z.object({
-  personalIntelligence: z.boolean(),
+  personalIntelligence: z.boolean().optional(),
+  brandName: z.string().trim().max(100, "Brend adı 100 simvoldan uzun ola bilməz.").optional().default(""),
+  industry: z.string().trim().max(100, "Sənaye sahəsi 100 simvoldan uzun ola bilməz.").optional().default(""),
+  targetAudience: z.string().trim().max(500, "Hədəf kütlə 500 simvoldan uzun ola bilməz.").optional().default(""),
+  primaryMarket: z.string().trim().max(100, "Bazar məlumatı 100 simvoldan uzun ola bilməz.").optional().default(""),
+  tone: z.enum(["professional", "creative", "concise", "friendly", "data_driven"]).optional().default("professional"),
+  customInstructions: z.string().trim().max(2000, "Xüsusi təlimatlar 2000 simvoldan uzun ola bilməz.").optional().default(""),
+  memories: z.array(UserMemoryItemSchema).max(50, "Maksimum 50 yaddaş qeydi saxlanıla bilər.").optional(),
+  autoContext: z.boolean().optional().default(true),
+  strategyPersonalization: z.boolean().optional().default(true),
 });
 
 export function parseBody(schema, body) {

@@ -7,6 +7,7 @@ import {
   formatValidationError,
 } from "../domain/strategy.js";
 import { assessBrief, generateStrategy, refineStrategy } from "../services/ai/strategy-service.js";
+import { buildPersonalizationContext } from "../services/ai/personal-context.js";
 
 const activeGenerations = new Map();
 const requestWindows = new Map();
@@ -61,7 +62,12 @@ export function createStrategyRouter(repository) {
         if (!res.writableEnded) abortController.abort();
       });
       const payload = parse(AssessRequestSchema, req.body);
-      const assessment = await assessBrief({ ...payload, ownerId: req.ownerId, signal: abortController.signal });
+      const personalizationContext = await buildPersonalizationContext({
+        user: req.user,
+        userMessage: payload.brief,
+        mode: "strategy",
+      });
+      const assessment = await assessBrief({ ...payload, ownerId: req.ownerId, personalizationContext, signal: abortController.signal });
       if (!res.writableEnded) {
         res.json({ assessment });
       }
@@ -77,7 +83,12 @@ export function createStrategyRouter(repository) {
       let generation = activeGenerations.get(requestKey);
       if (!generation) {
         generation = (async () => {
-          const strategy = await generateStrategy({ ...payload, ownerId: req.ownerId });
+          const personalizationContext = await buildPersonalizationContext({
+            user: req.user,
+            userMessage: payload.brief,
+            mode: "strategy",
+          });
+          const strategy = await generateStrategy({ ...payload, ownerId: req.ownerId, personalizationContext });
           // Automatically save completed strategy to server repository so it is never lost if user closes browser
           try {
             const now = new Date().toISOString();
@@ -126,7 +137,12 @@ export function createStrategyRouter(repository) {
         if (!res.writableEnded) abortController.abort();
       });
       const payload = parse(RefineRequestSchema, req.body);
-      const strategy = await refineStrategy(payload, req.ownerId, abortController.signal);
+      const personalizationContext = await buildPersonalizationContext({
+        user: req.user,
+        userMessage: payload.brief || payload.request || "",
+        mode: "strategy",
+      });
+      const strategy = await refineStrategy(payload, req.ownerId, abortController.signal, personalizationContext);
       if (!res.writableEnded) {
         res.json({ strategy });
       }
@@ -161,7 +177,12 @@ export function createStrategyRouter(repository) {
         answers: existing.clarification.answers,
         strategy: existing.strategy,
       });
-      const strategy = await refineStrategy(payload, req.ownerId);
+      const personalizationContext = await buildPersonalizationContext({
+        user: req.user,
+        userMessage: payload.brief || payload.request || "",
+        mode: "strategy",
+      });
+      const strategy = await refineStrategy(payload, req.ownerId, undefined, personalizationContext);
       const changeRequest = payload.action === "custom" ? payload.request : payload.action;
       const updated = await repository.appendVersion(req.params.id, req.ownerId, strategy, changeRequest);
       res.json({ strategy: publicRecord(updated) });

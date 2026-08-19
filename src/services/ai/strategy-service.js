@@ -48,7 +48,7 @@ async function parseStructured({ model, schema, name, instructions, input, maxOu
   return response.output_parsed;
 }
 
-export async function assessBrief({ brief, answers, round, ownerId, signal }) {
+export async function assessBrief({ brief, answers, round, ownerId, signal, personalizationContext = "" }) {
   const signals = analyzeBriefSignals(brief);
   const forceDecision = round >= aiConfig.maxClarificationRounds;
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake signals (advisory only):\n${JSON.stringify(signals)}\n\nClarification round: ${round} of ${aiConfig.maxClarificationRounds}.\n${
@@ -61,7 +61,7 @@ export async function assessBrief({ brief, answers, round, ownerId, signal }) {
     model: aiConfig.fastModel,
     schema: StrategyAssessmentSchema,
     name: "strategy_assessment",
-    instructions: ASSESSOR_PROMPT,
+    instructions: `${ASSESSOR_PROMPT}${personalizationContext || ""}`,
     input,
     maxOutputTokens: aiConfig.assessmentMaxOutputTokens,
     reasoning: "low",
@@ -83,7 +83,7 @@ export async function assessBrief({ brief, answers, round, ownerId, signal }) {
   return assessment;
 }
 
-export async function generateStrategy({ brief, answers, assumptions, ownerId, signal }) {
+export async function generateStrategy({ brief, answers, assumptions, ownerId, signal, personalizationContext = "" }) {
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
     assumptions.length ? assumptions.join("\n- ") : "None supplied."
   }`;
@@ -92,7 +92,7 @@ export async function generateStrategy({ brief, answers, assumptions, ownerId, s
     model: aiConfig.strategyModel,
     schema: StrategySchema,
     name: "marketify_strategy",
-    instructions: STRATEGY_PROMPT,
+    instructions: `${STRATEGY_PROMPT}${personalizationContext || ""}`,
     input,
     maxOutputTokens: aiConfig.strategyMaxOutputTokens,
     reasoning: "medium",
@@ -101,12 +101,12 @@ export async function generateStrategy({ brief, answers, assumptions, ownerId, s
   });
 }
 
-export async function refineStrategy(payload, ownerId, signal) {
+export async function refineStrategy(payload, ownerId, signal, personalizationContext = "") {
   return parseStructured({
     model: aiConfig.strategyModel,
     schema: StrategySchema,
     name: "marketify_refined_strategy",
-    instructions: REFINEMENT_PROMPT,
+    instructions: `${REFINEMENT_PROMPT}${personalizationContext || ""}`,
     input: buildRefinementInput(payload),
     maxOutputTokens: aiConfig.refinementMaxOutputTokens,
     reasoning: payload.action === "think_deeper" ? "high" : "medium",

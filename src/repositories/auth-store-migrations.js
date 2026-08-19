@@ -2,11 +2,20 @@ export const AUTH_USER_SCHEMA_VERSION = 2;
 
 function migrateUser(user) {
   if (!user || typeof user !== "object") return user;
+  const currentSettings = user.settings && typeof user.settings === "object" ? user.settings : {};
   return {
     ...user,
     settings: {
-      ...(user.settings && typeof user.settings === "object" ? user.settings : {}),
-      personalIntelligence: user.settings?.personalIntelligence === true,
+      personalIntelligence: currentSettings.personalIntelligence === true,
+      brandName: typeof currentSettings.brandName === "string" ? currentSettings.brandName : "",
+      industry: typeof currentSettings.industry === "string" ? currentSettings.industry : "",
+      targetAudience: typeof currentSettings.targetAudience === "string" ? currentSettings.targetAudience : "",
+      primaryMarket: typeof currentSettings.primaryMarket === "string" ? currentSettings.primaryMarket : "",
+      tone: typeof currentSettings.tone === "string" ? currentSettings.tone : "professional",
+      customInstructions: typeof currentSettings.customInstructions === "string" ? currentSettings.customInstructions : "",
+      memories: Array.isArray(currentSettings.memories) ? currentSettings.memories : [],
+      autoContext: currentSettings.autoContext !== false,
+      strategyPersonalization: currentSettings.strategyPersonalization !== false,
     },
   };
 }

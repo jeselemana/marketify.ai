@@ -1,8 +1,9 @@
 import { OAuth2Client } from "google-auth-library";
 import express from "express";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   AccountUpdateSchema,
+  AddMemoryItemSchema,
   ChangePasswordSchema,
   ForgotPasswordSchema,
   LoginSchema,
@@ -32,6 +33,7 @@ function asyncRoute(handler) {
 }
 
 export function publicUser(user) {
+  const settings = user?.settings && typeof user.settings === "object" ? user.settings : {};
   return {
     id: user.id,
     fullName: user.fullName,
@@ -42,7 +44,16 @@ export function publicUser(user) {
     onboardingFocus: user.onboardingFocus,
     onboardingCompleted: Boolean(user.onboardingCompletedAt),
     settings: {
-      personalIntelligence: user.settings?.personalIntelligence === true,
+      personalIntelligence: settings.personalIntelligence === true,
+      brandName: typeof settings.brandName === "string" ? settings.brandName : "",
+      industry: typeof settings.industry === "string" ? settings.industry : "",
+      targetAudience: typeof settings.targetAudience === "string" ? settings.targetAudience : "",
+      primaryMarket: typeof settings.primaryMarket === "string" ? settings.primaryMarket : "",
+      tone: typeof settings.tone === "string" ? settings.tone : "professional",
+      customInstructions: typeof settings.customInstructions === "string" ? settings.customInstructions : "",
+      memories: Array.isArray(settings.memories) ? settings.memories : [],
+      autoContext: settings.autoContext !== false,
+      strategyPersonalization: settings.strategyPersonalization !== false,
     },
     createdAt: user.createdAt,
   };
@@ -237,6 +248,54 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       },
     });
     return res.json({ user: publicUser(updated) });
+  }));
+
+  router.post("/settings/memory", asyncRoute(async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+    const payload = parseBody(AddMemoryItemSchema, req.body);
+    const currentMemories = Array.isArray(req.user.settings?.memories) ? req.user.settings.memories : [];
+    if (currentMemories.length >= 50) {
+      return res.status(400).json({ error: "Maksimum 50 yaddaş qeydi saxlanıla bilər.", code: "LIMIT_REACHED" });
+    }
+    const newMemory = {
+      id: `mem_${randomUUID().slice(0, 8)}`,
+      text: payload.text,
+      category: payload.category || "general",
+      createdAt: new Date().toISOString(),
+    };
+    const updatedMemories = [newMemory, ...currentMemories];
+    const updated = await userRepository.update(req.user.id, {
+      settings: {
+        ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
+        memories: updatedMemories,
+      },
+    });
+    return res.status(201).json({ memory: newMemory, user: publicUser(updated) });
+  }));
+
+  router.delete("/settings/memory/:id", asyncRoute(async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+    const memoryId = String(req.params.id || "").trim();
+    const currentMemories = Array.isArray(req.user.settings?.memories) ? req.user.settings.memories : [];
+    const filtered = currentMemories.filter((m) => m.id !== memoryId);
+    const updated = await userRepository.update(req.user.id, {
+      settings: {
+        ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
+        memories: filtered,
+      },
+    });
+    return res.json({ ok: true, user: publicUser(updated) });
+  }));
+
+  router.delete("/settings/memory", asyncRoute(async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+    const updated = await userRepository.update(req.user.id, {
+      settings: {
+        ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
+        memories: [],
+      },
+    });
+    return res.json({ ok: true, user: publicUser(updated) });
   }));
 
   router.post("/onboarding", asyncRoute(async (req, res) => {
