@@ -4828,32 +4828,49 @@ const LEGAL_DOCS = {
     `,
   },
   privacy: {
-    title: "Məxfilik Siyasəti",
+    title: "Məxfilik Siyasəti və Fərdi Məlumatların Emalı Qaydaları",
     subtitle: "Son yenilənmə tarixi: Avqust 2026",
     html: `
-      <div class="legal-highlight-box">
-        <strong>✦ Məlumatların Qorunması və Məxfilik Şəffaflığı</strong>
-        Marketify AI istifadəçi məlumatlarının təhlükəsizliyini təmin edir. Sorğuların cavablandırılması təhlükəsiz şifrələnmiş süni intellekt infrastrukturu vasitəsilə aparılır və məlumatlar yalnız cari generasiya sessiyası məqsədilə emal edilir.
-      </div>
-      <h3>1. Toplanan Məlumatlar</h3>
-      <p>• <strong>Profil və Giriş Məlumatları:</strong> Ad, soyad, istifadəçi adı, e-poçt ünvanı və təhlükəsiz şifrələnmiş giriş məlumatları.</p>
-      <p>• <strong>Biznes Konteksti:</strong> Daxil etdiyiniz marketinq brifləri, aydınlaşdırma cavabları, arxivləşdirilmiş strategiyalar, söhbət tarixçəsi və planlaşdırılan tapşırıqlar.</p>
-      <p>• <strong>Texniki Göstəricilər:</strong> Brauzer sessiya açarları və təhlükəsizlik jurnalları.</p>
+      <p>Bu Məxfilik Siyasəti (bundan sonra — <strong>«Siyasət»</strong>) <strong>Innova Group Azerbaijan</strong> tərəfindən idarə olunan <strong>Marketify AI</strong> platformasında (bundan sonra — <strong>«Platforma»</strong>, <strong>«Xidmət»</strong> və ya <strong>«Məlumat Sahibi/İdarəçi»</strong>) fərdi və konfidensial məlumatların toplanması, emalı, saxlanması və mühafizəsi qaydalarını müəyyən edir.</p>
+      <p>Platformadan istifadə etməklə İstifadəçi Azərbaycan Respublikasının «Fərdi məlumatlar haqqında» Qanununa uyğun olaraq, öz fərdi məlumatlarının bu Siyasətdə göstərilən şərtlər daxilində toplanmasına və emalına tam razılığını bildirmiş olur.</p>
 
-      <h3>2. 3-cü Tərəf API İnteqrasiyası və Məlumatların Emalı</h3>
-      <p>Marketify AI platforması sorğuları generasiya etmək məqsədilə etibarlı 3-cü tərəf süni intellekt API-lərinə müraciət edir.</p>
-      <p>• Məlumatlar yalnız cari strategiyanın hazırlanması üçün API vasitəsilə təhlükəsiz TLS/HTTPS protokolu ilə göndərilir.</p>
-      <p>• Sorğularınız 3-cü tərəf modellərinin açıq təlimi (training) üçün istifadə edilmir və yalnız sizin generasiya sessiyanızın tələblərini yerinə yetirmək üçün emal olunur.</p>
-      <p>• Biz heç bir halda şəxsi identifikasiya məlumatlarınızı, şifrələrinizi və ya e-poçt ünvanınızı reklam və ya marketinq şirkətlərinə satmırıq və ötürmürük.</p>
+      <h3>1. Əsas Prinsiplər və Qeyri-Kommersiya Xarakteri</h3>
+      <p>1.1. Platforma qeyri-kommersiya təyinatlı fəaliyyət göstərir və toplanan məlumatlardan birbaşa və ya dolayısı ilə kommersiya, reklam və ya mənfəət əldə etmək məqsədilə istifadə etmir.</p>
+      <p>1.2. Məlumatların emalı qanunilik, konfidensiallıq, məqsədəuyğunluq və yalnız xidmətin texniki-funksional tələbləri ilə məhdudlaşma prinsiplərinə əsaslanır.</p>
 
-      <h3>3. Məlumatların Saxlanması və Təhlükəsizlik</h3>
-      <p>Bütün istifadəçi verilənləri müasir Cloudflare R2 bulud saxlancı, Redis keşləmə və gücləndirilmiş server mühitində etibarlı şəkildə qorunur.</p>
+      <h3>2. Toplanan Məlumatların Kateqoriyaları</h3>
+      <p>Platforma xidmətlərin təmənnasız göstərilməsi və sistem təhlükəsizliyinin təmin edilməsi məqsədilə aşağıdakı kateqoriyalar üzrə məlumatları emal edir:</p>
+      <p>2.1. <strong>İdentifikasiya və Giriş Məlumatları:</strong> İstifadəçinin adı, soyadı, istifadəçi adı, elektron poçt ünvanı və təhlükəsiz şifrələnmiş (kriptoqrafik heşlənmiş) autentifikasiya identifikatorları.</p>
+      <p>2.2. <strong>Biznes və Məzmun Konteksti:</strong> İstifadəçi tərəfindən sistemə daxil edilən marketinq brifləri, aydınlaşdırma sorğularına cavablar, generasiya olunmuş analitik nəticələr, söhbət tarixçəsi, planlaşdırılan tapşırıqlar və arxiv qeydləri.</p>
+      <p>2.3. <strong>Texniki və Təhlükəsizlik Göstəriciləri:</strong> İstifadəçinin brauzer sessiya açarları, IP ünvanları, sistem hadisələrinin qeydiyyat jurnalları (server logları) və giriş vaxtı göstəriciləri.</p>
 
-      <h3>4. Məlumatların İdarə Edilməsi və Silinməsi</h3>
-      <p>İstifadəçilər istənilən an saxlanılmış strategiyalarını, keçmiş söhbətlərini və planlaşdırılan tapşırıqlarını arxivdən tamamilə silmək hüququna malikdirlər.</p>
+      <h3>3. Fərdiləşdirilmiş Təcrübə və Həssas Məlumatların Mühafizəsi</h3>
+      <p>3.1. <strong>Könüllü Razılıq və Fərdiləşdirmə:</strong> Platformada süni intellekt cavablarının daha dəqiq, kontekstə uyğun və effektiv formalaşdırılması məqsədilə «Fərdiləşdirilmiş təcrübə» funksiyası tətbiq olunur. Bu funksiya yalnız İstifadəçinin birmənalı və könüllü razılığı (opt-in) əsasında aktivləşdirilir və istənilən vaxt parametrlərdən söndürülə bilər.</p>
+      <p>3.2. <strong>Həssas Məlumatların Saxlanılmaması:</strong> Fərdiləşdirmə mexanizmi çərçivəsində İstifadəçinin həssas və birbaşa identifikasiyaedici şəxsi məlumatları, o cümlədən mobil telefon nömrəsi, dəqiq yaşayış ünvanı məlumatları, şəxsiyyəti təsdiq edən sənədin fərdi identifikasiya nömrəsi (FİN kod), seriya və nömrəsi, habelə bank və ödəniş rekvizitləri qəti şəkildə fərdiləşdirmə yaddaşında saxlanılmır və profil kontekstinə inteqrasiya edilmir.</p>
+      <p>3.3. Fərdiləşdirmə yaddaşı yalnız qeyri-həssas, sırf marketinq və biznes kommunikasiyası üçün zəruri olan ümumi üslub və kontekst parametrlərini əhatə edir.</p>
 
-      <h3>5. Əlaqə</h3>
-      <p>Məxfilik siyasəti və ya məlumatların emalı ilə bağlı suallarınız üçün platforma üzərindən bizimlə əlaqə saxlaya bilərsiniz.</p>
+      <h3>4. Süni İntellekt API İnteqrasiyası və Məlumatların Transsərhəd Emalı</h3>
+      <p>4.1. Platforma strateji təhlil və mətn generasiyası funksiyalarını yerinə yetirmək üçün etibarlı qlobal süni intellekt provayderlərinin rəsmi Tətbiqi Proqramlaşdırma İnterfeyslərindən (API) istifadə edir.</p>
+      <p>4.2. Sorğular təhlükəsiz TLS/HTTPS şifrələmə protokolları vasitəsilə ötürülür və yalnız cari generasiya sessiyasının tələblərini icra etmək üçün emal olunur.</p>
+      <p>4.3. <strong>Model Təlimindən İmtiyaz:</strong> İstifadəçinin daxil etdiyi biznes sorğuları, fərdi məlumatları və ya fərdiləşdirmə parametrləri üçüncü tərəf süni intellekt modellərinin açıq təlimi (public training) üçün istifadə edilmir.</p>
+      <p>4.4. <strong>Məlumatların Satılmaması Təminatı:</strong> Innova Group Azerbaijan heç bir halda istifadəçilərin şəxsi identifikasiya məlumatlarını, əlaqə vasitələrini və ya biznes kontekstini reklam şirkətlərinə, marketinq agentliklərinə və ya digər kommersiya qurumlarına satmır, icarəyə vermir və ötürmür.</p>
+
+      <h3>5. Məlumatların Saxlanması, İnfrastruktur və Təhlükəsizlik</h3>
+      <p>5.1. Məlumatların bütövlüyü və konfidensiallığı müasir bulud saxlanc infrastrukturları (Cloudflare R2), operativ keşləmə mexanizmləri (Redis) və gücləndirilmiş server mühiti vasitəsilə təmin edilir.</p>
+      <p>5.2. Məlumat bazalarına icazəsiz girişin, məlumat sızmasının və ya dəyişdirilməsinin qarşısını almaq üçün Azərbaycan Respublikasının «İnformasiya, informasiyalaşdırma və informasiyanın mühafizəsi haqqında» Qanununun tələblərinə uyğun təşkilati və proqram-texniki mühafizə tədbirləri tətbiq olunur.</p>
+
+      <h3>6. İstifadəçinin Hüquqları və Məlumatların Silinməsi</h3>
+      <p>Azərbaycan Respublikasının «Fərdi məlumatlar haqqında» Qanununa əsasən, İstifadəçi aşağıdakı hüquqlara malikdir:</p>
+      <p>6.1. Öz fərdi məlumatlarının emal edilib-edilməməsi barədə məlumat almaq və onların tərkibi ilə tanış olmaq;</p>
+      <p>6.2. Saxlanılan marketinq strategiyalarını, söhbət tarixçəsini, planlaşdırılan tapşırıqları və fərdiləşdirmə yaddaşını platformanın daxili interfeysi vasitəsilə istənilən vaxt tamamilə və bərpa olunmaz şəkildə silmək;</p>
+      <p>6.3. «Fərdiləşdirilmiş təcrübə» funksiyasına verdiyi razılığı istədiyi an geri çağırmaq və sistemdəki profilinin tam ləğv edilməsini (unudulma hüququnu) tələb etmək.</p>
+
+      <h3>7. Siyasətin Dəyişdirilməsi</h3>
+      <p>7.1. Innova Group Azerbaijan qanunvericilikdəki dəyişikliklər və ya platformanın texniki təkamülü ilə əlaqədar bu Siyasətə birtərəfli qaydada dəyişikliklər etmək hüququnu özündə saxlayır.</p>
+      <p>7.2. Yenilənmiş Siyasət Platformada dərc edildiyi andan qüvvəyə minir.</p>
+
+      <h3>8. Əlaqə və Müraciətlər</h3>
+      <p>Fərdi məlumatların emalı, məxfilik hüquqlarının həyata keçirilməsi və ya bu Siyasətlə bağlı müraciətlər üçün İstifadəçilər Platformanın rəsmi əks-əlaqə kanalları və rəqəmsal dəstək interfeysi vasitəsilə əlaqə saxlaya bilərlər.</p>
     `,
   },
 };
