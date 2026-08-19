@@ -7,7 +7,7 @@ import {
   relevance,
   TONE_DIRECTIVES,
 } from "../src/services/ai/personal-context.js";
-import { UserSettingsSchema, AddMemoryItemSchema } from "../src/auth/validation.js";
+import { UserSettingsSchema, AddMemoryItemSchema, detectSensitiveInformation } from "../src/auth/validation.js";
 
 function repository(records) {
   return { readAll: async () => records };
@@ -209,14 +209,65 @@ test("UserSettingsSchema and AddMemoryItemSchema validation works correctly", ()
     personalIntelligence: true,
     brandName: "Test Co",
     tone: "creative",
-    memories: [{ id: "m1", text: "Fakt", category: "preference", createdAt: "2026-08-20" }],
+    memories: [{ id: "m1", text: "Biz yalnız B2B şirkətlərlə işləyirik.", category: "preference", createdAt: "2026-08-20" }],
   });
   assert.equal(validSettings.brandName, "Test Co");
   assert.equal(validSettings.tone, "creative");
   assert.equal(validSettings.memories.length, 1);
 
-  const memory = AddMemoryItemSchema.parse({ text: "Qeyd mətni", category: "business" });
-  assert.equal(memory.text, "Qeyd mətni");
+  const memory = AddMemoryItemSchema.parse({ text: "Biz yalnız B2B şirkətlərlə işləyirik.", category: "business" });
+  assert.equal(memory.text, "Biz yalnız B2B şirkətlərlə işləyirik.");
   assert.equal(memory.category, "business");
 });
+
+test("detectSensitiveInformation catches phone numbers, residential addresses, payment cards, IDs, and passwords", () => {
+  // 1. Phone numbers
+  assert.equal(detectSensitiveInformation("+994 50 123 45 67").isSensitive, true);
+  assert.equal(detectSensitiveInformation("Əlaqə nömrəmiz: 055-987-65-43").isSensitive, true);
+  assert.equal(detectSensitiveInformation("Telefon: +1 555-432-1234").isSensitive, true);
+
+  // 2. Residential addresses
+  assert.equal(detectSensitiveInformation("Ev ünvanım: Nizami küçəsi 45, mənzil 12").isSensitive, true);
+  assert.equal(detectSensitiveInformation("Yaşayış ünvanı: Nəsimi rayonu, Azadlıq pr. 104, bina 3, mənzil 28").isSensitive, true);
+  assert.equal(detectSensitiveInformation("Mənim evim: Həsən Əliyev küç. ev 15, mənzil 4").isSensitive, true);
+
+  // 3. Payment cards
+  assert.equal(detectSensitiveInformation("Kart nömrəm 4169 7388 1234 5678").isSensitive, true);
+  assert.equal(detectSensitiveInformation("CVV kodum: 789").isSensitive, true);
+  assert.equal(detectSensitiveInformation("IBAN: AZ21NABZ01350100000000001234").isSensitive, true);
+
+  // 4. Identification & FIN
+  assert.equal(detectSensitiveInformation("FIN kodum: 6ABCD12").isSensitive, true);
+  assert.equal(detectSensitiveInformation("Şəxsiyyət vəsiqəsi: AZE 12345678").isSensitive, true);
+
+  // 5. Passwords & API keys
+  assert.equal(detectSensitiveInformation("Şifrəm: MySecretPass123!").isSensitive, true);
+  assert.equal(detectSensitiveInformation("API key: sk-live-998877665544332211").isSensitive, true);
+
+  // 6. Safe non-sensitive business facts
+  assert.equal(detectSensitiveInformation("Biz yalnız B2B şirkətlərlə işləyirik.").isSensitive, false);
+  assert.equal(detectSensitiveInformation("Hədəf kütləmiz 20-35 yaş arası gənclərdir.").isSensitive, false);
+  assert.equal(detectSensitiveInformation("Büdcəmiz aylıq 5000 AZN təşkil edir.").isSensitive, false);
+  assert.equal(detectSensitiveInformation("Azərbaycan və Türkiyə bazarlarında fəaliyyət göstəririk.").isSensitive, false);
+});
+
+test("AddMemoryItemSchema and UserSettingsSchema reject sensitive personal info", () => {
+  assert.throws(
+    () => AddMemoryItemSchema.parse({ text: "Mənim nömrəm 050-123-45-67" }),
+    (err) => err.issues[0].message.includes("telefon"),
+  );
+
+  assert.throws(
+    () => AddMemoryItemSchema.parse({ text: "Yaşayış ünvanı: Nərimanov r., Təbriz küç. ev 5, mənzil 20" }),
+    (err) => err.issues[0].message.includes("yaşayış"),
+  );
+
+  assert.throws(
+    () => UserSettingsSchema.parse({
+      memories: [{ id: "m1", text: "Şifrə: AdminPass2026!", category: "general", createdAt: "2026-08-20" }],
+    }),
+    (err) => err.issues[0].message.includes("şifrə"),
+  );
+});
+
 

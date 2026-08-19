@@ -68,15 +68,126 @@ export const OnboardingSchema = z.object({
   focus: z.enum(["business", "campaign", "brand", "research", "other"]),
 });
 
+/**
+ * Detects sensitive personal data (phone numbers, residential addresses, payment info,
+ * identification codes, passwords) in user memory text.
+ * @param {string} text
+ * @returns {{ isSensitive: boolean, reason?: string }}
+ */
+export function detectSensitiveInformation(text) {
+  if (!text || typeof text !== "string") {
+    return { isSensitive: false };
+  }
+  const clean = text.trim();
+
+  // 1. Phone numbers (Azerbaijani + International formats)
+  const phonePatterns = [
+    /(?:\+994|00994|994)?[\s.-]?(?:0?(?:10|50|51|55|60|70|77|99|12|18|20|21|22|23|24|25|26|36))[\s.-]?[0-9]{3}[\s.-]?[0-9]{2}[\s.-]?[0-9]{2}/i,
+    /(?:\btelefon|\bnömrə|\bnömrəm|\bmobil|\bwhatsapp|\bəlaqə|\bphone|\bcall|\btel)[\s:]*[\s.-]?(?:\+?[0-9]{1,4}[\s.-]?)?[0-9]{5,12}/i,
+    /(?:\+\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2,4}/,
+    /\b0[1-9][0-9]{8}\b/,
+  ];
+
+  for (const regex of phonePatterns) {
+    if (regex.test(clean)) {
+      return {
+        isSensitive: true,
+        reason: "Yaddaşda telefon və ya mobil nömrələrin saxlanılmasına icazə verilmir.",
+      };
+    }
+  }
+
+  // 2. Residential addresses / Yaşayış və ev ünvanları
+  const addressKeywords = [
+    /(?:yaşayış\s*ünvanı|ev\s*ünvanı|ev\s*ünvanım|yaşayış\s*yeri|evimin\s*ünvanı|qeydiyyat\s*ünvanı)/i,
+    /(?:residential\s*address|home\s*address|living\s*address|apartment\s*address)/i,
+    /(?:küç(?:əsi|\.)|prospekt(?:i|\.)|pr\.|döngə(?:si|\.)|dalan(?:ı|\.))\s*(?:[0-9]+|[A-ZƏÖĞÇŞÜa-zəöğçşü]+)\s*,?\s*(?:ev|bina|mənzil|blok|korpus|mərtəbə)\s*[0-9]+/i,
+    /(?:ev|bina|korpus)\s*[0-9]+\s*,\s*mənzil\s*[0-9]+/i,
+    /(?:mənzil\s*no|mənzil\s*№|mənzil\s*nömrəsi|apt\s*#|apt\s*no)\s*[0-9]+/i,
+    /(?:yaşayıram|yaşayırıq)\s*:\s*.+/i,
+  ];
+
+  for (const regex of addressKeywords) {
+    if (regex.test(clean)) {
+      return {
+        isSensitive: true,
+        reason: "Yaddaşda dəqiq yaşayış və ya ev ünvanlarının saxlanılmasına icazə verilmir.",
+      };
+    }
+  }
+
+  // 3. Payment cards / CVV / Bank accounts
+  const paymentPatterns = [
+    /\b(?:\d{4}[ -]?){3}\d{4}\b/,
+    /\b(?:cvv|cvc|cvv2|cvc2)(?:\s*(?:kodu?m?|code))?[\s:=]*[0-9]{3,4}\b/i,
+    /\bAZ\d{2}[A-Z0-9]{24}\b/i,
+    /(?:kart\s*nömrəsi|hesab\s*nömrəsi|kredit\s*kartı|bank\s*kartı)[\s:]*[0-9]{8,20}/i,
+  ];
+
+  for (const regex of paymentPatterns) {
+    if (regex.test(clean)) {
+      return {
+        isSensitive: true,
+        reason: "Yaddaşda bank kartı, CVV və ya hesab məlumatlarının saxlanılmasına icazə verilmir.",
+      };
+    }
+  }
+
+  // 4. Identification & Official IDs (FİN kod, ŞV seriyası, Pasport, SSN)
+  const idPatterns = [
+    /(?:fin(?:\s*kodu?m?)?|f[iİ]n|şv(?:\s*seriya(?:sı)?)?|şəxsiyyət\s*vəsiqəsi|pasport(?:\s*nömrəsi)?|pin(?:\s*code|\s*kodu?m?)?|ssn)[\s:=]*[a-zA-Z0-9]{6,10}/i,
+    /\b(?:AZE|AA)\s*[0-9]{7,8}\b/i,
+  ];
+
+  for (const regex of idPatterns) {
+    if (regex.test(clean)) {
+      return {
+        isSensitive: true,
+        reason: "Yaddaşda FİN kod, şəxsiyyət vəsiqəsi və ya pasport məlumatlarının saxlanılmasına icazə verilmir.",
+      };
+    }
+  }
+
+  // 5. Passwords / Secrets / API Keys
+  const secretPatterns = [
+    /(?:şifrə(?:m)?|parol(?:um)?|password|api[_-]?key|secret[_-]?key|token|auth[_-]?token)[\s:=]+[\S]{4,}/i,
+  ];
+
+  for (const regex of secretPatterns) {
+    if (regex.test(clean)) {
+      return {
+        isSensitive: true,
+        reason: "Yaddaşda şifrə, API açarı və ya məxfi tokenlərin saxlanılmasına icazə verilmir.",
+      };
+    }
+  }
+
+  return { isSensitive: false };
+}
+
 export const UserMemoryItemSchema = z.object({
   id: z.string().trim().min(1).max(100),
-  text: z.string().trim().min(1, "Yaddaş mətni boş ola bilməz.").max(500, "Yaddaş mətni 500 simvoldan çox ola bilməz."),
+  text: z
+    .string()
+    .trim()
+    .min(1, "Yaddaş mətni boş ola bilməz.")
+    .max(500, "Yaddaş mətni 500 simvoldan çox ola bilməz.")
+    .refine((text) => !detectSensitiveInformation(text).isSensitive, (text) => ({
+      message: detectSensitiveInformation(text).reason || "Yaddaşda həssas şəxsi məlumatların saxlanılmasına icazə verilmir.",
+    })),
   category: z.enum(["business", "audience", "preference", "constraint", "general"]).default("general"),
   createdAt: z.string().max(80),
 });
 
 export const AddMemoryItemSchema = z.object({
-  text: z.string().trim().min(1, "Qeyd daxil edin.").max(500, "Qeyd 500 simvoldan uzun ola bilməz."),
+  text: z
+    .string()
+    .trim()
+    .min(1, "Qeyd daxil edin.")
+    .max(500, "Qeyd 500 simvoldan uzun ola bilməz.")
+    .refine((text) => !detectSensitiveInformation(text).isSensitive, (text) => ({
+      message: detectSensitiveInformation(text).reason || "Yaddaşda həssas şəxsi məlumatların saxlanılmasına icazə verilmir.",
+    })),
   category: z.enum(["business", "audience", "preference", "constraint", "general"]).optional().default("general"),
 });
 
