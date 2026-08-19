@@ -4319,10 +4319,11 @@ function renderLimitsView() {
   // 4. Activity Timeline Chart Card
   const chartSection = element("div", "limits-chart-card");
   const chartHeader = element("div", "limits-chart-header");
+  const periodTitle = period === "today" ? "Bugün" : period === "7d" ? "Son 7 gün" : period === "14d" ? "Son 14 gün" : "Son 30 gün";
   chartHeader.innerHTML = `
     <div>
       <h3>Fəallıq Dinamikası (Build və Ask Müqayisəsi)</h3>
-      <p>Seçilmiş dövrdə göndərilən sorğuların və generasiyaların vizual bölgüsü.</p>
+      <p>${escapeHtml(periodTitle)} üzrə sorğu və generasiyaların vizual fəallıq bölgüsü.</p>
     </div>
     <div class="limits-chart-legend">
       <div class="legend-item"><span class="legend-dot dot-build"></span><span>Build</span></div>
@@ -4338,28 +4339,55 @@ function renderLimitsView() {
   else if (period === "14d") chartData = chartData.slice(-14);
   else if (period === "30d") chartData = chartData.slice(-30);
 
+  const totalDays = chartData.length;
   const maxTotal = Math.max(...chartData.map((d) => d.total || 0), 4);
 
   const chartBody = element("div", "limits-chart-body");
   const barsContainer = element("div", `limits-chart-bars-wrap${period === "today" ? " is-single-day" : ""}`);
 
-  chartData.forEach((dayItem) => {
+  // Determine label step to avoid overlapping text
+  let labelStep = 1;
+  if (totalDays > 20) labelStep = 5;
+  else if (totalDays > 10) labelStep = 3;
+
+  chartData.forEach((dayItem, idx) => {
     const col = element("div", "limits-chart-col");
-    const buildH = maxTotal > 0 ? Math.round(((dayItem.build || 0) / maxTotal) * 110) : 0;
-    const askH = maxTotal > 0 ? Math.round(((dayItem.ask || 0) / maxTotal) * 110) : 0;
+    const isFirst = (idx === 0);
+    const isLast = (idx === totalDays - 1);
+    const isKeyStep = (idx % labelStep === 0);
+    const showLabel = (totalDays <= 8) || isFirst || isLast || isKeyStep;
+
+    const hasActivity = (dayItem.build > 0) || (dayItem.ask > 0);
+    const buildH = dayItem.build > 0 ? Math.max(6, Math.round(((dayItem.build || 0) / maxTotal) * 110)) : 0;
+    const askH = dayItem.ask > 0 ? Math.max(6, Math.round(((dayItem.ask || 0) / maxTotal) * 110)) : 0;
+
+    let barsTrackHtml = "";
+    if (hasActivity) {
+      barsTrackHtml = `
+        <div class="limits-col-bars-track">
+          ${buildH > 0 ? `<div class="limits-bar-segment segment-build" style="height: ${buildH}px;"></div>` : ""}
+          ${askH > 0 ? `<div class="limits-bar-segment segment-ask" style="height: ${askH}px;"></div>` : ""}
+        </div>
+      `;
+    } else {
+      barsTrackHtml = `
+        <div class="limits-col-bars-track is-empty">
+          <div class="limits-bar-empty"></div>
+        </div>
+      `;
+    }
+
+    const labelText = escapeHtml(dayItem.label.replace("Bu gün", "Bugün"));
 
     col.innerHTML = `
       <div class="limits-chart-tooltip">
-        <strong>${escapeHtml(dayItem.label)}</strong>
+        <strong>${labelText}</strong>
         <div class="tooltip-row"><span class="t-dot dot-build"></span> Build: ${dayItem.build || 0}</div>
         <div class="tooltip-row"><span class="t-dot dot-ask"></span> Ask: ${dayItem.ask || 0}</div>
         <div class="tooltip-row t-total">Cəmi: ${dayItem.total || 0}</div>
       </div>
-      <div class="limits-col-bars-track">
-        <div class="limits-bar-segment segment-build" style="height: ${Math.max(buildH, (dayItem.build ? 6 : 2))}px;"></div>
-        <div class="limits-bar-segment segment-ask" style="height: ${Math.max(askH, (dayItem.ask ? 6 : 2))}px;"></div>
-      </div>
-      <span class="limits-col-label">${escapeHtml(dayItem.label.replace("Bu gün", "Bugün"))}</span>
+      ${barsTrackHtml}
+      <span class="limits-col-label${showLabel ? "" : " is-hidden-label"}">${showLabel ? labelText : "&nbsp;"}</span>
     `;
     barsContainer.appendChild(col);
   });
