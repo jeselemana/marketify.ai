@@ -208,14 +208,22 @@ app.get("/api/usage/stats", async (req, res) => {
       plannerRepository.list(req.ownerId).catch(() => []),
     ]);
 
+    const tzOffsetMinutes = Number.isFinite(parseInt(req.query.tzOffset, 10)) ? parseInt(req.query.tzOffset, 10) : 0;
     const now = Date.now();
     const DAY_MS = 24 * 60 * 60 * 1000;
 
+    // Calculate local midnight in user's timezone:
+    const localNow = new Date(now - tzOffsetMinutes * 60 * 1000);
+    const localYear = localNow.getUTCFullYear();
+    const localMonth = localNow.getUTCMonth();
+    const localDate = localNow.getUTCDate();
+    const todayStartUtc = Date.UTC(localYear, localMonth, localDate) + tzOffsetMinutes * 60 * 1000;
+
     const periods = {
-      today: { start: now - DAY_MS },
-      "7d": { start: now - 7 * DAY_MS },
-      "14d": { start: now - 14 * DAY_MS },
-      "30d": { start: now - 30 * DAY_MS },
+      today: { start: todayStartUtc },
+      "7d": { start: todayStartUtc - 6 * DAY_MS },
+      "14d": { start: todayStartUtc - 13 * DAY_MS },
+      "30d": { start: todayStartUtc - 29 * DAY_MS },
     };
 
     const buildEvents = [];
@@ -279,19 +287,19 @@ app.get("/api/usage/stats", async (req, res) => {
 
     const dailyBreakdown = [];
     for (let i = 29; i >= 0; i--) {
-      const d = new Date(now - i * DAY_MS);
-      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const dayStart = todayStartUtc - i * DAY_MS;
       const dayEnd = dayStart + DAY_MS;
-
-      const dateStr = d.toLocaleDateString("az-AZ", { month: "short", day: "numeric" });
-      const isoDate = d.toISOString().slice(0, 10);
+      const dayDate = new Date(dayStart - tzOffsetMinutes * 60 * 1000);
 
       const dayBuild = buildEvents.filter((e) => e.timestamp >= dayStart && e.timestamp < dayEnd).length;
       const dayAsk = askEvents.filter((e) => e.timestamp >= dayStart && e.timestamp < dayEnd).length;
 
+      const dateStr = dayDate.toLocaleDateString("az-AZ", { month: "short", day: "numeric", timeZone: "UTC" });
+      const isoDate = dayDate.toISOString().slice(0, 10);
+
       dailyBreakdown.push({
         date: isoDate,
-        label: i === 0 ? "Bu gün" : dateStr,
+        label: i === 0 ? "Bugün" : dateStr,
         build: dayBuild,
         ask: dayAsk,
         total: dayBuild + dayAsk,

@@ -4005,7 +4005,8 @@ function renderPlannerView() {
 
 async function loadUsageStats() {
   try {
-    const data = await authRequest("/api/usage/stats");
+    const tzOffset = new Date().getTimezoneOffset();
+    const data = await authRequest(`/api/usage/stats?tzOffset=${tzOffset}`);
     if (data && data.statsByPeriod) {
       state.usageStats = data;
       return data;
@@ -4015,13 +4016,14 @@ async function loadUsageStats() {
   }
 
   // Local fallback computation
-  const now = Date.now();
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
   const DAY_MS = 24 * 60 * 60 * 1000;
   const periods = {
-    today: { start: now - DAY_MS },
-    "7d": { start: now - 7 * DAY_MS },
-    "14d": { start: now - 14 * DAY_MS },
-    "30d": { start: now - 30 * DAY_MS },
+    today: { start: todayStart },
+    "7d": { start: todayStart - 6 * DAY_MS },
+    "14d": { start: todayStart - 13 * DAY_MS },
+    "30d": { start: todayStart - 29 * DAY_MS },
   };
 
   const strats = state.savedStrategies || [];
@@ -4030,7 +4032,7 @@ async function loadUsageStats() {
 
   const buildEvents = [];
   strats.forEach((s) => {
-    const t = new Date(s.createdAt || s.updatedAt || now).getTime();
+    const t = new Date(s.createdAt || s.updatedAt || Date.now()).getTime();
     buildEvents.push({ type: "strategy_create", timestamp: t });
     if (Array.isArray(s.versions)) {
       for (let i = 1; i < s.versions.length; i++) {
@@ -4046,7 +4048,7 @@ async function loadUsageStats() {
   chats.forEach((c) => {
     if (Array.isArray(c.messages)) {
       c.messages.forEach((m) => {
-        const mt = new Date(m.createdAt || c.createdAt || now).getTime();
+        const mt = new Date(m.createdAt || c.createdAt || Date.now()).getTime();
         if (m.role === "user") askEvents.push({ type: "ask_question", timestamp: mt });
         else if (m.role === "assistant") askEvents.push({ type: "ask_response", timestamp: mt });
       });
@@ -4061,7 +4063,7 @@ async function loadUsageStats() {
     const refined = pBuild.filter((e) => e.type === "strategy_refine").length;
     const questions = pAsk.filter((e) => e.type === "ask_question").length;
     const responses = pAsk.filter((e) => e.type === "ask_response").length;
-statsByPeriod[key] = {
+    statsByPeriod[key] = {
       totalOps: created + refined + questions + responses,
       build: { total: created + refined, strategiesCreated: created, refinements: refined },
       ask: { total: questions + responses, questions, responses, activeChats: chats.length },
@@ -4072,16 +4074,16 @@ statsByPeriod[key] = {
 
   const dailyBreakdown = [];
   for (let i = 29; i >= 0; i--) {
-    const d = new Date(now - i * DAY_MS);
-    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayStart = todayStart - i * DAY_MS;
     const dayEnd = dayStart + DAY_MS;
+    const d = new Date(dayStart);
     const dateStr = d.toLocaleDateString("az-AZ", { month: "short", day: "numeric" });
-    const isoDate = d.toISOString().slice(0, 10);
+    const isoDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     const dayBuild = buildEvents.filter((e) => e.timestamp >= dayStart && e.timestamp < dayEnd).length;
     const dayAsk = askEvents.filter((e) => e.timestamp >= dayStart && e.timestamp < dayEnd).length;
     dailyBreakdown.push({
       date: isoDate,
-      label: i === 0 ? "Bu gün" : dateStr,
+      label: i === 0 ? "Bugün" : dateStr,
       build: dayBuild,
       ask: dayAsk,
       total: dayBuild + dayAsk,
