@@ -3909,7 +3909,7 @@ function renderSettings() {
     } else {
       deleteCopy.append(
         element("strong", "danger-zone-title text-danger", "Hesabı sil"),
-        element("p", "", "Hesabın silinməsi üçün 14 günlük təhlükəsiz gözləmə müddəti tətbiq olunur. Bu müddətdə giriş edilməzsə, bütün məlumatlar avtomatik və birdəfəlik silinir.")
+        element("p", "", "Hesabınızı və bütün məlumatlarınızı sistemdən silin.")
       );
       const deleteBtn = button("Hesabı sil", "danger-button", openDeleteAccountModal);
       deleteAccountBox.append(deleteCopy, deleteBtn);
