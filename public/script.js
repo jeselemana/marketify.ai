@@ -889,6 +889,7 @@ function renderAsk() {
   submit.disabled = true;
   submit.setAttribute("aria-label", "Sualı göndər");
   submit.appendChild(element("span", "", "↑"));
+  form.append(contextMenu, label, input, submit);
   const helper = element("div", "ask-composer-meta");
   const metaLeft = element("div", "ask-meta-left");
   const contextMeta = element("span", "ask-context-meta", selectedStrategy ? `Kontekst: ${selectedStrategy.title}` : "Marketify");
