@@ -785,43 +785,69 @@ function renderAsk() {
 
           actions.append(copy, share);
 
-          if (message.model) {
-            const modelName = (message.model === "Flash" || message.model === "flash") ? "Flash" : "Mini";
-            const moreMenu = document.createElement("details");
-            moreMenu.className = "ask-response-more-menu";
-            const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
-            moreTrigger.setAttribute("aria-label", "Model haqqında məlumat");
-            moreTrigger.title = "Model";
-            moreTrigger.innerHTML = `
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-                <circle cx="5" cy="12" r="1.8"></circle>
-                <circle cx="12" cy="12" r="1.8"></circle>
-                <circle cx="19" cy="12" r="1.8"></circle>
-              </svg>
-            `;
+          const modelName = (message.model === "Flash" || message.model === "flash")
+            ? "Flash"
+            : (message.model === "mini" || message.model === "Mini")
+            ? "Mini"
+            : (message.model || (state.askModel === "mini" ? "Mini" : "Flash"));
 
-            const morePopover = element("div", "ask-response-more-popover");
-            morePopover.innerHTML = `
-              <div class="ask-response-model-row">
-                <span class="ask-response-model-label">Model:</span>
-                <strong class="ask-response-model-name">${modelName}</strong>
-              </div>
-            `;
-            moreMenu.append(moreTrigger, morePopover);
+          const moreMenu = document.createElement("details");
+          moreMenu.className = "ask-response-more-menu";
+          const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
+          moreTrigger.setAttribute("aria-label", "Əlavə seçimlər");
+          moreTrigger.title = "Daha çox";
+          moreTrigger.innerHTML = `
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+              <circle cx="5" cy="12" r="1.8"></circle>
+              <circle cx="12" cy="12" r="1.8"></circle>
+              <circle cx="19" cy="12" r="1.8"></circle>
+            </svg>
+          `;
 
-            moreMenu.addEventListener("keydown", (event) => {
-              if (event.key === "Escape") moreMenu.open = false;
+          const morePopover = element("div", "ask-response-more-popover");
+          
+          const modelRow = element("div", "ask-response-model-row");
+          modelRow.innerHTML = `
+            <span class="ask-response-model-label">Model:</span>
+            <strong class="ask-response-model-name">${escapeHtml(modelName)}</strong>
+          `;
+
+          const divider = element("div", "ask-response-popover-divider");
+
+          const reportBtn = button("", "ask-response-popover-item ask-report-legal-btn", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            moreMenu.open = false;
+            openLegalReportModal({
+              messageContent: message.content,
+              model: modelName,
             });
-            const closeMoreMenu = (event) => {
-              if (!moreMenu.contains(event.target)) moreMenu.open = false;
-            };
-            moreMenu.addEventListener("toggle", () => {
-              if (moreMenu.open) setTimeout(() => document.addEventListener("click", closeMoreMenu), 0);
-              else document.removeEventListener("click", closeMoreMenu);
-            });
+          });
+          reportBtn.type = "button";
+          reportBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>Hüquqi problem bildir</span>
+          `;
 
-            actions.appendChild(moreMenu);
-          }
+          morePopover.append(modelRow, divider, reportBtn);
+          moreMenu.append(moreTrigger, morePopover);
+
+          moreMenu.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") moreMenu.open = false;
+          });
+          const closeMoreMenu = (event) => {
+            if (!moreMenu.contains(event.target)) moreMenu.open = false;
+          };
+          moreMenu.addEventListener("toggle", () => {
+            if (moreMenu.open) setTimeout(() => document.addEventListener("click", closeMoreMenu), 0);
+            else document.removeEventListener("click", closeMoreMenu);
+          });
+
+          actions.appendChild(moreMenu);
 
           content.appendChild(actions);
           if (isFreshResponse) {
@@ -5256,6 +5282,205 @@ function openDeleteAccountModal() {
   overlay.appendChild(card);
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
+}
+
+function openLegalReportModal({ messageContent = "", model = "" } = {}) {
+  const overlay = document.querySelector("#legalModalOverlay");
+  if (!overlay) return;
+
+  overlay.replaceChildren();
+  const card = element("div", "legal-modal-card legal-report-modal-card");
+
+  const header = element("header", "legal-modal-header");
+  const titleGroup = element("div", "legal-modal-title-group");
+  titleGroup.append(
+    element("h2", "", "Hüquqi problem bildir"),
+    element("p", "", "Süni intellekt cavabı ilə bağlı hüquqi narahatlıq və ya pozuntu bildirin")
+  );
+
+  const closeBtn = button("✕", "legal-modal-close", closeLegalModal);
+  closeBtn.setAttribute("aria-label", "Bağla");
+  header.append(titleGroup, closeBtn);
+
+  const body = element("div", "legal-modal-body legal-report-modal-body");
+
+  const noticeBox = element("div", "legal-report-notice-box");
+  noticeBox.innerHTML = `
+    <div class="legal-report-notice-icon">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+      </svg>
+    </div>
+    <div class="legal-report-notice-text">
+      Süni intellekt cavablarında qeyri-dəqiqlik və ya səhvlər ola bilər və onlar peşəkar məsləhət kimi qəbul edilməməlidir. Ətraflı məlumat üçün <button type="button" class="legal-report-terms-link" id="legalReportTermsLink">İstifadə şərtləri</button> ilə tanış olun.
+    </div>
+  `;
+  noticeBox.querySelector("#legalReportTermsLink")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    openLegalModal("terms");
+  });
+  body.appendChild(noticeBox);
+
+  const form = document.createElement("form");
+  form.className = "legal-report-form";
+
+  if (messageContent) {
+    const previewBox = element("div", "legal-report-context-box");
+    const previewHeader = element("div", "legal-report-context-header");
+    const previewLabel = element("span", "legal-report-context-label", "İstinad edilən cavab");
+    const modelBadge = element("span", "legal-report-model-pill", model ? `Model: ${model}` : "AI Cavabı");
+    previewHeader.append(previewLabel, modelBadge);
+
+    const previewText = element("div", "legal-report-context-preview");
+    previewText.textContent = messageContent.length > 350 ? messageContent.slice(0, 350) + "…" : messageContent;
+    previewBox.append(previewHeader, previewText);
+    form.appendChild(previewBox);
+  }
+
+  const typeField = element("div", "legal-report-field");
+  const typeLabel = element("label", "legal-report-label");
+  typeLabel.innerHTML = `<span>Problem növü</span> <span class="required-star">*</span>`;
+
+  const typeSelect = document.createElement("select");
+  typeSelect.className = "legal-report-select";
+  typeSelect.required = true;
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Problem növünü seçin…";
+  defaultOption.disabled = true;
+  defaultOption.selected = true;
+  typeSelect.appendChild(defaultOption);
+
+  const issueTypes = [
+    "Müəllif hüquqları və əqli mülkiyyət pozuntusu",
+    "Fərdi məlumatlar və məxfilik pozuntusu",
+    "Yanlış, zərərli və ya təhlükəli hüquqi məlumat",
+    "Ticarət nişanı və ya brend hüquqlarının pozulması",
+    "Digər hüquqi problem",
+  ];
+
+  issueTypes.forEach((text) => {
+    const opt = document.createElement("option");
+    opt.value = text;
+    opt.textContent = text;
+    typeSelect.appendChild(opt);
+  });
+  typeField.append(typeLabel, typeSelect);
+  form.appendChild(typeField);
+
+  const descField = element("div", "legal-report-field");
+  const descLabel = element("label", "legal-report-label");
+  descLabel.innerHTML = `<span>Problem haqqında təsvir</span> <span class="required-star">*</span>`;
+
+  const descTextarea = document.createElement("textarea");
+  descTextarea.className = "legal-report-textarea";
+  descTextarea.rows = 4;
+  descTextarea.maxLength = 4000;
+  descTextarea.required = true;
+  descTextarea.placeholder = "Problemin mahiyyətini və narahatlığınızı ətraflı izah edin…";
+
+  const descHint = element("span", "legal-report-hint", "Müraciətiniz hüquqi məxfilik qaydalarına uyğun araşdırılacaqdır.");
+  descField.append(descLabel, descTextarea, descHint);
+  form.appendChild(descField);
+
+  const emailField = element("div", "legal-report-field");
+  const emailLabel = element("label", "legal-report-label");
+  emailLabel.innerHTML = `<span>Əlaqə üçün e-poçt ünvanınız</span> <span class="optional-tag">(istəyə bağlı)</span>`;
+
+  const emailInput = document.createElement("input");
+  emailInput.type = "email";
+  emailInput.className = "legal-report-input";
+  emailInput.maxLength = 250;
+  emailInput.placeholder = "adiniz@example.com";
+  if (state.currentUser && state.currentUser.email) {
+    emailInput.value = state.currentUser.email;
+  }
+  const emailHint = element("span", "legal-report-hint", "Müraciətinizlə bağlı sizə geri dönüş edə bilməyimiz üçün.");
+  emailField.append(emailLabel, emailInput, emailHint);
+  form.appendChild(emailField);
+
+  const errorBox = element("div", "legal-report-error");
+  errorBox.style.display = "none";
+  form.appendChild(errorBox);
+
+  body.appendChild(form);
+
+  const footer = element("div", "legal-modal-footer legal-report-modal-footer");
+  const cancelBtn = button("İmtina et", "secondary-button", closeLegalModal);
+  cancelBtn.type = "button";
+
+  const submitBtn = button("Bildirişi göndər", "primary-button legal-report-submit-btn");
+  submitBtn.type = "button";
+
+  const doSubmit = async (e) => {
+    if (e) e.preventDefault();
+    errorBox.style.display = "none";
+    errorBox.textContent = "";
+
+    const selectedType = typeSelect.value.trim();
+    const description = descTextarea.value.trim();
+    const userEmail = emailInput.value.trim();
+
+    if (!selectedType) {
+      errorBox.textContent = "Zəhmət olmasa problem növünü seçin.";
+      errorBox.style.display = "block";
+      typeSelect.focus();
+      return;
+    }
+
+    if (!description || description.length < 5) {
+      errorBox.textContent = "Zəhmət olmasa problem haqqında ən azı 5 simvoldan ibarət ətraflı məlumat daxil edin.";
+      errorBox.style.display = "block";
+      descTextarea.focus();
+      return;
+    }
+
+    submitBtn.disabled = true;
+    cancelBtn.disabled = true;
+    submitBtn.textContent = "Göndərilir…";
+
+    try {
+      const res = await fetch("/api/legal-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          issueType: selectedType,
+          description,
+          userEmail: userEmail || undefined,
+          messageContent: messageContent || "",
+          model: model || "",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Müraciət göndərilərkən xəta baş verdi.");
+      }
+
+      closeLegalModal();
+      showToast("Hüquqi probleminizlə bağlı müraciət qeydə alındı və nəzərdən keçirilmək üçün yönləndirildi. Təşəkkür edirik!", "success");
+    } catch (err) {
+      errorBox.textContent = err.message || "Xəta baş verdi. Zəhmət olmasa bir az sonra yenidən cəhd edin.";
+      errorBox.style.display = "block";
+      submitBtn.disabled = false;
+      cancelBtn.disabled = false;
+      submitBtn.textContent = "Bildirişi göndər";
+    }
+  };
+
+  submitBtn.addEventListener("click", doSubmit);
+  form.addEventListener("submit", doSubmit);
+
+  footer.append(cancelBtn, submitBtn);
+  card.append(header, body, footer);
+  overlay.appendChild(card);
+  overlay.hidden = false;
+  document.body.style.overflow = "hidden";
+  setTimeout(() => typeSelect.focus(), 80);
 }
 
 window.addEventListener("marketify:account-restored", () => {

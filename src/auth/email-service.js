@@ -48,4 +48,107 @@ export class PasswordResetEmailService {
     outbox.push({ to: email, subject, text, html, createdAt: new Date().toISOString() });
     await fs.writeFile(outboxPath, `${JSON.stringify(outbox, null, 2)}\n`, "utf8");
   }
+
+  async sendLegalReportEmail({
+    issueType,
+    description,
+    userEmail,
+    userName,
+    userId,
+    model,
+    messageContent,
+    timestamp = new Date().toISOString(),
+    userAgent,
+    ip,
+  }) {
+    const recipient = this.env.LEGAL_REPORT_EMAIL || "elemanajes@gmail.com";
+    const subject = `[Marketify AI] Hüquqi Problem Bildirişi: ${issueType || "Ümumi"}`;
+    const text = `Marketify AI - Yeni Hüquqi Problem Bildirişi\n\n`
+      + `Tarix: ${timestamp}\n`
+      + `Problem Növü: ${issueType || "Qeyd edilməyib"}\n`
+      + `İstifadəçi: ${userName || "Anonim"} (${userEmail || "Qeyd edilməyib"})\n`
+      + `İstifadəçi ID / Sessiya: ${userId || "Məlum deyil"}\n`
+      + `Model: ${model || "Məlum deyil"}\n`
+      + `IP Ünvanı: ${ip || "Məlum deyil"}\n`
+      + `User Agent: ${userAgent || "Məlum deyil"}\n\n`
+      + `--- Şikayət / Təsvir ---\n${description}\n\n`
+      + `--- İstinad edilən AI Cavabı ---\n${messageContent || "(Cavab konteksti yoxdur)"}\n`;
+
+    const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { margin:0; background:#f4f6f8; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:#1e293b; }
+    .container { max-width:620px; margin:30px auto; background:#ffffff; border-radius:14px; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+    .header { background:#0f172a; padding:24px 32px; color:#ffffff; }
+    .badge { display:inline-block; padding:4px 10px; background:#ef4444; color:#fff; border-radius:6px; font-size:12px; font-weight:600; text-transform:uppercase; margin-bottom:8px; }
+    .title { font-size:20px; font-weight:700; margin:0; color:#ffffff; }
+    .content { padding:32px; font-size:14px; line-height:1.6; }
+    .section-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; margin:20px 0 8px; }
+    .card-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:16px; white-space:pre-wrap; word-break:break-word; }
+    .ai-box { background:#f1f5f9; border-left:4px solid #3b82f6; font-size:13px; color:#334155; max-height:300px; overflow-y:auto; }
+    .meta-table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+    .meta-table td { padding:6px 0; font-size:13px; border-bottom:1px solid #f1f5f9; }
+    .meta-table td.label { color:#64748b; width:130px; font-weight:500; }
+    .meta-table td.value { color:#0f172a; font-weight:600; }
+    .footer { padding:20px 32px; background:#f8fafc; border-top:1px solid #e2e8f0; font-size:12px; color:#94a3b8; text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="badge">Hüquqi Bildiriş</div>
+      <h1 class="title">Marketify AI Hüquqi Problem Bildirişi</h1>
+    </div>
+    <div class="content">
+      <table class="meta-table">
+        <tr><td class="label">Problem Növü:</td><td class="value">${escapeHtml(issueType || "Ümumi")}</td></tr>
+        <tr><td class="label">Tarix:</td><td class="value">${escapeHtml(timestamp)}</td></tr>
+        <tr><td class="label">İstifadəçi:</td><td class="value">${escapeHtml(userName || "Anonim")}</td></tr>
+        <tr><td class="label">Email:</td><td class="value">${userEmail ? `<a href="mailto:${escapeHtml(userEmail)}">${escapeHtml(userEmail)}</a>` : "Qeyd edilməyib"}</td></tr>
+        <tr><td class="label">Model:</td><td class="value">${escapeHtml(model || "Məlum deyil")}</td></tr>
+        <tr><td class="label">İstifadəçi ID:</td><td class="value">${escapeHtml(userId || "Qonaq")}</td></tr>
+        <tr><td class="label">IP / Şəbəkə:</td><td class="value">${escapeHtml(ip || "Məlum deyil")}</td></tr>
+      </table>
+
+      <div class="section-title">İstifadəçinin Şikayəti / Təsvir:</div>
+      <div class="card-box" style="border-left:4px solid #ef4444; font-weight:500;">${escapeHtml(description)}</div>
+
+      <div class="section-title">İstinad Edilən AI Cavabı:</div>
+      <div class="card-box ai-box">${escapeHtml(messageContent || "(Cavab mətni yoxdur)")}</div>
+    </div>
+    <div class="footer">
+      Bu bildiriş Marketify AI cavab generasiyası ekranından avtomatik göndərilmişdir.
+    </div>
+  </div>
+</body>
+</html>`;
+
+    if (this.transport) {
+      await this.transport.sendMail({
+        from: this.env.EMAIL_FROM || "Marketify Legal <no-reply@marketify-ai.com>",
+        to: recipient,
+        replyTo: userEmail || undefined,
+        subject,
+        text,
+        html,
+      });
+      return;
+    }
+
+    if (this.env.NODE_ENV === "production") {
+      console.warn("SMTP transport is not configured in production. Saving report to outbox.");
+    }
+
+    const outboxPath = path.join(this.dataDir, "email-outbox.json");
+    await fs.mkdir(this.dataDir, { recursive: true });
+    let outbox = [];
+    try { outbox = JSON.parse(await fs.readFile(outboxPath, "utf8")); } catch {}
+    outbox.push({ to: recipient, replyTo: userEmail || undefined, subject, text, html, createdAt: timestamp });
+    await fs.writeFile(outboxPath, `${JSON.stringify(outbox, null, 2)}\n`, "utf8");
+  }
 }
+
+export const EmailService = PasswordResetEmailService;
+

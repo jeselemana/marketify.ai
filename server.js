@@ -153,6 +153,7 @@ const CHATS_PATH = path.join(DATA_DIR, "chats.json");
 const PLANNER_PATH = path.join(DATA_DIR, "planner.json");
 const USERS_PATH = path.join(DATA_DIR, "users.json");
 const AUTH_STORE_PATH = path.join(DATA_DIR, "auth-store.json");
+const LEGAL_REPORTS_PATH = path.join(DATA_DIR, "legal_reports.json");
 const strategyRepository = new FileStrategyRepository(STRATEGIES_PATH, redis);
 const chatRepository = new FileChatRepository(CHATS_PATH, redis);
 const plannerRepository = new FilePlannerRepository(PLANNER_PATH, redis);
@@ -198,6 +199,127 @@ app.use("/api/auth", createAuthRouter({
 
 app.use("/api/strategy", createStrategyRouter(strategyRepository));
 app.use("/api/planner", createPlannerRouter(plannerRepository));
+
+const legalReportRateMap = new Map();
+function isLegalReportRateLimited(key) {
+  const now = Date.now();
+  const windowMs = 10 * 60 * 1000;
+  const maxAttempts = 5;
+  const record = legalReportRateMap.get(key) || { count: 0, resetAt: now + windowMs };
+  if (now > record.resetAt) {
+    record.count = 0;
+    record.resetAt = now + windowMs;
+  }
+  record.count += 1;
+  legalReportRateMap.set(key, record);
+  return record.count > maxAttempts;
+}
+
+app.post("/api/legal-report", async (req, res) => {
+  try {
+    const ip = req.ip || req.get("x-forwarded-for") || req.socket.remoteAddress || "127.0.0.1";
+    const rateKey = `${ip}:${req.ownerId || "guest"}`;
+    if (isLegalReportRateLimited(rateKey)) {
+      return res.status(429).json({
+        error: "Çox sayda bildiriş göndərildi. Zəhmət olmasa bir az sonra yenidən cəhd edin.",
+        code: "RATE_LIMITED",
+      });
+    }
+
+    const { issueType, description, userEmail, messageContent, model } = req.body || {};
+
+    if (!issueType || typeof issueType !== "string" || !issueType.trim()) {
+      return res.status(400).json({ error: "Zəhmət olmasa problem növünü seçin.", code: "INVALID_ISSUE_TYPE" });
+    }
+
+    if (!description || typeof description !== "string" || description.trim().length < 5) {
+      return res.status(400).json({
+        error: "Zəhmət olmasa problem haqqında ən azı 5 simvoldan ibarət ətraflı məlumat daxil edin.",
+        code: "INVALID_DESCRIPTION",
+      });
+    }
+
+    if (description.trim().length > 5000) {
+      return res.status(400).json({
+        error: "Təsvir mətni 5000 simvoldan çox ola bilməz.",
+        code: "DESCRIPTION_TOO_LONG",
+      });
+    }
+
+    let cleanEmail = "";
+    if (userEmail && typeof userEmail === "string" && userEmail.trim()) {
+      cleanEmail = userEmail.trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail) || cleanEmail.length > 254) {
+        return res.status(400).json({
+          error: "Düzgün bir e-poçt ünvanı daxil edin və ya boş buraxın.",
+          code: "INVALID_EMAIL",
+        });
+      }
+    } else if (req.user?.email) {
+      cleanEmail = req.user.email;
+    }
+
+    const cleanIssueType = String(issueType).trim().slice(0, 150);
+    const cleanDescription = String(description).trim().slice(0, 5000);
+    const cleanMessageContent = messageContent ? String(messageContent).trim().slice(0, 15000) : "";
+    const cleanModel = model ? String(model).trim().slice(0, 100) : "";
+    const userName = req.user?.fullName || req.user?.username || (cleanEmail ? cleanEmail.split("@")[0] : "Anonim istifadəçi");
+    const userId = req.user?.id || req.ownerId || "Qonaq";
+    const userAgent = req.get("user-agent") || "";
+    const timestamp = new Date().toISOString();
+
+    await emailService.sendLegalReportEmail({
+      issueType: cleanIssueType,
+      description: cleanDescription,
+      userEmail: cleanEmail,
+      userName,
+      userId,
+      model: cleanModel,
+      messageContent: cleanMessageContent,
+      timestamp,
+      userAgent,
+      ip,
+    });
+
+    try {
+      await fs.promises.mkdir(DATA_DIR, { recursive: true });
+      let reports = [];
+      try {
+        reports = JSON.parse(await fs.promises.readFile(LEGAL_REPORTS_PATH, "utf8"));
+      } catch {}
+      if (!Array.isArray(reports)) reports = [];
+      reports.push({
+        id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        issueType: cleanIssueType,
+        description: cleanDescription,
+        userEmail: cleanEmail,
+        userName,
+        userId,
+        model: cleanModel,
+        messageContent: cleanMessageContent,
+        createdAt: timestamp,
+        ip,
+        status: "received",
+      });
+      await fs.promises.writeFile(LEGAL_REPORTS_PATH, `${JSON.stringify(reports, null, 2)}\n`, "utf8");
+    } catch (saveErr) {
+      console.error("⚠️ Failed to save legal report archive:", saveErr.message);
+    }
+
+    return res.json({
+      success: true,
+      message: "Hüquqi probleminizlə bağlı müraciət qəbul edildi. Təşəkkür edirik!",
+    });
+  } catch (error) {
+    console.error("❌ Legal report error:", error);
+    return res.status(500).json({
+      error: "Müraciət göndərilərkən xəta baş verdi. Zəhmət olmasa bir az sonra yenidən cəhd edin.",
+      code: "REPORT_FAILED",
+    });
+  }
+});
+
 
 const ASK_MODEL = aiConfig.askModel;
 const ASK_INSTRUCTIONS = `You are Marketify Ask, a precise, fast, and helpful AI assistant inside the Marketify workspace.
