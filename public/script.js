@@ -740,25 +740,29 @@ function renderAsk() {
         const actions = element("div", "ask-message-actions");
         actions.setAttribute("aria-label", "Cavab əməliyyatları");
 
-        const copy = button("", "ask-response-action", async () => {
+        const copy = button("", "ask-response-action ask-response-copy-btn", async () => {
           const ok = await copyAskResponse(message.content);
           if (ok) {
             copy.classList.add("is-copied");
-            copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Kopyalandı</span>';
+            copy.title = "Kopyalandı";
+            copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
             setTimeout(() => {
               copy.classList.remove("is-copied");
-              copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Kopyala</span>';
+              copy.title = "Kopyala";
+              copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
             }, 1800);
           }
         });
         copy.type = "button";
         copy.setAttribute("aria-label", "Cavabı kopyala");
-        copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Kopyala</span>';
+        copy.title = "Kopyala";
+        copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
 
-        const share = button("", "ask-response-action", () => shareAskResponse(message.content));
+        const share = button("", "ask-response-action ask-response-share-btn", () => shareAskResponse(message.content));
+        share.type = "button";
         share.setAttribute("aria-label", "Cavabı paylaş");
         share.title = "Paylaş";
-        share.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg><span>Paylaş</span>';
+        share.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg>';
 
         actions.append(copy, share);
 
@@ -768,12 +772,12 @@ function renderAsk() {
           moreMenu.className = "ask-response-more-menu";
           const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
           moreTrigger.setAttribute("aria-label", "Model haqqında məlumat");
-          moreTrigger.title = "Ətraflı məlumat";
+          moreTrigger.title = "Model";
           moreTrigger.innerHTML = `
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="1"></circle>
-              <circle cx="19" cy="12" r="1"></circle>
-              <circle cx="5" cy="12" r="1"></circle>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+              <circle cx="5" cy="12" r="1.8"></circle>
+              <circle cx="12" cy="12" r="1.8"></circle>
+              <circle cx="19" cy="12" r="1.8"></circle>
             </svg>
           `;
 
