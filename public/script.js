@@ -594,10 +594,12 @@ function renderIntake() {
 }
 
 function appendAskInline(parent, value) {
-  const parts = String(value).split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
+  const parts = String(value).split(/(\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|`[^`]+`)/g).filter(Boolean);
   parts.forEach((part) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
+    if ((part.startsWith("**") && part.endsWith("**")) || (part.startsWith("__") && part.endsWith("__"))) {
       parent.appendChild(element("strong", "", part.slice(2, -2)));
+    } else if ((part.startsWith("*") && part.endsWith("*") && part.length > 2) || (part.startsWith("_") && part.endsWith("_") && part.length > 2)) {
+      parent.appendChild(element("em", "", part.slice(1, -1)));
     } else if (part.startsWith("`") && part.endsWith("`")) {
       parent.appendChild(element("code", "", part.slice(1, -1)));
     } else {
@@ -617,6 +619,12 @@ function renderAskRichText(value) {
   while (index < lines.length) {
     const line = lines[index].trim();
     if (!line) {
+      index += 1;
+      continue;
+    }
+
+    if (/^[-*_]{3,}$/.test(line)) {
+      root.appendChild(element("hr", "ask-divider"));
       index += 1;
       continue;
     }
