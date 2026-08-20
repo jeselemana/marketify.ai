@@ -16,7 +16,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
       rel="stylesheet"
     />
-<link rel="stylesheet" href="/style.css?v=3.8" />
+<link rel="stylesheet" href="/style.css?v=3.9" />
 
 <script
   src="https://accounts.google.com/gsi/client"
@@ -24,16 +24,14 @@
   defer
 ></script>
 
-<script src="/script.js?v=3.8" type="module"></script>
+<script src="/script.js?v=3.9" type="module"></script>
   </head>
-  <body class="auth-loading">
+  <body>
     <a class="skip-link" href="#workspace">Əsas hissəyə keç</a>
 
-    <main class="auth-root" id="authRoot" aria-live="polite">
-      <div class="auth-boot"><span class="auth-boot-mark">M</span><span>Marketify açılır…</span></div>
-    </main>
+    <main class="auth-root" id="authRoot" aria-live="polite" hidden></main>
 
-    <div class="app-shell" id="appShell" hidden>
+    <div class="app-shell" id="appShell">
       <nav class="navigation-rail" aria-label="Sürətli naviqasiya">
         <button class="rail-button rail-menu" id="railMenuButton" type="button" aria-label="Workspace menyusunu aç" aria-expanded="false" data-tooltip="Menyu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>

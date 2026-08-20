@@ -547,7 +547,7 @@ function renderIntake() {
   textarea.name = "brief";
   textarea.rows = 1;
   textarea.maxLength = 8000;
-  textarea.placeholder = "Biznes məqsədini və ya həll etmək istədiyin problemi yaz…";
+  textarea.placeholder = "Marketify ilə strategiya qur";
   textarea.value = state.brief;
 
   const submit = button("", "ask-submit");

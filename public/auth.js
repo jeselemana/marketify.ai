@@ -552,8 +552,7 @@ function renderRoute() {
   if (path === "/forgot-password") return renderForgot();
   if (path === "/reset-password") return renderReset();
   if (path !== "/login") route("/login", true);
-if (path !== "/login") route("/login", true);
-return renderLogin();
+  return renderLogin();
 }
 
 export async function initializeAuthentication(onAuthenticated) {
