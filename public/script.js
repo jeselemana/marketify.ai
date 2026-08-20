@@ -723,7 +723,7 @@ function renderAsk() {
 
   if (!state.askMessages.length) {
     const intro = element("div", "ask-intro");
-    const activeModelName = isFlash ? "⚡ Flash (Gemini 3.7)" : "✦ Default (GPT-5.6)";
+    const activeModelName = isFlash ? "⚡ Flash" : "✦ Default";
     const introBadge = element("div", "ask-intro-model-badge");
     introBadge.innerHTML = `<span class="ask-intro-badge-pill">${activeModelName}</span>`;
     intro.append(
@@ -744,7 +744,7 @@ function renderAsk() {
 
         if (message.model) {
           const modelBadge = element("span", "ask-message-model-pill", (message.model === "Flash" || message.model === "flash") ? "⚡ Flash" : "✦ Default");
-          modelBadge.title = (message.model === "Flash" || message.model === "flash") ? "Model: Google Gemini 3.7 Flash" : "Model: OpenAI GPT-5.6 Luna";
+          modelBadge.title = (message.model === "Flash" || message.model === "flash") ? "Model: Flash" : "Model: Default";
           actions.appendChild(modelBadge);
         }
 
@@ -894,7 +894,7 @@ function renderAsk() {
   modelMenu.className = "ask-model-menu";
   const modelTrigger = element("summary", "ask-model-trigger");
   modelTrigger.setAttribute("aria-label", "Model seçimi");
-  modelTrigger.title = isFlash ? "Model: Flash (Gemini 3.7)" : "Model: Default (GPT-5.6)";
+  modelTrigger.title = isFlash ? "Model: Flash" : "Model: Default";
   modelTrigger.innerHTML = `
     <span class="ask-model-trigger-icon">${isFlash ? "⚡" : "✦"}</span>
     <span class="ask-model-trigger-label">${isFlash ? "Flash" : "Default"}</span>
@@ -907,7 +907,6 @@ function renderAsk() {
   const modelPopoverHeader = element("div", "ask-model-popover-header");
   modelPopoverHeader.innerHTML = `
     <span class="ask-model-popover-title">Model Seçimi</span>
-    <span class="ask-model-popover-badge">2 model</span>
   `;
   modelPopover.appendChild(modelPopoverHeader);
 
@@ -918,15 +917,13 @@ function renderAsk() {
       id: "flash",
       icon: "⚡",
       name: "Flash",
-      badge: "Gemini 3.7",
-      desc: "Google Gemini 3.7 Flash — ultra sürətli və çevik",
+      desc: "Gündəlik və dinamik sorğular üçün sürətli cavablar",
     },
     {
       id: "default",
       icon: "✦",
       name: "Default",
-      badge: "GPT-5.6",
-      desc: "OpenAI GPT-5.6 Luna — analitik və dərin",
+      desc: "Kiçik həcmli sorğular üçün",
     },
   ];
 
@@ -940,7 +937,6 @@ function renderAsk() {
           <span class="ask-model-item-icon">${opt.icon}</span>
           <strong class="ask-model-item-name">${opt.name}</strong>
         </div>
-        <span class="ask-model-item-tag">${opt.badge}</span>
       </div>
       <p class="ask-model-item-desc">${opt.desc}</p>
     `;
