@@ -248,4 +248,21 @@ test("GPT responses show 'Mini' in three dots and display 'Daha dərindən düş
   }
 });
 
+test("Thinking label shows 'Dərin mühakimə aparıram' for Flash and 'Marketify düşünür' for Luna/GPT", () => {
+  function getThinkingLabel(model) {
+    const info = getAskMessageModelInfo(model);
+    return info.isFlash ? "Dərin mühakimə aparıram" : "Marketify düşünür";
+  }
+
+  assert.equal(getThinkingLabel("flash"), "Dərin mühakimə aparıram");
+  assert.equal(getThinkingLabel("gemini-3.7-flash"), "Dərin mühakimə aparıram");
+  assert.equal(getThinkingLabel("Flash"), "Dərin mühakimə aparıram");
+
+  assert.equal(getThinkingLabel("mini"), "Marketify düşünür");
+  assert.equal(getThinkingLabel("gpt-5.6-luna"), "Marketify düşünür");
+  assert.equal(getThinkingLabel("Mini"), "Marketify düşünür");
+  assert.equal(getThinkingLabel(""), "Marketify düşünür");
+  assert.equal(getThinkingLabel(undefined), "Marketify düşünür");
+});
+
 

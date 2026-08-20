@@ -780,10 +780,7 @@ function renderAsk() {
             </svg>
           `;
           const modelInfo = getAskMessageModelInfo(message.model);
-          let label = "Marketify düşünür";
-          if (message.model) {
-            label = modelInfo.isFlash ? "Flash düşünür" : "Luna düşünür";
-          }
+          const label = modelInfo.isFlash ? "Dərin mühakimə aparıram" : "Marketify düşünür";
           const thinkingLabel = element("span", "ask-thinking-label", label);
           const dots = element("span", "ask-thinking-dots");
           dots.append(element("i"), element("i"), element("i"));
