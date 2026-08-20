@@ -2,7 +2,7 @@
   "name": "marketify-ai",
   "version": "1.0.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.0.0 <=22.x"
   },
   "main": "server.js",
   "type": "module",
