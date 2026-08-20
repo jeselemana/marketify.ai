@@ -21,7 +21,8 @@ import { FileStrategyRepository } from "./src/repositories/file-strategy-reposit
 import { FileChatRepository } from "./src/repositories/file-chat-repository.js";
 import { FilePlannerRepository } from "./src/repositories/file-planner-repository.js";
 import { createPlannerRouter } from "./src/http/planner-router.js";
-import { aiConfig } from "./src/services/ai/config.js";
+import { aiConfig, hasGeminiConfiguration } from "./src/services/ai/config.js";
+import { generateGeminiAskResponse } from "./src/services/ai/gemini-client.js";
 import { buildPersonalizationContext, getRelevantUserContext } from "./src/services/ai/personal-context.js";
 
 dotenv.config();
@@ -389,7 +390,10 @@ app.delete("/api/ask/chats/:id", async (req, res) => {
 
 app.post("/api/ask", async (req, res) => {
   try {
-    if (!openai) {
+    const geminiAvailable = hasGeminiConfiguration();
+    const openAiAvailable = Boolean(openai);
+
+    if (!geminiAvailable && !openAiAvailable) {
       return res.status(503).json({ error: "AI xidməti hələ konfiqurasiya edilməyib." });
     }
 
@@ -401,6 +405,7 @@ app.post("/api/ask", async (req, res) => {
             role: message.role,
             content: message.content.trim().slice(0, 5000),
             strategyTitle: typeof message.strategyTitle === "string" ? message.strategyTitle : undefined,
+            model: typeof message.model === "string" ? message.model : undefined,
           }))
           .filter((message) => message.content)
       : [];
@@ -409,6 +414,7 @@ app.post("/api/ask", async (req, res) => {
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
     }
 
+    const requestedModel = (typeof req.body.model === "string" ? req.body.model.trim().toLowerCase() : "") || "flash";
     const strategyId = typeof req.body.strategyId === "string" ? req.body.strategyId.trim() : "";
     const chatId = typeof req.body.chatId === "string" ? req.body.chatId.trim() : "";
     let selectedStrategy = null;
@@ -442,20 +448,64 @@ app.post("/api/ask", async (req, res) => {
       });
     }
 
-    const response = await openai.responses.create({
-      model: ASK_MODEL,
-      instructions: `${ASK_INSTRUCTIONS}${strategyContext}${personalizationContext}`,
-      input: messages.map(({ role, content }) => ({ role, content })),
-      reasoning: { effort: "low" },
-      max_output_tokens: 2500,
-      safety_identifier: askSafetyIdentifier(req.ownerId),
-    });
-    const reply = response.output_text?.trim();
+    const fullInstructions = `${ASK_INSTRUCTIONS}${strategyContext}${personalizationContext}`;
+    let reply = "";
+    let activeModel = "Flash";
+
+    const wantsFlash = requestedModel === "flash" || requestedModel === "gemini" || requestedModel.includes("flash") || requestedModel.includes("gemini");
+
+    if (wantsFlash) {
+      if (geminiAvailable) {
+        reply = await generateGeminiAskResponse({
+          messages,
+          systemInstruction: fullInstructions,
+          model: aiConfig.geminiAskModel,
+        });
+        activeModel = "Flash";
+      } else if (openAiAvailable) {
+        const response = await openai.responses.create({
+          model: ASK_MODEL,
+          instructions: fullInstructions,
+          input: messages.map(({ role, content }) => ({ role, content })),
+          reasoning: { effort: "low" },
+          max_output_tokens: 2500,
+          safety_identifier: askSafetyIdentifier(req.ownerId),
+        });
+        reply = response.output_text?.trim();
+        activeModel = "Default";
+      } else {
+        return res.status(503).json({ error: "Gemini API konfiqurasiya edilməyib." });
+      }
+    } else {
+      // Default (OpenAI gpt-5.6-luna)
+      if (openAiAvailable) {
+        const response = await openai.responses.create({
+          model: ASK_MODEL,
+          instructions: fullInstructions,
+          input: messages.map(({ role, content }) => ({ role, content })),
+          reasoning: { effort: "low" },
+          max_output_tokens: 2500,
+          safety_identifier: askSafetyIdentifier(req.ownerId),
+        });
+        reply = response.output_text?.trim();
+        activeModel = "Default";
+      } else if (geminiAvailable) {
+        reply = await generateGeminiAskResponse({
+          messages,
+          systemInstruction: fullInstructions,
+          model: aiConfig.geminiAskModel,
+        });
+        activeModel = "Flash";
+      } else {
+        return res.status(503).json({ error: "OpenAI konfiqurasiya edilməyib." });
+      }
+    }
+
     if (!reply) throw new Error("Ask mode returned an empty response.");
 
     const updatedMessages = [
       ...messages,
-      { role: "assistant", content: reply, createdAt: new Date().toISOString() },
+      { role: "assistant", content: reply, model: activeModel, createdAt: new Date().toISOString() },
     ];
     const savedChat = await chatRepository.saveChat({
       id: chatId || undefined,
@@ -464,13 +514,13 @@ app.post("/api/ask", async (req, res) => {
       strategyId: strategyId || null,
     });
 
-    return res.json({ reply, chat: savedChat });
+    return res.json({ reply, model: activeModel, chat: savedChat });
   } catch (error) {
     console.error("Ask mode error:", error?.message || error);
-    const code = error?.status === 401 ? "AI_AUTH_ERROR" : "ASK_ERROR";
-    return res.status(error?.status === 401 ? 401 : 500).json({
+    const code = error?.code || (error?.status === 401 ? "AI_AUTH_ERROR" : "ASK_ERROR");
+    return res.status(error?.status || 500).json({
       code,
-      error: "Cavabı hazırlamaq mümkün olmadı.",
+      error: error?.message || "Cavabı hazırlamaq mümkün olmadı.",
     });
   }
 });

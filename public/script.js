@@ -106,6 +106,7 @@ const state = {
   askLoading: false,
   askError: "",
   askStrategyId: "",
+  askModel: localStorage.getItem("marketify_ask_model") || "flash",
   currentUser: null,
   settingsTab: "account",
   strategyFormat: "blog",
@@ -714,6 +715,7 @@ function renderAsk() {
   workspace.classList.toggle("has-messages", isChatActive);
   workspace.classList.toggle("is-empty", !isChatActive);
 
+  const isFlash = state.askModel === "flash";
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
   const shell = element("section", `ask-shell${isChatActive ? " has-messages" : " is-empty"}`);
   shell.setAttribute("aria-label", "Ask");
@@ -721,7 +723,11 @@ function renderAsk() {
 
   if (!state.askMessages.length) {
     const intro = element("div", "ask-intro");
+    const activeModelName = isFlash ? "⚡ Flash (Gemini 3.7)" : "✦ Default (GPT-5.6)";
+    const introBadge = element("div", "ask-intro-model-badge");
+    introBadge.innerHTML = `<span class="ask-intro-badge-pill">${activeModelName}</span>`;
     intro.append(
+      introBadge,
       element("h1", "ask-title", "Nə haqda düşünürsən?"),
       element("p", "ask-subtitle", "Sualını, ideyanı və ya həll etmək istədiyin problemi yaz."),
     );
@@ -735,6 +741,13 @@ function renderAsk() {
         content.appendChild(renderAskRichText(message.content));
         const actions = element("div", "ask-message-actions");
         actions.setAttribute("aria-label", "Cavab əməliyyatları");
+
+        if (message.model) {
+          const modelBadge = element("span", "ask-message-model-pill", (message.model === "Flash" || message.model === "flash") ? "⚡ Flash" : "✦ Default");
+          modelBadge.title = (message.model === "Flash" || message.model === "flash") ? "Model: Google Gemini 3.7 Flash" : "Model: OpenAI GPT-5.6 Luna";
+          actions.appendChild(modelBadge);
+        }
+
         const copy = button("", "ask-response-action", async () => {
           const ok = await copyAskResponse(message.content);
           if (ok) {
@@ -777,13 +790,14 @@ function renderAsk() {
       const thinking = element("div", "ask-thinking");
       const mark = element("span", "ask-thinking-mark");
       mark.append(element("i"), element("i"), element("i"));
-      const thinkingLabel = element("span", "ask-thinking-label", "Kontekst nəzərdən keçirilir");
+      const currentModelName = isFlash ? "Flash" : "Default";
+      const thinkingLabel = element("span", "ask-thinking-label", `${currentModelName} düşünür…`);
       const dots = element("span", "ask-thinking-dots");
       dots.append(element("i"), element("i"), element("i"));
       thinking.append(mark, thinkingLabel, dots);
       row.appendChild(thinking);
       thread.appendChild(row);
-      const thinkingPhrases = ["Kontekst nəzərdən keçirilir", "Cavab strukturlaşdırılır", "Yekun cavab hazırlanır"];
+      const thinkingPhrases = [`${currentModelName} düşünür…`, "Kontekst nəzərdən keçirilir", "Cavab strukturlaşdırılır", "Yekun cavab hazırlanır"];
       let thinkingPhase = 0;
       progressTimer = setInterval(() => {
         if (!thinkingLabel.isConnected) return clearInterval(progressTimer);
@@ -874,6 +888,74 @@ function renderAsk() {
     if (contextMenu.open) setTimeout(() => document.addEventListener("click", closeContextMenu), 0);
     else document.removeEventListener("click", closeContextMenu);
   });
+
+  // Model selector dropdown
+  const modelMenu = document.createElement("details");
+  modelMenu.className = "ask-model-menu";
+  const modelTrigger = element("summary", "ask-model-trigger");
+  modelTrigger.setAttribute("aria-label", "Model seçimi");
+  modelTrigger.title = isFlash ? "Model: Flash (Gemini 3.7)" : "Model: Default (GPT-5.6)";
+  modelTrigger.innerHTML = `
+    <span class="ask-model-trigger-label">${isFlash ? "⚡ Flash" : "✦ Default"}</span>
+    <svg class="ask-model-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"></polyline>
+    </svg>
+  `;
+
+  const modelPopover = element("div", "ask-model-popover");
+  modelPopover.appendChild(element("strong", "ask-model-popover-title", "Model seçimi"));
+  const modelList = element("div", "ask-model-list");
+
+  const modelOptions = [
+    {
+      id: "flash",
+      name: "⚡ Flash",
+      badge: "Gemini 3.7",
+      desc: "Google Gemini 3.7 Flash — ultra sürətli və çevik",
+    },
+    {
+      id: "default",
+      name: "✦ Default",
+      badge: "GPT-5.6",
+      desc: "OpenAI GPT-5.6 Luna — analitik və dərin",
+    },
+  ];
+
+  modelOptions.forEach((opt) => {
+    const item = button("", `ask-model-item${state.askModel === opt.id ? " is-selected" : ""}`);
+    item.type = "button";
+    item.innerHTML = `
+      <div class="ask-model-item-header">
+        <span class="ask-model-item-name">${opt.name}</span>
+        <span class="ask-model-item-badge">${opt.badge}</span>
+      </div>
+      <small class="ask-model-item-desc">${opt.desc}</small>
+    `;
+    item.addEventListener("click", () => {
+      state.askModel = opt.id;
+      try {
+        localStorage.setItem("marketify_ask_model", opt.id);
+      } catch {}
+      modelMenu.open = false;
+      render();
+    });
+    modelList.appendChild(item);
+  });
+
+  modelPopover.appendChild(modelList);
+  modelMenu.append(modelTrigger, modelPopover);
+
+  modelMenu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") modelMenu.open = false;
+  });
+  const closeModelMenu = (event) => {
+    if (!modelMenu.contains(event.target)) modelMenu.open = false;
+  };
+  modelMenu.addEventListener("toggle", () => {
+    if (modelMenu.open) setTimeout(() => document.addEventListener("click", closeModelMenu), 0);
+    else document.removeEventListener("click", closeModelMenu);
+  });
+
   const form = element("form", "ask-composer");
   const label = element("label", "sr-only", "Ask sualı");
   label.htmlFor = "askInput";
@@ -893,7 +975,7 @@ function renderAsk() {
   const helper = element("div", "ask-composer-meta");
   const metaLeft = element("div", "ask-meta-left");
   const contextMeta = element("span", "ask-context-meta", selectedStrategy ? `Kontekst: ${selectedStrategy.title}` : "Marketify");
-  metaLeft.appendChild(contextMeta);
+  metaLeft.append(contextMeta, modelMenu);
   if (state.currentUser?.settings?.personalIntelligence === true) {
     const pBadge = button("⚡ Fərdiləşdirilmiş", "ask-personalization-badge", () => {
       state.view = "settings";
@@ -945,18 +1027,19 @@ async function submitAskMessage(message) {
   state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "" });
   state.askLoading = true;
   state.askError = "";
-  trackEvent("ask_message_sent", { messageCount: state.askMessages.length });
+  trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: state.askModel });
   render();
   try {
     const data = await api("/api/ask", {
       method: "POST",
       body: JSON.stringify({
         messages: state.askMessages,
+        model: state.askModel,
         strategyId: state.askStrategyId || undefined,
         chatId: state.askChatId || undefined,
       }),
     });
-    const response = { role: "assistant", content: data.reply };
+    const response = { role: "assistant", content: data.reply, model: data.model || (state.askModel === "flash" ? "Flash" : "Default") };
     freshAskResponses.add(response);
     state.askMessages.push(response);
     if (data.chat?.id) {
@@ -1713,6 +1796,7 @@ function showLoadingAskModal(initialQuery) {
         method: "POST",
         body: JSON.stringify({
           messages: thread,
+          model: state.askModel || "flash",
           chatId: state.askChatId || undefined,
         }),
       });
