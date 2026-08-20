@@ -249,18 +249,44 @@ export async function generateGeminiAskStreamResponse({
   let buffer = "";
   let fullText = "";
 
-  const processChunk = (chunkJson) => {
-    if (!chunkJson || chunkJson === "[DONE]") return;
+  const processEventBlock = (block) => {
+    if (!block || !block.trim()) return;
+    const lines = block.split(/\r?\n/);
+    const dataLines = [];
+    for (const line of lines) {
+      if (line.startsWith("data:")) {
+        dataLines.push(line.replace(/^data:\s*/, ""));
+      }
+    }
+    if (!dataLines.length) return;
+    const jsonStr = dataLines.join("\n").trim();
+    if (!jsonStr || jsonStr === "[DONE]") return;
+
     try {
-      const parsed = JSON.parse(chunkJson);
-      const parts = parsed?.candidates?.[0]?.content?.parts || [];
-      for (const p of parts) {
-        if (!p.thought && typeof p.text === "string" && p.text) {
-          fullText += p.text;
-          onChunk(p.text);
+      const parsed = JSON.parse(jsonStr);
+      const candidates = parsed?.candidates || [];
+      for (const cand of candidates) {
+        const parts = cand?.content?.parts || [];
+        for (const p of parts) {
+          if (!p.thought && typeof p.text === "string" && p.text) {
+            fullText += p.text;
+            onChunk(p.text);
+          }
         }
       }
-    } catch {}
+    } catch (parseErr) {
+      // Fallback regex extractor if JSON was broken across lines
+      const matches = jsonStr.matchAll(/"text"\s*:\s*"((?:[^"\\]|\\.)*)"/g);
+      for (const match of matches) {
+        try {
+          const unescaped = JSON.parse(`"${match[1]}"`);
+          if (unescaped) {
+            fullText += unescaped;
+            onChunk(unescaped);
+          }
+        } catch {}
+      }
+    }
   };
 
   while (true) {
@@ -268,27 +294,20 @@ export async function generateGeminiAskStreamResponse({
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || "";
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith("data:")) continue;
-      const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
-      processChunk(jsonStr);
+    let boundaryIdx;
+    while ((boundaryIdx = buffer.search(/\r?\n\r?\n/)) !== -1) {
+      const match = buffer.match(/\r?\n\r?\n/);
+      const separatorLen = match[0].length;
+      const block = buffer.slice(0, boundaryIdx);
+      buffer = buffer.slice(boundaryIdx + separatorLen);
+      processEventBlock(block);
     }
   }
 
-  // Process any remaining buffer data
+  // Flush any remaining buffer
   if (buffer.trim()) {
-    const lines = buffer.split(/\r?\n/);
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("data:")) {
-        const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
-        processChunk(jsonStr);
-      }
-    }
+    processEventBlock(buffer);
   }
 
   if (!fullText.trim()) {

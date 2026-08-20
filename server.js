@@ -645,7 +645,7 @@ app.post("/api/ask", async (req, res) => {
       routeToFlash = geminiAvailable;
     }
 
-    // Real-time SSE streaming for instantaneous Gemini 3.7 response
+    // Real-time SSE streaming for instantaneous Gemini 3.7 & OpenAI response
     if (req.body.stream === true || req.headers.accept?.includes("text/event-stream")) {
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -666,17 +666,36 @@ app.post("/api/ask", async (req, res) => {
           });
           activeModel = "Flash";
         } else if (openAiAvailable) {
-          const response = await openai.responses.create({
-            model: ASK_MODEL,
-            instructions: fullInstructions,
-            input: messages.map(({ role, content }) => ({ role, content })),
-            reasoning: { effort: "low" },
-            max_output_tokens: 2500,
-            safety_identifier: askSafetyIdentifier(req.ownerId),
-          });
-          accumulated = response.output_text?.trim() || "";
-          activeModel = "Mini";
-          res.write(`data: ${JSON.stringify({ chunk: accumulated, model: "Mini" })}\n\n`);
+          try {
+            const stream = await openai.chat.completions.create({
+              model: ASK_MODEL,
+              messages: [
+                { role: "system", content: fullInstructions },
+                ...messages.map(({ role, content }) => ({ role, content })),
+              ],
+              stream: true,
+              max_tokens: 3000,
+            });
+            activeModel = "Mini";
+            for await (const part of stream) {
+              const chunkText = part.choices[0]?.delta?.content || "";
+              if (chunkText) {
+                accumulated += chunkText;
+                res.write(`data: ${JSON.stringify({ chunk: chunkText, model: "Mini" })}\n\n`);
+              }
+            }
+          } catch (streamFailErr) {
+            const response = await openai.responses.create({
+              model: ASK_MODEL,
+              instructions: fullInstructions,
+              input: messages.map(({ role, content }) => ({ role, content })),
+              max_output_tokens: 2500,
+              safety_identifier: askSafetyIdentifier(req.ownerId),
+            });
+            accumulated = response.output_text?.trim() || "";
+            activeModel = "Mini";
+            res.write(`data: ${JSON.stringify({ chunk: accumulated, model: "Mini" })}\n\n`);
+          }
         } else if (geminiAvailable) {
           accumulated = await generateGeminiAskStreamResponse({
             messages,

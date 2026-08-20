@@ -5538,23 +5538,22 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   animation-delay: 300ms;
 }
 
-.ask-message-assistant.is-fresh .ask-rich-text {
-  animation: ask-answer-in 220ms ease-out both;
+.ask-message-assistant.is-fresh:not(.is-streaming) .ask-rich-text {
+  animation: ask-answer-in 180ms ease-out both;
 }
 
 .ask-answer-caret {
   display: inline-block;
   width: 2px;
-  height: 1em;
-  margin: 2px 0 0 2px;
-  border-radius: 2px;
-  background: var(--accent);
-  vertical-align: text-bottom;
-  animation: ask-caret 420ms step-end 2;
+  height: 1.15em;
+  margin: 0 0 0 2px;
+  border-radius: 1px;
+  background: var(--accent, #3b82f6);
+  vertical-align: -0.15em;
 }
 
 .ask-answer-caret.is-streaming {
-  animation: ask-caret 600ms infinite;
+  animation: ask-caret 700ms ease-in-out infinite;
 }
 
 .ask-error {
@@ -6108,8 +6107,8 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
 }
 
 @keyframes ask-caret {
-  0%, 45% { opacity: 1; }
-  46%, 100% { opacity: 0; }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
 }
 
 @keyframes rise-in {

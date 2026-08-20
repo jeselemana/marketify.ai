@@ -1091,15 +1091,77 @@ function renderAsk() {
   });
 }
 
-function updateActiveAskMessageContent(message) {
+class LiveTypewriter {
+  constructor(onUpdate, onComplete) {
+    this.targetText = "";
+    this.currentText = "";
+    this.onUpdate = onUpdate;
+    this.onComplete = onComplete;
+    this.rafId = null;
+    this.isDone = false;
+  }
+
+  append(chunk) {
+    if (!chunk) return;
+    this.targetText += chunk;
+    if (!this.rafId) {
+      this.tick();
+    }
+  }
+
+  finish(finalText) {
+    if (finalText && finalText.length >= this.targetText.length) {
+      this.targetText = finalText;
+    }
+    this.isDone = true;
+    if (!this.rafId) {
+      this.tick();
+    }
+  }
+
+  tick() {
+    this.rafId = null;
+    const remaining = this.targetText.length - this.currentText.length;
+
+    if (remaining > 0) {
+      const charsToType = Math.min(
+        remaining,
+        remaining > 100 ? Math.ceil(remaining / 4) :
+        remaining > 40 ? Math.ceil(remaining / 6) :
+        remaining > 15 ? 3 :
+        remaining > 5 ? 2 : 1
+      );
+      this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
+      this.onUpdate(this.currentText, false);
+      this.rafId = requestAnimationFrame(() => this.tick());
+    } else if (this.isDone) {
+      this.currentText = this.targetText;
+      this.onUpdate(this.currentText, true);
+      if (this.onComplete) this.onComplete();
+    }
+  }
+
+  flush() {
+    if (this.rafId) cancelAnimationFrame(this.rafId);
+    this.currentText = this.targetText;
+    this.onUpdate(this.currentText, true);
+    if (this.onComplete) this.onComplete();
+  }
+}
+
+function updateActiveAskMessageContent(message, showCaret = true) {
   const activeBubble = document.querySelector(".ask-message.is-streaming .ask-message-content");
   if (activeBubble) {
     activeBubble.innerHTML = "";
-    activeBubble.appendChild(renderAskRichText(message.content));
-    const caret = element("span", "ask-answer-caret is-streaming");
-    activeBubble.appendChild(caret);
+    if (message.content) {
+      activeBubble.appendChild(renderAskRichText(message.content));
+    }
+    if (showCaret) {
+      const caret = element("span", "ask-answer-caret is-streaming");
+      activeBubble.appendChild(caret);
+    }
     const composerArea = document.querySelector(".ask-composer-area");
-    if (composerArea) composerArea.scrollIntoView({ block: "end" });
+    if (composerArea) composerArea.scrollIntoView({ behavior: "instant", block: "end" });
   }
 }
 
@@ -1146,30 +1208,46 @@ async function submitAskMessage(message) {
       const decoder = new TextDecoder();
       let buffer = "";
 
-      const processEvent = (jsonStr) => {
-        if (!jsonStr) return;
+      const typewriter = new LiveTypewriter(
+        (text, isComplete) => {
+          assistantMsg.content = text;
+          updateActiveAskMessageContent(assistantMsg, !isComplete);
+        },
+        () => {
+          assistantMsg.isStreaming = false;
+          render();
+        }
+      );
+
+      const processEventBlock = (block) => {
+        if (!block || !block.trim()) return;
+        const lines = block.split(/\r?\n/);
+        const dataLines = [];
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            dataLines.push(line.replace(/^data:\s*/, ""));
+          }
+        }
+        if (!dataLines.length) return;
+        const jsonStr = dataLines.join("\n").trim();
+        if (!jsonStr || jsonStr === "[DONE]") return;
+
         try {
           const data = JSON.parse(jsonStr);
           if (data.error) throw new Error(data.error);
 
+          if (data.model) assistantMsg.model = data.model;
+
           if (data.chunk) {
-            assistantMsg.content += data.chunk;
-            if (data.model) assistantMsg.model = data.model;
-            updateActiveAskMessageContent(assistantMsg);
+            typewriter.append(data.chunk);
           }
 
           if (data.done) {
-            if (data.reply && (!assistantMsg.content || assistantMsg.content.length < data.reply.length)) {
-              assistantMsg.content = data.reply;
-              updateActiveAskMessageContent(assistantMsg);
-            }
-            assistantMsg.isStreaming = false;
-            freshAskResponses.add(assistantMsg);
+            typewriter.finish(data.reply);
             if (data.chat?.id) {
               state.askChatId = data.chat.id;
               loadSavedChats();
             }
-            setTimeout(() => freshAskResponses.delete(assistantMsg), 1000);
           }
         } catch (parseErr) {
           if (parseErr.message && !parseErr.message.includes("JSON")) {
@@ -1183,33 +1261,26 @@ async function submitAskMessage(message) {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split(/\r?\n/);
-        buffer = lines.pop() || "";
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith("data:")) continue;
-          const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
-          processEvent(jsonStr);
+        let boundaryIdx;
+        while ((boundaryIdx = buffer.search(/\r?\n\r?\n/)) !== -1) {
+          const match = buffer.match(/\r?\n\r?\n/);
+          const separatorLen = match[0].length;
+          const block = buffer.slice(0, boundaryIdx);
+          buffer = buffer.slice(boundaryIdx + separatorLen);
+          processEventBlock(block);
         }
       }
 
       if (buffer.trim()) {
-        const lines = buffer.split(/\r?\n/);
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith("data:")) {
-            const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
-            processEvent(jsonStr);
-          }
-        }
+        processEventBlock(buffer);
       }
+      typewriter.flush();
     } else {
       const data = await response.json();
       assistantMsg.content = data.reply;
       assistantMsg.model = data.model || assistantMsg.model;
       assistantMsg.isStreaming = false;
-      freshAskResponses.add(assistantMsg);
       if (data.chat?.id) {
         state.askChatId = data.chat.id;
         loadSavedChats();
