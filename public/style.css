@@ -5367,6 +5367,76 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   transition: transform 140ms ease;
 }
 
+/* ⋯ Ask Response More Options Popover */
+.ask-response-more-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.ask-response-more-btn {
+  padding: 0 9px !important;
+  min-width: 32px;
+  justify-content: center;
+  list-style: none;
+}
+
+.ask-response-more-btn::-webkit-details-marker {
+  display: none;
+}
+
+.ask-response-more-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ask-response-more-popover {
+  position: absolute;
+  z-index: 40;
+  bottom: calc(100% + 7px);
+  right: 0;
+  min-width: 120px;
+  padding: 6px 11px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(20, 27, 42, 0.1);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.04);
+  animation: ask-response-popover-in 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  white-space: nowrap;
+}
+
+@keyframes ask-response-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ask-response-more-menu:not([open]) .ask-response-more-popover {
+  display: none;
+}
+
+.ask-response-model-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ask-response-model-label {
+  color: var(--text-tertiary, #64748b);
+  font-weight: 500;
+}
+
+.ask-response-model-name {
+  color: var(--text-primary, #0f172a);
+  font-weight: 600;
+}
+
 .ask-thinking {
   display: inline-flex;
   min-height: 34px;

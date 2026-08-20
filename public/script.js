@@ -740,12 +740,6 @@ function renderAsk() {
         const actions = element("div", "ask-message-actions");
         actions.setAttribute("aria-label", "Cavab əməliyyatları");
 
-        if (message.model) {
-          const modelBadge = element("span", "ask-message-model-pill", (message.model === "Flash" || message.model === "flash") ? "Flash" : "Mini");
-          modelBadge.title = (message.model === "Flash" || message.model === "flash") ? "Model: Flash" : "Model: Mini";
-          actions.appendChild(modelBadge);
-        }
-
         const copy = button("", "ask-response-action", async () => {
           const ok = await copyAskResponse(message.content);
           if (ok) {
@@ -767,6 +761,45 @@ function renderAsk() {
         share.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg><span>Paylaş</span>';
 
         actions.append(copy, share);
+
+        if (message.model) {
+          const modelName = (message.model === "Flash" || message.model === "flash") ? "Flash" : "Mini";
+          const moreMenu = document.createElement("details");
+          moreMenu.className = "ask-response-more-menu";
+          const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
+          moreTrigger.setAttribute("aria-label", "Model haqqında məlumat");
+          moreTrigger.title = "Ətraflı məlumat";
+          moreTrigger.innerHTML = `
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="1"></circle>
+              <circle cx="19" cy="12" r="1"></circle>
+              <circle cx="5" cy="12" r="1"></circle>
+            </svg>
+          `;
+
+          const morePopover = element("div", "ask-response-more-popover");
+          morePopover.innerHTML = `
+            <div class="ask-response-model-row">
+              <span class="ask-response-model-label">Model:</span>
+              <strong class="ask-response-model-name">${modelName}</strong>
+            </div>
+          `;
+          moreMenu.append(moreTrigger, morePopover);
+
+          moreMenu.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") moreMenu.open = false;
+          });
+          const closeMoreMenu = (event) => {
+            if (!moreMenu.contains(event.target)) moreMenu.open = false;
+          };
+          moreMenu.addEventListener("toggle", () => {
+            if (moreMenu.open) setTimeout(() => document.addEventListener("click", closeMoreMenu), 0);
+            else document.removeEventListener("click", closeMoreMenu);
+          });
+
+          actions.appendChild(moreMenu);
+        }
+
         content.appendChild(actions);
         if (isFreshResponse) {
           const caret = element("span", "ask-answer-caret");
