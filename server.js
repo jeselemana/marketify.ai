@@ -1769,6 +1769,7 @@ app.use("/api", (req, res) => res.status(404).json({ error: "API yolu tapılmad�
 
 // 🌐 Frontend üçün fallback
 app.get("*", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.sendFile(process.cwd() + "/public/index.html");
 });
 
