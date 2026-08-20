@@ -919,7 +919,7 @@ function renderAsk() {
     {
       id: "flash",
       name: "Flash",
-      desc: "Gündəlik və dinamik sorğular üçün sürətli cavablar",
+      desc: "Sürət & Performans",
     },
     {
       id: "mini",
