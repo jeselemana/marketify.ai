@@ -1415,7 +1415,7 @@ app.get("*", (req, res) => {
 });
 
 const PORT = APP_PORT;
-app.listen(PORT, () =>
+app.listen(PORT, "0.0.0.0", () =>
   console.log(`✅ Marketify AI is live on port ${PORT}`)
 );
 
