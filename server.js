@@ -454,7 +454,7 @@ app.post("/api/ask", async (req, res) => {
     let activeModel = "Flash";
 
     // Auto routing decision:
-    // Simple / small queries -> Default (gpt-5.6-luna)
+    // Simple / small queries -> Mini (gpt-5.6-luna)
     // Complex queries / strategy archive analysis -> Flash (Gemini 3.7 Flash)
     const hasStrategyContext = Boolean(selectedStrategy);
     const lastUserMsg = messages.at(-1)?.content || "";
@@ -466,7 +466,7 @@ app.post("/api/ask", async (req, res) => {
     let routeToFlash = false;
     if (requestedModel === "flash" || requestedModel.includes("gemini")) {
       routeToFlash = true;
-    } else if (requestedModel === "default" || requestedModel.includes("openai") || requestedModel.includes("luna")) {
+    } else if (requestedModel === "mini" || requestedModel === "default" || requestedModel.includes("openai") || requestedModel.includes("luna")) {
       routeToFlash = false;
     } else {
       // Auto mode:
@@ -491,12 +491,12 @@ app.post("/api/ask", async (req, res) => {
           safety_identifier: askSafetyIdentifier(req.ownerId),
         });
         reply = response.output_text?.trim();
-        activeModel = "Default";
+        activeModel = "Mini";
       } else {
         return res.status(503).json({ error: "AI xidməti konfiqurasiya edilməyib." });
       }
     } else {
-      // Default (OpenAI gpt-5.6-luna)
+      // Mini (OpenAI gpt-5.6-luna)
       if (openAiAvailable) {
         const response = await openai.responses.create({
           model: ASK_MODEL,
@@ -507,7 +507,7 @@ app.post("/api/ask", async (req, res) => {
           safety_identifier: askSafetyIdentifier(req.ownerId),
         });
         reply = response.output_text?.trim();
-        activeModel = "Default";
+        activeModel = "Mini";
       } else if (geminiAvailable) {
         reply = await generateGeminiAskResponse({
           messages,

@@ -710,9 +710,9 @@ async function shareAskResponse(content) {
 }
 
 function renderAsk() {
-  const isAuto = state.askModel === "auto";
+  const isAuto = state.askModel === "auto" || !state.askModel;
   const isFlash = state.askModel === "flash";
-  const isDefault = state.askModel === "default";
+  const isMini = state.askModel === "mini" || state.askModel === "default";
   workspace.classList.add("workspace-ask");
   const isChatActive = Boolean(state.askMessages.length || state.askLoading);
   workspace.classList.toggle("has-messages", isChatActive);
@@ -725,7 +725,7 @@ function renderAsk() {
 
   if (!state.askMessages.length) {
     const intro = element("div", "ask-intro");
-    const activeModelName = isAuto ? "Auto" : isFlash ? "Flash" : "Default";
+    const activeModelName = isAuto ? "Auto" : isFlash ? "Flash" : "Mini";
     const introBadge = element("div", "ask-intro-model-badge");
     introBadge.innerHTML = `<span class="ask-intro-badge-pill">${activeModelName}</span>`;
     intro.append(
@@ -745,8 +745,8 @@ function renderAsk() {
         actions.setAttribute("aria-label", "Cavab əməliyyatları");
 
         if (message.model) {
-          const modelBadge = element("span", "ask-message-model-pill", (message.model === "Flash" || message.model === "flash") ? "Flash" : "Default");
-          modelBadge.title = (message.model === "Flash" || message.model === "flash") ? "Model: Flash" : "Model: Default";
+          const modelBadge = element("span", "ask-message-model-pill", (message.model === "Flash" || message.model === "flash") ? "Flash" : "Mini");
+          modelBadge.title = (message.model === "Flash" || message.model === "flash") ? "Model: Flash" : "Model: Mini";
           actions.appendChild(modelBadge);
         }
 
@@ -792,7 +792,7 @@ function renderAsk() {
       const thinking = element("div", "ask-thinking");
       const mark = element("span", "ask-thinking-mark");
       mark.append(element("i"), element("i"), element("i"));
-      const currentModelName = isAuto ? "Auto" : isFlash ? "Flash" : "Default";
+      const currentModelName = isAuto ? "Auto" : isFlash ? "Flash" : "Mini";
       const thinkingLabel = element("span", "ask-thinking-label", `${currentModelName} düşünür…`);
       const dots = element("span", "ask-thinking-dots");
       dots.append(element("i"), element("i"), element("i"));
@@ -896,8 +896,8 @@ function renderAsk() {
   modelMenu.className = "ask-model-menu";
   const modelTrigger = element("summary", "ask-model-trigger");
   modelTrigger.setAttribute("aria-label", "Model seçimi");
-  const triggerLabel = isAuto ? "Auto" : isFlash ? "Flash" : "Default";
-  modelTrigger.title = isAuto ? "Model: Auto (Ağıllı seçim)" : isFlash ? "Model: Flash" : "Model: Default";
+  const triggerLabel = isAuto ? "Auto" : isFlash ? "Flash" : "Mini";
+  modelTrigger.title = isAuto ? "Model: Auto (Ağıllı seçim)" : isFlash ? "Model: Flash" : "Model: Mini";
   modelTrigger.innerHTML = `
     <span class="ask-model-trigger-label">${triggerLabel}</span>
     <svg class="ask-model-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -918,7 +918,7 @@ function renderAsk() {
     {
       id: "auto",
       name: "Auto",
-      desc: "Ağıllı seçim: Sadə suallar üçün Default, mürəkkəb analiz üçün Flash",
+      desc: "Ağıllı seçim: Sadə suallar üçün Mini, mürəkkəb analiz üçün Flash",
     },
     {
       id: "flash",
@@ -926,14 +926,14 @@ function renderAsk() {
       desc: "Gündəlik və dinamik sorğular üçün sürətli cavablar",
     },
     {
-      id: "default",
-      name: "Default",
+      id: "mini",
+      name: "Mini",
       desc: "Kiçik həcmli sorğular üçün",
     },
   ];
 
   modelOptions.forEach((opt) => {
-    const isSelected = state.askModel === opt.id;
+    const isSelected = state.askModel === opt.id || (opt.id === "mini" && state.askModel === "default") || (opt.id === "auto" && !state.askModel);
     const item = button("", `ask-model-item${isSelected ? " is-selected" : ""}`);
     item.type = "button";
     item.innerHTML = `
@@ -1056,7 +1056,7 @@ async function submitAskMessage(message) {
         chatId: state.askChatId || undefined,
       }),
     });
-    const response = { role: "assistant", content: data.reply, model: data.model || (state.askModel === "flash" ? "Flash" : "Default") };
+    const response = { role: "assistant", content: data.reply, model: data.model || (state.askModel === "flash" ? "Flash" : "Mini") };
     freshAskResponses.add(response);
     state.askMessages.push(response);
     if (data.chat?.id) {
