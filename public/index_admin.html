@@ -2,54 +2,145 @@
 <html lang="az">
   <head>
     <meta charset="UTF-8" />
-    <title>Marketify Brain Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Marketify AI • İdarəetmə Paneli</title>
     <link rel="stylesheet" href="admin.css" />
   </head>
   <body>
     <div class="wrapper">
-      <header>
-        <h1>Marketify Brain Admin</h1>
-        <p class="subtitle">
-          GPT cavablarından öyrənən lokal bazanı buradan izləyə və idarə edə
-          bilərsən. 🧠
-        </p>
+      <header class="admin-header">
+        <div class="header-left">
+          <div class="brand-badge">Admin Panel</div>
+          <h1>Marketify AI İdarəetmə Mərkəzi</h1>
+          <p class="subtitle">
+            Hüquqi problem müraciətlərini izləyin, cavab şablonlarını və GPT loglarını idarə edin.
+          </p>
+        </div>
+        <div class="header-right">
+          <a href="/" class="btn btn-back">← Tətbiqə qayıt</a>
+        </div>
       </header>
 
-      <section class="card" id="stats-card">
-        <h2>Ümumi statistika</h2>
-        <div class="stats-grid">
-          <div class="stat">
-            <span class="label">Şablon sayı</span>
-            <span class="value" id="stat-templates">–</span>
-          </div>
-          <div class="stat">
-            <span class="label">Intent sayı</span>
-            <span class="value" id="stat-intents">–</span>
-          </div>
-          <div class="stat">
-            <span class="label">Log entry sayı</span>
-            <span class="value" id="stat-logs">–</span>
-          </div>
-        </div>
-      </section>
+      <!-- Navigation Tabs -->
+      <nav class="admin-nav-tabs" role="tablist">
+        <button class="nav-tab is-active" id="tabBtnLegal" data-tab="legal" type="button" role="tab">
+          <span class="tab-icon">⚖️</span>
+          <span>Hüquqi Müraciətlər</span>
+          <span class="tab-badge" id="badgePendingLegal">0</span>
+        </button>
+        <button class="nav-tab" id="tabBtnBrain" data-tab="brain" type="button" role="tab">
+          <span class="tab-icon">🧠</span>
+          <span>Brain & Şablonlar</span>
+        </button>
+        <button class="nav-tab" id="tabBtnLogs" data-tab="logs" type="button" role="tab">
+          <span class="tab-icon">📜</span>
+          <span>GPT Cavab Logları</span>
+        </button>
+      </nav>
 
-      <section class="card" id="templates-card">
-        <h2>Şablonlar</h2>
-        <p class="hint">
-          Hər intent üçün öyrənilən şablonları görə, silə və ya trash-dən geri
-          qaytara bilərsən.
-        </p>
-        <div id="templates-container"></div>
-      </section>
+      <!-- TAB 1: LEGAL REPORTS -->
+      <main id="tabContentLegal" class="tab-content is-active">
+        <section class="card stats-card">
+          <h2>Müraciət Statistikası</h2>
+          <div class="stats-grid stats-grid-4">
+            <div class="stat">
+              <span class="label">Ümumi Müraciət</span>
+              <span class="value" id="stat-legal-total">–</span>
+            </div>
+            <div class="stat stat-warning">
+              <span class="label">Gözləyən</span>
+              <span class="value" id="stat-legal-pending">–</span>
+            </div>
+            <div class="stat stat-info">
+              <span class="label">Baxılır</span>
+              <span class="value" id="stat-legal-inreview">–</span>
+            </div>
+            <div class="stat stat-success">
+              <span class="label">Həll Olunmuş</span>
+              <span class="value" id="stat-legal-resolved">–</span>
+            </div>
+          </div>
+        </section>
 
-      <section class="card" id="logs-card">
-        <h2>Son log-lar</h2>
-        <p class="hint">
-          Bu hissədə GPT-dən gələn cavablardan hansı intent kimi qeyd olunduğunu
-          və bazaya necə düşdüyünü görürsən.
-        </p>
-        <div id="logs-container"></div>
-      </section>
+        <section class="card">
+          <div class="section-top">
+            <div>
+              <h2>Gələn Hüquqi Müraciətlər</h2>
+              <p class="hint">İstifadəçilər tərəfindən cavab generasiyası ekranından bildirilən bütün hüquqi narahatlıq və şikayətlər.</p>
+            </div>
+            <button class="btn btn-refresh" id="btnRefreshLegal" type="button">↻ Yenilə</button>
+          </div>
+
+          <!-- Filter & Search Controls -->
+          <div class="legal-filter-bar">
+            <div class="search-input-wrap">
+              <input type="text" id="legalSearchInput" placeholder="Açar söz, email, istifadəçi və ya təsvir axtar..." />
+            </div>
+            <div class="filter-select-wrap">
+              <select id="legalStatusFilter">
+                <option value="all">Bütün statuslar</option>
+                <option value="received">Gözləyənlər</option>
+                <option value="in_review">Baxılanlar</option>
+                <option value="resolved">Həll olunanlar</option>
+              </select>
+            </div>
+            <div class="filter-select-wrap">
+              <select id="legalTypeFilter">
+                <option value="all">Bütün problem növləri</option>
+                <option value="Müəllif hüquqları və əqli mülkiyyət pozuntusu">Müəllif hüquqları</option>
+                <option value="Fərdi məlumatlar və məxfilik pozuntusu">Fərdi məlumatlar & Məxfilik</option>
+                <option value="Yanlış, zərərli və ya təhlükəli hüquqi məlumat">Yanlış məlumat</option>
+                <option value="Ticarət nişanı və ya brend hüquqlarının pozulması">Ticarət nişanı</option>
+                <option value="Digər hüquqi problem">Digər</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="legal-reports-container" class="legal-reports-list">
+            <div class="loading-state">Məlumatlar yüklənir...</div>
+          </div>
+        </section>
+      </main>
+
+      <!-- TAB 2: BRAIN & TEMPLATES -->
+      <main id="tabContentBrain" class="tab-content" style="display:none;">
+        <section class="card" id="stats-card">
+          <h2>Brain Statistikası</h2>
+          <div class="stats-grid">
+            <div class="stat">
+              <span class="label">Şablon sayı</span>
+              <span class="value" id="stat-templates">–</span>
+            </div>
+            <div class="stat">
+              <span class="label">Intent sayı</span>
+              <span class="value" id="stat-intents">–</span>
+            </div>
+            <div class="stat">
+              <span class="label">Log entry sayı</span>
+              <span class="value" id="stat-logs">–</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" id="templates-card">
+          <h2>Şablonlar</h2>
+          <p class="hint">
+            Hər intent üçün öyrənilən şablonları görə, silə və ya trash-dən geri qaytara bilərsən.
+          </p>
+          <div id="templates-container"></div>
+        </section>
+      </main>
+
+      <!-- TAB 3: GPT LOGS -->
+      <main id="tabContentLogs" class="tab-content" style="display:none;">
+        <section class="card" id="logs-card">
+          <h2>Son GPT Cavab Logları</h2>
+          <p class="hint">
+            Bu hissədə GPT-dən gələn cavablardan hansı intent kimi qeyd olunduğunu və bazaya necə düşdüyünü görürsən.
+          </p>
+          <div id="logs-container"></div>
+        </section>
+      </main>
     </div>
 
     <script src="admin.js" defer></script>

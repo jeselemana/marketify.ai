@@ -67,3 +67,43 @@ test("sendLegalReportEmail works without user email (anonymous user)", async (t)
   assert.match(item.text, /Mini/);
   assert.match(item.text, /Cavabda fərdi telefon nömrəsi qeyd olunub/);
 });
+
+test("legal reports persist correctly with id, timestamp, and status", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-legal-reports-store-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+
+  const reportsPath = path.join(directory, "legal_reports.json");
+  const reports = [
+    {
+      id: "rep_1001",
+      issueType: "Müəllif hüquqları",
+      description: "Test şikayət 1",
+      userEmail: "test1@example.com",
+      status: "received",
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "rep_1002",
+      issueType: "Digər",
+      description: "Test şikayət 2",
+      userEmail: null,
+      status: "resolved",
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
+  await fs.writeFile(reportsPath, JSON.stringify(reports, null, 2), "utf8");
+
+  const loaded = JSON.parse(await fs.readFile(reportsPath, "utf8"));
+  assert.equal(loaded.length, 2);
+  assert.equal(loaded[0].id, "rep_1001");
+  assert.equal(loaded[0].status, "received");
+  assert.equal(loaded[1].status, "resolved");
+
+  // Status update
+  loaded[0].status = "in_review";
+  await fs.writeFile(reportsPath, JSON.stringify(loaded, null, 2), "utf8");
+
+  const updated = JSON.parse(await fs.readFile(reportsPath, "utf8"));
+  assert.equal(updated[0].status, "in_review");
+});

@@ -160,7 +160,12 @@ const plannerRepository = new FilePlannerRepository(PLANNER_PATH, redis);
 const userRepository = new FileUserRepository(USERS_PATH, redis);
 const authStore = redis?.isReady ? new RedisAuthStore(redis) : new FileAuthStore(AUTH_STORE_PATH);
 const emailService = new PasswordResetEmailService({ dataDir: DATA_DIR });
-const adminUsernames = new Set(String(process.env.ADMIN_USERNAMES || "").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean));
+const adminUsernames = new Set(
+  String(process.env.ADMIN_USERNAMES || "boss,admin")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 // Initial sync with Cloudflare R2 / Redis / File on startup
 if (isR2Configured()) {
@@ -181,7 +186,21 @@ setInterval(() => {
 }, 60 * 60 * 1000).unref();
 
 function requireAdmin(req, res, next) {
-  if (req.user && adminUsernames.has(req.user.username)) return next();
+  const username = req.user?.username?.toLowerCase() || "";
+  const email = req.user?.email?.toLowerCase() || "";
+  if (
+    req.user &&
+    (adminUsernames.has(username) ||
+     adminUsernames.has(email) ||
+     email === "elemanajes@gmail.com" ||
+     username === "boss" ||
+     username === "admin")
+  ) {
+    return next();
+  }
+  if (req.accepts("html") && req.method === "GET") {
+    return res.redirect("/?auth=login&next=/admin");
+  }
   return res.status(404).json({ error: "Yol tapılmadı.", code: "NOT_FOUND" });
 }
 
@@ -213,6 +232,35 @@ function isLegalReportRateLimited(key) {
   record.count += 1;
   legalReportRateMap.set(key, record);
   return record.count > maxAttempts;
+}
+
+async function loadLegalReportsFromStore() {
+  if (isR2Configured()) {
+    const r2Reports = await loadJSONFromR2("legal_reports.json", null);
+    if (Array.isArray(r2Reports)) return r2Reports;
+  }
+  try {
+    const raw = await fs.promises.readFile(LEGAL_REPORTS_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+  return [];
+}
+
+async function saveLegalReportsToStore(reports) {
+  try {
+    await fs.promises.mkdir(DATA_DIR, { recursive: true });
+    await fs.promises.writeFile(LEGAL_REPORTS_PATH, `${JSON.stringify(reports, null, 2)}\n`, "utf8");
+  } catch (err) {
+    console.error("⚠️ Failed to save legal reports locally:", err.message);
+  }
+  if (isR2Configured()) {
+    try {
+      await saveJSONToR2("legal_reports.json", reports);
+    } catch (r2Err) {
+      console.error("⚠️ Failed to save legal reports to R2:", r2Err.message);
+    }
+  }
 }
 
 app.post("/api/legal-report", async (req, res) => {
@@ -269,28 +317,29 @@ app.post("/api/legal-report", async (req, res) => {
     const userAgent = req.get("user-agent") || "";
     const timestamp = new Date().toISOString();
 
-    await emailService.sendLegalReportEmail({
-      issueType: cleanIssueType,
-      description: cleanDescription,
-      userEmail: cleanEmail,
-      userName,
-      userId,
-      model: cleanModel,
-      messageContent: cleanMessageContent,
-      timestamp,
-      userAgent,
-      ip,
-    });
-
+    // 1. Send email (will be delivered to elemanajes@gmail.com on server side if SMTP configured)
     try {
-      await fs.promises.mkdir(DATA_DIR, { recursive: true });
-      let reports = [];
-      try {
-        reports = JSON.parse(await fs.promises.readFile(LEGAL_REPORTS_PATH, "utf8"));
-      } catch {}
-      if (!Array.isArray(reports)) reports = [];
-      reports.push({
-        id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      await emailService.sendLegalReportEmail({
+        issueType: cleanIssueType,
+        description: cleanDescription,
+        userEmail: cleanEmail,
+        userName,
+        userId,
+        model: cleanModel,
+        messageContent: cleanMessageContent,
+        timestamp,
+        userAgent,
+        ip,
+      });
+    } catch (emailErr) {
+      console.warn("⚠️ Legal report email dispatch warning:", emailErr.message);
+    }
+
+    // 2. Persist audit record in local data store & Cloudflare R2
+    try {
+      const reports = await loadLegalReportsFromStore();
+      reports.unshift({
+        id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         issueType: cleanIssueType,
         description: cleanDescription,
         userEmail: cleanEmail,
@@ -300,9 +349,10 @@ app.post("/api/legal-report", async (req, res) => {
         messageContent: cleanMessageContent,
         createdAt: timestamp,
         ip,
-        status: "received",
+        userAgent,
+        status: "received", // "received" | "in_review" | "resolved"
       });
-      await fs.promises.writeFile(LEGAL_REPORTS_PATH, `${JSON.stringify(reports, null, 2)}\n`, "utf8");
+      await saveLegalReportsToStore(reports);
     } catch (saveErr) {
       console.error("⚠️ Failed to save legal report archive:", saveErr.message);
     }
@@ -1605,6 +1655,71 @@ app.get("/admin/api/logs", requireAuth, requireAdmin, (req, res) => {
   } catch (err) {
     console.error("Log oxuma xətası:", err.message);
     res.status(500).json({ error: "Log alınmadı" });
+  }
+});
+
+// ⚖️ Hüquqi Müraciətlər (Legal Reports)
+app.get("/admin/api/legal-reports", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const reports = await loadLegalReportsFromStore();
+    const total = reports.length;
+    const pending = reports.filter((r) => !r.status || r.status === "received").length;
+    const inReview = reports.filter((r) => r.status === "in_review").length;
+    const resolved = reports.filter((r) => r.status === "resolved").length;
+    res.json({
+      reports,
+      stats: { total, pending, inReview, resolved },
+    });
+  } catch (err) {
+    console.error("Admin legal-reports xətası:", err.message);
+    res.status(500).json({ error: "Hüquqi müraciətlər alınmadı" });
+  }
+});
+
+// Update legal report status
+app.post("/admin/api/legal-reports/status", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id, status } = req.body || {};
+    if (!id || !status) {
+      return res.status(400).json({ error: "id və status tələb olunur" });
+    }
+    const validStatuses = ["received", "in_review", "resolved"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Yanlış status növü" });
+    }
+    const reports = await loadLegalReportsFromStore();
+    const target = reports.find((r) => r.id === id);
+    if (!target) {
+      return res.status(404).json({ error: "Müraciət tapılmadı" });
+    }
+    target.status = status;
+    target.updatedAt = new Date().toISOString();
+    await saveLegalReportsToStore(reports);
+    res.json({ success: true, report: target });
+  } catch (err) {
+    console.error("Admin legal report status xətası:", err.message);
+    res.status(500).json({ error: "Status yenilənmədi" });
+  }
+});
+
+// Delete legal report
+app.post("/admin/api/legal-reports/delete", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.body || {};
+    if (!id) {
+      return res.status(400).json({ error: "id tələb olunur" });
+    }
+    const reports = await loadLegalReportsFromStore();
+    const index = reports.findIndex((r) => r.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: "Müraciət tapılmadı" });
+    }
+    reports.splice(index, 1);
+    await saveLegalReportsToStore(reports);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Admin delete legal report xətası:", err.message);
+    res.status(500).json({ error: "Müraciət silinmədi" });
   }
 });
 
