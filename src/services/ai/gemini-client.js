@@ -45,9 +45,10 @@ export async function generateGeminiAskResponse({
   maxOutputTokens = 3000,
   signal,
 } = {}) {
-  const key = apiKey?.trim();
+  const rawKey = (apiKey || aiConfig.geminiApiKey || process.env.GEMINI_API_KEY || "") + "";
+  const key = rawKey.trim().replace(/^["']|["']$/g, "").trim();
   if (!key) {
-    const error = new Error("Gemini API açarı konfiqurasiya edilməyib.");
+    const error = new Error("Canlı serverdə GEMINI_API_KEY mühit dəyişəni (Environment Variable) daxil edilməyib. Zəhmət olmasa hosting panelində GEMINI_API_KEY açarını əlavə edin.");
     error.code = "AI_NOT_CONFIGURED";
     error.status = 503;
     throw error;
