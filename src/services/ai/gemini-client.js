@@ -76,10 +76,10 @@ export async function generateGeminiAskResponse({
       maxOutputTokens,
     };
 
-    // Explicitly disable thinking budget on Gemini 3.7 to eliminate deliberation delay
+    // For Gemini 3.7 Flash, configure thinkingLevel: "low" to minimize time-to-answer for real-time chat
     if (currentModel.includes("3.7") || currentModel.includes("flash")) {
       generationConfig.thinkingConfig = {
-        thinkingBudget: 0,
+        thinkingLevel: "low",
       };
     }
 
@@ -153,7 +153,9 @@ export async function generateGeminiAskResponse({
     throw lastError;
   }
 
-  const replyText = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join("")?.trim();
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const textParts = parts.filter((p) => !p.thought && typeof p.text === "string").map((p) => p.text);
+  const replyText = (textParts.length ? textParts.join("") : parts.map((p) => p.text).filter(Boolean).join(""))?.trim();
 
   if (!replyText) {
     const finishReason = data?.candidates?.[0]?.finishReason;
