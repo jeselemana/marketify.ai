@@ -6,8 +6,10 @@ import { aiConfig, hasGeminiConfiguration } from "./config.js";
  */
 export function formatGeminiContents(messages = []) {
   const normalized = [];
+  // Keep the most recent 14 messages to maintain fast processing and lean context
+  const recentMessages = messages.length > 14 ? messages.slice(-14) : messages;
 
-  for (const message of messages) {
+  for (const message of recentMessages) {
     if (!message || typeof message.content !== "string") continue;
     const content = message.content.trim();
     if (!content) continue;
@@ -42,7 +44,7 @@ export async function generateGeminiAskResponse({
   model = aiConfig.geminiAskModel || "gemini-3.7-flash",
   apiKey = aiConfig.geminiApiKey || process.env.GEMINI_API_KEY,
   temperature = 0.6,
-  maxOutputTokens = 8192,
+  maxOutputTokens = 2500,
   signal,
 } = {}) {
   const rawKey = (apiKey || aiConfig.geminiApiKey || process.env.GEMINI_API_KEY || "") + "";
@@ -63,9 +65,6 @@ export async function generateGeminiAskResponse({
   }
 
   const candidateModels = [model];
-  if (model === "gemini-3.7-flash") {
-    candidateModels.push("gemini-3.6-flash");
-  }
 
   let response;
   let data;
@@ -77,8 +76,8 @@ export async function generateGeminiAskResponse({
       maxOutputTokens,
     };
 
-    // Only models with thinking capability (like 3.7) accept thinkingConfig
-    if (currentModel.includes("3.7")) {
+    // Explicitly disable thinking budget on Gemini 3.7 to eliminate deliberation delay
+    if (currentModel.includes("3.7") || currentModel.includes("flash")) {
       generationConfig.thinkingConfig = {
         thinkingBudget: 0,
       };

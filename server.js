@@ -466,21 +466,38 @@ app.post("/api/ask", async (req, res) => {
     let routeToFlash = false;
     if (requestedModel === "flash" || requestedModel.includes("gemini")) {
       routeToFlash = true;
-    } else if (requestedModel === "mini" || requestedModel === "default" || requestedModel.includes("openai") || requestedModel.includes("luna")) {
+    } else if (requestedModel === "mini" || requestedModel.includes("openai") || requestedModel.includes("luna")) {
       routeToFlash = false;
     } else {
-      // Auto mode:
-      routeToFlash = isComplex;
+      // Auto mode: default to ultra-fast Gemini 3.7 Flash if available, otherwise OpenAI
+      routeToFlash = geminiAvailable;
     }
 
     if (routeToFlash) {
       if (geminiAvailable) {
-        reply = await generateGeminiAskResponse({
-          messages,
-          systemInstruction: fullInstructions,
-          model: aiConfig.geminiAskModel,
-        });
-        activeModel = "Flash";
+        try {
+          reply = await generateGeminiAskResponse({
+            messages,
+            systemInstruction: fullInstructions,
+            model: aiConfig.geminiAskModel,
+          });
+          activeModel = "Flash";
+        } catch (geminiErr) {
+          if (openAiAvailable) {
+            const response = await openai.responses.create({
+              model: ASK_MODEL,
+              instructions: fullInstructions,
+              input: messages.map(({ role, content }) => ({ role, content })),
+              reasoning: { effort: "low" },
+              max_output_tokens: 2500,
+              safety_identifier: askSafetyIdentifier(req.ownerId),
+            });
+            reply = response.output_text?.trim();
+            activeModel = "Mini";
+          } else {
+            throw geminiErr;
+          }
+        }
       } else if (openAiAvailable) {
         const response = await openai.responses.create({
           model: ASK_MODEL,
@@ -496,18 +513,31 @@ app.post("/api/ask", async (req, res) => {
         return res.status(503).json({ error: "AI xidməti konfiqurasiya edilməyib." });
       }
     } else {
-      // Mini (OpenAI gpt-5.6-luna)
+      // Mini (OpenAI)
       if (openAiAvailable) {
-        const response = await openai.responses.create({
-          model: ASK_MODEL,
-          instructions: fullInstructions,
-          input: messages.map(({ role, content }) => ({ role, content })),
-          reasoning: { effort: "low" },
-          max_output_tokens: 2500,
-          safety_identifier: askSafetyIdentifier(req.ownerId),
-        });
-        reply = response.output_text?.trim();
-        activeModel = "Mini";
+        try {
+          const response = await openai.responses.create({
+            model: ASK_MODEL,
+            instructions: fullInstructions,
+            input: messages.map(({ role, content }) => ({ role, content })),
+            reasoning: { effort: "low" },
+            max_output_tokens: 2500,
+            safety_identifier: askSafetyIdentifier(req.ownerId),
+          });
+          reply = response.output_text?.trim();
+          activeModel = "Mini";
+        } catch (openAiErr) {
+          if (geminiAvailable) {
+            reply = await generateGeminiAskResponse({
+              messages,
+              systemInstruction: fullInstructions,
+              model: aiConfig.geminiAskModel,
+            });
+            activeModel = "Flash";
+          } else {
+            throw openAiErr;
+          }
+        }
       } else if (geminiAvailable) {
         reply = await generateGeminiAskResponse({
           messages,
