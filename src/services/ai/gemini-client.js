@@ -42,7 +42,7 @@ export async function generateGeminiAskResponse({
   model = aiConfig.geminiAskModel || "gemini-3.7-flash",
   apiKey = aiConfig.geminiApiKey || process.env.GEMINI_API_KEY,
   temperature = 0.6,
-  maxOutputTokens = 3000,
+  maxOutputTokens = 8192,
   signal,
 } = {}) {
   const rawKey = (apiKey || aiConfig.geminiApiKey || process.env.GEMINI_API_KEY || "") + "";
@@ -64,7 +64,7 @@ export async function generateGeminiAskResponse({
 
   const candidateModels = [model];
   if (model === "gemini-3.7-flash") {
-    candidateModels.push("gemini-3.6-flash");
+    candidateModels.push("gemini-3.1-flash-lite", "gemini-3.6-flash");
   }
 
   let response;
