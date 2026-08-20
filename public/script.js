@@ -725,11 +725,7 @@ function renderAsk() {
 
   if (!state.askMessages.length) {
     const intro = element("div", "ask-intro");
-    const activeModelName = isAuto ? "Auto" : isFlash ? "Flash" : "Mini";
-    const introBadge = element("div", "ask-intro-model-badge");
-    introBadge.innerHTML = `<span class="ask-intro-badge-pill">${activeModelName}</span>`;
     intro.append(
-      introBadge,
       element("h1", "ask-title", "Nə haqda düşünürsən?"),
       element("p", "ask-subtitle", "Sualını, ideyanı və ya həll etmək istədiyin problemi yaz."),
     );
@@ -918,7 +914,7 @@ function renderAsk() {
     {
       id: "auto",
       name: "Auto",
-      desc: "Ağıllı seçim: Sadə suallar üçün Mini, mürəkkəb analiz üçün Flash",
+      desc: "Sualın mürəkkəbliyinə uyğun modeli avtomatik təyin edir",
     },
     {
       id: "flash",
