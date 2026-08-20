@@ -66,6 +66,9 @@ export async function generateGeminiAskResponse({
     generationConfig: {
       temperature,
       maxOutputTokens,
+      thinkingConfig: {
+        thinkingBudget: 0,
+      },
     },
   };
 
