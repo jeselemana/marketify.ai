@@ -625,25 +625,27 @@ app.post("/api/ask", async (req, res) => {
     const fullInstructions = `${ASK_INSTRUCTIONS}${strategyContext}${personalizationContext}`;
     let reply = "";
     let activeModel = "Flash";
-
-    // Auto routing decision:
-    // Simple / small queries -> Mini (gpt-5.6-luna)
-    // Complex queries / strategy archive analysis -> Flash (Gemini 3.7 Flash)
     const hasStrategyContext = Boolean(selectedStrategy);
     const lastUserMsg = messages.at(-1)?.content || "";
     const isComplex = hasStrategyContext ||
-      lastUserMsg.length > 150 ||
+      lastUserMsg.length > 100 ||
       messages.length >= 4 ||
-      /(analiz|müqayisə|strategiya|hesabla|büdcə|detallı|plan|təhlil|araşdır|izah et|addım|marketinq|seqment|konversiya|cac|ltv|roi|swot|audit|optimizasiya)/i.test(lastUserMsg);
+      /(analiz|müqayisə|strategiya|hesabla|büdcə|detallı|plan|təhlil|araşdır|izah et|addım|marketinq|seqment|konversiya|cac|ltv|roi|swot|audit|optimizasiya|dərin|addım-addım|layihə|rəqib|geniş)/i.test(lastUserMsg);
 
     let routeToFlash = false;
-    if (requestedModel === "flash" || requestedModel.includes("gemini")) {
+    if (requestedModel === "flash" || requestedModel.includes("gemini") || requestedModel.includes("3.7")) {
       routeToFlash = true;
     } else if (requestedModel === "mini" || requestedModel.includes("openai") || requestedModel.includes("luna")) {
       routeToFlash = false;
     } else {
-      // Auto mode: default to ultra-fast Gemini 3.7 Flash if available, otherwise OpenAI
-      routeToFlash = geminiAvailable;
+      // Auto mode: intelligently route complex queries to Gemini 3.7 Flash, simple queries to Mini
+      if (isComplex && geminiAvailable) {
+        routeToFlash = true;
+      } else if (!isComplex && openAiAvailable) {
+        routeToFlash = false;
+      } else {
+        routeToFlash = geminiAvailable;
+      }
     }
 
     // Real-time SSE streaming for instantaneous Gemini 3.7 & OpenAI response
@@ -678,7 +680,7 @@ app.post("/api/ask", async (req, res) => {
                 ...messages.map(({ role, content }) => ({ role, content })),
               ],
               stream: true,
-              max_tokens: 3000,
+              max_tokens: 8192,
             });
             activeModel = "Mini";
             for await (const part of stream) {
@@ -693,7 +695,7 @@ app.post("/api/ask", async (req, res) => {
               model: ASK_MODEL,
               instructions: fullInstructions,
               input: messages.map(({ role, content }) => ({ role, content })),
-              max_output_tokens: 2500,
+              max_output_tokens: 8192,
               safety_identifier: askSafetyIdentifier(req.ownerId),
             });
             accumulated = response.output_text?.trim() || "";
@@ -751,7 +753,7 @@ app.post("/api/ask", async (req, res) => {
               instructions: fullInstructions,
               input: messages.map(({ role, content }) => ({ role, content })),
               reasoning: { effort: "low" },
-              max_output_tokens: 2500,
+              max_output_tokens: 8192,
               safety_identifier: askSafetyIdentifier(req.ownerId),
             });
             reply = response.output_text?.trim();
@@ -765,8 +767,7 @@ app.post("/api/ask", async (req, res) => {
           model: ASK_MODEL,
           instructions: fullInstructions,
           input: messages.map(({ role, content }) => ({ role, content })),
-          reasoning: { effort: "low" },
-          max_output_tokens: 2500,
+          max_output_tokens: 8192,
           safety_identifier: askSafetyIdentifier(req.ownerId),
         });
         reply = response.output_text?.trim();

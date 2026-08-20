@@ -11,8 +11,8 @@ export const aiConfig = Object.freeze({
   geminiApiKey: process.env.GEMINI_API_KEY || "",
   // Ask is a real-time chat surface. Keeping its prompt and answer bounded is
   // important for time-to-first-token, especially on a shared API quota.
-  geminiAskHistoryMessages: positiveInteger(process.env.GEMINI_ASK_HISTORY_MESSAGES, 8),
-  geminiAskMaxOutputTokens: positiveInteger(process.env.GEMINI_ASK_MAX_OUTPUT_TOKENS, 2048),
+  geminiAskHistoryMessages: positiveInteger(process.env.GEMINI_ASK_HISTORY_MESSAGES, 10),
+  geminiAskMaxOutputTokens: positiveInteger(process.env.GEMINI_ASK_MAX_OUTPUT_TOKENS, 8192),
   maxClarificationRounds: Number.parseInt(process.env.MAX_CLARIFICATION_ROUNDS || "2", 10),
   assessmentMaxOutputTokens: 1800,
   strategyMaxOutputTokens: 9000,

@@ -106,7 +106,7 @@ const state = {
   askLoading: false,
   askError: "",
   askStrategyId: "",
-  askModel: localStorage.getItem("marketify_ask_model") || "auto",
+  askModel: "auto",
   currentUser: null,
   settingsTab: "account",
   strategyFormat: "blog",
@@ -461,40 +461,57 @@ function render() {
   return renderIntake();
 }
 
+const BUILD_CTA_LIST = [
+  "Növbəti strategiyanı quraq.",
+  "Yeni marketinq hədəfin nədir?",
+  "Brendini böyütmək üçün başlayaq.",
+  "Satışları artırmaq üçün ideyanı yaz.",
+  "Yeni məhsulunu bazara çıxaraq.",
+  "Kampaniyanı planlaşdıraq.",
+  "Rəqiblərdən fərqlənən plan quraq.",
+];
+
+const ASK_CTA_LIST = [
+  "Nə haqda düşünürsən?",
+  "Marketinq sualını ver.",
+  "Hansı metrikanı analiz edək?",
+  "Rəqibləri və bazarı araşdıraq?",
+  "Biznes ideyanı birlikdə müzakirə edək.",
+  "Bugünkü hədəfin nədir?",
+  "Kampaniyanı necə optimallaşdıraq?",
+];
+
+const selectedBuildCta = BUILD_CTA_LIST[Math.floor(Math.random() * BUILD_CTA_LIST.length)];
+const selectedAskCta = ASK_CTA_LIST[Math.floor(Math.random() * ASK_CTA_LIST.length)];
+
 function renderIntake() {
-  workspace.classList.add("workspace-centered", "workspace-intake");
+  workspace.classList.add("workspace-ask", "workspace-intake", "is-empty");
 
-  const view = element("section", "intake-view");
-  view.setAttribute("aria-labelledby", "intakeTitle");
+  const shell = element("section", "ask-shell is-empty");
+  shell.setAttribute("aria-labelledby", "intakeTitle");
 
-  const intro = element("div", "intake-intro");
-  intro.append(
-    element("h1", "intake-title", "Növbəti strategiyanı quraq."),
-    element("p", "intake-description", "Biznes məqsədini, ideyanı və ya həll etmək istədiyin problemi yaz."),
-  );
-  
-  const form = element("form", "composer-card");
+  const thread = element("div", "ask-thread");
+  const intro = element("div", "ask-intro");
+  const title = element("h1", "ask-title", selectedBuildCta);
+  title.id = "intakeTitle";
+  intro.append(title);
+  thread.appendChild(intro);
+
+  const composerArea = element("div", "ask-composer-area");
+  const form = element("form", "ask-composer");
   const label = element("label", "sr-only", "Strategiya brifi");
   label.htmlFor = "briefInput";
-  const textarea = element("textarea", "composer-input");
-  textarea.id = "briefInput";
-  textarea.name = "brief";
-  textarea.rows = 1;
-  textarea.maxLength = 8000;
-  textarea.placeholder = window.innerWidth <= 767
-    ? "Məqsədini və ya problemi yaz…"
-    : "Biznes məqsədini və ya həll etmək istədiyin problemi yaz…";
-  textarea.value = state.brief;
-  const footer = element("div", "composer-footer");
-  const composerTools = element("div", "composer-tools");
+
   const fileInput = document.createElement("input");
   fileInput.type = "file";
   fileInput.accept = ".txt,.md,.csv,.json,text/plain,text/csv,application/json";
   fileInput.hidden = true;
-  const attach = button("", "composer-tool");
+
+  const attach = button("", "ask-context-trigger");
+  attach.type = "button";
   attach.setAttribute("aria-label", "Fayl əlavə et");
   attach.title = "Fayl əlavə et";
-  attach.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20.5 11.5-8.9 8.9a6 6 0 0 1-8.5-8.5l9.6-9.6a4 4 0 0 1 5.7 5.7l-9.6 9.6a2 2 0 1 1-2.8-2.8l8.9-8.9" /></svg>';
+  attach.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14" /></svg>';
   attach.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files?.[0];
@@ -513,15 +530,31 @@ function renderIntake() {
     }
     fileInput.value = "";
   });
-  const hint = element("span", "composer-hint", "Enter göndərir · Shift + Enter yeni sətir");
-  composerTools.append(attach, hint);
- const submit = button("", "primary-button composer-submit");
-submit.type = "submit";
-submit.disabled = state.brief.trim().length < 8;
-submit.setAttribute("aria-label", "Strategiyanı qur");
-submit.appendChild(element("span", "button-arrow", "↑"));
-  footer.append(composerTools, submit);
-  form.append(label, textarea, fileInput, footer);
+
+  const textarea = element("textarea", "ask-input");
+  textarea.id = "briefInput";
+  textarea.name = "brief";
+  textarea.rows = 1;
+  textarea.maxLength = 8000;
+  textarea.placeholder = "Biznes məqsədini və ya həll etmək istədiyin problemi yaz…";
+  textarea.value = state.brief;
+
+  const submit = button("", "ask-submit");
+  submit.type = "submit";
+  submit.disabled = state.brief.trim().length < 8;
+  submit.setAttribute("aria-label", "Strategiyanı qur");
+  submit.appendChild(element("span", "", "↑"));
+
+  const composerActions = element("div", "ask-composer-actions");
+  composerActions.append(submit);
+
+  form.append(attach, label, textarea, fileInput, composerActions);
+
+  const helper = element("div", "ask-composer-meta");
+  const disclaimer = element("p", "ask-disclaimer", "Marketify səhv edə bilər. Məlumatlar informasiya məqsədlidir.");
+  helper.appendChild(disclaimer);
+
+  composerArea.append(form, helper);
 
   textarea.addEventListener("input", () => {
     state.brief = textarea.value;
@@ -541,27 +574,11 @@ submit.appendChild(element("span", "button-arrow", "↑"));
     if (state.brief.length >= 8) startAssessment();
   });
 
-  const examples = element("div", "examples");
-  examples.append(element("span", "examples-label", "İlham üçün"));
-  [
-    "Bakıda yeni kafe üçün launch strategiyası",
-    "E-commerce təkrar sifariş planı",
-    "Instagram kampaniyasını optimallaşdır",
-  ].forEach((prompt) => {
-    examples.append(
-      button(prompt, "example-chip", () => {
-        state.brief = prompt;
-        textarea.value = prompt;
-        submit.disabled = false;
-        textarea.focus();
-      }),
-    );
-  });
-
   const banner = errorBanner();
-  if (banner) view.appendChild(banner);
-  view.append(intro, form, examples);
-  workspace.appendChild(view);
+  if (banner) shell.appendChild(banner);
+
+  shell.append(thread, composerArea);
+  workspace.appendChild(shell);
   if (window.innerWidth > 767) setTimeout(() => textarea.focus(), 0);
 }
 
@@ -725,13 +742,11 @@ function renderAsk() {
 
   if (!state.askMessages.length) {
     const intro = element("div", "ask-intro");
-    intro.append(
-      element("h1", "ask-title", "Nə haqda düşünürsən?"),
-      element("p", "ask-subtitle", "Sualını, ideyanı və ya həll etmək istədiyin problemi yaz."),
-    );
+    const title = element("h1", "ask-title", selectedAskCta);
+    intro.append(title);
     thread.appendChild(intro);
   } else {
-    state.askMessages.forEach((message) => {
+    state.askMessages.forEach((message, messageIndex) => {
       const isFreshResponse = message.role === "assistant" && freshAskResponses.has(message);
       const isStreamingMsg = Boolean(message.isStreaming);
       const row = element("article", `ask-message ask-message-${message.role}${isFreshResponse ? " is-fresh" : ""}${isStreamingMsg ? " is-streaming" : ""}`);
@@ -745,8 +760,8 @@ function renderAsk() {
               <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
             </svg>
           `;
-          const currentModelName = isAuto ? "Flash" : isFlash ? "Flash" : "Mini";
-          const thinkingLabel = element("span", "ask-thinking-label", `${currentModelName} düşünür`);
+          const isFlashThinking = message.model === "Flash" || message.model === "flash";
+          const thinkingLabel = element("span", "ask-thinking-label", isFlashThinking ? "Flash düşünür" : "Marketify düşünür");
           const dots = element("span", "ask-thinking-dots");
           dots.append(element("i"), element("i"), element("i"));
           thinking.append(iconWrap, thinkingLabel, dots);
@@ -781,77 +796,54 @@ function renderAsk() {
           copy.title = "Kopyala";
           copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
 
-          const share = button("", "ask-response-action ask-response-share-btn", () => shareAskResponse(message.content));
-          share.type = "button";
-          share.setAttribute("aria-label", "Cavabı paylaş");
-          share.title = "Paylaş";
-          share.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg>';
+          actions.append(copy);
 
-          actions.append(copy, share);
+          const isMini = message.model === "Mini" || message.model === "mini";
+          if (isMini) {
+            const moreMenu = document.createElement("details");
+            moreMenu.className = "ask-response-more-menu";
+            const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
+            moreTrigger.setAttribute("aria-label", "Seçimlər");
+            moreTrigger.title = "Daha çox";
+            moreTrigger.innerHTML = `
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                <circle cx="5" cy="12" r="1.8"></circle>
+                <circle cx="12" cy="12" r="1.8"></circle>
+                <circle cx="19" cy="12" r="1.8"></circle>
+              </svg>
+            `;
 
-          const modelName = (message.model === "Flash" || message.model === "flash")
-            ? "Flash"
-            : (message.model === "mini" || message.model === "Mini")
-            ? "Mini"
-            : (message.model || (state.askModel === "mini" ? "Mini" : "Flash"));
-
-          const moreMenu = document.createElement("details");
-          moreMenu.className = "ask-response-more-menu";
-          const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
-          moreTrigger.setAttribute("aria-label", "Əlavə seçimlər");
-          moreTrigger.title = "Daha çox";
-          moreTrigger.innerHTML = `
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-              <circle cx="5" cy="12" r="1.8"></circle>
-              <circle cx="12" cy="12" r="1.8"></circle>
-              <circle cx="19" cy="12" r="1.8"></circle>
-            </svg>
-          `;
-
-          const morePopover = element("div", "ask-response-more-popover");
-          
-          const modelRow = element("div", "ask-response-model-row");
-          modelRow.innerHTML = `
-            <span class="ask-response-model-label">Model:</span>
-            <strong class="ask-response-model-name">${escapeHtml(modelName)}</strong>
-          `;
-
-          const divider = element("div", "ask-response-popover-divider");
-
-          const reportBtn = button("", "ask-response-popover-item ask-report-legal-btn", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            moreMenu.open = false;
-            openLegalReportModal({
-              messageContent: message.content,
-              model: modelName,
+            const morePopover = element("div", "ask-response-more-popover");
+            const thinkDeeperBtn = button("", "ask-response-popover-item ask-think-deeper-btn", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              moreMenu.open = false;
+              thinkDeeperWithFlash(messageIndex);
             });
-          });
-          reportBtn.type = "button";
-          reportBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <span>Hüquqi problem bildir</span>
-          `;
+            thinkDeeperBtn.type = "button";
+            thinkDeeperBtn.innerHTML = `
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
+              </svg>
+              <span>Daha dərindən düşün</span>
+            `;
 
-          morePopover.append(modelRow, divider, reportBtn);
-          moreMenu.append(moreTrigger, morePopover);
+            morePopover.appendChild(thinkDeeperBtn);
+            moreMenu.append(moreTrigger, morePopover);
 
-          moreMenu.addEventListener("keydown", (event) => {
-            if (event.key === "Escape") moreMenu.open = false;
-          });
-          const closeMoreMenu = (event) => {
-            if (!moreMenu.contains(event.target)) moreMenu.open = false;
-          };
-          moreMenu.addEventListener("toggle", () => {
-            if (moreMenu.open) setTimeout(() => document.addEventListener("click", closeMoreMenu), 0);
-            else document.removeEventListener("click", closeMoreMenu);
-          });
+            moreMenu.addEventListener("keydown", (event) => {
+              if (event.key === "Escape") moreMenu.open = false;
+            });
+            const closeMoreMenu = (event) => {
+              if (!moreMenu.contains(event.target)) moreMenu.open = false;
+            };
+            moreMenu.addEventListener("toggle", () => {
+              if (moreMenu.open) setTimeout(() => document.addEventListener("click", closeMoreMenu), 0);
+              else document.removeEventListener("click", closeMoreMenu);
+            });
 
-          actions.appendChild(moreMenu);
+            actions.appendChild(moreMenu);
+          }
 
           content.appendChild(actions);
           if (isFreshResponse) {
@@ -881,13 +873,6 @@ function renderAsk() {
   }
 
   const composerArea = element("div", "ask-composer-area");
-  if (!state.askMessages.length) {
-    const suggestions = element("div", "ask-suggestions");
-    ["Bu ideyanın güclü və zəif tərəfləri nədir?", "Müştəri segmentasiyasını necə qurum?", "Bu həftə hansı KPI-lara baxmalıyam?"].forEach((prompt) => {
-      suggestions.appendChild(button(prompt, "ask-suggestion"));
-    });
-    composerArea.appendChild(suggestions);
-  }
   const contextMenu = document.createElement("details");
   contextMenu.className = `ask-context-menu${selectedStrategy ? " has-selection" : ""}`;
   const contextTrigger = element("summary", "ask-context-trigger");
@@ -947,82 +932,6 @@ function renderAsk() {
     else document.removeEventListener("click", closeContextMenu);
   });
 
-  // Model selector dropdown (Send düyməsinin solunda)
-  const modelMenu = document.createElement("details");
-  modelMenu.className = "ask-model-menu";
-  const modelTrigger = element("summary", "ask-model-trigger");
-  modelTrigger.setAttribute("aria-label", "Model seçimi");
-  const triggerLabel = isAuto ? "Auto" : isFlash ? "Flash" : "Mini";
-  modelTrigger.title = isAuto ? "Model: Auto (Ağıllı seçim)" : isFlash ? "Model: Flash" : "Model: Mini";
-  modelTrigger.innerHTML = `
-    <span class="ask-model-trigger-label">${triggerLabel}</span>
-    <svg class="ask-model-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="6 9 12 15 18 9"></polyline>
-    </svg>
-  `;
-
-  const modelPopover = element("div", "ask-model-popover");
-  const modelPopoverHeader = element("div", "ask-model-popover-header");
-  modelPopoverHeader.innerHTML = `
-    <span class="ask-model-popover-title">Model Seçimi</span>
-  `;
-  modelPopover.appendChild(modelPopoverHeader);
-
-  const modelList = element("div", "ask-model-list");
-
-  const modelOptions = [
-    {
-      id: "auto",
-      name: "Auto",
-      desc: "Sualın mürəkkəbliyinə uyğun modeli avtomatik təyin edir",
-    },
-    {
-      id: "flash",
-      name: "Flash",
-      desc: "Sürət & Performans",
-    },
-    {
-      id: "mini",
-      name: "Mini",
-      desc: "Kiçik həcmli sorğular üçün",
-    },
-  ];
-
-  modelOptions.forEach((opt) => {
-    const isSelected = state.askModel === opt.id || (opt.id === "mini" && state.askModel === "default") || (opt.id === "auto" && !state.askModel);
-    const item = button("", `ask-model-item${isSelected ? " is-selected" : ""}`);
-    item.type = "button";
-    item.innerHTML = `
-      <div class="ask-model-item-header">
-        <strong class="ask-model-item-name">${opt.name}</strong>
-      </div>
-      <p class="ask-model-item-desc">${opt.desc}</p>
-    `;
-    item.addEventListener("click", () => {
-      state.askModel = opt.id;
-      try {
-        localStorage.setItem("marketify_ask_model", opt.id);
-      } catch {}
-      modelMenu.open = false;
-      render();
-    });
-    modelList.appendChild(item);
-  });
-
-  modelPopover.appendChild(modelList);
-  modelMenu.append(modelTrigger, modelPopover);
-
-  modelMenu.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") modelMenu.open = false;
-  });
-  const closeModelMenu = (event) => {
-    if (!modelMenu.contains(event.target)) modelMenu.open = false;
-  };
-  modelMenu.addEventListener("toggle", () => {
-    if (modelMenu.open) setTimeout(() => document.addEventListener("click", closeModelMenu), 0);
-    else document.removeEventListener("click", closeModelMenu);
-  });
-
   const form = element("form", "ask-composer");
   const label = element("label", "sr-only", "Ask sualı");
   label.htmlFor = "askInput";
@@ -1041,25 +950,31 @@ function renderAsk() {
   submit.appendChild(element("span", "", "↑"));
 
   const composerActions = element("div", "ask-composer-actions");
-  composerActions.append(modelMenu, submit);
+  composerActions.append(submit);
 
   form.append(contextMenu, label, input, composerActions);
 
   const helper = element("div", "ask-composer-meta");
-  const metaLeft = element("div", "ask-meta-left");
-  const contextMeta = element("span", "ask-context-meta", selectedStrategy ? `Kontekst: ${selectedStrategy.title}` : "Marketify");
-  metaLeft.appendChild(contextMeta);
-  if (state.currentUser?.settings?.personalIntelligence === true) {
-    const pBadge = button("⚡ Fərdiləşdirilmiş", "ask-personalization-badge", () => {
-      state.view = "settings";
-      state.settingsTab = "experience";
-      render();
-    });
-    pBadge.type = "button";
-    pBadge.title = "Fərdiləşdirilmiş təcrübə aktivdir. Tənzimləmək üçün klikləyin.";
-    metaLeft.appendChild(pBadge);
+  if (selectedStrategy || state.currentUser?.settings?.personalIntelligence === true) {
+    const contextPills = element("div", "ask-context-pills");
+    if (selectedStrategy) {
+      const sPill = element("span", "ask-context-pill", `Kontekst: ${selectedStrategy.title}`);
+      contextPills.appendChild(sPill);
+    }
+    if (state.currentUser?.settings?.personalIntelligence === true) {
+      const pBadge = button("⚡ Fərdiləşdirilmiş", "ask-personalization-badge", () => {
+        state.view = "settings";
+        state.settingsTab = "experience";
+        render();
+      });
+      pBadge.type = "button";
+      pBadge.title = "Fərdiləşdirilmiş təcrübə aktivdir. Tənzimləmək üçün klikləyin.";
+      contextPills.appendChild(pBadge);
+    }
+    helper.appendChild(contextPills);
   }
-  helper.append(metaLeft, element("span", "", "Enter ilə göndər · Shift + Enter yeni sətir"));
+  const disclaimer = element("p", "ask-disclaimer", "Marketify səhv edə bilər. Məlumatlar informasiya məqsədlidir.");
+  helper.appendChild(disclaimer);
   composerArea.append(form, helper);
   shell.append(thread, composerArea);
   workspace.appendChild(shell);
@@ -1080,13 +995,6 @@ function renderAsk() {
     event.preventDefault();
     const message = input.value.trim();
     if (message.length >= 2) submitAskMessage(message);
-  });
-  composerArea.querySelectorAll(".ask-suggestion").forEach((suggestion) => {
-    suggestion.addEventListener("click", () => {
-      input.value = suggestion.textContent;
-      resizeInput();
-      input.focus();
-    });
   });
 
   requestAnimationFrame(() => {
@@ -1128,12 +1036,13 @@ class LiveTypewriter {
     const remaining = this.targetText.length - this.currentText.length;
 
     if (remaining > 0) {
+      // Natural human-like variable typing speed based on queue
       const charsToType = Math.min(
         remaining,
-        remaining > 100 ? Math.ceil(remaining / 4) :
-        remaining > 40 ? Math.ceil(remaining / 6) :
-        remaining > 15 ? 3 :
-        remaining > 5 ? 2 : 1
+        remaining > 200 ? Math.ceil(remaining / 3) :
+        remaining > 80 ? Math.ceil(remaining / 5) :
+        remaining > 30 ? 3 :
+        remaining > 10 ? 2 : 1
       );
       this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
       this.onUpdate(this.currentText, false);
@@ -1147,6 +1056,7 @@ class LiveTypewriter {
 
   flush() {
     if (this.rafId) cancelAnimationFrame(this.rafId);
+    this.rafId = null;
     this.currentText = this.targetText;
     this.onUpdate(this.currentText, true);
     if (this.onComplete) this.onComplete();
@@ -1169,6 +1079,136 @@ function updateActiveAskMessageContent(message, showCaret = true) {
   }
 }
 
+async function thinkDeeperWithFlash(messageIndex) {
+  if (state.askLoading) return;
+  const assistantMsg = state.askMessages[messageIndex];
+  if (!assistantMsg || assistantMsg.role !== "assistant") return;
+
+  const historyMessages = state.askMessages.slice(0, messageIndex);
+  if (!historyMessages.length) return;
+
+  assistantMsg.content = "";
+  assistantMsg.model = "Flash";
+  assistantMsg.isStreaming = true;
+  state.askLoading = true;
+  state.askError = "";
+  freshAskResponses.add(assistantMsg);
+  render();
+
+  try {
+    const response = await fetch("/api/ask", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+      },
+      body: JSON.stringify({
+        messages: historyMessages,
+        model: "flash",
+        strategyId: state.askStrategyId || undefined,
+        chatId: state.askChatId || undefined,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || "Flash ilə yenidən generasiya etmək mümkün olmadı.");
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("text/event-stream")) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      const typewriter = new LiveTypewriter(
+        (text, isComplete) => {
+          assistantMsg.content = text;
+          updateActiveAskMessageContent(assistantMsg, !isComplete);
+        },
+        () => {
+          assistantMsg.isStreaming = false;
+          render();
+        }
+      );
+
+      const processEventBlock = (block) => {
+        if (!block || !block.trim()) return;
+        const lines = block.split(/\r?\n/);
+        const dataLines = [];
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            dataLines.push(line.replace(/^data:\s*/, ""));
+          }
+        }
+        if (!dataLines.length) return;
+        const jsonStr = dataLines.join("\n").trim();
+        if (!jsonStr || jsonStr === "[DONE]") return;
+
+        try {
+          const data = JSON.parse(jsonStr);
+          if (data.error) throw new Error(data.error);
+
+          if (data.model) assistantMsg.model = data.model;
+
+          if (data.chunk) {
+            typewriter.append(data.chunk);
+          }
+
+          if (data.done) {
+            typewriter.finish(data.reply);
+            if (data.chat?.id) {
+              state.askChatId = data.chat.id;
+              loadSavedChats();
+            }
+          }
+        } catch (parseErr) {
+          if (parseErr.message && !parseErr.message.includes("JSON")) {
+            throw parseErr;
+          }
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        let boundaryIdx;
+        while ((boundaryIdx = buffer.search(/\r?\n\r?\n/)) !== -1) {
+          const match = buffer.match(/\r?\n\r?\n/);
+          const separatorLen = match[0].length;
+          const block = buffer.slice(0, boundaryIdx);
+          buffer = buffer.slice(boundaryIdx + separatorLen);
+          processEventBlock(block);
+        }
+      }
+
+      if (buffer.trim()) {
+        processEventBlock(buffer);
+      }
+      typewriter.finish();
+    } else {
+      const data = await response.json();
+      assistantMsg.content = data.reply;
+      assistantMsg.model = data.model || "Flash";
+      assistantMsg.isStreaming = false;
+      if (data.chat?.id) {
+        state.askChatId = data.chat.id;
+        loadSavedChats();
+      }
+    }
+  } catch (error) {
+    state.askError = error.message;
+  } finally {
+    assistantMsg.isStreaming = false;
+    state.askLoading = false;
+    render();
+  }
+}
+
 async function submitAskMessage(message) {
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
   state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "" });
@@ -1176,13 +1216,14 @@ async function submitAskMessage(message) {
   const assistantMsg = {
     role: "assistant",
     content: "",
-    model: state.askModel === "mini" ? "Mini" : "Flash",
+    model: "Flash",
     isStreaming: true,
   };
   state.askMessages.push(assistantMsg);
   state.askLoading = true;
   state.askError = "";
-  trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: state.askModel });
+  freshAskResponses.add(assistantMsg);
+  trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: "auto" });
   render();
 
   try {
@@ -1194,7 +1235,7 @@ async function submitAskMessage(message) {
       },
       body: JSON.stringify({
         messages: state.askMessages.slice(0, -1),
-        model: state.askModel,
+        model: "auto",
         strategyId: state.askStrategyId || undefined,
         chatId: state.askChatId || undefined,
         stream: true,
@@ -1279,7 +1320,7 @@ async function submitAskMessage(message) {
       if (buffer.trim()) {
         processEventBlock(buffer);
       }
-      typewriter.flush();
+      typewriter.finish();
     } else {
       const data = await response.json();
       assistantMsg.content = data.reply;
@@ -1389,52 +1430,16 @@ function renderLoading() {
   );
   reassurance.append(sparkIcon, reassuranceText);
 
-  // Desktop Top Right Actions
-  const topActions = element("div", "loading-top-actions loading-desktop-actions");
-  topActions.id = "loadingTopActions";
+  // Card Actions
+  const cardActions = element("div", "loading-card-actions");
 
-  const cancelBtn = element("button", "loading-cancel-button");
-  cancelBtn.type = "button";
-  cancelBtn.id = "cancelAnalysisBtn";
-  cancelBtn.setAttribute("aria-label", "Brif analizini dayandır");
-  cancelBtn.title = "Analizi dayandır";
-  cancelBtn.innerHTML = `
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <rect x="9" y="9" width="6" height="6" fill="currentColor" rx="1"/>
-    </svg>
-    <span>Dayandır</span>
-  `;
-  cancelBtn.addEventListener("click", () => {
-    const confirmed = window.confirm("Brif analizini dayandırmaq istədiyinizdən əminsiniz?");
-    if (confirmed) {
-      cancelCurrentAnalysis();
-    }
-  });
-
-  const historyBtn = element("button", "loading-history-button");
-  historyBtn.type = "button";
-  historyBtn.id = "analysisHistoryBtn";
-  historyBtn.setAttribute("aria-label", "Tarixçə");
-  historyBtn.title = "Söhbət və brif tarixçəsi";
-  historyBtn.innerHTML = `
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="9"/>
-      <polyline points="12 7 12 12 15 15"/>
-    </svg>
-    <span>Tarixçə</span>
-    ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
-  `;
-  historyBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
-
-  // Background continuation button — only during generation (after clarification is done)
   if (!isAssessment) {
-    const bgBtn = element("button", "loading-back-button");
+    const bgBtn = element("button", "loading-back-btn-mobile");
     bgBtn.type = "button";
     bgBtn.setAttribute("aria-label", "İşi arxa planda davam etdir");
     bgBtn.title = "İşi arxa planda davam etdir";
     bgBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
         <polyline points="15 3 21 3 21 9"></polyline>
         <line x1="10" y1="14" x2="21" y2="3"></line>
@@ -1449,61 +1454,30 @@ function renderLoading() {
         minimizeToBackground();
       }
     });
-    topActions.prepend(bgBtn);
-  }
-
-  topActions.append(cancelBtn, historyBtn);
-
-  // Mobile Under-Card Actions
-  // Mobile Under-Card Actions
-  const cardActions = element("div", "loading-card-actions");
-
-  // Mobile background continuation button (prominent full-width button) — only during generation
-  if (!isAssessment) {
-    const mobileBgBtn = element("button", "loading-back-btn-mobile");
-    mobileBgBtn.type = "button";
-    mobileBgBtn.setAttribute("aria-label", "İşi arxa planda davam etdir");
-    mobileBgBtn.title = "İşi arxa planda davam etdir";
-    mobileBgBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-        <polyline points="15 3 21 3 21 9"></polyline>
-        <line x1="10" y1="14" x2="21" y2="3"></line>
-      </svg>
-      <span>İşi arxa planda davam etdir</span>
-    `;
-    mobileBgBtn.addEventListener("click", () => {
-      const confirmed = window.confirm(
-        "Əsas səhifəyə qayıdırsınız bu analizi arxa planda davam etdirmək istədiyinizdən əminsiniz? Daha sonra onunla \"Arxiv\" səhifəsindən tanış ola biləcəksiniz."
-      );
-      if (confirmed) {
-        minimizeToBackground();
-      }
-    });
-    cardActions.appendChild(mobileBgBtn);
+    cardActions.appendChild(bgBtn);
   }
 
   const secondaryRow = element("div", "loading-card-actions-secondary");
 
-  const mobileCancelBtn = element("button", "loading-cancel-btn-mobile");
-  mobileCancelBtn.type = "button";
-  mobileCancelBtn.innerHTML = `
+  const cancelBtn = element("button", "loading-cancel-btn-mobile");
+  cancelBtn.type = "button";
+  cancelBtn.innerHTML = `
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/>
       <rect x="9" y="9" width="6" height="6" fill="currentColor" rx="1"/>
     </svg>
     <span>Dayandır</span>
   `;
-  mobileCancelBtn.addEventListener("click", () => {
+  cancelBtn.addEventListener("click", () => {
     const confirmed = window.confirm("Brif analizini dayandırmaq istədiyinizdən əminsiniz?");
     if (confirmed) {
       cancelCurrentAnalysis();
     }
   });
 
-  const mobileHistoryBtn = element("button", "loading-history-btn-mobile");
-  mobileHistoryBtn.type = "button";
-  mobileHistoryBtn.innerHTML = `
+  const historyBtn = element("button", "loading-history-btn-mobile");
+  historyBtn.type = "button";
+  historyBtn.innerHTML = `
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="9"/>
       <polyline points="12 7 12 12 15 15"/>
@@ -1511,35 +1485,10 @@ function renderLoading() {
     <span>Tarixçə</span>
     ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
   `;
-  mobileHistoryBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
+  historyBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
 
-  secondaryRow.append(mobileCancelBtn, mobileHistoryBtn);
+  secondaryRow.append(cancelBtn, historyBtn);
   cardActions.appendChild(secondaryRow);
-
-  // Floating Ask Marketify Chat Button (Bottom-Right, Brief Analysis Only)
-  const floatingWrap = element("div", "loading-ask-floating-wrap");
-  floatingWrap.id = "loadingAskFloatingWrap";
-
-  const floatingBtn = element("button", "loading-ask-floating-btn");
-  floatingBtn.type = "button";
-  floatingBtn.id = "loadingAskFloatingBtn";
-  floatingBtn.setAttribute("aria-label", "Marketify-dan soruş");
-  floatingBtn.title = "Marketify-dan soruş";
-  floatingBtn.innerHTML = `
-    <span class="loading-ask-floating-icon">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-      </svg>
-      <span class="loading-ask-floating-spark">✦</span>
-    </span>
-    <span class="loading-ask-floating-label">Marketify-dan soruş</span>
-  `;
-  floatingBtn.addEventListener("click", () => showLoadingAskModal(""));
-  floatingWrap.appendChild(floatingBtn);
-
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap").forEach((el) => el.remove());
-  document.body.appendChild(topActions);
-  document.body.appendChild(floatingWrap);
 
   view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
   workspace.appendChild(view);
@@ -4508,23 +4457,7 @@ function renderPlannerView() {
     element("p", "", "Strategiyalardan əlavə etdiyin və şəxsi tapşırıqlarının icra planı.")
   );
 
-  const heroCard = element("div", "planner-hero-card");
-  heroCard.setAttribute("aria-hidden", "true");
-  heroCard.innerHTML = `
-    <div class="planner-hero-glow"></div>
-    <div class="planner-hero-dot dot-1"></div>
-    <div class="planner-hero-dot dot-2"></div>
-    <div class="planner-hero-icon-box">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="1.8"/>
-        <line x1="16" y1="2" x2="16" y2="6" stroke="#2563eb" stroke-width="2"/>
-        <line x1="8" y1="2" x2="8" y2="6" stroke="#2563eb" stroke-width="2"/>
-        <line x1="3" y1="10" x2="21" y2="10" stroke="#2563eb" stroke-width="1.6"/>
-        <polyline points="9 15 11 17 15 13" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </div>
-  `;
-  headerRow.append(headerText, heroCard);
+  headerRow.append(headerText);
   view.appendChild(headerRow);
 
   // Quick Add Composer Card
@@ -5031,7 +4964,6 @@ function renderLimitsView() {
   // 2. Compact Unlimited Hero Banner
   const heroCard = element("div", "limits-hero-card");
   heroCard.innerHTML = `
-    <div class="limits-hero-glow"></div>
     <div class="limits-hero-top">
       <div class="limits-status-pill">
         <span class="limits-pulse-dot"></span>
@@ -5042,35 +4974,6 @@ function renderLimitsView() {
     <div class="limits-hero-body">
       <h2>Bütün AI modelləri limitsizdir</h2>
       <p>Build və Ask rejimlərində heç bir sorğu və ya kvota məhdudiyyəti yoxdur.</p>
-    </div>
-    <div class="limits-hero-chips">
-      <div class="limits-chip">
-        <div class="limits-chip-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        </div>
-        <div class="limits-chip-content">
-          <strong>Sorğu Limiti</strong>
-          <span>Limitsiz (∞)</span>
-        </div>
-      </div>
-      <div class="limits-chip">
-        <div class="limits-chip-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        </div>
-        <div class="limits-chip-content">
-          <strong>Export</strong>
-          <span>Limitsiz (∞)</span>
-        </div>
-      </div>
-      <div class="limits-chip">
-        <div class="limits-chip-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-        </div>
-        <div class="limits-chip-content">
-          <strong>Layihə Yaddaşı</strong>
-          <span>Limitsiz (∞)</span>
-        </div>
-      </div>
     </div>
   `;
   view.appendChild(heroCard);
