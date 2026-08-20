@@ -51,6 +51,19 @@ test("formatGeminiContents drops leading orphaned model messages", () => {
   assert.equal(formatted[0].parts[0].text, "Sual");
 });
 
+test("formatGeminiContents drops trailing orphaned model messages", () => {
+  const input = [
+    { role: "user", content: "Sual" },
+    { role: "assistant", content: "Cavab" },
+  ];
+
+  const formatted = formatGeminiContents(input);
+
+  assert.equal(formatted.length, 1);
+  assert.equal(formatted[0].role, "user");
+  assert.equal(formatted[0].parts[0].text, "Sual");
+});
+
 test("generateGeminiAskResponse throws AI_NOT_CONFIGURED when API key is missing", async () => {
   await assert.rejects(
     generateGeminiAskResponse({
@@ -71,11 +84,13 @@ test("generateGeminiAskResponse throws INVALID_REQUEST when messages are empty",
   );
 });
 
-test("hasGeminiConfiguration returns true when GEMINI_API_KEY is present", () => {
+test("hasGeminiConfiguration returns true when GEMINI_API_KEY is present and configures 65536 tokens", () => {
   assert.equal(typeof hasGeminiConfiguration(), "boolean");
   assert.equal(typeof aiConfig.geminiAskModel, "string");
   assert.equal(aiConfig.geminiAskModel, process.env.GEMINI_ASK_MODEL || "gemini-3.7-flash");
   assert.equal(aiConfig.askModel, process.env.OPENAI_ASK_MODEL || "gpt-5.6-luna");
+  assert.equal(aiConfig.geminiAskMaxOutputTokens, 65536);
+  assert.equal(aiConfig.geminiThinkingBudget, 0);
 });
 
 function isComplexAskQuery(lastUserMsg = "", messages = [], hasStrategyContext = false) {

@@ -787,6 +787,7 @@ app.post("/api/ask", async (req, res) => {
                 model: aiConfig.geminiAskModel,
                 onChunk: (chunk) => {
                   res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
+                  if (typeof res.flush === "function") res.flush();
                 },
               });
             } catch (geminiErr) {
@@ -801,6 +802,7 @@ app.post("/api/ask", async (req, res) => {
                   ownerId: req.ownerId,
                   onChunk: (chunk) => {
                     res.write(`data: ${JSON.stringify({ chunk, model: "Mini" })}\n\n`);
+                    if (typeof res.flush === "function") res.flush();
                   },
                 });
               } else {
@@ -817,10 +819,12 @@ app.post("/api/ask", async (req, res) => {
               ownerId: req.ownerId,
               onChunk: (chunk) => {
                 res.write(`data: ${JSON.stringify({ chunk, model: "Mini" })}\n\n`);
+                if (typeof res.flush === "function") res.flush();
               },
             });
           } else {
             res.write(`data: ${JSON.stringify({ error: "AI xidməti konfiqurasiya edilməyib." })}\n\n`);
+            if (typeof res.flush === "function") res.flush();
             return res.end();
           }
         } else {
@@ -836,6 +840,7 @@ app.post("/api/ask", async (req, res) => {
                 ownerId: req.ownerId,
                 onChunk: (chunk) => {
                   res.write(`data: ${JSON.stringify({ chunk, model: "Mini" })}\n\n`);
+                  if (typeof res.flush === "function") res.flush();
                 },
               });
             } catch (openAiErr) {
@@ -848,6 +853,7 @@ app.post("/api/ask", async (req, res) => {
                   model: aiConfig.geminiAskModel,
                   onChunk: (chunk) => {
                     res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
+                    if (typeof res.flush === "function") res.flush();
                   },
                 });
               } else {
@@ -862,10 +868,12 @@ app.post("/api/ask", async (req, res) => {
               model: aiConfig.geminiAskModel,
               onChunk: (chunk) => {
                 res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
+                if (typeof res.flush === "function") res.flush();
               },
             });
           } else {
             res.write(`data: ${JSON.stringify({ error: "AI xidməti konfiqurasiya edilməyib." })}\n\n`);
+            if (typeof res.flush === "function") res.flush();
             return res.end();
           }
         }
@@ -882,6 +890,7 @@ app.post("/api/ask", async (req, res) => {
         });
 
         res.write(`data: ${JSON.stringify({ done: true, reply: accumulated, model: activeModel, chat: savedChat })}\n\n`);
+        if (typeof res.flush === "function") res.flush();
         return res.end();
       } catch (streamErr) {
         console.error("Ask stream error:", streamErr?.message || streamErr);

@@ -8,7 +8,7 @@ export function formatGeminiContents(messages = [], maxMessages = aiConfig.gemin
   const normalized = [];
   // Ask is interactive chat, so preserve only a small, useful recent window.
   // Long histories substantially increase Flash's time-to-first-token.
-  const historyLimit = Number.isFinite(maxMessages) && maxMessages > 0 ? maxMessages : 8;
+  const historyLimit = Number.isFinite(maxMessages) && maxMessages > 0 ? maxMessages : 12;
   const recentMessages = messages.length > historyLimit ? messages.slice(-historyLimit) : messages;
 
   for (const message of recentMessages) {
@@ -34,7 +34,37 @@ export function formatGeminiContents(messages = [], maxMessages = aiConfig.gemin
     normalized.shift();
   }
 
+  // Ensure conversation ends with a user message for Gemini API compliance
+  while (normalized.length > 0 && normalized[normalized.length - 1].role === "model") {
+    normalized.pop();
+  }
+
   return normalized;
+}
+
+/**
+ * Builds the generationConfig object for Gemini API calls.
+ */
+function buildGenerationConfig({
+  model = "",
+  temperature = 0.6,
+  maxOutputTokens = aiConfig.geminiAskMaxOutputTokens || 65536,
+} = {}) {
+  const config = {
+    temperature: typeof temperature === "number" ? temperature : 0.6,
+    maxOutputTokens: Number.isFinite(maxOutputTokens) && maxOutputTokens > 0 ? maxOutputTokens : 65536,
+  };
+
+  // For Gemini 3.7 Flash and reasoning-capable models:
+  // Configure thinkingBudget (0 = disable thinking for instant chat, or custom budget integer)
+  if (model.includes("3.7") || model.includes("flash") || model.includes("thinking")) {
+    const budget = typeof aiConfig.geminiThinkingBudget === "number" ? aiConfig.geminiThinkingBudget : 0;
+    config.thinkingConfig = {
+      thinkingBudget: budget,
+    };
+  }
+
+  return config;
 }
 
 /**
@@ -73,17 +103,11 @@ export async function generateGeminiAskResponse({
   let lastError;
 
   for (const currentModel of candidateModels) {
-    const generationConfig = {
+    const generationConfig = buildGenerationConfig({
+      model: currentModel,
       temperature,
       maxOutputTokens,
-    };
-
-    // For Gemini 3.7 Flash, configure thinkingLevel: "low" to minimize time-to-answer for real-time chat
-    if (currentModel.includes("3.7") || currentModel.includes("flash")) {
-      generationConfig.thinkingConfig = {
-        thinkingLevel: "low",
-      };
-    }
+    });
 
     const payload = {
       contents,
@@ -155,17 +179,32 @@ export async function generateGeminiAskResponse({
     throw lastError;
   }
 
-  const parts = data?.candidates?.[0]?.content?.parts || [];
+  if (data?.promptFeedback?.blockReason) {
+    const error = new Error(`Cavab təhlükəsizlik filtrinə görə bloklandı (${data.promptFeedback.blockReason}).`);
+    error.code = "AI_SAFETY_BLOCKED";
+    error.status = 400;
+    throw error;
+  }
+
+  const candidate = data?.candidates?.[0];
+  const finishReason = candidate?.finishReason;
+  if (finishReason === "SAFETY") {
+    const error = new Error("Cavab təhlükəsizlik filtrinə görə dayandırıldı.");
+    error.code = "AI_SAFETY_BLOCKED";
+    error.status = 400;
+    throw error;
+  }
+
+  if (finishReason && finishReason !== "STOP" && finishReason !== "MAX_TOKENS") {
+    console.warn(`[Gemini] Non-standard finishReason: ${finishReason}`);
+  }
+
+  const parts = candidate?.content?.parts || [];
   const textParts = parts.filter((p) => !p.thought && typeof p.text === "string").map((p) => p.text);
   const replyText = (textParts.length ? textParts.join("") : parts.map((p) => p.text).filter(Boolean).join(""))?.trim();
 
   if (!replyText) {
-    const finishReason = data?.candidates?.[0]?.finishReason;
-    const error = new Error(
-      finishReason === "SAFETY"
-        ? "Cavab təhlükəsizlik filtrinə görə dayandırıldı."
-        : "Gemini boş cavab qaytardı.",
-    );
+    const error = new Error("Gemini boş cavab qaytardı.");
     error.code = "AI_EMPTY_RESPONSE";
     error.status = 500;
     throw error;
@@ -204,16 +243,11 @@ export async function generateGeminiAskStreamResponse({
     throw error;
   }
 
-  const generationConfig = {
+  const generationConfig = buildGenerationConfig({
+    model,
     temperature,
     maxOutputTokens,
-  };
-
-  if (model.includes("3.7") || model.includes("flash")) {
-    generationConfig.thinkingConfig = {
-      thinkingLevel: "low",
-    };
-  }
+  });
 
   const payload = {
     contents,
@@ -266,8 +300,30 @@ export async function generateGeminiAskStreamResponse({
 
     try {
       const parsed = JSON.parse(jsonStr);
+
+      if (parsed?.error) {
+        const errorMsg = parsed.error.message || `Gemini API xətası (${parsed.error.code || "unknown"})`;
+        const err = new Error(errorMsg);
+        err.code = "GEMINI_STREAM_ERROR";
+        throw err;
+      }
+
+      if (parsed?.promptFeedback?.blockReason) {
+        const err = new Error(`Cavab təhlükəsizlik filtrinə görə bloklandı (${parsed.promptFeedback.blockReason}).`);
+        err.code = "AI_SAFETY_BLOCKED";
+        throw err;
+      }
+
       const candidates = parsed?.candidates || [];
       for (const cand of candidates) {
+        if (cand?.finishReason === "SAFETY") {
+          const err = new Error("Cavab təhlükəsizlik filtrinə görə dayandırıldı.");
+          err.code = "AI_SAFETY_BLOCKED";
+          throw err;
+        }
+        if (cand?.finishReason && cand.finishReason !== "STOP" && cand.finishReason !== "MAX_TOKENS") {
+          console.warn(`[Gemini SSE] Finish reason: ${cand.finishReason}`);
+        }
         const parts = cand?.content?.parts || [];
         for (const p of parts) {
           if (!p.thought && typeof p.text === "string" && p.text) {
@@ -277,6 +333,7 @@ export async function generateGeminiAskStreamResponse({
         }
       }
     } catch (parseErr) {
+      if (parseErr.code) throw parseErr;
       // Fallback regex extractor if JSON was broken across lines
       const matches = jsonStr.matchAll(/"text"\s*:\s*"((?:[^"\\]|\\.)*)"/g);
       for (const match of matches) {

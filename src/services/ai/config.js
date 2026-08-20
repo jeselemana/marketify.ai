@@ -9,10 +9,12 @@ export const aiConfig = Object.freeze({
   askModel: process.env.OPENAI_ASK_MODEL || "gpt-5.6-luna",
   geminiAskModel: process.env.GEMINI_ASK_MODEL || "gemini-3.7-flash",
   geminiApiKey: process.env.GEMINI_API_KEY || "",
-  // Ask is a real-time chat surface. Keeping its prompt and answer bounded is
-  // important for time-to-first-token, especially on a shared API quota.
-  geminiAskHistoryMessages: positiveInteger(process.env.GEMINI_ASK_HISTORY_MESSAGES, 10),
-  geminiAskMaxOutputTokens: positiveInteger(process.env.GEMINI_ASK_MAX_OUTPUT_TOKENS, 8192),
+  // Ask is a real-time chat surface.
+  geminiAskHistoryMessages: positiveInteger(process.env.GEMINI_ASK_HISTORY_MESSAGES, 12),
+  geminiAskMaxOutputTokens: positiveInteger(process.env.GEMINI_ASK_MAX_OUTPUT_TOKENS, 65536),
+  geminiThinkingBudget: process.env.GEMINI_THINKING_BUDGET !== undefined
+    ? Number.parseInt(process.env.GEMINI_THINKING_BUDGET, 10)
+    : 0,
   maxClarificationRounds: Number.parseInt(process.env.MAX_CLARIFICATION_ROUNDS || "2", 10),
   assessmentMaxOutputTokens: 1800,
   strategyMaxOutputTokens: 9000,

@@ -1053,12 +1053,27 @@ class LiveTypewriter {
   }
 
   finish(finalText) {
-    if (finalText && finalText.length >= this.targetText.length) {
+    if (typeof finalText === "string" && finalText.length >= this.targetText.length) {
       this.targetText = finalText;
     }
     this.isDone = true;
     if (!this.rafId) {
       this.tick();
+    }
+  }
+
+  flush() {
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    this.isDone = true;
+    this.currentText = this.targetText;
+    if (this.onUpdate) {
+      this.onUpdate(this.currentText, true);
+    }
+    if (this.onComplete) {
+      this.onComplete();
     }
   }
 
@@ -1083,14 +1098,6 @@ class LiveTypewriter {
       this.onUpdate(this.currentText, true);
       if (this.onComplete) this.onComplete();
     }
-  }
-
-  flush() {
-    if (this.rafId) cancelAnimationFrame(this.rafId);
-    this.rafId = null;
-    this.currentText = this.targetText;
-    this.onUpdate(this.currentText, true);
-    if (this.onComplete) this.onComplete();
   }
 }
 
@@ -1126,6 +1133,9 @@ async function thinkDeeperWithFlash(messageIndex) {
   freshAskResponses.add(assistantMsg);
   render();
 
+  let typewriter = null;
+  let accumulatedFullText = "";
+
   try {
     const response = await fetch("/api/ask", {
       method: "POST",
@@ -1153,7 +1163,7 @@ async function thinkDeeperWithFlash(messageIndex) {
       const decoder = new TextDecoder();
       let buffer = "";
 
-      const typewriter = new LiveTypewriter(
+      typewriter = new LiveTypewriter(
         (text, isComplete) => {
           assistantMsg.content = text;
           updateActiveAskMessageContent(assistantMsg, !isComplete);
@@ -1184,11 +1194,14 @@ async function thinkDeeperWithFlash(messageIndex) {
           if (data.model) assistantMsg.model = data.model;
 
           if (data.chunk) {
+            accumulatedFullText += data.chunk;
             typewriter.append(data.chunk);
           }
 
           if (data.done) {
-            typewriter.finish(data.reply);
+            const finalReply = data.reply || accumulatedFullText;
+            accumulatedFullText = finalReply;
+            typewriter.finish(finalReply);
             if (data.chat?.id) {
               state.askChatId = data.chat.id;
               loadSavedChats();
@@ -1220,7 +1233,14 @@ async function thinkDeeperWithFlash(messageIndex) {
       if (buffer.trim()) {
         processEventBlock(buffer);
       }
-      typewriter.finish();
+
+      if (typewriter) {
+        typewriter.finish(accumulatedFullText);
+        typewriter.flush();
+      }
+      if (accumulatedFullText) {
+        assistantMsg.content = accumulatedFullText;
+      }
     } else {
       const data = await response.json();
       assistantMsg.content = data.reply;
@@ -1234,6 +1254,12 @@ async function thinkDeeperWithFlash(messageIndex) {
   } catch (error) {
     state.askError = error.message;
   } finally {
+    if (typewriter) {
+      typewriter.flush();
+    }
+    if (accumulatedFullText && (!assistantMsg.content || assistantMsg.content.length < accumulatedFullText.length)) {
+      assistantMsg.content = accumulatedFullText;
+    }
     assistantMsg.isStreaming = false;
     state.askLoading = false;
     render();
@@ -1258,6 +1284,9 @@ async function submitAskMessage(message) {
   freshAskResponses.add(assistantMsg);
   trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: chosenModel });
   render();
+
+  let typewriter = null;
+  let accumulatedFullText = "";
 
   try {
     const response = await fetch("/api/ask", {
@@ -1286,7 +1315,7 @@ async function submitAskMessage(message) {
       const decoder = new TextDecoder();
       let buffer = "";
 
-      const typewriter = new LiveTypewriter(
+      typewriter = new LiveTypewriter(
         (text, isComplete) => {
           assistantMsg.content = text;
           updateActiveAskMessageContent(assistantMsg, !isComplete);
@@ -1317,11 +1346,14 @@ async function submitAskMessage(message) {
           if (data.model) assistantMsg.model = data.model;
 
           if (data.chunk) {
+            accumulatedFullText += data.chunk;
             typewriter.append(data.chunk);
           }
 
           if (data.done) {
-            typewriter.finish(data.reply);
+            const finalReply = data.reply || accumulatedFullText;
+            accumulatedFullText = finalReply;
+            typewriter.finish(finalReply);
             if (data.chat?.id) {
               state.askChatId = data.chat.id;
               loadSavedChats();
@@ -1353,7 +1385,14 @@ async function submitAskMessage(message) {
       if (buffer.trim()) {
         processEventBlock(buffer);
       }
-      typewriter.finish();
+
+      if (typewriter) {
+        typewriter.finish(accumulatedFullText);
+        typewriter.flush();
+      }
+      if (accumulatedFullText) {
+        assistantMsg.content = accumulatedFullText;
+      }
     } else {
       const data = await response.json();
       assistantMsg.content = data.reply;
@@ -1366,11 +1405,17 @@ async function submitAskMessage(message) {
     }
   } catch (error) {
     state.askError = error.message;
-    if (!assistantMsg.content) {
+    if (!assistantMsg.content && !accumulatedFullText) {
       const idx = state.askMessages.indexOf(assistantMsg);
       if (idx !== -1) state.askMessages.splice(idx, 1);
     }
   } finally {
+    if (typewriter) {
+      typewriter.flush();
+    }
+    if (accumulatedFullText && (!assistantMsg.content || assistantMsg.content.length < accumulatedFullText.length)) {
+      assistantMsg.content = accumulatedFullText;
+    }
     assistantMsg.isStreaming = false;
     state.askLoading = false;
     render();
@@ -2052,19 +2097,36 @@ function showLoadingAskModal(initialQuery) {
         messagesBody.scrollTop = messagesBody.scrollHeight;
       };
       const processEvent = (block) => {
-        const dataLine = block.split(/\r?\n/).find((line) => line.startsWith("data:"));
-        if (!dataLine) return;
-        const data = JSON.parse(dataLine.replace(/^data:\s*/, ""));
-        if (data.error) throw new Error(data.error);
-        if (data.chunk) {
-          reply += data.chunk;
-          renderReply();
+        if (!block || !block.trim()) return;
+        const lines = block.split(/\r?\n/);
+        const dataLines = [];
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            dataLines.push(line.replace(/^data:\s*/, ""));
+          }
         }
-        if (data.done) {
-          reply = data.reply || reply;
-          if (data.chat?.id) {
-            state.askChatId = data.chat.id;
-            loadSavedChats();
+        if (!dataLines.length) return;
+        const jsonStr = dataLines.join("\n").trim();
+        if (!jsonStr || jsonStr === "[DONE]") return;
+
+        try {
+          const data = JSON.parse(jsonStr);
+          if (data.error) throw new Error(data.error);
+          if (data.chunk) {
+            reply += data.chunk;
+            renderReply();
+          }
+          if (data.done) {
+            reply = data.reply || reply;
+            renderReply();
+            if (data.chat?.id) {
+              state.askChatId = data.chat.id;
+              loadSavedChats();
+            }
+          }
+        } catch (parseErr) {
+          if (parseErr.message && !parseErr.message.includes("JSON")) {
+            throw parseErr;
           }
         }
       };
