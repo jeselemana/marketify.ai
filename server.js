@@ -572,7 +572,8 @@ app.post("/api/ask", async (req, res) => {
 
     const messages = Array.isArray(req.body.messages)
       ? req.body.messages
-          .slice(-20)
+          // Keep the server-side window aligned with the Gemini request window.
+          .slice(-(aiConfig.geminiAskHistoryMessages || 8))
           .filter((message) => ["user", "assistant"].includes(message?.role) && typeof message?.content === "string")
           .map((message) => ({
             role: message.role,
@@ -651,6 +652,9 @@ app.post("/api/ask", async (req, res) => {
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("Connection", "keep-alive");
       res.setHeader("X-Accel-Buffering", "no");
+      // Prevent a proxy or middleware from holding the SSE chunks until the
+      // entire answer is ready.
+      res.setHeader("Content-Encoding", "identity");
       if (typeof res.flushHeaders === "function") res.flushHeaders();
 
       let accumulated = "";

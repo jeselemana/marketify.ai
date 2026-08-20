@@ -739,13 +739,17 @@ function renderAsk() {
       if (message.role === "assistant") {
         if (isStreamingMsg && !message.content) {
           const thinking = element("div", "ask-thinking");
-          const mark = element("span", "ask-thinking-mark");
-          mark.append(element("i"), element("i"), element("i"));
+          const iconWrap = element("span", "ask-thinking-icon");
+          iconWrap.innerHTML = `
+            <svg class="ask-thinking-sparkle" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
+            </svg>
+          `;
           const currentModelName = isAuto ? "Flash" : isFlash ? "Flash" : "Mini";
-          const thinkingLabel = element("span", "ask-thinking-label", `${currentModelName} yazır…`);
+          const thinkingLabel = element("span", "ask-thinking-label", `${currentModelName} düşünür`);
           const dots = element("span", "ask-thinking-dots");
           dots.append(element("i"), element("i"), element("i"));
-          thinking.append(mark, thinkingLabel, dots);
+          thinking.append(iconWrap, thinkingLabel, dots);
           content.appendChild(thinking);
         } else {
           content.appendChild(renderAskRichText(message.content));
@@ -2036,25 +2040,67 @@ function showLoadingAskModal(initialQuery) {
     messagesBody.scrollTop = messagesBody.scrollHeight;
 
     try {
-      const data = await api("/api/ask", {
+      const response = await fetch("/api/ask", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "text/event-stream",
+        },
         body: JSON.stringify({
           messages: thread,
           model: state.askModel || "flash",
           chatId: state.askChatId || undefined,
+          stream: true,
         }),
       });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Cavab almaq mümkün olmadı.");
+      }
 
       loadingItem.classList.remove("is-thinking");
       const contentWrap = loadingItem.querySelector(".ask-thread-msg-content");
-      contentWrap.innerHTML = "";
-      contentWrap.appendChild(renderAskRichText(data.reply));
-      thread.push({ role: "assistant", content: data.reply });
-
-      if (data.chat?.id) {
-        state.askChatId = data.chat.id;
-        loadSavedChats();
+      let reply = "";
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const renderReply = () => {
+        contentWrap.innerHTML = "";
+        contentWrap.appendChild(renderAskRichText(reply));
+        messagesBody.scrollTop = messagesBody.scrollHeight;
+      };
+      const processEvent = (block) => {
+        const dataLine = block.split(/\r?\n/).find((line) => line.startsWith("data:"));
+        if (!dataLine) return;
+        const data = JSON.parse(dataLine.replace(/^data:\s*/, ""));
+        if (data.error) throw new Error(data.error);
+        if (data.chunk) {
+          reply += data.chunk;
+          renderReply();
+        }
+        if (data.done) {
+          reply = data.reply || reply;
+          if (data.chat?.id) {
+            state.askChatId = data.chat.id;
+            loadSavedChats();
+          }
+        }
+      };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let boundary;
+        while ((boundary = buffer.search(/\r?\n\r?\n/)) !== -1) {
+          const separator = buffer.match(/\r?\n\r?\n/)[0].length;
+          processEvent(buffer.slice(0, boundary));
+          buffer = buffer.slice(boundary + separator);
+        }
       }
+      if (buffer.trim()) processEvent(buffer);
+      if (!reply) throw new Error("Gemini boş cavab qaytardı.");
+      renderReply();
+      thread.push({ role: "assistant", content: reply });
     } catch (err) {
       loadingItem.classList.remove("is-thinking");
       const contentWrap = loadingItem.querySelector(".ask-thread-msg-content");
@@ -5700,30 +5746,10 @@ function checkPrivacyPolicyBanner() {
   });
 }
 
-function initializeAnnouncementBar() {
-  const bar = document.querySelector("#topAnnouncementBar");
-  const closeBtn = document.querySelector("#topAnnouncementClose");
-  if (!bar || !closeBtn) return;
-  if (localStorage.getItem("marketify_gemini_announcement_dismissed") === "true") {
-    bar.hidden = true;
-  }
-  closeBtn.addEventListener("click", () => {
-    bar.style.opacity = "0";
-    bar.style.transform = "translateY(-4px)";
-    setTimeout(() => {
-      bar.hidden = true;
-    }, 150);
-    try {
-      localStorage.setItem("marketify_gemini_announcement_dismissed", "true");
-    } catch {}
-  });
-}
-
 initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
   resumeBackgroundJobs();
   render();
-  initializeAnnouncementBar();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks(), loadUsageStats()]);
   if (window.location.hash === "#terms" || window.location.pathname === "/terms") {
     openLegalModal("terms");

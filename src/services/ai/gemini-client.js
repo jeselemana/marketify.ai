@@ -4,10 +4,12 @@ import { aiConfig, hasGeminiConfiguration } from "./config.js";
  * Normalizes and formats chat history into Gemini API contents structure.
  * Converts 'assistant' -> 'model', and merges consecutive messages of the same role.
  */
-export function formatGeminiContents(messages = []) {
+export function formatGeminiContents(messages = [], maxMessages = aiConfig.geminiAskHistoryMessages) {
   const normalized = [];
-  // Keep the most recent 14 messages to maintain fast processing and lean context
-  const recentMessages = messages.length > 14 ? messages.slice(-14) : messages;
+  // Ask is interactive chat, so preserve only a small, useful recent window.
+  // Long histories substantially increase Flash's time-to-first-token.
+  const historyLimit = Number.isFinite(maxMessages) && maxMessages > 0 ? maxMessages : 8;
+  const recentMessages = messages.length > historyLimit ? messages.slice(-historyLimit) : messages;
 
   for (const message of recentMessages) {
     if (!message || typeof message.content !== "string") continue;
@@ -44,7 +46,7 @@ export async function generateGeminiAskResponse({
   model = aiConfig.geminiAskModel || "gemini-3.7-flash",
   apiKey = aiConfig.geminiApiKey || process.env.GEMINI_API_KEY,
   temperature = 0.6,
-  maxOutputTokens = 8192,
+  maxOutputTokens = aiConfig.geminiAskMaxOutputTokens,
   signal,
 } = {}) {
   const rawKey = (apiKey || aiConfig.geminiApiKey || process.env.GEMINI_API_KEY || "") + "";
@@ -181,7 +183,7 @@ export async function generateGeminiAskStreamResponse({
   model = aiConfig.geminiAskModel || "gemini-3.7-flash",
   apiKey = aiConfig.geminiApiKey || process.env.GEMINI_API_KEY,
   temperature = 0.6,
-  maxOutputTokens = 8192,
+  maxOutputTokens = aiConfig.geminiAskMaxOutputTokens,
   signal,
   onChunk = () => {},
 } = {}) {
@@ -316,4 +318,3 @@ export async function generateGeminiAskStreamResponse({
 
   return fullText.trim();
 }
-
