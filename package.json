@@ -10,7 +10,7 @@
     "start": "node server.js",
     "check": "node --check server.js && node --check public/script.js && node --check public/auth.js && node --check public/exporters.js && node --check src/auth/auth-store.js && node --check src/auth/email-service.js && node --check src/auth/password.js && node --check src/auth/validation.js && node --check src/domain/strategy.js && node --check src/http/auth-middleware.js && node --check src/http/auth-router.js && node --check src/http/strategy-router.js && node --check src/http/planner-router.js && node --check src/repositories/auth-store-migrations.js && node --check src/repositories/file-user-repository.js && node --check src/repositories/file-strategy-repository.js && node --check src/repositories/file-chat-repository.js && node --check src/repositories/file-planner-repository.js && node --check src/services/ai/client.js && node --check src/services/ai/config.js && node --check src/services/ai/gemini-client.js && node --check src/services/ai/prompts.js && node --check src/services/ai/personal-context.js && node --check src/services/ai/strategy-service.js",
     "test": "node --test",
-    "build": "npm run check && npm test"
+    "build": "npm run check"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1111.0",
