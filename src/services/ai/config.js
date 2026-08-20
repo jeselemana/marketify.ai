@@ -6,7 +6,7 @@ function positiveInteger(value, fallback) {
 export const aiConfig = Object.freeze({
   fastModel: process.env.OPENAI_FAST_MODEL || "gpt-5.6-terra",
   strategyModel: process.env.OPENAI_STRATEGY_MODEL || "gpt-5.6-terra",
-  askModel: process.env.OPENAI_ASK_MODEL || Buffer.from("Z3B0LTUuNi1sdW5h", "base64").toString("utf8"),
+  askModel: process.env.OPENAI_ASK_MODEL || "gpt-5.6-luna",
   geminiAskModel: process.env.GEMINI_ASK_MODEL || "gemini-3.7-flash",
   geminiApiKey: process.env.GEMINI_API_KEY || "",
   // Ask is a real-time chat surface. Keeping its prompt and answer bounded is

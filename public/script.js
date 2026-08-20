@@ -761,7 +761,11 @@ function renderAsk() {
             </svg>
           `;
           const isFlashThinking = message.model === "Flash" || message.model === "flash";
-          const thinkingLabel = element("span", "ask-thinking-label", isFlashThinking ? "Flash düşünür" : "Marketify düşünür");
+          const isMiniThinking = message.model === "Mini" || message.model === "mini";
+          let label = "Marketify düşünür";
+          if (isFlashThinking) label = "Flash düşünür";
+          else if (isMiniThinking) label = "Luna düşünür";
+          const thinkingLabel = element("span", "ask-thinking-label", label);
           const dots = element("span", "ask-thinking-dots");
           dots.append(element("i"), element("i"), element("i"));
           thinking.append(iconWrap, thinkingLabel, dots);
@@ -1201,17 +1205,19 @@ async function submitAskMessage(message) {
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
   state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "" });
 
+  const chosenModel = state.askModel || "auto";
+  const initialPlaceholderModel = chosenModel === "flash" ? "Flash" : (chosenModel === "mini" ? "Mini" : "Auto");
   const assistantMsg = {
     role: "assistant",
     content: "",
-    model: "Flash",
+    model: initialPlaceholderModel,
     isStreaming: true,
   };
   state.askMessages.push(assistantMsg);
   state.askLoading = true;
   state.askError = "";
   freshAskResponses.add(assistantMsg);
-  trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: "auto" });
+  trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: chosenModel });
   render();
 
   try {
@@ -1223,7 +1229,7 @@ async function submitAskMessage(message) {
       },
       body: JSON.stringify({
         messages: state.askMessages.slice(0, -1),
-        model: "auto",
+        model: chosenModel,
         strategyId: state.askStrategyId || undefined,
         chatId: state.askChatId || undefined,
         stream: true,

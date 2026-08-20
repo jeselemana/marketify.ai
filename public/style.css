@@ -978,7 +978,7 @@ body.sidebar-open .app-main {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 8px 6px 0;
+  padding: 12px 6px 0;
   text-align: center;
 }
 
@@ -5880,8 +5880,8 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 4px 6px 0;
+  gap: 6px;
+  padding: 12px 6px 0;
   text-align: center;
 }
 
@@ -5889,7 +5889,7 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   margin: 0;
   text-align: center;
   font-size: 11px;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--text-tertiary);
   letter-spacing: -0.01em;
   user-select: none;

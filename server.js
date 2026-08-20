@@ -561,6 +561,123 @@ app.delete("/api/ask/chats/:id", async (req, res) => {
   }
 });
 
+function isComplexAskQuery(lastUserMsg = "", messages = [], hasStrategyContext = false) {
+  if (hasStrategyContext) return true;
+  const cleanMsg = (lastUserMsg || "").trim();
+  // Large input prompts (>= 350 chars) are treated as comprehensive briefs
+  if (cleanMsg.length >= 350) return true;
+
+  // Specific indicators of heavy analysis, multi-step audit or explicit deep reasoning requests
+  const complexPattern = /(hərtərəfli dərin analiz|hərtərəfli analiz|hərtərəfli təhlil|geniş təhlil|rəqib analizi|swot analizi|swot matrisi|audit hesabatı|maliyyə modeli|büdcə bölgüsü|cac\s*\/\s*ltv|tam marketinq planı|daha dərindən düşün|bütün detalları ilə)/i;
+  return complexPattern.test(cleanMsg);
+}
+
+async function generateOpenAIAskStreamResponse({
+  openaiClient,
+  model = ASK_MODEL,
+  instructions = "",
+  messages = [],
+  ownerId = "",
+  onChunk = () => {},
+  signal,
+}) {
+  let accumulated = "";
+
+  // 1. Try standard Chat Completions streaming first
+  try {
+    const formattedMessages = [
+      { role: "system", content: instructions },
+      ...messages.map(({ role, content }) => ({ role, content })),
+    ];
+    const stream = await openaiClient.chat.completions.create(
+      {
+        model,
+        messages: formattedMessages,
+        stream: true,
+        max_tokens: 8192,
+      },
+      signal ? { signal } : undefined,
+    );
+
+    for await (const part of stream) {
+      const chunk = part.choices?.[0]?.delta?.content || "";
+      if (chunk) {
+        accumulated += chunk;
+        onChunk(chunk);
+      }
+    }
+    if (accumulated.trim()) return accumulated.trim();
+  } catch (chatErr) {
+    console.warn("OpenAI chat completion stream fallback to responses:", chatErr?.message);
+  }
+
+  // 2. Fallback to OpenAI responses.create
+  const response = await openaiClient.responses.create(
+    {
+      model,
+      instructions,
+      input: messages.map(({ role, content }) => ({ role, content })),
+      max_output_tokens: 8192,
+      safety_identifier: askSafetyIdentifier(ownerId),
+    },
+    signal ? { signal } : undefined,
+  );
+
+  accumulated = response.output_text?.trim() || "";
+  if (!accumulated) {
+    throw new Error("OpenAI boş cavab qaytardı.");
+  }
+  onChunk(accumulated);
+  return accumulated;
+}
+
+async function generateOpenAIAskResponse({
+  openaiClient,
+  model = ASK_MODEL,
+  instructions = "",
+  messages = [],
+  ownerId = "",
+  signal,
+}) {
+  // 1. Try Responses API first
+  try {
+    const response = await openaiClient.responses.create(
+      {
+        model,
+        instructions,
+        input: messages.map(({ role, content }) => ({ role, content })),
+        max_output_tokens: 8192,
+        reasoning: { effort: "low" },
+        safety_identifier: askSafetyIdentifier(ownerId),
+      },
+      signal ? { signal } : undefined,
+    );
+    const text = response.output_text?.trim();
+    if (text) return text;
+  } catch (respErr) {
+    console.warn("OpenAI responses.create failed, trying chat.completions:", respErr?.message);
+  }
+
+  // 2. Fallback to Chat Completions
+  const completion = await openaiClient.chat.completions.create(
+    {
+      model,
+      messages: [
+        { role: "system", content: instructions },
+        ...messages.map(({ role, content }) => ({ role, content })),
+      ],
+      max_tokens: 8192,
+    },
+    signal ? { signal } : undefined,
+  );
+
+  const text = completion.choices?.[0]?.message?.content?.trim();
+  if (!text) {
+    throw new Error("OpenAI boş cavab qaytardı.");
+  }
+  return text;
+}
+
 app.post("/api/ask", async (req, res) => {
   try {
     const geminiAvailable = hasGeminiConfiguration();
@@ -624,27 +741,25 @@ app.post("/api/ask", async (req, res) => {
 
     const fullInstructions = `${ASK_INSTRUCTIONS}${strategyContext}${personalizationContext}`;
     let reply = "";
-    let activeModel = "Flash";
+    let activeModel = "Mini";
     const hasStrategyContext = Boolean(selectedStrategy);
     const lastUserMsg = messages.at(-1)?.content || "";
-    const isComplex = hasStrategyContext ||
-      lastUserMsg.length > 100 ||
-      messages.length >= 4 ||
-      /(analiz|müqayisə|strategiya|hesabla|büdcə|detallı|plan|təhlil|araşdır|izah et|addım|marketinq|seqment|konversiya|cac|ltv|roi|swot|audit|optimizasiya|dərin|addım-addım|layihə|rəqib|geniş)/i.test(lastUserMsg);
+    const isComplex = isComplexAskQuery(lastUserMsg, messages, hasStrategyContext);
 
     let routeToFlash = false;
     if (requestedModel === "flash" || requestedModel.includes("gemini") || requestedModel.includes("3.7")) {
       routeToFlash = true;
-    } else if (requestedModel === "mini" || requestedModel.includes("openai") || requestedModel.includes("luna")) {
+    } else if (requestedModel === "mini" || requestedModel.includes("openai") || requestedModel.includes("luna") || requestedModel.includes("gpt")) {
       routeToFlash = false;
     } else {
-      // Auto mode: intelligently route complex queries to Gemini 3.7 Flash, simple queries to Mini
+      // Auto mode:
+      // Route heavy/complex queries to Gemini 3.7 Flash, small/standard queries to gpt-5.6-luna (Mini)
       if (isComplex && geminiAvailable) {
         routeToFlash = true;
       } else if (!isComplex && openAiAvailable) {
         routeToFlash = false;
       } else {
-        routeToFlash = geminiAvailable;
+        routeToFlash = geminiAvailable && !openAiAvailable;
       }
     }
 
@@ -661,60 +776,98 @@ app.post("/api/ask", async (req, res) => {
 
       let accumulated = "";
       try {
-        if (routeToFlash && geminiAvailable) {
-          accumulated = await generateGeminiAskStreamResponse({
-            messages,
-            systemInstruction: fullInstructions,
-            model: aiConfig.geminiAskModel,
-            onChunk: (chunk) => {
-              res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
-            },
-          });
-          activeModel = "Flash";
-        } else if (openAiAvailable) {
-          try {
-            const stream = await openai.chat.completions.create({
-              model: ASK_MODEL,
-              messages: [
-                { role: "system", content: fullInstructions },
-                ...messages.map(({ role, content }) => ({ role, content })),
-              ],
-              stream: true,
-              max_tokens: 8192,
-            });
-            activeModel = "Mini";
-            for await (const part of stream) {
-              const chunkText = part.choices[0]?.delta?.content || "";
-              if (chunkText) {
-                accumulated += chunkText;
-                res.write(`data: ${JSON.stringify({ chunk: chunkText, model: "Mini" })}\n\n`);
+        if (routeToFlash) {
+          // Route: Gemini 3.7 Flash with fallback to OpenAI gpt-5.6-luna
+          if (geminiAvailable) {
+            try {
+              activeModel = "Flash";
+              accumulated = await generateGeminiAskStreamResponse({
+                messages,
+                systemInstruction: fullInstructions,
+                model: aiConfig.geminiAskModel,
+                onChunk: (chunk) => {
+                  res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
+                },
+              });
+            } catch (geminiErr) {
+              console.warn("Gemini stream failed, falling back to OpenAI (gpt-5.6-luna):", geminiErr?.message);
+              if (openAiAvailable) {
+                activeModel = "Mini";
+                accumulated = await generateOpenAIAskStreamResponse({
+                  openaiClient: openai,
+                  model: ASK_MODEL,
+                  instructions: fullInstructions,
+                  messages,
+                  ownerId: req.ownerId,
+                  onChunk: (chunk) => {
+                    res.write(`data: ${JSON.stringify({ chunk, model: "Mini" })}\n\n`);
+                  },
+                });
+              } else {
+                throw geminiErr;
               }
             }
-          } catch (streamFailErr) {
-            const response = await openai.responses.create({
+          } else if (openAiAvailable) {
+            activeModel = "Mini";
+            accumulated = await generateOpenAIAskStreamResponse({
+              openaiClient: openai,
               model: ASK_MODEL,
               instructions: fullInstructions,
-              input: messages.map(({ role, content }) => ({ role, content })),
-              max_output_tokens: 8192,
-              safety_identifier: askSafetyIdentifier(req.ownerId),
+              messages,
+              ownerId: req.ownerId,
+              onChunk: (chunk) => {
+                res.write(`data: ${JSON.stringify({ chunk, model: "Mini" })}\n\n`);
+              },
             });
-            accumulated = response.output_text?.trim() || "";
-            activeModel = "Mini";
-            res.write(`data: ${JSON.stringify({ chunk: accumulated, model: "Mini" })}\n\n`);
+          } else {
+            res.write(`data: ${JSON.stringify({ error: "AI xidməti konfiqurasiya edilməyib." })}\n\n`);
+            return res.end();
           }
-        } else if (geminiAvailable) {
-          accumulated = await generateGeminiAskStreamResponse({
-            messages,
-            systemInstruction: fullInstructions,
-            model: aiConfig.geminiAskModel,
-            onChunk: (chunk) => {
-              res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
-            },
-          });
-          activeModel = "Flash";
         } else {
-          res.write(`data: ${JSON.stringify({ error: "AI xidməti konfiqurasiya edilməyib." })}\n\n`);
-          return res.end();
+          // Route: OpenAI gpt-5.6-luna (Mini) with fallback to Gemini 3.7 Flash
+          if (openAiAvailable) {
+            try {
+              activeModel = "Mini";
+              accumulated = await generateOpenAIAskStreamResponse({
+                openaiClient: openai,
+                model: ASK_MODEL,
+                instructions: fullInstructions,
+                messages,
+                ownerId: req.ownerId,
+                onChunk: (chunk) => {
+                  res.write(`data: ${JSON.stringify({ chunk, model: "Mini" })}\n\n`);
+                },
+              });
+            } catch (openAiErr) {
+              console.warn("OpenAI stream failed, falling back to Gemini 3.7 Flash:", openAiErr?.message);
+              if (geminiAvailable) {
+                activeModel = "Flash";
+                accumulated = await generateGeminiAskStreamResponse({
+                  messages,
+                  systemInstruction: fullInstructions,
+                  model: aiConfig.geminiAskModel,
+                  onChunk: (chunk) => {
+                    res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
+                  },
+                });
+              } else {
+                throw openAiErr;
+              }
+            }
+          } else if (geminiAvailable) {
+            activeModel = "Flash";
+            accumulated = await generateGeminiAskStreamResponse({
+              messages,
+              systemInstruction: fullInstructions,
+              model: aiConfig.geminiAskModel,
+              onChunk: (chunk) => {
+                res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
+              },
+            });
+          } else {
+            res.write(`data: ${JSON.stringify({ error: "AI xidməti konfiqurasiya edilməyib." })}\n\n`);
+            return res.end();
+          }
         }
 
         const updatedMessages = [
@@ -748,46 +901,41 @@ app.post("/api/ask", async (req, res) => {
           activeModel = "Flash";
         } catch (geminiErr) {
           if (openAiAvailable) {
-            const response = await openai.responses.create({
+            reply = await generateOpenAIAskResponse({
+              openaiClient: openai,
               model: ASK_MODEL,
               instructions: fullInstructions,
-              input: messages.map(({ role, content }) => ({ role, content })),
-              reasoning: { effort: "low" },
-              max_output_tokens: 8192,
-              safety_identifier: askSafetyIdentifier(req.ownerId),
+              messages,
+              ownerId: req.ownerId,
             });
-            reply = response.output_text?.trim();
             activeModel = "Mini";
           } else {
             throw geminiErr;
           }
         }
       } else if (openAiAvailable) {
-        const response = await openai.responses.create({
+        reply = await generateOpenAIAskResponse({
+          openaiClient: openai,
           model: ASK_MODEL,
           instructions: fullInstructions,
-          input: messages.map(({ role, content }) => ({ role, content })),
-          max_output_tokens: 8192,
-          safety_identifier: askSafetyIdentifier(req.ownerId),
+          messages,
+          ownerId: req.ownerId,
         });
-        reply = response.output_text?.trim();
         activeModel = "Mini";
       } else {
         return res.status(503).json({ error: "AI xidməti konfiqurasiya edilməyib." });
       }
     } else {
-      // Mini (OpenAI)
+      // Mini (OpenAI gpt-5.6-luna)
       if (openAiAvailable) {
         try {
-          const response = await openai.responses.create({
+          reply = await generateOpenAIAskResponse({
+            openaiClient: openai,
             model: ASK_MODEL,
             instructions: fullInstructions,
-            input: messages.map(({ role, content }) => ({ role, content })),
-            reasoning: { effort: "low" },
-            max_output_tokens: 2500,
-            safety_identifier: askSafetyIdentifier(req.ownerId),
+            messages,
+            ownerId: req.ownerId,
           });
-          reply = response.output_text?.trim();
           activeModel = "Mini";
         } catch (openAiErr) {
           if (geminiAvailable) {

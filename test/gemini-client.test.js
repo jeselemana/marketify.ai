@@ -75,4 +75,126 @@ test("hasGeminiConfiguration returns true when GEMINI_API_KEY is present", () =>
   assert.equal(typeof hasGeminiConfiguration(), "boolean");
   assert.equal(typeof aiConfig.geminiAskModel, "string");
   assert.equal(aiConfig.geminiAskModel, process.env.GEMINI_ASK_MODEL || "gemini-3.7-flash");
+  assert.equal(aiConfig.askModel, process.env.OPENAI_ASK_MODEL || "gpt-5.6-luna");
 });
+
+function isComplexAskQuery(lastUserMsg = "", messages = [], hasStrategyContext = false) {
+  if (hasStrategyContext) return true;
+  const cleanMsg = (lastUserMsg || "").trim();
+  if (cleanMsg.length >= 350) return true;
+
+  const complexPattern = /(hərtərəfli dərin analiz|hərtərəfli analiz|hərtərəfli təhlil|geniş təhlil|rəqib analizi|swot analizi|swot matrisi|audit hesabatı|maliyyə modeli|büdcə bölgüsü|cac\s*\/\s*ltv|tam marketinq planı|daha dərindən düşün|bütün detalları ilə)/i;
+  return complexPattern.test(cleanMsg);
+}
+
+function resolveAskModelRoute({ requestedModel = "auto", lastUserMsg = "", messages = [], hasStrategyContext = false, openAiAvailable = true, geminiAvailable = true }) {
+  const reqModel = (requestedModel || "auto").trim().toLowerCase();
+  const isComplex = isComplexAskQuery(lastUserMsg, messages, hasStrategyContext);
+
+  let routeToFlash = false;
+  if (reqModel === "flash" || reqModel.includes("gemini") || reqModel.includes("3.7")) {
+    routeToFlash = true;
+  } else if (reqModel === "mini" || reqModel.includes("openai") || reqModel.includes("luna") || reqModel.includes("gpt")) {
+    routeToFlash = false;
+  } else {
+    // Auto mode:
+    // Route heavy/complex queries to Gemini 3.7 Flash, small/standard queries to gpt-5.6-luna (Mini)
+    if (isComplex && geminiAvailable) {
+      routeToFlash = true;
+    } else if (!isComplex && openAiAvailable) {
+      routeToFlash = false;
+    } else {
+      routeToFlash = geminiAvailable && !openAiAvailable;
+    }
+  }
+
+  return routeToFlash ? "Flash" : "Mini";
+}
+
+test("simple marketing queries route to gpt-5.6-luna (Mini)", () => {
+  const simpleQueries = [
+    "Mənə qəhvəxana üçün 3 sloqan yaz",
+    "Marketinqdə CTA nədir?",
+    "Instagram üçün qısa bio hazırla",
+    "Salam, necəsən?",
+    "Bu post üçün maraqlı başlıq ver",
+    "TikTok üçün 15 saniyəlik video ideyası",
+    "Email marketinqdə açılma faizi nədir?",
+  ];
+
+  for (const query of simpleQueries) {
+    assert.equal(isComplexAskQuery(query, [{ role: "user", content: query }], false), false, `Query "${query}" should not be complex`);
+    const route = resolveAskModelRoute({
+      requestedModel: "auto",
+      lastUserMsg: query,
+      hasStrategyContext: false,
+      openAiAvailable: true,
+      geminiAvailable: true,
+    });
+    assert.equal(route, "Mini", `Query "${query}" should route to Mini`);
+  }
+});
+
+test("heavy and complex queries route to Gemini 3.7 Flash", () => {
+  const complexQueries = [
+    "Bizim yeni SaaS məhsulumuz üçün hərtərəfli dərin analiz hazırla və bütün riskləri qeyd et",
+    "Rəqib analizi və SWOT matrisi qur",
+    "Marketinq büdcə bölgüsü və CAC / LTV hesabatı hazırla",
+    "Bu ideyanı daha dərindən düşün və geniş təhlil et",
+  ];
+
+  for (const query of complexQueries) {
+    assert.equal(isComplexAskQuery(query, [{ role: "user", content: query }], false), true, `Query "${query}" should be complex`);
+    const route = resolveAskModelRoute({
+      requestedModel: "auto",
+      lastUserMsg: query,
+      hasStrategyContext: false,
+      openAiAvailable: true,
+      geminiAvailable: true,
+    });
+    assert.equal(route, "Flash", `Query "${query}" should route to Flash`);
+  }
+});
+
+test("queries with attached saved strategy context route to Gemini 3.7 Flash", () => {
+  const route = resolveAskModelRoute({
+    requestedModel: "auto",
+    lastUserMsg: "Bunu necə icra edim?",
+    hasStrategyContext: true,
+    openAiAvailable: true,
+    geminiAvailable: true,
+  });
+  assert.equal(route, "Flash");
+});
+
+test("large prompt messages (>=350 chars) route to Gemini 3.7 Flash", () => {
+  const longPrompt = "Biz Azərbaycanda fəaliyyət göstərən B2B loqistika və anbar idarəetmə platformasıyıq. Şirkətimiz kiçik və orta sahibkarlara məhsulların çatdırılması və izlənməsi xidməti təklif edir. Hədəf auditoriyamız e-ticarət mağazaları və pərakəndə satıcılardır. Bazar rəqabəti güclüdür və biz 6 ay ərzində bazar payımızı 15% artırmaq üçün dəqiq hərəkət planı axtarırıq.";
+  assert.ok(longPrompt.length >= 350);
+  assert.equal(isComplexAskQuery(longPrompt, [], false), true);
+
+  const route = resolveAskModelRoute({
+    requestedModel: "auto",
+    lastUserMsg: longPrompt,
+    hasStrategyContext: false,
+    openAiAvailable: true,
+    geminiAvailable: true,
+  });
+  assert.equal(route, "Flash");
+});
+
+test("explicit model parameter overrides auto routing", () => {
+  const miniRoute = resolveAskModelRoute({
+    requestedModel: "mini",
+    lastUserMsg: "Hərtərəfli dərin analiz və rəqib analizi",
+    hasStrategyContext: true,
+  });
+  assert.equal(miniRoute, "Mini");
+
+  const flashRoute = resolveAskModelRoute({
+    requestedModel: "flash",
+    lastUserMsg: "Sloqan yaz",
+    hasStrategyContext: false,
+  });
+  assert.equal(flashRoute, "Flash");
+});
+
