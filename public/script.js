@@ -955,22 +955,10 @@ function renderAsk() {
   form.append(contextMenu, label, input, composerActions);
 
   const helper = element("div", "ask-composer-meta");
-  if (selectedStrategy || state.currentUser?.settings?.personalIntelligence === true) {
+  if (selectedStrategy) {
     const contextPills = element("div", "ask-context-pills");
-    if (selectedStrategy) {
-      const sPill = element("span", "ask-context-pill", `Kontekst: ${selectedStrategy.title}`);
-      contextPills.appendChild(sPill);
-    }
-    if (state.currentUser?.settings?.personalIntelligence === true) {
-      const pBadge = button("⚡ Fərdiləşdirilmiş", "ask-personalization-badge", () => {
-        state.view = "settings";
-        state.settingsTab = "experience";
-        render();
-      });
-      pBadge.type = "button";
-      pBadge.title = "Fərdiləşdirilmiş təcrübə aktivdir. Tənzimləmək üçün klikləyin.";
-      contextPills.appendChild(pBadge);
-    }
+    const sPill = element("span", "ask-context-pill", `Kontekst: ${selectedStrategy.title}`);
+    contextPills.appendChild(sPill);
     helper.appendChild(contextPills);
   }
   const disclaimer = element("p", "ask-disclaimer", "Marketify səhv edə bilər. Məlumatlar informasiya məqsədlidir.");
