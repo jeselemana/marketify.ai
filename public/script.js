@@ -733,82 +733,102 @@ function renderAsk() {
   } else {
     state.askMessages.forEach((message) => {
       const isFreshResponse = message.role === "assistant" && freshAskResponses.has(message);
-      const row = element("article", `ask-message ask-message-${message.role}${isFreshResponse ? " is-fresh" : ""}`);
+      const isStreamingMsg = Boolean(message.isStreaming);
+      const row = element("article", `ask-message ask-message-${message.role}${isFreshResponse ? " is-fresh" : ""}${isStreamingMsg ? " is-streaming" : ""}`);
       const content = element("div", "ask-message-content");
       if (message.role === "assistant") {
-        content.appendChild(renderAskRichText(message.content));
-        const actions = element("div", "ask-message-actions");
-        actions.setAttribute("aria-label", "Cavab əməliyyatları");
-
-        const copy = button("", "ask-response-action ask-response-copy-btn", async () => {
-          const ok = await copyAskResponse(message.content);
-          if (ok) {
-            copy.classList.add("is-copied");
-            copy.title = "Kopyalandı";
-            copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-            setTimeout(() => {
-              copy.classList.remove("is-copied");
-              copy.title = "Kopyala";
-              copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-            }, 1800);
+        if (isStreamingMsg && !message.content) {
+          const thinking = element("div", "ask-thinking");
+          const mark = element("span", "ask-thinking-mark");
+          mark.append(element("i"), element("i"), element("i"));
+          const currentModelName = isAuto ? "Flash" : isFlash ? "Flash" : "Mini";
+          const thinkingLabel = element("span", "ask-thinking-label", `${currentModelName} yazır…`);
+          const dots = element("span", "ask-thinking-dots");
+          dots.append(element("i"), element("i"), element("i"));
+          thinking.append(mark, thinkingLabel, dots);
+          content.appendChild(thinking);
+        } else {
+          content.appendChild(renderAskRichText(message.content));
+          if (isStreamingMsg) {
+            const caret = element("span", "ask-answer-caret is-streaming");
+            content.appendChild(caret);
           }
-        });
-        copy.type = "button";
-        copy.setAttribute("aria-label", "Cavabı kopyala");
-        copy.title = "Kopyala";
-        copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-
-        const share = button("", "ask-response-action ask-response-share-btn", () => shareAskResponse(message.content));
-        share.type = "button";
-        share.setAttribute("aria-label", "Cavabı paylaş");
-        share.title = "Paylaş";
-        share.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg>';
-
-        actions.append(copy, share);
-
-        if (message.model) {
-          const modelName = (message.model === "Flash" || message.model === "flash") ? "Flash" : "Mini";
-          const moreMenu = document.createElement("details");
-          moreMenu.className = "ask-response-more-menu";
-          const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
-          moreTrigger.setAttribute("aria-label", "Model haqqında məlumat");
-          moreTrigger.title = "Model";
-          moreTrigger.innerHTML = `
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-              <circle cx="5" cy="12" r="1.8"></circle>
-              <circle cx="12" cy="12" r="1.8"></circle>
-              <circle cx="19" cy="12" r="1.8"></circle>
-            </svg>
-          `;
-
-          const morePopover = element("div", "ask-response-more-popover");
-          morePopover.innerHTML = `
-            <div class="ask-response-model-row">
-              <span class="ask-response-model-label">Model:</span>
-              <strong class="ask-response-model-name">${modelName}</strong>
-            </div>
-          `;
-          moreMenu.append(moreTrigger, morePopover);
-
-          moreMenu.addEventListener("keydown", (event) => {
-            if (event.key === "Escape") moreMenu.open = false;
-          });
-          const closeMoreMenu = (event) => {
-            if (!moreMenu.contains(event.target)) moreMenu.open = false;
-          };
-          moreMenu.addEventListener("toggle", () => {
-            if (moreMenu.open) setTimeout(() => document.addEventListener("click", closeMoreMenu), 0);
-            else document.removeEventListener("click", closeMoreMenu);
-          });
-
-          actions.appendChild(moreMenu);
         }
 
-        content.appendChild(actions);
-        if (isFreshResponse) {
-          const caret = element("span", "ask-answer-caret");
-          content.appendChild(caret);
-          setTimeout(() => caret.remove(), 900);
+        if (!isStreamingMsg && message.content) {
+          const actions = element("div", "ask-message-actions");
+          actions.setAttribute("aria-label", "Cavab əməliyyatları");
+
+          const copy = button("", "ask-response-action ask-response-copy-btn", async () => {
+            const ok = await copyAskResponse(message.content);
+            if (ok) {
+              copy.classList.add("is-copied");
+              copy.title = "Kopyalandı";
+              copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+              setTimeout(() => {
+                copy.classList.remove("is-copied");
+                copy.title = "Kopyala";
+                copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+              }, 1800);
+            }
+          });
+          copy.type = "button";
+          copy.setAttribute("aria-label", "Cavabı kopyala");
+          copy.title = "Kopyala";
+          copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+
+          const share = button("", "ask-response-action ask-response-share-btn", () => shareAskResponse(message.content));
+          share.type = "button";
+          share.setAttribute("aria-label", "Cavabı paylaş");
+          share.title = "Paylaş";
+          share.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg>';
+
+          actions.append(copy, share);
+
+          if (message.model) {
+            const modelName = (message.model === "Flash" || message.model === "flash") ? "Flash" : "Mini";
+            const moreMenu = document.createElement("details");
+            moreMenu.className = "ask-response-more-menu";
+            const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
+            moreTrigger.setAttribute("aria-label", "Model haqqında məlumat");
+            moreTrigger.title = "Model";
+            moreTrigger.innerHTML = `
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                <circle cx="5" cy="12" r="1.8"></circle>
+                <circle cx="12" cy="12" r="1.8"></circle>
+                <circle cx="19" cy="12" r="1.8"></circle>
+              </svg>
+            `;
+
+            const morePopover = element("div", "ask-response-more-popover");
+            morePopover.innerHTML = `
+              <div class="ask-response-model-row">
+                <span class="ask-response-model-label">Model:</span>
+                <strong class="ask-response-model-name">${modelName}</strong>
+              </div>
+            `;
+            moreMenu.append(moreTrigger, morePopover);
+
+            moreMenu.addEventListener("keydown", (event) => {
+              if (event.key === "Escape") moreMenu.open = false;
+            });
+            const closeMoreMenu = (event) => {
+              if (!moreMenu.contains(event.target)) moreMenu.open = false;
+            };
+            moreMenu.addEventListener("toggle", () => {
+              if (moreMenu.open) setTimeout(() => document.addEventListener("click", closeMoreMenu), 0);
+              else document.removeEventListener("click", closeMoreMenu);
+            });
+
+            actions.appendChild(moreMenu);
+          }
+
+          content.appendChild(actions);
+          if (isFreshResponse) {
+            const caret = element("span", "ask-answer-caret");
+            content.appendChild(caret);
+            setTimeout(() => caret.remove(), 900);
+          }
         }
       } else {
         content.textContent = message.content;
@@ -819,33 +839,6 @@ function renderAsk() {
       row.appendChild(content);
       thread.appendChild(row);
     });
-    if (state.askLoading) {
-      const row = element("article", "ask-message ask-message-assistant is-loading");
-      row.setAttribute("aria-live", "polite");
-      const thinking = element("div", "ask-thinking");
-      const mark = element("span", "ask-thinking-mark");
-      mark.append(element("i"), element("i"), element("i"));
-      const currentModelName = isAuto ? "Auto" : isFlash ? "Flash" : "Mini";
-      const thinkingLabel = element("span", "ask-thinking-label", `${currentModelName} düşünür…`);
-      const dots = element("span", "ask-thinking-dots");
-      dots.append(element("i"), element("i"), element("i"));
-      thinking.append(mark, thinkingLabel, dots);
-      row.appendChild(thinking);
-      thread.appendChild(row);
-      const thinkingPhrases = [`${currentModelName} düşünür…`, "Kontekst nəzərdən keçirilir", "Cavab strukturlaşdırılır", "Yekun cavab hazırlanır"];
-      let thinkingPhase = 0;
-      progressTimer = setInterval(() => {
-        if (!thinkingLabel.isConnected) return clearInterval(progressTimer);
-        thinkingPhase = (thinkingPhase + 1) % thinkingPhrases.length;
-        if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          thinkingLabel.animate(
-            [{ opacity: 0, transform: "translateY(3px)" }, { opacity: 1, transform: "translateY(0)" }],
-            { duration: 180, easing: "ease-out" },
-          );
-        }
-        thinkingLabel.textContent = thinkingPhrases[thinkingPhase];
-      }, 1400);
-    }
   }
 
   if (state.askError) {
@@ -1072,34 +1065,120 @@ function renderAsk() {
   });
 }
 
+function updateActiveAskMessageContent(message) {
+  const activeBubble = document.querySelector(".ask-message.is-streaming .ask-message-content");
+  if (activeBubble) {
+    activeBubble.innerHTML = "";
+    activeBubble.appendChild(renderAskRichText(message.content));
+    const caret = element("span", "ask-answer-caret is-streaming");
+    activeBubble.appendChild(caret);
+    const composerArea = document.querySelector(".ask-composer-area");
+    if (composerArea) composerArea.scrollIntoView({ block: "end" });
+  }
+}
+
 async function submitAskMessage(message) {
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
   state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "" });
+
+  const assistantMsg = {
+    role: "assistant",
+    content: "",
+    model: state.askModel === "mini" ? "Mini" : "Flash",
+    isStreaming: true,
+  };
+  state.askMessages.push(assistantMsg);
   state.askLoading = true;
   state.askError = "";
   trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: state.askModel });
   render();
+
   try {
-    const data = await api("/api/ask", {
+    const response = await fetch("/api/ask", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+      },
       body: JSON.stringify({
-        messages: state.askMessages,
+        messages: state.askMessages.slice(0, -1),
         model: state.askModel,
         strategyId: state.askStrategyId || undefined,
         chatId: state.askChatId || undefined,
+        stream: true,
       }),
     });
-    const response = { role: "assistant", content: data.reply, model: data.model || (state.askModel === "flash" ? "Flash" : "Mini") };
-    freshAskResponses.add(response);
-    state.askMessages.push(response);
-    if (data.chat?.id) {
-      state.askChatId = data.chat.id;
-      loadSavedChats();
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || "Cavabı hazırlamaq mümkün olmadı.");
     }
-    setTimeout(() => freshAskResponses.delete(response), 1000);
+
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("text/event-stream")) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data:")) continue;
+          const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
+          if (!jsonStr) continue;
+
+          try {
+            const data = JSON.parse(jsonStr);
+            if (data.error) throw new Error(data.error);
+
+            if (data.chunk) {
+              assistantMsg.content += data.chunk;
+              if (data.model) assistantMsg.model = data.model;
+              updateActiveAskMessageContent(assistantMsg);
+            }
+
+            if (data.done) {
+              assistantMsg.isStreaming = false;
+              freshAskResponses.add(assistantMsg);
+              if (data.chat?.id) {
+                state.askChatId = data.chat.id;
+                loadSavedChats();
+              }
+              setTimeout(() => freshAskResponses.delete(assistantMsg), 1000);
+            }
+          } catch (parseErr) {
+            if (parseErr.message && !parseErr.message.includes("JSON")) {
+              throw parseErr;
+            }
+          }
+        }
+      }
+    } else {
+      const data = await response.json();
+      assistantMsg.content = data.reply;
+      assistantMsg.model = data.model || assistantMsg.model;
+      assistantMsg.isStreaming = false;
+      freshAskResponses.add(assistantMsg);
+      if (data.chat?.id) {
+        state.askChatId = data.chat.id;
+        loadSavedChats();
+      }
+    }
   } catch (error) {
     state.askError = error.message;
+    if (!assistantMsg.content) {
+      const idx = state.askMessages.indexOf(assistantMsg);
+      if (idx !== -1) state.askMessages.splice(idx, 1);
+    }
   } finally {
+    assistantMsg.isStreaming = false;
     state.askLoading = false;
     render();
   }

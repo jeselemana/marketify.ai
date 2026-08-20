@@ -22,7 +22,7 @@ import { FileChatRepository } from "./src/repositories/file-chat-repository.js";
 import { FilePlannerRepository } from "./src/repositories/file-planner-repository.js";
 import { createPlannerRouter } from "./src/http/planner-router.js";
 import { aiConfig, hasGeminiConfiguration } from "./src/services/ai/config.js";
-import { generateGeminiAskResponse } from "./src/services/ai/gemini-client.js";
+import { generateGeminiAskResponse, generateGeminiAskStreamResponse } from "./src/services/ai/gemini-client.js";
 import { buildPersonalizationContext, getRelevantUserContext } from "./src/services/ai/personal-context.js";
 
 dotenv.config();
@@ -471,6 +471,73 @@ app.post("/api/ask", async (req, res) => {
     } else {
       // Auto mode: default to ultra-fast Gemini 3.7 Flash if available, otherwise OpenAI
       routeToFlash = geminiAvailable;
+    }
+
+    // Real-time SSE streaming for instantaneous Gemini 3.7 response
+    if (req.body.stream === true || req.headers.accept?.includes("text/event-stream")) {
+      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+      let accumulated = "";
+      try {
+        if (routeToFlash && geminiAvailable) {
+          accumulated = await generateGeminiAskStreamResponse({
+            messages,
+            systemInstruction: fullInstructions,
+            model: aiConfig.geminiAskModel,
+            onChunk: (chunk) => {
+              res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
+            },
+          });
+          activeModel = "Flash";
+        } else if (openAiAvailable) {
+          const response = await openai.responses.create({
+            model: ASK_MODEL,
+            instructions: fullInstructions,
+            input: messages.map(({ role, content }) => ({ role, content })),
+            reasoning: { effort: "low" },
+            max_output_tokens: 2500,
+            safety_identifier: askSafetyIdentifier(req.ownerId),
+          });
+          accumulated = response.output_text?.trim() || "";
+          activeModel = "Mini";
+          res.write(`data: ${JSON.stringify({ chunk: accumulated, model: "Mini" })}\n\n`);
+        } else if (geminiAvailable) {
+          accumulated = await generateGeminiAskStreamResponse({
+            messages,
+            systemInstruction: fullInstructions,
+            model: aiConfig.geminiAskModel,
+            onChunk: (chunk) => {
+              res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
+            },
+          });
+          activeModel = "Flash";
+        } else {
+          res.write(`data: ${JSON.stringify({ error: "AI xidməti konfiqurasiya edilməyib." })}\n\n`);
+          return res.end();
+        }
+
+        const updatedMessages = [
+          ...messages,
+          { role: "assistant", content: accumulated, model: activeModel, createdAt: new Date().toISOString() },
+        ];
+        const savedChat = await chatRepository.saveChat({
+          id: chatId || undefined,
+          ownerId: req.ownerId,
+          messages: updatedMessages,
+          strategyId: strategyId || null,
+        });
+
+        res.write(`data: ${JSON.stringify({ done: true, reply: accumulated, model: activeModel, chat: savedChat })}\n\n`);
+        return res.end();
+      } catch (streamErr) {
+        console.error("Ask stream error:", streamErr?.message || streamErr);
+        res.write(`data: ${JSON.stringify({ error: streamErr?.message || "Xəta baş verdi" })}\n\n`);
+        return res.end();
+      }
     }
 
     if (routeToFlash) {

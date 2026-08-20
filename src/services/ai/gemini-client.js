@@ -171,3 +171,115 @@ export async function generateGeminiAskResponse({
 
   return replyText;
 }
+
+/**
+ * Streams an Ask response chunk by chunk using Google's Gemini streamGenerateContent SSE API.
+ */
+export async function generateGeminiAskStreamResponse({
+  messages = [],
+  systemInstruction = "",
+  model = aiConfig.geminiAskModel || "gemini-3.7-flash",
+  apiKey = aiConfig.geminiApiKey || process.env.GEMINI_API_KEY,
+  temperature = 0.6,
+  maxOutputTokens = 2500,
+  signal,
+  onChunk = () => {},
+} = {}) {
+  const rawKey = (apiKey || aiConfig.geminiApiKey || process.env.GEMINI_API_KEY || "") + "";
+  const key = rawKey.trim().replace(/^["']|["']$/g, "").trim();
+  if (!key) {
+    const error = new Error("Canlı serverdə GEMINI_API_KEY mühit dəyişəni (Environment Variable) daxil edilməyib. Zəhmət olmasa hosting panelində GEMINI_API_KEY açarını əlavə edin.");
+    error.code = "AI_NOT_CONFIGURED";
+    error.status = 503;
+    throw error;
+  }
+
+  const contents = formatGeminiContents(messages);
+  if (!contents.length) {
+    const error = new Error("Mesaj daxil edilməyib.");
+    error.code = "INVALID_REQUEST";
+    error.status = 400;
+    throw error;
+  }
+
+  const generationConfig = {
+    temperature,
+    maxOutputTokens,
+  };
+
+  if (model.includes("3.7") || model.includes("flash")) {
+    generationConfig.thinkingConfig = {
+      thinkingLevel: "low",
+    };
+  }
+
+  const payload = {
+    contents,
+    generationConfig,
+  };
+
+  if (systemInstruction && typeof systemInstruction === "string" && systemInstruction.trim()) {
+    payload.systemInstruction = {
+      parts: [{ text: systemInstruction.trim() }],
+    };
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key)}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    const errorMessage = data?.error?.message || `Gemini API xətası (${response.status})`;
+    const error = new Error(errorMessage);
+    error.status = response.status;
+    error.code = response.status === 401 || response.status === 403 ? "AI_AUTH_ERROR" : "GEMINI_ERROR";
+    throw error;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullText = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith("data:")) continue;
+      const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
+      if (!jsonStr || jsonStr === "[DONE]") continue;
+
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const parts = parsed?.candidates?.[0]?.content?.parts || [];
+        for (const p of parts) {
+          if (!p.thought && typeof p.text === "string" && p.text) {
+            fullText += p.text;
+            onChunk(p.text);
+          }
+        }
+      } catch {}
+    }
+  }
+
+  if (!fullText.trim()) {
+    throw new Error("Gemini boş cavab qaytardı.");
+  }
+
+  return fullText.trim();
+}
+

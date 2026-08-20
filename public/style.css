@@ -5515,6 +5515,10 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   animation: ask-caret 420ms step-end 2;
 }
 
+.ask-answer-caret.is-streaming {
+  animation: ask-caret 600ms infinite;
+}
+
 .ask-error {
   display: grid;
   gap: 4px;
