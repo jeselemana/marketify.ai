@@ -725,7 +725,7 @@ function renderAsk() {
 
   if (!state.askMessages.length) {
     const intro = element("div", "ask-intro");
-    const activeModelName = isAuto ? "✨ Auto" : isFlash ? "⚡ Flash" : "✦ Default";
+    const activeModelName = isAuto ? "Auto" : isFlash ? "Flash" : "Default";
     const introBadge = element("div", "ask-intro-model-badge");
     introBadge.innerHTML = `<span class="ask-intro-badge-pill">${activeModelName}</span>`;
     intro.append(
@@ -745,7 +745,7 @@ function renderAsk() {
         actions.setAttribute("aria-label", "Cavab əməliyyatları");
 
         if (message.model) {
-          const modelBadge = element("span", "ask-message-model-pill", (message.model === "Flash" || message.model === "flash") ? "⚡ Flash" : "✦ Default");
+          const modelBadge = element("span", "ask-message-model-pill", (message.model === "Flash" || message.model === "flash") ? "Flash" : "Default");
           modelBadge.title = (message.model === "Flash" || message.model === "flash") ? "Model: Flash" : "Model: Default";
           actions.appendChild(modelBadge);
         }
@@ -896,11 +896,9 @@ function renderAsk() {
   modelMenu.className = "ask-model-menu";
   const modelTrigger = element("summary", "ask-model-trigger");
   modelTrigger.setAttribute("aria-label", "Model seçimi");
-  const triggerIcon = isAuto ? "✨" : isFlash ? "⚡" : "✦";
   const triggerLabel = isAuto ? "Auto" : isFlash ? "Flash" : "Default";
   modelTrigger.title = isAuto ? "Model: Auto (Ağıllı seçim)" : isFlash ? "Model: Flash" : "Model: Default";
   modelTrigger.innerHTML = `
-    <span class="ask-model-trigger-icon">${triggerIcon}</span>
     <span class="ask-model-trigger-label">${triggerLabel}</span>
     <svg class="ask-model-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="6 9 12 15 18 9"></polyline>
@@ -919,19 +917,16 @@ function renderAsk() {
   const modelOptions = [
     {
       id: "auto",
-      icon: "✨",
       name: "Auto",
       desc: "Ağıllı seçim: Sadə suallar üçün Default, mürəkkəb analiz üçün Flash",
     },
     {
       id: "flash",
-      icon: "⚡",
       name: "Flash",
       desc: "Gündəlik və dinamik sorğular üçün sürətli cavablar",
     },
     {
       id: "default",
-      icon: "✦",
       name: "Default",
       desc: "Kiçik həcmli sorğular üçün",
     },
@@ -943,10 +938,7 @@ function renderAsk() {
     item.type = "button";
     item.innerHTML = `
       <div class="ask-model-item-header">
-        <div class="ask-model-item-title-wrap">
-          <span class="ask-model-item-icon">${opt.icon}</span>
-          <strong class="ask-model-item-name">${opt.name}</strong>
-        </div>
+        <strong class="ask-model-item-name">${opt.name}</strong>
       </div>
       <p class="ask-model-item-desc">${opt.desc}</p>
     `;

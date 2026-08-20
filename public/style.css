@@ -5763,9 +5763,9 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
 .ask-model-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   height: 34px;
-  padding: 0 9px 0 8px;
+  padding: 0 10px 0 12px;
   border-radius: 17px;
   background: var(--bg-soft);
   border: 1px solid rgba(20, 27, 42, 0.08);
@@ -5795,13 +5795,9 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   color: var(--accent);
 }
 
-.ask-model-trigger-icon {
-  font-size: 12px;
-  line-height: 1;
-}
-
 .ask-model-trigger-label {
   font-size: 12px;
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
 
@@ -5879,9 +5875,9 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
 
 .ask-model-item {
   display: grid;
-  gap: 2px;
+  gap: 3px;
   width: 100%;
-  padding: 9px 11px;
+  padding: 9px 12px;
   border-radius: 11px;
   background: transparent;
   color: var(--text-primary);
@@ -5908,17 +5904,6 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   gap: 8px;
 }
 
-.ask-model-item-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ask-model-item-icon {
-  font-size: 13px;
-  line-height: 1;
-}
-
 .ask-model-item-name {
   font-size: 13px;
   font-weight: 600;
@@ -5930,26 +5915,12 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   color: var(--accent);
 }
 
-.ask-model-item-tag {
-  font-size: 10px;
-  font-weight: 550;
-  padding: 2px 6px;
-  border-radius: 5px;
-  background: rgba(20, 27, 42, 0.05);
-  color: var(--text-secondary);
-}
-
-.ask-model-item.is-selected .ask-model-item-tag {
-  background: rgba(79, 110, 232, 0.12);
-  color: var(--accent);
-}
-
 .ask-model-item-desc {
   margin: 0;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text-secondary);
-  line-height: 1.35;
-  padding-left: 19px;
+  line-height: 1.4;
+  padding-left: 0;
 }
 
 /* Intro & Message badges */
