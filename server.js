@@ -200,9 +200,10 @@ app.use("/api/strategy", createStrategyRouter(strategyRepository));
 app.use("/api/planner", createPlannerRouter(plannerRepository));
 
 const ASK_MODEL = aiConfig.askModel;
-const ASK_INSTRUCTIONS = `You are Marketify Ask, a precise and helpful AI assistant inside the Marketify workspace.
-Answer the user's question directly in the language they use. Be concise by default, but provide enough context to be useful.
-Use clear structure when it improves comprehension. Never claim to have performed actions, searches, or analysis that you did not perform.
+const ASK_INSTRUCTIONS = `You are Marketify Ask, a precise, fast, and helpful AI assistant inside the Marketify workspace.
+Answer the user's question directly, clearly, and concisely in the language they use.
+Avoid unnecessary preamble, boilerplate introductory phrases, or overly exhaustive breakdowns unless the user specifically asks for deep detail.
+Never claim to have performed actions, searches, or analysis that you did not perform.
 If the user wants to build a complete business or marketing strategy, explain that the Build mode is optimized for the structured strategy workflow, while still answering their immediate question.`;
 
 function askSafetyIdentifier(ownerId) {
@@ -414,7 +415,7 @@ app.post("/api/ask", async (req, res) => {
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
     }
 
-    const requestedModel = (typeof req.body.model === "string" ? req.body.model.trim().toLowerCase() : "") || "flash";
+    const requestedModel = (typeof req.body.model === "string" ? req.body.model.trim().toLowerCase() : "") || "auto";
     const strategyId = typeof req.body.strategyId === "string" ? req.body.strategyId.trim() : "";
     const chatId = typeof req.body.chatId === "string" ? req.body.chatId.trim() : "";
     let selectedStrategy = null;
@@ -452,9 +453,27 @@ app.post("/api/ask", async (req, res) => {
     let reply = "";
     let activeModel = "Flash";
 
-    const wantsFlash = requestedModel === "flash" || requestedModel === "gemini" || requestedModel.includes("flash") || requestedModel.includes("gemini");
+    // Auto routing decision:
+    // Simple / small queries -> Default (gpt-5.6-luna)
+    // Complex queries / strategy archive analysis -> Flash (Gemini 3.7 Flash)
+    const hasStrategyContext = Boolean(selectedStrategy);
+    const lastUserMsg = messages.at(-1)?.content || "";
+    const isComplex = hasStrategyContext ||
+      lastUserMsg.length > 150 ||
+      messages.length >= 4 ||
+      /(analiz|müqayisə|strategiya|hesabla|büdcə|detallı|plan|təhlil|araşdır|izah et|addım|marketinq|seqment|konversiya|cac|ltv|roi|swot|audit|optimizasiya)/i.test(lastUserMsg);
 
-    if (wantsFlash) {
+    let routeToFlash = false;
+    if (requestedModel === "flash" || requestedModel.includes("gemini")) {
+      routeToFlash = true;
+    } else if (requestedModel === "default" || requestedModel.includes("openai") || requestedModel.includes("luna")) {
+      routeToFlash = false;
+    } else {
+      // Auto mode:
+      routeToFlash = isComplex;
+    }
+
+    if (routeToFlash) {
       if (geminiAvailable) {
         reply = await generateGeminiAskResponse({
           messages,
@@ -474,7 +493,7 @@ app.post("/api/ask", async (req, res) => {
         reply = response.output_text?.trim();
         activeModel = "Default";
       } else {
-        return res.status(503).json({ error: "Gemini API konfiqurasiya edilməyib." });
+        return res.status(503).json({ error: "AI xidməti konfiqurasiya edilməyib." });
       }
     } else {
       // Default (OpenAI gpt-5.6-luna)
@@ -497,7 +516,7 @@ app.post("/api/ask", async (req, res) => {
         });
         activeModel = "Flash";
       } else {
-        return res.status(503).json({ error: "OpenAI konfiqurasiya edilməyib." });
+        return res.status(503).json({ error: "AI xidməti konfiqurasiya edilməyib." });
       }
     }
 

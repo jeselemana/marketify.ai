@@ -106,7 +106,7 @@ const state = {
   askLoading: false,
   askError: "",
   askStrategyId: "",
-  askModel: localStorage.getItem("marketify_ask_model") || "flash",
+  askModel: localStorage.getItem("marketify_ask_model") || "auto",
   currentUser: null,
   settingsTab: "account",
   strategyFormat: "blog",
@@ -710,12 +710,14 @@ async function shareAskResponse(content) {
 }
 
 function renderAsk() {
+  const isAuto = state.askModel === "auto";
+  const isFlash = state.askModel === "flash";
+  const isDefault = state.askModel === "default";
   workspace.classList.add("workspace-ask");
   const isChatActive = Boolean(state.askMessages.length || state.askLoading);
   workspace.classList.toggle("has-messages", isChatActive);
   workspace.classList.toggle("is-empty", !isChatActive);
 
-  const isFlash = state.askModel === "flash";
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
   const shell = element("section", `ask-shell${isChatActive ? " has-messages" : " is-empty"}`);
   shell.setAttribute("aria-label", "Ask");
@@ -723,7 +725,7 @@ function renderAsk() {
 
   if (!state.askMessages.length) {
     const intro = element("div", "ask-intro");
-    const activeModelName = isFlash ? "⚡ Flash" : "✦ Default";
+    const activeModelName = isAuto ? "✨ Auto" : isFlash ? "⚡ Flash" : "✦ Default";
     const introBadge = element("div", "ask-intro-model-badge");
     introBadge.innerHTML = `<span class="ask-intro-badge-pill">${activeModelName}</span>`;
     intro.append(
@@ -759,8 +761,8 @@ function renderAsk() {
             }, 1800);
           }
         });
+        copy.type = "button";
         copy.setAttribute("aria-label", "Cavabı kopyala");
-        copy.title = "Kopyala";
         copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Kopyala</span>';
 
         const share = button("", "ask-response-action", () => shareAskResponse(message.content));
@@ -790,7 +792,7 @@ function renderAsk() {
       const thinking = element("div", "ask-thinking");
       const mark = element("span", "ask-thinking-mark");
       mark.append(element("i"), element("i"), element("i"));
-      const currentModelName = isFlash ? "Flash" : "Default";
+      const currentModelName = isAuto ? "Auto" : isFlash ? "Flash" : "Default";
       const thinkingLabel = element("span", "ask-thinking-label", `${currentModelName} düşünür…`);
       const dots = element("span", "ask-thinking-dots");
       dots.append(element("i"), element("i"), element("i"));
@@ -894,10 +896,12 @@ function renderAsk() {
   modelMenu.className = "ask-model-menu";
   const modelTrigger = element("summary", "ask-model-trigger");
   modelTrigger.setAttribute("aria-label", "Model seçimi");
-  modelTrigger.title = isFlash ? "Model: Flash" : "Model: Default";
+  const triggerIcon = isAuto ? "✨" : isFlash ? "⚡" : "✦";
+  const triggerLabel = isAuto ? "Auto" : isFlash ? "Flash" : "Default";
+  modelTrigger.title = isAuto ? "Model: Auto (Ağıllı seçim)" : isFlash ? "Model: Flash" : "Model: Default";
   modelTrigger.innerHTML = `
-    <span class="ask-model-trigger-icon">${isFlash ? "⚡" : "✦"}</span>
-    <span class="ask-model-trigger-label">${isFlash ? "Flash" : "Default"}</span>
+    <span class="ask-model-trigger-icon">${triggerIcon}</span>
+    <span class="ask-model-trigger-label">${triggerLabel}</span>
     <svg class="ask-model-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="6 9 12 15 18 9"></polyline>
     </svg>
@@ -913,6 +917,12 @@ function renderAsk() {
   const modelList = element("div", "ask-model-list");
 
   const modelOptions = [
+    {
+      id: "auto",
+      icon: "✨",
+      name: "Auto",
+      desc: "Ağıllı seçim: Sadə suallar üçün Default, mürəkkəb analiz üçün Flash",
+    },
     {
       id: "flash",
       icon: "⚡",
