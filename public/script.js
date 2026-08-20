@@ -1120,43 +1120,61 @@ async function submitAskMessage(message) {
       const decoder = new TextDecoder();
       let buffer = "";
 
+      const processEvent = (jsonStr) => {
+        if (!jsonStr) return;
+        try {
+          const data = JSON.parse(jsonStr);
+          if (data.error) throw new Error(data.error);
+
+          if (data.chunk) {
+            assistantMsg.content += data.chunk;
+            if (data.model) assistantMsg.model = data.model;
+            updateActiveAskMessageContent(assistantMsg);
+          }
+
+          if (data.done) {
+            if (data.reply && (!assistantMsg.content || assistantMsg.content.length < data.reply.length)) {
+              assistantMsg.content = data.reply;
+              updateActiveAskMessageContent(assistantMsg);
+            }
+            assistantMsg.isStreaming = false;
+            freshAskResponses.add(assistantMsg);
+            if (data.chat?.id) {
+              state.askChatId = data.chat.id;
+              loadSavedChats();
+            }
+            setTimeout(() => freshAskResponses.delete(assistantMsg), 1000);
+          }
+        } catch (parseErr) {
+          if (parseErr.message && !parseErr.message.includes("JSON")) {
+            throw parseErr;
+          }
+        }
+      };
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
+        const lines = buffer.split(/\r?\n/);
         buffer = lines.pop() || "";
 
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith("data:")) continue;
           const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
-          if (!jsonStr) continue;
+          processEvent(jsonStr);
+        }
+      }
 
-          try {
-            const data = JSON.parse(jsonStr);
-            if (data.error) throw new Error(data.error);
-
-            if (data.chunk) {
-              assistantMsg.content += data.chunk;
-              if (data.model) assistantMsg.model = data.model;
-              updateActiveAskMessageContent(assistantMsg);
-            }
-
-            if (data.done) {
-              assistantMsg.isStreaming = false;
-              freshAskResponses.add(assistantMsg);
-              if (data.chat?.id) {
-                state.askChatId = data.chat.id;
-                loadSavedChats();
-              }
-              setTimeout(() => freshAskResponses.delete(assistantMsg), 1000);
-            }
-          } catch (parseErr) {
-            if (parseErr.message && !parseErr.message.includes("JSON")) {
-              throw parseErr;
-            }
+      if (buffer.trim()) {
+        const lines = buffer.split(/\r?\n/);
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("data:")) {
+            const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
+            processEvent(jsonStr);
           }
         }
       }

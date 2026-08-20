@@ -44,7 +44,7 @@ export async function generateGeminiAskResponse({
   model = aiConfig.geminiAskModel || "gemini-3.7-flash",
   apiKey = aiConfig.geminiApiKey || process.env.GEMINI_API_KEY,
   temperature = 0.6,
-  maxOutputTokens = 2500,
+  maxOutputTokens = 8192,
   signal,
 } = {}) {
   const rawKey = (apiKey || aiConfig.geminiApiKey || process.env.GEMINI_API_KEY || "") + "";
@@ -181,7 +181,7 @@ export async function generateGeminiAskStreamResponse({
   model = aiConfig.geminiAskModel || "gemini-3.7-flash",
   apiKey = aiConfig.geminiApiKey || process.env.GEMINI_API_KEY,
   temperature = 0.6,
-  maxOutputTokens = 2500,
+  maxOutputTokens = 8192,
   signal,
   onChunk = () => {},
 } = {}) {
@@ -249,30 +249,45 @@ export async function generateGeminiAskStreamResponse({
   let buffer = "";
   let fullText = "";
 
+  const processChunk = (chunkJson) => {
+    if (!chunkJson || chunkJson === "[DONE]") return;
+    try {
+      const parsed = JSON.parse(chunkJson);
+      const parts = parsed?.candidates?.[0]?.content?.parts || [];
+      for (const p of parts) {
+        if (!p.thought && typeof p.text === "string" && p.text) {
+          fullText += p.text;
+          onChunk(p.text);
+        }
+      }
+    } catch {}
+  };
+
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
+    const lines = buffer.split(/\r?\n/);
     buffer = lines.pop() || "";
 
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed || !trimmed.startsWith("data:")) continue;
       const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
-      if (!jsonStr || jsonStr === "[DONE]") continue;
+      processChunk(jsonStr);
+    }
+  }
 
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const parts = parsed?.candidates?.[0]?.content?.parts || [];
-        for (const p of parts) {
-          if (!p.thought && typeof p.text === "string" && p.text) {
-            fullText += p.text;
-            onChunk(p.text);
-          }
-        }
-      } catch {}
+  // Process any remaining buffer data
+  if (buffer.trim()) {
+    const lines = buffer.split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("data:")) {
+        const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
+        processChunk(jsonStr);
+      }
     }
   }
 
