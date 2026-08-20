@@ -5270,10 +5270,30 @@ function checkPrivacyPolicyBanner() {
   });
 }
 
+function initializeAnnouncementBar() {
+  const bar = document.querySelector("#topAnnouncementBar");
+  const closeBtn = document.querySelector("#topAnnouncementClose");
+  if (!bar || !closeBtn) return;
+  if (localStorage.getItem("marketify_gemini_announcement_dismissed") === "true") {
+    bar.hidden = true;
+  }
+  closeBtn.addEventListener("click", () => {
+    bar.style.opacity = "0";
+    bar.style.transform = "translateY(-4px)";
+    setTimeout(() => {
+      bar.hidden = true;
+    }, 150);
+    try {
+      localStorage.setItem("marketify_gemini_announcement_dismissed", "true");
+    } catch {}
+  });
+}
+
 initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
   resumeBackgroundJobs();
   render();
+  initializeAnnouncementBar();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks(), loadUsageStats()]);
   if (window.location.hash === "#terms" || window.location.pathname === "/terms") {
     openLegalModal("terms");
