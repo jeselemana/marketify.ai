@@ -21,8 +21,8 @@ import { FileStrategyRepository } from "./src/repositories/file-strategy-reposit
 import { FileChatRepository } from "./src/repositories/file-chat-repository.js";
 import { FilePlannerRepository } from "./src/repositories/file-planner-repository.js";
 import { createPlannerRouter } from "./src/http/planner-router.js";
-import { aiConfig, hasGeminiConfiguration } from "./src/services/ai/config.js";
-import { generateGeminiAskResponse, generateGeminiAskStreamResponse } from "./src/services/ai/gemini-client.js";
+import { aiConfig } from "./src/services/ai/config.js";
+import { routeAskModel } from "./src/services/ai/ask-routing.js";
 import { buildPersonalizationContext, getRelevantUserContext } from "./src/services/ai/personal-context.js";
 
 dotenv.config();
@@ -371,7 +371,6 @@ app.post("/api/legal-report", async (req, res) => {
 });
 
 
-const ASK_MODEL = aiConfig.askModel;
 const ASK_INSTRUCTIONS = `You are Marketify Ask, a precise, fast, and helpful AI assistant inside the Marketify workspace.
 Answer the user's question directly, clearly, and concisely in the language they use.
 Avoid unnecessary preamble, boilerplate introductory phrases, or overly exhaustive breakdowns unless the user specifically asks for deep detail.
@@ -563,17 +562,15 @@ app.delete("/api/ask/chats/:id", async (req, res) => {
 
 app.post("/api/ask", async (req, res) => {
   try {
-    const geminiAvailable = hasGeminiConfiguration();
     const openAiAvailable = Boolean(openai);
 
-    if (!geminiAvailable && !openAiAvailable) {
+    if (!openAiAvailable) {
       return res.status(503).json({ error: "AI xidməti hələ konfiqurasiya edilməyib." });
     }
 
     const messages = Array.isArray(req.body.messages)
       ? req.body.messages
-          // Keep the server-side window aligned with the Gemini request window.
-          .slice(-(aiConfig.geminiAskHistoryMessages || 8))
+          .slice(-(aiConfig.askHistoryMessages || 8))
           .filter((message) => ["user", "assistant"].includes(message?.role) && typeof message?.content === "string")
           .map((message) => ({
             role: message.role,
@@ -624,29 +621,46 @@ app.post("/api/ask", async (req, res) => {
 
     const fullInstructions = `${ASK_INSTRUCTIONS}${strategyContext}${personalizationContext}`;
     let reply = "";
-    let activeModel = "Flash";
+    const routeToTerra = routeAskModel({
+      requestedModel,
+      messages,
+      hasStrategyContext: Boolean(selectedStrategy),
+    }) === "terra";
+    const selectedApiModel = routeToTerra ? aiConfig.askTerraModel : aiConfig.askMiniModel;
+    const activeModel = routeToTerra ? "Marketify AI" : "Mini";
 
-    // Auto routing decision:
-    // Simple / small queries -> Mini (gpt-5.6-luna)
-    // Complex queries / strategy archive analysis -> Flash (Gemini 3.7 Flash)
-    const hasStrategyContext = Boolean(selectedStrategy);
-    const lastUserMsg = messages.at(-1)?.content || "";
-    const isComplex = hasStrategyContext ||
-      lastUserMsg.length > 150 ||
-      messages.length >= 4 ||
-      /(analiz|müqayisə|strategiya|hesabla|büdcə|detallı|plan|təhlil|araşdır|izah et|addım|marketinq|seqment|konversiya|cac|ltv|roi|swot|audit|optimizasiya)/i.test(lastUserMsg);
+    const replacementIndex = Number.isInteger(req.body.replaceAssistantIndex)
+      ? req.body.replaceAssistantIndex
+      : -1;
+    const persistedMessages = Array.isArray(req.body.persistMessages)
+      ? req.body.persistMessages
+          .slice(0, 100)
+          .filter((message) => ["user", "assistant"].includes(message?.role) && typeof message?.content === "string")
+          .map((message) => ({
+            role: message.role,
+            content: message.content.trim().slice(0, 5000),
+            strategyTitle: typeof message.strategyTitle === "string" ? message.strategyTitle : undefined,
+            model: typeof message.model === "string" ? message.model : undefined,
+            createdAt: typeof message.createdAt === "string" ? message.createdAt : undefined,
+          }))
+      : null;
 
-    let routeToFlash = false;
-    if (requestedModel === "flash" || requestedModel.includes("gemini")) {
-      routeToFlash = true;
-    } else if (requestedModel === "mini" || requestedModel.includes("openai") || requestedModel.includes("luna")) {
-      routeToFlash = false;
-    } else {
-      // Auto mode: default to ultra-fast Gemini 3.7 Flash if available, otherwise OpenAI
-      routeToFlash = geminiAvailable;
-    }
+    const buildSavedMessages = (content) => {
+      const assistantMessage = {
+        role: "assistant",
+        content,
+        model: activeModel,
+        createdAt: new Date().toISOString(),
+      };
+      if (persistedMessages && replacementIndex >= 0 && persistedMessages[replacementIndex]?.role === "assistant") {
+        const replaced = [...persistedMessages];
+        replaced[replacementIndex] = assistantMessage;
+        return replaced;
+      }
+      return [...messages, assistantMessage];
+    };
 
-    // Real-time SSE streaming for instantaneous Gemini 3.7 & OpenAI response
+    // A single Responses API stream keeps generation consistent for every user.
     if (req.body.stream === true || req.headers.accept?.includes("text/event-stream")) {
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -659,66 +673,23 @@ app.post("/api/ask", async (req, res) => {
 
       let accumulated = "";
       try {
-        if (routeToFlash && geminiAvailable) {
-          accumulated = await generateGeminiAskStreamResponse({
-            messages,
-            systemInstruction: fullInstructions,
-            model: aiConfig.geminiAskModel,
-            onChunk: (chunk) => {
-              res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
-            },
-          });
-          activeModel = "Flash";
-        } else if (openAiAvailable) {
-          try {
-            const stream = await openai.chat.completions.create({
-              model: ASK_MODEL,
-              messages: [
-                { role: "system", content: fullInstructions },
-                ...messages.map(({ role, content }) => ({ role, content })),
-              ],
-              stream: true,
-              max_tokens: 3000,
-            });
-            activeModel = "Mini";
-            for await (const part of stream) {
-              const chunkText = part.choices[0]?.delta?.content || "";
-              if (chunkText) {
-                accumulated += chunkText;
-                res.write(`data: ${JSON.stringify({ chunk: chunkText, model: "Mini" })}\n\n`);
-              }
-            }
-          } catch (streamFailErr) {
-            const response = await openai.responses.create({
-              model: ASK_MODEL,
-              instructions: fullInstructions,
-              input: messages.map(({ role, content }) => ({ role, content })),
-              max_output_tokens: 2500,
-              safety_identifier: askSafetyIdentifier(req.ownerId),
-            });
-            accumulated = response.output_text?.trim() || "";
-            activeModel = "Mini";
-            res.write(`data: ${JSON.stringify({ chunk: accumulated, model: "Mini" })}\n\n`);
-          }
-        } else if (geminiAvailable) {
-          accumulated = await generateGeminiAskStreamResponse({
-            messages,
-            systemInstruction: fullInstructions,
-            model: aiConfig.geminiAskModel,
-            onChunk: (chunk) => {
-              res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
-            },
-          });
-          activeModel = "Flash";
-        } else {
-          res.write(`data: ${JSON.stringify({ error: "AI xidməti konfiqurasiya edilməyib." })}\n\n`);
-          return res.end();
+        const stream = await openai.responses.create({
+          model: selectedApiModel,
+          instructions: fullInstructions,
+          input: messages.map(({ role, content }) => ({ role, content })),
+          stream: true,
+          max_output_tokens: aiConfig.askMaxOutputTokens,
+          safety_identifier: askSafetyIdentifier(req.ownerId),
+        });
+        for await (const event of stream) {
+          if (event.type !== "response.output_text.delta" || !event.delta) continue;
+          accumulated += event.delta;
+          res.write(`data: ${JSON.stringify({ chunk: event.delta, model: activeModel })}\n\n`);
         }
 
-        const updatedMessages = [
-          ...messages,
-          { role: "assistant", content: accumulated, model: activeModel, createdAt: new Date().toISOString() },
-        ];
+        if (!accumulated.trim()) throw new Error("Ask mode returned an empty response.");
+
+        const updatedMessages = buildSavedMessages(accumulated);
         const savedChat = await chatRepository.saveChat({
           id: chatId || undefined,
           ownerId: req.ownerId,
@@ -735,89 +706,19 @@ app.post("/api/ask", async (req, res) => {
       }
     }
 
-    if (routeToFlash) {
-      if (geminiAvailable) {
-        try {
-          reply = await generateGeminiAskResponse({
-            messages,
-            systemInstruction: fullInstructions,
-            model: aiConfig.geminiAskModel,
-          });
-          activeModel = "Flash";
-        } catch (geminiErr) {
-          if (openAiAvailable) {
-            const response = await openai.responses.create({
-              model: ASK_MODEL,
-              instructions: fullInstructions,
-              input: messages.map(({ role, content }) => ({ role, content })),
-              reasoning: { effort: "low" },
-              max_output_tokens: 2500,
-              safety_identifier: askSafetyIdentifier(req.ownerId),
-            });
-            reply = response.output_text?.trim();
-            activeModel = "Mini";
-          } else {
-            throw geminiErr;
-          }
-        }
-      } else if (openAiAvailable) {
-        const response = await openai.responses.create({
-          model: ASK_MODEL,
-          instructions: fullInstructions,
-          input: messages.map(({ role, content }) => ({ role, content })),
-          reasoning: { effort: "low" },
-          max_output_tokens: 2500,
-          safety_identifier: askSafetyIdentifier(req.ownerId),
-        });
-        reply = response.output_text?.trim();
-        activeModel = "Mini";
-      } else {
-        return res.status(503).json({ error: "AI xidməti konfiqurasiya edilməyib." });
-      }
-    } else {
-      // Mini (OpenAI)
-      if (openAiAvailable) {
-        try {
-          const response = await openai.responses.create({
-            model: ASK_MODEL,
-            instructions: fullInstructions,
-            input: messages.map(({ role, content }) => ({ role, content })),
-            reasoning: { effort: "low" },
-            max_output_tokens: 2500,
-            safety_identifier: askSafetyIdentifier(req.ownerId),
-          });
-          reply = response.output_text?.trim();
-          activeModel = "Mini";
-        } catch (openAiErr) {
-          if (geminiAvailable) {
-            reply = await generateGeminiAskResponse({
-              messages,
-              systemInstruction: fullInstructions,
-              model: aiConfig.geminiAskModel,
-            });
-            activeModel = "Flash";
-          } else {
-            throw openAiErr;
-          }
-        }
-      } else if (geminiAvailable) {
-        reply = await generateGeminiAskResponse({
-          messages,
-          systemInstruction: fullInstructions,
-          model: aiConfig.geminiAskModel,
-        });
-        activeModel = "Flash";
-      } else {
-        return res.status(503).json({ error: "AI xidməti konfiqurasiya edilməyib." });
-      }
-    }
+    const response = await openai.responses.create({
+      model: selectedApiModel,
+      instructions: fullInstructions,
+      input: messages.map(({ role, content }) => ({ role, content })),
+      reasoning: { effort: "low" },
+      max_output_tokens: aiConfig.askMaxOutputTokens,
+      safety_identifier: askSafetyIdentifier(req.ownerId),
+    });
+    reply = response.output_text?.trim();
 
     if (!reply) throw new Error("Ask mode returned an empty response.");
 
-    const updatedMessages = [
-      ...messages,
-      { role: "assistant", content: reply, model: activeModel, createdAt: new Date().toISOString() },
-    ];
+    const updatedMessages = buildSavedMessages(reply);
     const savedChat = await chatRepository.saveChat({
       id: chatId || undefined,
       ownerId: req.ownerId,

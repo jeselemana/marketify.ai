@@ -106,7 +106,7 @@ const state = {
   askLoading: false,
   askError: "",
   askStrategyId: "",
-  askModel: localStorage.getItem("marketify_ask_model") || "auto",
+  askModel: "auto",
   currentUser: null,
   settingsTab: "account",
   strategyFormat: "blog",
@@ -711,8 +711,8 @@ async function shareAskResponse(content) {
 
 function renderAsk() {
   const isAuto = state.askModel === "auto" || !state.askModel;
-  const isFlash = state.askModel === "flash";
-  const isMini = state.askModel === "mini" || state.askModel === "default";
+  const isMarketify = state.askModel === "marketify";
+  const isMini = state.askModel === "mini";
   workspace.classList.add("workspace-ask");
   const isChatActive = Boolean(state.askMessages.length || state.askLoading);
   workspace.classList.toggle("has-messages", isChatActive);
@@ -745,8 +745,8 @@ function renderAsk() {
               <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
             </svg>
           `;
-          const currentModelName = isAuto ? "Flash" : isFlash ? "Flash" : "Mini";
-          const thinkingLabel = element("span", "ask-thinking-label", `${currentModelName} düşünür`);
+          const thinkingModelName = message.model || (isMini ? "Mini" : isMarketify ? "Marketify AI" : "Marketify");
+          const thinkingLabel = element("span", "ask-thinking-label", `${thinkingModelName} düşünür`);
           const dots = element("span", "ask-thinking-dots");
           dots.append(element("i"), element("i"), element("i"));
           thinking.append(iconWrap, thinkingLabel, dots);
@@ -789,11 +789,7 @@ function renderAsk() {
 
           actions.append(copy, share);
 
-          const modelName = (message.model === "Flash" || message.model === "flash")
-            ? "Flash"
-            : (message.model === "mini" || message.model === "Mini")
-            ? "Mini"
-            : (message.model || (state.askModel === "mini" ? "Mini" : "Flash"));
+          const modelName = message.model === "Mini" || message.model === "mini" ? "Mini" : "Marketify AI";
 
           const moreMenu = document.createElement("details");
           moreMenu.className = "ask-response-more-menu";
@@ -818,6 +814,25 @@ function renderAsk() {
 
           const divider = element("div", "ask-response-popover-divider");
 
+          let thinkDeeperBtn = null;
+          if (modelName === "Mini") {
+            thinkDeeperBtn = button("", "ask-response-popover-item ask-think-deeper-btn", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              moreMenu.open = false;
+              regenerateAskMessageDeeper(message);
+            });
+            thinkDeeperBtn.type = "button";
+            thinkDeeperBtn.disabled = state.askLoading;
+            thinkDeeperBtn.innerHTML = `
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3a6 6 0 0 0-4.8 9.6L6 17h4l2 4 2-4h4l-1.2-4.4A6 6 0 0 0 12 3Z"/>
+                <path d="M9.5 9.5h5M12 7v5"/>
+              </svg>
+              <span>Daha dərindən düşün</span>
+            `;
+          }
+
           const reportBtn = button("", "ask-response-popover-item ask-report-legal-btn", (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -837,7 +852,9 @@ function renderAsk() {
             <span>Hüquqi problem bildir</span>
           `;
 
-          morePopover.append(modelRow, divider, reportBtn);
+          morePopover.append(modelRow, divider);
+          if (thinkDeeperBtn) morePopover.appendChild(thinkDeeperBtn);
+          morePopover.appendChild(reportBtn);
           moreMenu.append(moreTrigger, morePopover);
 
           moreMenu.addEventListener("keydown", (event) => {
@@ -947,81 +964,16 @@ function renderAsk() {
     else document.removeEventListener("click", closeContextMenu);
   });
 
-  // Model selector dropdown (Send düyməsinin solunda)
-  const modelMenu = document.createElement("details");
+  // Model routing is automatic; the interface intentionally exposes no manual choice.
+  const modelMenu = document.createElement("div");
   modelMenu.className = "ask-model-menu";
-  const modelTrigger = element("summary", "ask-model-trigger");
-  modelTrigger.setAttribute("aria-label", "Model seçimi");
-  const triggerLabel = isAuto ? "Auto" : isFlash ? "Flash" : "Mini";
-  modelTrigger.title = isAuto ? "Model: Auto (Ağıllı seçim)" : isFlash ? "Model: Flash" : "Model: Mini";
+  const modelTrigger = element("span", "ask-model-trigger");
+  modelTrigger.setAttribute("aria-label", "Avtomatik model seçimi");
+  modelTrigger.title = "Model: Auto";
   modelTrigger.innerHTML = `
-    <span class="ask-model-trigger-label">${triggerLabel}</span>
-    <svg class="ask-model-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="6 9 12 15 18 9"></polyline>
-    </svg>
+    <span class="ask-model-trigger-label">Auto</span>
   `;
-
-  const modelPopover = element("div", "ask-model-popover");
-  const modelPopoverHeader = element("div", "ask-model-popover-header");
-  modelPopoverHeader.innerHTML = `
-    <span class="ask-model-popover-title">Model Seçimi</span>
-  `;
-  modelPopover.appendChild(modelPopoverHeader);
-
-  const modelList = element("div", "ask-model-list");
-
-  const modelOptions = [
-    {
-      id: "auto",
-      name: "Auto",
-      desc: "Sualın mürəkkəbliyinə uyğun modeli avtomatik təyin edir",
-    },
-    {
-      id: "flash",
-      name: "Flash",
-      desc: "Sürət & Performans",
-    },
-    {
-      id: "mini",
-      name: "Mini",
-      desc: "Kiçik həcmli sorğular üçün",
-    },
-  ];
-
-  modelOptions.forEach((opt) => {
-    const isSelected = state.askModel === opt.id || (opt.id === "mini" && state.askModel === "default") || (opt.id === "auto" && !state.askModel);
-    const item = button("", `ask-model-item${isSelected ? " is-selected" : ""}`);
-    item.type = "button";
-    item.innerHTML = `
-      <div class="ask-model-item-header">
-        <strong class="ask-model-item-name">${opt.name}</strong>
-      </div>
-      <p class="ask-model-item-desc">${opt.desc}</p>
-    `;
-    item.addEventListener("click", () => {
-      state.askModel = opt.id;
-      try {
-        localStorage.setItem("marketify_ask_model", opt.id);
-      } catch {}
-      modelMenu.open = false;
-      render();
-    });
-    modelList.appendChild(item);
-  });
-
-  modelPopover.appendChild(modelList);
-  modelMenu.append(modelTrigger, modelPopover);
-
-  modelMenu.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") modelMenu.open = false;
-  });
-  const closeModelMenu = (event) => {
-    if (!modelMenu.contains(event.target)) modelMenu.open = false;
-  };
-  modelMenu.addEventListener("toggle", () => {
-    if (modelMenu.open) setTimeout(() => document.addEventListener("click", closeModelMenu), 0);
-    else document.removeEventListener("click", closeModelMenu);
-  });
+  modelMenu.appendChild(modelTrigger);
 
   const form = element("form", "ask-composer");
   const label = element("label", "sr-only", "Ask sualı");
@@ -1103,6 +1055,7 @@ class LiveTypewriter {
     this.onComplete = onComplete;
     this.rafId = null;
     this.isDone = false;
+    this.lastFrameAt = 0;
   }
 
   append(chunk) {
@@ -1123,21 +1076,27 @@ class LiveTypewriter {
     }
   }
 
-  tick() {
+  tick(timestamp = performance.now()) {
     this.rafId = null;
     const remaining = this.targetText.length - this.currentText.length;
 
     if (remaining > 0) {
+      // Keep a human, readable cadence while avoiding a complete markdown DOM
+      // rebuild on every animation frame.
+      if (timestamp - this.lastFrameAt < 24) {
+        this.rafId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
+        return;
+      }
+      this.lastFrameAt = timestamp;
       const charsToType = Math.min(
         remaining,
-        remaining > 100 ? Math.ceil(remaining / 4) :
-        remaining > 40 ? Math.ceil(remaining / 6) :
-        remaining > 15 ? 3 :
-        remaining > 5 ? 2 : 1
+        remaining > 180 ? 14 :
+        remaining > 80 ? 8 :
+        remaining > 30 ? 4 : 2
       );
       this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
       this.onUpdate(this.currentText, false);
-      this.rafId = requestAnimationFrame(() => this.tick());
+      this.rafId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
     } else if (this.isDone) {
       this.currentText = this.targetText;
       this.onUpdate(this.currentText, true);
@@ -1169,20 +1128,47 @@ function updateActiveAskMessageContent(message, showCaret = true) {
   }
 }
 
-async function submitAskMessage(message) {
-  const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
-  state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "" });
+function regenerateAskMessageDeeper(message) {
+  if (state.askLoading || message?.role !== "assistant" || message?.model !== "Mini") return;
+  submitAskMessage("", { forceModel: "marketify", replaceMessage: message });
+}
 
-  const assistantMsg = {
-    role: "assistant",
-    content: "",
-    model: state.askModel === "mini" ? "Mini" : "Flash",
-    isStreaming: true,
-  };
-  state.askMessages.push(assistantMsg);
+async function submitAskMessage(message, { forceModel = "", replaceMessage = null } = {}) {
+  const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
+  const replaceAssistantIndex = replaceMessage ? state.askMessages.indexOf(replaceMessage) : -1;
+  const isRegeneration = replaceAssistantIndex > 0 && state.askMessages[replaceAssistantIndex - 1]?.role === "user";
+  const persistedMessages = isRegeneration
+    ? state.askMessages.map(({ isStreaming, ...savedMessage }) => ({ ...savedMessage }))
+    : null;
+  const originalAssistant = isRegeneration
+    ? { content: replaceMessage.content, model: replaceMessage.model }
+    : null;
+
+  let assistantMsg;
+  let requestMessages;
+  if (isRegeneration) {
+    assistantMsg = replaceMessage;
+    assistantMsg.content = "";
+    assistantMsg.model = "Marketify AI";
+    assistantMsg.isStreaming = true;
+    requestMessages = state.askMessages.slice(0, replaceAssistantIndex);
+  } else {
+    state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "" });
+    assistantMsg = {
+      role: "assistant",
+      content: "",
+      model: state.askModel === "mini" ? "Mini" : "",
+      isStreaming: true,
+    };
+    state.askMessages.push(assistantMsg);
+    requestMessages = state.askMessages.slice(0, -1);
+  }
   state.askLoading = true;
   state.askError = "";
-  trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: state.askModel });
+  trackEvent(isRegeneration ? "ask_think_deeper" : "ask_message_sent", {
+    messageCount: state.askMessages.length,
+    model: forceModel || state.askModel,
+  });
   render();
 
   try {
@@ -1193,10 +1179,12 @@ async function submitAskMessage(message) {
         "Accept": "text/event-stream",
       },
       body: JSON.stringify({
-        messages: state.askMessages.slice(0, -1),
-        model: state.askModel,
+        messages: requestMessages,
+        model: forceModel || state.askModel,
         strategyId: state.askStrategyId || undefined,
         chatId: state.askChatId || undefined,
+        persistMessages: persistedMessages || undefined,
+        replaceAssistantIndex: isRegeneration ? replaceAssistantIndex : undefined,
         stream: true,
       }),
     });
@@ -1292,7 +1280,10 @@ async function submitAskMessage(message) {
     }
   } catch (error) {
     state.askError = error.message;
-    if (!assistantMsg.content) {
+    if (isRegeneration && originalAssistant) {
+      assistantMsg.content = originalAssistant.content;
+      assistantMsg.model = originalAssistant.model;
+    } else if (!assistantMsg.content) {
       const idx = state.askMessages.indexOf(assistantMsg);
       if (idx !== -1) state.askMessages.splice(idx, 1);
     }
@@ -2048,7 +2039,7 @@ function showLoadingAskModal(initialQuery) {
         },
         body: JSON.stringify({
           messages: thread,
-          model: state.askModel || "flash",
+          model: "marketify",
           chatId: state.askChatId || undefined,
           stream: true,
         }),
@@ -2098,7 +2089,7 @@ function showLoadingAskModal(initialQuery) {
         }
       }
       if (buffer.trim()) processEvent(buffer);
-      if (!reply) throw new Error("Gemini boş cavab qaytardı.");
+      if (!reply) throw new Error("Marketify AI boş cavab qaytardı.");
       renderReply();
       thread.push({ role: "assistant", content: reply });
     } catch (err) {
