@@ -889,47 +889,60 @@ function renderAsk() {
     else document.removeEventListener("click", closeContextMenu);
   });
 
-  // Model selector dropdown
+  // Model selector dropdown (Send düyməsinin solunda)
   const modelMenu = document.createElement("details");
   modelMenu.className = "ask-model-menu";
   const modelTrigger = element("summary", "ask-model-trigger");
   modelTrigger.setAttribute("aria-label", "Model seçimi");
   modelTrigger.title = isFlash ? "Model: Flash (Gemini 3.7)" : "Model: Default (GPT-5.6)";
   modelTrigger.innerHTML = `
-    <span class="ask-model-trigger-label">${isFlash ? "⚡ Flash" : "✦ Default"}</span>
-    <svg class="ask-model-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <span class="ask-model-trigger-icon">${isFlash ? "⚡" : "✦"}</span>
+    <span class="ask-model-trigger-label">${isFlash ? "Flash" : "Default"}</span>
+    <svg class="ask-model-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="6 9 12 15 18 9"></polyline>
     </svg>
   `;
 
   const modelPopover = element("div", "ask-model-popover");
-  modelPopover.appendChild(element("strong", "ask-model-popover-title", "Model seçimi"));
+  const modelPopoverHeader = element("div", "ask-model-popover-header");
+  modelPopoverHeader.innerHTML = `
+    <span class="ask-model-popover-title">Model Seçimi</span>
+    <span class="ask-model-popover-badge">2 model</span>
+  `;
+  modelPopover.appendChild(modelPopoverHeader);
+
   const modelList = element("div", "ask-model-list");
 
   const modelOptions = [
     {
       id: "flash",
-      name: "⚡ Flash",
+      icon: "⚡",
+      name: "Flash",
       badge: "Gemini 3.7",
       desc: "Google Gemini 3.7 Flash — ultra sürətli və çevik",
     },
     {
       id: "default",
-      name: "✦ Default",
+      icon: "✦",
+      name: "Default",
       badge: "GPT-5.6",
       desc: "OpenAI GPT-5.6 Luna — analitik və dərin",
     },
   ];
 
   modelOptions.forEach((opt) => {
-    const item = button("", `ask-model-item${state.askModel === opt.id ? " is-selected" : ""}`);
+    const isSelected = state.askModel === opt.id;
+    const item = button("", `ask-model-item${isSelected ? " is-selected" : ""}`);
     item.type = "button";
     item.innerHTML = `
       <div class="ask-model-item-header">
-        <span class="ask-model-item-name">${opt.name}</span>
-        <span class="ask-model-item-badge">${opt.badge}</span>
+        <div class="ask-model-item-title-wrap">
+          <span class="ask-model-item-icon">${opt.icon}</span>
+          <strong class="ask-model-item-name">${opt.name}</strong>
+        </div>
+        <span class="ask-model-item-tag">${opt.badge}</span>
       </div>
-      <small class="ask-model-item-desc">${opt.desc}</small>
+      <p class="ask-model-item-desc">${opt.desc}</p>
     `;
     item.addEventListener("click", () => {
       state.askModel = opt.id;
@@ -966,16 +979,22 @@ function renderAsk() {
   input.maxLength = 8000;
   input.placeholder = "Marketify-dən soruş…";
   input.disabled = state.askLoading;
+
   const submit = button("", "ask-submit");
   submit.type = "submit";
   submit.disabled = true;
   submit.setAttribute("aria-label", "Sualı göndər");
   submit.appendChild(element("span", "", "↑"));
-  form.append(contextMenu, label, input, submit);
+
+  const composerActions = element("div", "ask-composer-actions");
+  composerActions.append(modelMenu, submit);
+
+  form.append(contextMenu, label, input, composerActions);
+
   const helper = element("div", "ask-composer-meta");
   const metaLeft = element("div", "ask-meta-left");
   const contextMeta = element("span", "ask-context-meta", selectedStrategy ? `Kontekst: ${selectedStrategy.title}` : "Marketify");
-  metaLeft.append(contextMeta, modelMenu);
+  metaLeft.appendChild(contextMeta);
   if (state.currentUser?.settings?.personalIntelligence === true) {
     const pBadge = button("⚡ Fərdiləşdirilmiş", "ask-personalization-badge", () => {
       state.view = "settings";
