@@ -41,6 +41,17 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function getAskMessageModelInfo(model) {
+  const normalized = typeof model === "string" ? model.trim().toLowerCase() : "";
+  const isFlash = normalized === "flash" || normalized.includes("gemini") || normalized.includes("3.7");
+  const displayName = isFlash ? "Flash" : "Mini";
+  return {
+    isFlash,
+    isGpt: !isFlash,
+    displayName,
+  };
+}
+
 const STATUS_LABELS = {
   draft: "Qaralama",
   analyzing: "Analiz edilir",
@@ -760,11 +771,11 @@ function renderAsk() {
               <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
             </svg>
           `;
-          const isFlashThinking = message.model === "Flash" || message.model === "flash";
-          const isMiniThinking = message.model === "Mini" || message.model === "mini";
+          const modelInfo = getAskMessageModelInfo(message.model);
           let label = "Marketify düşünür";
-          if (isFlashThinking) label = "Flash düşünür";
-          else if (isMiniThinking) label = "Luna düşünür";
+          if (message.model) {
+            label = modelInfo.isFlash ? "Flash düşünür" : "Luna düşünür";
+          }
           const thinkingLabel = element("span", "ask-thinking-label", label);
           const dots = element("span", "ask-thinking-dots");
           dots.append(element("i"), element("i"), element("i"));
@@ -802,22 +813,33 @@ function renderAsk() {
 
           actions.append(copy);
 
-          const isMini = message.model === "Mini" || message.model === "mini";
-          if (isMini) {
-            const moreMenu = document.createElement("details");
-            moreMenu.className = "ask-response-more-menu";
-            const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
-            moreTrigger.setAttribute("aria-label", "Seçimlər");
-            moreTrigger.title = "Daha çox";
-            moreTrigger.innerHTML = `
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-                <circle cx="5" cy="12" r="1.8"></circle>
-                <circle cx="12" cy="12" r="1.8"></circle>
-                <circle cx="19" cy="12" r="1.8"></circle>
-              </svg>
-            `;
+          const moreMenu = document.createElement("details");
+          moreMenu.className = "ask-response-more-menu";
+          const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
+          moreTrigger.setAttribute("aria-label", "Seçimlər");
+          moreTrigger.title = "Daha çox";
+          moreTrigger.innerHTML = `
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+              <circle cx="5" cy="12" r="1.8"></circle>
+              <circle cx="12" cy="12" r="1.8"></circle>
+              <circle cx="19" cy="12" r="1.8"></circle>
+            </svg>
+          `;
 
-            const morePopover = element("div", "ask-response-more-popover");
+          const morePopover = element("div", "ask-response-more-popover");
+
+          const msgModelInfo = getAskMessageModelInfo(message.model);
+
+          const modelRow = element("div", "ask-response-model-row");
+          const modelLabel = element("span", "ask-response-model-label", "Model:");
+          const modelName = element("span", "ask-response-model-name", msgModelInfo.displayName);
+          modelRow.append(modelLabel, modelName);
+          morePopover.appendChild(modelRow);
+
+          const divider = element("div", "ask-response-popover-divider");
+          morePopover.appendChild(divider);
+
+          if (msgModelInfo.isGpt) {
             const thinkDeeperBtn = button("", "ask-response-popover-item ask-think-deeper-btn", (event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -831,23 +853,40 @@ function renderAsk() {
               </svg>
               <span>Daha dərindən düşün</span>
             `;
-
             morePopover.appendChild(thinkDeeperBtn);
-            moreMenu.append(moreTrigger, morePopover);
-
-            moreMenu.addEventListener("keydown", (event) => {
-              if (event.key === "Escape") moreMenu.open = false;
-            });
-            const closeMoreMenu = (event) => {
-              if (!moreMenu.contains(event.target)) moreMenu.open = false;
-            };
-            moreMenu.addEventListener("toggle", () => {
-              if (moreMenu.open) setTimeout(() => document.addEventListener("click", closeMoreMenu), 0);
-              else document.removeEventListener("click", closeMoreMenu);
-            });
-
-            actions.appendChild(moreMenu);
           }
+
+          const reportBtn = button("", "ask-response-popover-item ask-report-issue-btn", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            moreMenu.open = false;
+            openLegalReportModal({ messageContent: message.content, model: msgModelInfo.displayName });
+          });
+          reportBtn.type = "button";
+          reportBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>Hüquqi problem bildir</span>
+          `;
+          morePopover.appendChild(reportBtn);
+
+          moreMenu.append(moreTrigger, morePopover);
+
+          moreMenu.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") moreMenu.open = false;
+          });
+          const closeMoreMenu = (event) => {
+            if (!moreMenu.contains(event.target)) moreMenu.open = false;
+          };
+          moreMenu.addEventListener("toggle", () => {
+            if (moreMenu.open) setTimeout(() => document.addEventListener("click", closeMoreMenu), 0);
+            else document.removeEventListener("click", closeMoreMenu);
+          });
+
+          actions.appendChild(moreMenu);
 
           content.appendChild(actions);
           if (isFreshResponse) {
@@ -4252,12 +4291,12 @@ function renderSettings() {
     termsInfo.append(element("strong", "", "İstifadə Şərtləri"), element("p", "", "Xidmətdən istifadə qaydaları, hüquqlar və öhdəliklər."));
     termsRow.append(termsInfo, button("Baxış keçir →", "secondary-button", () => openLegalModal("terms")));
 
-    const privacyRow = element("div", "settings-legal-row");
-    const privacyInfo = element("div");
-    privacyInfo.append(element("strong", "", "Məxfilik Siyasəti"), element("p", "", "Məlumatların emalı, qorunması və 3-cü tərəf API şəffaflığı."));
-    privacyRow.append(privacyInfo, button("Baxış keçir →", "secondary-button", () => openLegalModal("privacy")));
+    const reportRow = element("div", "settings-legal-row");
+    const reportInfo = element("div");
+    reportInfo.append(element("strong", "", "Hüquqi Problem Bildirişi"), element("p", "", "Platforma və ya AI cavabları ilə bağlı hüquqi narahatlıq və ya pozuntu bildir."));
+    reportRow.append(reportInfo, button("Problem bildir →", "secondary-button", () => openLegalReportModal()));
 
-    docsList.append(termsRow, privacyRow);
+    docsList.append(termsRow, privacyRow, reportRow);
     panel.appendChild(docsList);
     view.appendChild(panel);
   }

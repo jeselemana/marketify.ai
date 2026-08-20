@@ -16,7 +16,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
       rel="stylesheet"
     />
-<link rel="stylesheet" href="/style.css?v=3.5" />
+<link rel="stylesheet" href="/style.css?v=3.8" />
 
 <script
   src="https://accounts.google.com/gsi/client"
@@ -24,7 +24,7 @@
   defer
 ></script>
 
-<script src="/script.js?v=3.5" type="module"></script>
+<script src="/script.js?v=3.8" type="module"></script>
   </head>
   <body class="auth-loading">
     <a class="skip-link" href="#workspace">Əsas hissəyə keç</a>
@@ -155,9 +155,10 @@
           <button class="icon-button" id="mobileMenuButton" type="button" aria-label="Menyunu aç" aria-expanded="false">
             <span aria-hidden="true">☰</span>
           </button>
-          <a class="mobile-brand" href="/">
-            <strong>Marketify</strong>
-          </a>
+          <div class="mobile-mode-switch" role="tablist" aria-label="İş rejimi">
+            <button class="mobile-mode-option is-active" id="buildModeButton" type="button" role="tab" aria-selected="true">Build</button>
+            <button class="mobile-mode-option" id="askModeButton" type="button" role="tab" aria-selected="false">Ask</button>
+          </div>
           <button class="mobile-new" id="mobileNewButton" type="button" aria-label="Yeni strategiya">＋</button>
         </header>
 

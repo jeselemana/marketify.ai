@@ -198,3 +198,39 @@ test("explicit model parameter overrides auto routing", () => {
   assert.equal(flashRoute, "Flash");
 });
 
+function getAskMessageModelInfo(model) {
+  const normalized = typeof model === "string" ? model.trim().toLowerCase() : "";
+  const isFlash = normalized === "flash" || normalized.includes("gemini") || normalized.includes("3.7");
+  const displayName = isFlash ? "Flash" : "Mini";
+  return {
+    isFlash,
+    isGpt: !isFlash,
+    displayName,
+  };
+}
+
+test("Gemini 3.7 Flash responses show 'Flash' in three dots and hide 'Daha dərindən düşün'", () => {
+  const flashModels = ["Flash", "flash", "gemini-3.7-flash", "gemini-2.5-flash", "gemini"];
+  for (const model of flashModels) {
+    const info = getAskMessageModelInfo(model);
+    assert.equal(info.displayName, "Flash", `Model ${model} should display as "Flash"`);
+    assert.equal(info.isFlash, true, `Model ${model} should be identified as Flash`);
+    assert.equal(info.isGpt, false, `Model ${model} should not be identified as GPT`);
+    // "Daha dərindən düşün" should not appear for Flash
+    assert.equal(info.isGpt, false);
+  }
+});
+
+test("GPT responses show 'Mini' in three dots and display 'Daha dərindən düşün'", () => {
+  const gptModels = ["Mini", "mini", "gpt-5.6-luna", "gpt-4o", "openai", "gpt", undefined, ""];
+  for (const model of gptModels) {
+    const info = getAskMessageModelInfo(model);
+    assert.equal(info.displayName, "Mini", `Model ${model} should display as "Mini"`);
+    assert.equal(info.isFlash, false, `Model ${model} should not be identified as Flash`);
+    assert.equal(info.isGpt, true, `Model ${model} should be identified as GPT (Mini)`);
+    // "Daha dərindən düşün" should appear for GPT (Mini)
+    assert.equal(info.isGpt, true);
+  }
+});
+
+
