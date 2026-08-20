@@ -64,7 +64,7 @@ export async function generateGeminiAskResponse({
 
   const candidateModels = [model];
   if (model === "gemini-3.7-flash") {
-    candidateModels.push("gemini-3.1-flash-lite", "gemini-3.6-flash");
+    candidateModels.push("gemini-3.6-flash");
   }
 
   let response;
