@@ -62,23 +62,6 @@ export async function generateGeminiAskResponse({
     throw error;
   }
 
-  const payload = {
-    contents,
-    generationConfig: {
-      temperature,
-      maxOutputTokens,
-      thinkingConfig: {
-        thinkingBudget: 0,
-      },
-    },
-  };
-
-  if (systemInstruction && typeof systemInstruction === "string" && systemInstruction.trim()) {
-    payload.systemInstruction = {
-      parts: [{ text: systemInstruction.trim() }],
-    };
-  }
-
   const candidateModels = [model];
   if (model === "gemini-3.7-flash") {
     candidateModels.push("gemini-3.6-flash");
@@ -89,6 +72,29 @@ export async function generateGeminiAskResponse({
   let lastError;
 
   for (const currentModel of candidateModels) {
+    const generationConfig = {
+      temperature,
+      maxOutputTokens,
+    };
+
+    // Only models with thinking capability (like 3.7) accept thinkingConfig
+    if (currentModel.includes("3.7")) {
+      generationConfig.thinkingConfig = {
+        thinkingBudget: 0,
+      };
+    }
+
+    const payload = {
+      contents,
+      generationConfig,
+    };
+
+    if (systemInstruction && typeof systemInstruction === "string" && systemInstruction.trim()) {
+      payload.systemInstruction = {
+        parts: [{ text: systemInstruction.trim() }],
+      };
+    }
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent?key=${encodeURIComponent(key)}`;
 
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -109,9 +115,9 @@ export async function generateGeminiAskResponse({
           break;
         }
 
-        // If transient high demand or rate limit, retry once or try fallback model
+        // If transient high demand or rate limit, retry once after backoff
         if ((response.status === 503 || response.status === 429) && attempt === 0) {
-          await new Promise((res) => setTimeout(res, 600));
+          await new Promise((res) => setTimeout(res, 800));
           continue;
         }
 
@@ -132,7 +138,7 @@ export async function generateGeminiAskResponse({
       } catch (fetchErr) {
         lastError = fetchErr;
         if (attempt === 0) {
-          await new Promise((res) => setTimeout(res, 600));
+          await new Promise((res) => setTimeout(res, 800));
           continue;
         }
         break;
