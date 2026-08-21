@@ -45,10 +45,9 @@ function getAskMessageModelInfo(model) {
   const normalized = typeof model === "string" ? model.trim().toLowerCase() : "";
   // Support existing saved messages while only rendering product-friendly labels.
   const isTerra = normalized === "terra" || /gpt[-\s]?5\.6[-\s]?terra/.test(normalized);
-  const displayName = isTerra ? "Marketify Apex" : "Marketify Flow";
+  const displayName = isTerra ? "Dərin Analiz" : "Sürət";
   return {
     isTerra,
-    isGpt: true,
     displayName,
   };
 }
@@ -843,7 +842,7 @@ function renderAsk() {
           const divider = element("div", "ask-response-popover-divider");
           morePopover.appendChild(divider);
 
-          if (msgModelInfo.isGpt) {
+          if (!msgModelInfo.isTerra) {
             const thinkDeeperBtn = button("", "ask-response-popover-item ask-think-deeper-btn", (event) => {
               event.preventDefault();
               event.stopPropagation();
