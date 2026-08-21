@@ -778,7 +778,7 @@ function renderAsk() {
             </svg>
           `;
           const modelInfo = getAskMessageModelInfo(message.model);
-          const label = modelInfo.isTerra ? "Dərin analiz aparıram" : "Marketify düşünür";
+          const label = modelInfo.isTerra ? "Dərin analiz" : "Cavab hazırlanır";
           const thinkingLabel = element("span", "ask-thinking-label", label);
           const dots = element("span", "ask-thinking-dots");
           dots.append(element("i"), element("i"), element("i"));
@@ -1091,16 +1091,18 @@ class LiveTypewriter {
     const remaining = this.targetText.length - this.currentText.length;
 
     if (remaining > 0) {
-      // Keep a gentle, readable cadence even if the network sends a large chunk.
+      // Keep the stream calm and readable even when the network sends a large chunk.
       const charsToType = Math.min(
         remaining,
-        remaining > 240 ? 8 :
-        remaining > 100 ? 5 :
-        remaining > 30 ? 3 : 1
+        remaining > 260 ? 5 :
+        remaining > 90 ? 3 :
+        remaining > 24 ? 2 : 1
       );
       this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
       this.onUpdate(this.currentText, false);
-      const delay = remaining > 200 ? 14 : remaining > 60 ? 20 : 28;
+      const typedTail = this.currentText.slice(-charsToType);
+      const hasNaturalPause = /[.!?,;:\n]$/.test(typedTail);
+      const delay = (remaining > 260 ? 26 : remaining > 90 ? 32 : remaining > 24 ? 38 : 46) + (hasNaturalPause ? 28 : 0);
       this.rafId = setTimeout(() => this.tick(), delay);
     } else if (this.isDone) {
       this.currentText = this.targetText;
