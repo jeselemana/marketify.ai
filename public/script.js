@@ -45,7 +45,7 @@ function getAskMessageModelInfo(model) {
   const normalized = typeof model === "string" ? model.trim().toLowerCase() : "";
   // Support existing saved messages while only rendering product-friendly labels.
   const isTerra = normalized === "terra" || /gpt[-\s]?5\.6[-\s]?terra/.test(normalized);
-  const displayName = isTerra ? "Dərin analiz" : "Sürətli cavab";
+  const displayName = isTerra ? "Marketify Apex" : "Marketify Flow";
   return {
     isTerra,
     isGpt: true,
