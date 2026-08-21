@@ -5162,12 +5162,27 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
 }
 
 .ask-message-user .ask-message-content {
-  width: auto;
-  padding: 10px 14px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px 4px 14px 14px;
-  background: var(--bg-elevated);
+  width: fit-content;
+  max-width: min(78%, 620px);
+
+  padding: 11px 16px;
+
+  border: 1px solid rgba(20, 27, 42, 0.055);
+  border-radius: 18px;
+
+  background: rgba(255, 255, 255, 0.78);
   color: var(--text-primary);
+
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.025),
+    0 6px 18px rgba(16, 24, 40, 0.025);
+
+  font-size: 15px;
+  line-height: 1.55;
+  letter-spacing: -0.008em;
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .ask-message-context {
