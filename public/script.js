@@ -1179,17 +1179,12 @@ async function thinkDeeperWithFlash(messageIndex) {
         }
       );
 
-      const processEventBlock = (block) => {
-        if (!block || !block.trim()) return;
-        const lines = block.split(/\r?\n/);
-        const dataLines = [];
-        for (const line of lines) {
-          if (line.startsWith("data:")) {
-            dataLines.push(line.replace(/^data:\s*/, ""));
-          }
-        }
-        if (!dataLines.length) return;
-        const jsonStr = dataLines.join("\n").trim();
+      let rawBuffer = "";
+      let eventLines = [];
+
+      const dispatchEvent = (lines) => {
+        if (!lines || !lines.length) return;
+        const jsonStr = lines.join("\n").trim();
         if (!jsonStr || jsonStr === "[DONE]") return;
 
         try {
@@ -1223,20 +1218,23 @@ async function thinkDeeperWithFlash(messageIndex) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
+        rawBuffer += decoder.decode(value, { stream: true });
+        const lines = rawBuffer.split(/\r?\n/);
+        rawBuffer = lines.pop() || "";
 
-        let boundaryIdx;
-        while ((boundaryIdx = buffer.search(/\r?\n\r?\n/)) !== -1) {
-          const match = buffer.match(/\r?\n\r?\n/);
-          const separatorLen = match[0].length;
-          const block = buffer.slice(0, boundaryIdx);
-          buffer = buffer.slice(boundaryIdx + separatorLen);
-          processEventBlock(block);
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            eventLines.push(line.replace(/^data:\s*/, ""));
+          } else if (line.trim() === "" && eventLines.length > 0) {
+            dispatchEvent(eventLines);
+            eventLines = [];
+          }
         }
       }
 
-      if (buffer.trim()) {
-        processEventBlock(buffer);
+      if (eventLines.length > 0) {
+        dispatchEvent(eventLines);
+        eventLines = [];
       }
 
       if (typewriter) {
@@ -1331,17 +1329,12 @@ async function submitAskMessage(message) {
         }
       );
 
-      const processEventBlock = (block) => {
-        if (!block || !block.trim()) return;
-        const lines = block.split(/\r?\n/);
-        const dataLines = [];
-        for (const line of lines) {
-          if (line.startsWith("data:")) {
-            dataLines.push(line.replace(/^data:\s*/, ""));
-          }
-        }
-        if (!dataLines.length) return;
-        const jsonStr = dataLines.join("\n").trim();
+      let rawBuffer = "";
+      let eventLines = [];
+
+      const dispatchEvent = (lines) => {
+        if (!lines || !lines.length) return;
+        const jsonStr = lines.join("\n").trim();
         if (!jsonStr || jsonStr === "[DONE]") return;
 
         try {
@@ -1375,20 +1368,23 @@ async function submitAskMessage(message) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
+        rawBuffer += decoder.decode(value, { stream: true });
+        const lines = rawBuffer.split(/\r?\n/);
+        rawBuffer = lines.pop() || "";
 
-        let boundaryIdx;
-        while ((boundaryIdx = buffer.search(/\r?\n\r?\n/)) !== -1) {
-          const match = buffer.match(/\r?\n\r?\n/);
-          const separatorLen = match[0].length;
-          const block = buffer.slice(0, boundaryIdx);
-          buffer = buffer.slice(boundaryIdx + separatorLen);
-          processEventBlock(block);
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            eventLines.push(line.replace(/^data:\s*/, ""));
+          } else if (line.trim() === "" && eventLines.length > 0) {
+            dispatchEvent(eventLines);
+            eventLines = [];
+          }
         }
       }
 
-      if (buffer.trim()) {
-        processEventBlock(buffer);
+      if (eventLines.length > 0) {
+        dispatchEvent(eventLines);
+        eventLines = [];
       }
 
       if (typewriter) {
@@ -2095,23 +2091,12 @@ function showLoadingAskModal(initialQuery) {
       let reply = "";
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
-      const renderReply = () => {
-        contentWrap.innerHTML = "";
-        contentWrap.appendChild(renderAskRichText(reply));
-        messagesBody.scrollTop = messagesBody.scrollHeight;
-      };
-      const processEvent = (block) => {
-        if (!block || !block.trim()) return;
-        const lines = block.split(/\r?\n/);
-        const dataLines = [];
-        for (const line of lines) {
-          if (line.startsWith("data:")) {
-            dataLines.push(line.replace(/^data:\s*/, ""));
-          }
-        }
-        if (!dataLines.length) return;
-        const jsonStr = dataLines.join("\n").trim();
+      let rawBuffer = "";
+      let eventLines = [];
+
+      const dispatchThreadEvent = (lines) => {
+        if (!lines || !lines.length) return;
+        const jsonStr = lines.join("\n").trim();
         if (!jsonStr || jsonStr === "[DONE]") return;
 
         try {
@@ -2135,18 +2120,29 @@ function showLoadingAskModal(initialQuery) {
           }
         }
       };
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let boundary;
-        while ((boundary = buffer.search(/\r?\n\r?\n/)) !== -1) {
-          const separator = buffer.match(/\r?\n\r?\n/)[0].length;
-          processEvent(buffer.slice(0, boundary));
-          buffer = buffer.slice(boundary + separator);
+        rawBuffer += decoder.decode(value, { stream: true });
+        const lines = rawBuffer.split(/\r?\n/);
+        rawBuffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            eventLines.push(line.replace(/^data:\s*/, ""));
+          } else if (line.trim() === "" && eventLines.length > 0) {
+            dispatchThreadEvent(eventLines);
+            eventLines = [];
+          }
         }
       }
-      if (buffer.trim()) processEvent(buffer);
+
+      if (eventLines.length > 0) {
+        dispatchThreadEvent(eventLines);
+        eventLines = [];
+      }
+
       if (!reply) throw new Error("Gemini boş cavab qaytardı.");
       renderReply();
       thread.push({ role: "assistant", content: reply });
