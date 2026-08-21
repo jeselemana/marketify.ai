@@ -43,8 +43,9 @@ function escapeHtml(value) {
 
 function getAskMessageModelInfo(model) {
   const normalized = typeof model === "string" ? model.trim().toLowerCase() : "";
-  const isTerra = normalized === "terra" || normalized.includes("5.6-terra");
-  const displayName = isTerra ? "GPT-5.6 Terra" : "GPT-5.6 Luna";
+  // Support existing saved messages while only rendering product-friendly labels.
+  const isTerra = normalized === "terra" || /gpt[-\s]?5\.6[-\s]?terra/.test(normalized);
+  const displayName = isTerra ? "Dərin analiz" : "Sürətli cavab";
   return {
     isTerra,
     isGpt: true,
@@ -834,7 +835,7 @@ function renderAsk() {
           const msgModelInfo = getAskMessageModelInfo(message.model);
 
           const modelRow = element("div", "ask-response-model-row");
-          const modelLabel = element("span", "ask-response-model-label", "Model:");
+          const modelLabel = element("span", "ask-response-model-label", "Rejim:");
           const modelName = element("span", "ask-response-model-name", msgModelInfo.displayName);
           modelRow.append(modelLabel, modelName);
           morePopover.appendChild(modelRow);
@@ -1136,7 +1137,7 @@ async function thinkDeeperWithTerra(messageIndex) {
   if (!historyMessages.length) return;
 
   assistantMsg.content = "";
-  assistantMsg.model = "GPT-5.6 Terra";
+  assistantMsg.model = "terra";
   assistantMsg.isStreaming = true;
   state.askLoading = true;
   state.askError = "";
@@ -1252,7 +1253,7 @@ async function thinkDeeperWithTerra(messageIndex) {
     } else {
       const data = await response.json();
       assistantMsg.content = data.reply;
-      assistantMsg.model = data.model || "GPT-5.6 Terra";
+      assistantMsg.model = data.model || "terra";
       assistantMsg.isStreaming = false;
       if (data.chat?.id) {
         state.askChatId = data.chat.id;
@@ -1276,7 +1277,7 @@ async function submitAskMessage(message) {
   state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "" });
 
   const chosenModel = state.askModel || "auto";
-  const initialPlaceholderModel = chosenModel === "terra" ? "GPT-5.6 Terra" : (chosenModel === "luna" ? "GPT-5.6 Luna" : "Auto");
+  const initialPlaceholderModel = chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : "auto");
   const assistantMsg = {
     role: "assistant",
     content: "",

@@ -736,12 +736,12 @@ app.post("/api/ask", async (req, res) => {
 
     const fullInstructions = `${ASK_INSTRUCTIONS}${strategyContext}${personalizationContext}`;
     let reply = "";
-    let activeModel = "GPT-5.6 Luna";
+    let activeModel = "luna";
     const hasStrategyContext = Boolean(selectedStrategy);
     const lastUserMsg = messages.at(-1)?.content || "";
     const route = resolveAskModelRoute({ requestedModel, lastUserMsg, hasStrategyContext });
     const selectedAskModel = route === "terra" ? ASK_COMPLEX_MODEL : ASK_MODEL;
-    activeModel = route === "terra" ? "GPT-5.6 Terra" : "GPT-5.6 Luna";
+    activeModel = route;
 
     // Real-time SSE streaming for responsive GPT-5.6 output.
     if (req.body.stream === true || req.headers.accept?.includes("text/event-stream")) {
