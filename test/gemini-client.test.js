@@ -84,13 +84,12 @@ test("generateGeminiAskResponse throws INVALID_REQUEST when messages are empty",
   );
 });
 
-test("hasGeminiConfiguration returns true when GEMINI_API_KEY is present and configures 65536 tokens", () => {
+test("hasGeminiConfiguration returns true when GEMINI_API_KEY is present and configures 8192 tokens matching GPT-5.6 Luna", () => {
   assert.equal(typeof hasGeminiConfiguration(), "boolean");
   assert.equal(typeof aiConfig.geminiAskModel, "string");
   assert.equal(aiConfig.geminiAskModel, process.env.GEMINI_ASK_MODEL || "gemini-3.7-flash");
   assert.equal(aiConfig.askModel, process.env.OPENAI_ASK_MODEL || "gpt-5.6-luna");
-  assert.equal(aiConfig.geminiAskMaxOutputTokens, 65536);
-  assert.equal(aiConfig.geminiThinkingBudget, 0);
+  assert.equal(aiConfig.askMaxOutputTokens, 8192);
 });
 
 function isComplexAskQuery(lastUserMsg = "", messages = [], hasStrategyContext = false) {

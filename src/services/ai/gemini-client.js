@@ -4,14 +4,10 @@ import { aiConfig, hasGeminiConfiguration } from "./config.js";
  * Normalizes and formats chat history into Gemini API contents structure.
  * Converts 'assistant' -> 'model', and merges consecutive messages of the same role.
  */
-export function formatGeminiContents(messages = [], maxMessages = aiConfig.geminiAskHistoryMessages) {
+export function formatGeminiContents(messages = []) {
   const normalized = [];
-  // Ask is interactive chat, so preserve only a small, useful recent window.
-  // Long histories substantially increase Flash's time-to-first-token.
-  const historyLimit = Number.isFinite(maxMessages) && maxMessages > 0 ? maxMessages : 12;
-  const recentMessages = messages.length > historyLimit ? messages.slice(-historyLimit) : messages;
 
-  for (const message of recentMessages) {
+  for (const message of messages) {
     if (!message || typeof message.content !== "string") continue;
     const content = message.content.trim();
     if (!content) continue;
@@ -43,40 +39,25 @@ export function formatGeminiContents(messages = [], maxMessages = aiConfig.gemin
 }
 
 /**
- * Builds the generationConfig object for Gemini API calls.
+ * Builds the generationConfig object for Gemini API calls matching GPT-5.6 Luna response generation.
  */
 function buildGenerationConfig({
-  model = "",
-  temperature = 0.6,
-  maxOutputTokens = aiConfig.geminiAskMaxOutputTokens || 65536,
+  maxOutputTokens = aiConfig.askMaxOutputTokens || 8192,
 } = {}) {
-  const config = {
-    temperature: typeof temperature === "number" ? temperature : 0.6,
-    maxOutputTokens: Number.isFinite(maxOutputTokens) && maxOutputTokens > 0 ? maxOutputTokens : 65536,
+  return {
+    maxOutputTokens: Number.isFinite(maxOutputTokens) && maxOutputTokens > 0 ? maxOutputTokens : 8192,
   };
-
-  // For Gemini 3.7 Flash and reasoning-capable models:
-  // Configure thinkingBudget (0 = disable thinking for instant chat, or custom budget integer)
-  if (model.includes("3.7") || model.includes("flash") || model.includes("thinking")) {
-    const budget = typeof aiConfig.geminiThinkingBudget === "number" ? aiConfig.geminiThinkingBudget : 0;
-    config.thinkingConfig = {
-      thinkingBudget: budget,
-    };
-  }
-
-  return config;
 }
 
 /**
- * Generates an Ask response using Google's Gemini API (e.g. gemini-3.7-flash).
+ * Generates an Ask response using Google's Gemini API (e.g. gemini-3.7-flash) matching GPT-5.6 Luna generation settings.
  */
 export async function generateGeminiAskResponse({
   messages = [],
   systemInstruction = "",
   model = aiConfig.geminiAskModel || "gemini-3.7-flash",
   apiKey = aiConfig.geminiApiKey || process.env.GEMINI_API_KEY,
-  temperature = 0.6,
-  maxOutputTokens = aiConfig.geminiAskMaxOutputTokens,
+  maxOutputTokens = aiConfig.askMaxOutputTokens || 8192,
   signal,
 } = {}) {
   const rawKey = (apiKey || aiConfig.geminiApiKey || process.env.GEMINI_API_KEY || "") + "";
@@ -104,8 +85,6 @@ export async function generateGeminiAskResponse({
 
   for (const currentModel of candidateModels) {
     const generationConfig = buildGenerationConfig({
-      model: currentModel,
-      temperature,
       maxOutputTokens,
     });
 
@@ -221,8 +200,7 @@ export async function generateGeminiAskStreamResponse({
   systemInstruction = "",
   model = aiConfig.geminiAskModel || "gemini-3.7-flash",
   apiKey = aiConfig.geminiApiKey || process.env.GEMINI_API_KEY,
-  temperature = 0.6,
-  maxOutputTokens = aiConfig.geminiAskMaxOutputTokens,
+  maxOutputTokens = aiConfig.askMaxOutputTokens || 8192,
   signal,
   onChunk = () => {},
 } = {}) {
@@ -244,8 +222,6 @@ export async function generateGeminiAskStreamResponse({
   }
 
   const generationConfig = buildGenerationConfig({
-    model,
-    temperature,
     maxOutputTokens,
   });
 

@@ -689,8 +689,6 @@ app.post("/api/ask", async (req, res) => {
 
     const messages = Array.isArray(req.body.messages)
       ? req.body.messages
-          // Keep the server-side window aligned with the Gemini request window.
-          .slice(-(aiConfig.geminiAskHistoryMessages || 8))
           .filter((message) => ["user", "assistant"].includes(message?.role) && typeof message?.content === "string")
           .map((message) => ({
             role: message.role,
