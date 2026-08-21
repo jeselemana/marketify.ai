@@ -43,11 +43,11 @@ function escapeHtml(value) {
 
 function getAskMessageModelInfo(model) {
   const normalized = typeof model === "string" ? model.trim().toLowerCase() : "";
-  const isFlash = normalized === "flash" || normalized.includes("gemini") || normalized.includes("3.7");
-  const displayName = isFlash ? "Flash" : "Mini";
+  const isTerra = normalized === "terra" || normalized.includes("5.6-terra");
+  const displayName = isTerra ? "GPT-5.6 Terra" : "GPT-5.6 Luna";
   return {
-    isFlash,
-    isGpt: !isFlash,
+    isTerra,
+    isGpt: true,
     displayName,
   };
 }
@@ -747,8 +747,6 @@ async function shareAskResponse(content) {
 
 function renderAsk() {
   const isAuto = state.askModel === "auto" || !state.askModel;
-  const isFlash = state.askModel === "flash";
-  const isMini = state.askModel === "mini" || state.askModel === "default";
   workspace.classList.add("workspace-ask");
   const isChatActive = Boolean(state.askMessages.length || state.askLoading);
   workspace.classList.toggle("has-messages", isChatActive);
@@ -780,7 +778,7 @@ function renderAsk() {
             </svg>
           `;
           const modelInfo = getAskMessageModelInfo(message.model);
-          const label = modelInfo.isFlash ? "Dərin mühakimə aparıram" : "Marketify düşünür";
+          const label = modelInfo.isTerra ? "Dərin analiz aparıram" : "Marketify düşünür";
           const thinkingLabel = element("span", "ask-thinking-label", label);
           const dots = element("span", "ask-thinking-dots");
           dots.append(element("i"), element("i"), element("i"));
@@ -849,7 +847,7 @@ function renderAsk() {
               event.preventDefault();
               event.stopPropagation();
               moreMenu.open = false;
-              thinkDeeperWithFlash(messageIndex);
+              thinkDeeperWithTerra(messageIndex);
             });
             thinkDeeperBtn.type = "button";
             thinkDeeperBtn.innerHTML = `
@@ -1047,6 +1045,7 @@ class LiveTypewriter {
     this.onComplete = onComplete;
     this.rafId = null;
     this.isDone = false;
+    this.completionPromise = new Promise((resolve) => { this.resolveCompletion = resolve; });
   }
 
   append(chunk) {
@@ -1069,7 +1068,7 @@ class LiveTypewriter {
 
   flush() {
     if (this.rafId) {
-      cancelAnimationFrame(this.rafId);
+      clearTimeout(this.rafId);
       this.rafId = null;
     }
     this.isDone = true;
@@ -1080,6 +1079,11 @@ class LiveTypewriter {
     if (this.onComplete) {
       this.onComplete();
     }
+    this.resolveCompletion?.();
+  }
+
+  waitForCompletion() {
+    return this.completionPromise;
   }
 
   tick() {
@@ -1087,21 +1091,22 @@ class LiveTypewriter {
     const remaining = this.targetText.length - this.currentText.length;
 
     if (remaining > 0) {
-      // Natural human-like variable typing speed based on queue
+      // Keep a gentle, readable cadence even if the network sends a large chunk.
       const charsToType = Math.min(
         remaining,
-        remaining > 200 ? Math.ceil(remaining / 3) :
-        remaining > 80 ? Math.ceil(remaining / 5) :
-        remaining > 30 ? 3 :
-        remaining > 10 ? 2 : 1
+        remaining > 240 ? 8 :
+        remaining > 100 ? 5 :
+        remaining > 30 ? 3 : 1
       );
       this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
       this.onUpdate(this.currentText, false);
-      this.rafId = requestAnimationFrame(() => this.tick());
+      const delay = remaining > 200 ? 14 : remaining > 60 ? 20 : 28;
+      this.rafId = setTimeout(() => this.tick(), delay);
     } else if (this.isDone) {
       this.currentText = this.targetText;
       this.onUpdate(this.currentText, true);
       if (this.onComplete) this.onComplete();
+      this.resolveCompletion?.();
     }
   }
 }
@@ -1122,7 +1127,7 @@ function updateActiveAskMessageContent(message, showCaret = true) {
   }
 }
 
-async function thinkDeeperWithFlash(messageIndex) {
+async function thinkDeeperWithTerra(messageIndex) {
   if (state.askLoading) return;
   const assistantMsg = state.askMessages[messageIndex];
   if (!assistantMsg || assistantMsg.role !== "assistant") return;
@@ -1131,7 +1136,7 @@ async function thinkDeeperWithFlash(messageIndex) {
   if (!historyMessages.length) return;
 
   assistantMsg.content = "";
-  assistantMsg.model = "Flash";
+  assistantMsg.model = "GPT-5.6 Terra";
   assistantMsg.isStreaming = true;
   state.askLoading = true;
   state.askError = "";
@@ -1150,7 +1155,7 @@ async function thinkDeeperWithFlash(messageIndex) {
       },
       body: JSON.stringify({
         messages: historyMessages,
-        model: "flash",
+        model: "terra",
         strategyId: state.askStrategyId || undefined,
         chatId: state.askChatId || undefined,
         stream: true,
@@ -1159,7 +1164,7 @@ async function thinkDeeperWithFlash(messageIndex) {
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || "Flash ilə yenidən generasiya etmək mümkün olmadı.");
+      throw new Error(errData.error || "Terra ilə yenidən generasiya etmək mümkün olmadı.");
     }
 
     const contentType = response.headers.get("content-type") || "";
@@ -1239,7 +1244,7 @@ async function thinkDeeperWithFlash(messageIndex) {
 
       if (typewriter) {
         typewriter.finish(accumulatedFullText);
-        typewriter.flush();
+        await typewriter.waitForCompletion();
       }
       if (accumulatedFullText) {
         assistantMsg.content = accumulatedFullText;
@@ -1247,7 +1252,7 @@ async function thinkDeeperWithFlash(messageIndex) {
     } else {
       const data = await response.json();
       assistantMsg.content = data.reply;
-      assistantMsg.model = data.model || "Flash";
+      assistantMsg.model = data.model || "GPT-5.6 Terra";
       assistantMsg.isStreaming = false;
       if (data.chat?.id) {
         state.askChatId = data.chat.id;
@@ -1257,9 +1262,6 @@ async function thinkDeeperWithFlash(messageIndex) {
   } catch (error) {
     state.askError = error.message;
   } finally {
-    if (typewriter) {
-      typewriter.flush();
-    }
     if (accumulatedFullText && (!assistantMsg.content || assistantMsg.content.length < accumulatedFullText.length)) {
       assistantMsg.content = accumulatedFullText;
     }
@@ -1274,7 +1276,7 @@ async function submitAskMessage(message) {
   state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "" });
 
   const chosenModel = state.askModel || "auto";
-  const initialPlaceholderModel = chosenModel === "flash" ? "Flash" : (chosenModel === "mini" ? "Mini" : "Auto");
+  const initialPlaceholderModel = chosenModel === "terra" ? "GPT-5.6 Terra" : (chosenModel === "luna" ? "GPT-5.6 Luna" : "Auto");
   const assistantMsg = {
     role: "assistant",
     content: "",
@@ -1389,7 +1391,7 @@ async function submitAskMessage(message) {
 
       if (typewriter) {
         typewriter.finish(accumulatedFullText);
-        typewriter.flush();
+        await typewriter.waitForCompletion();
       }
       if (accumulatedFullText) {
         assistantMsg.content = accumulatedFullText;
@@ -1411,9 +1413,6 @@ async function submitAskMessage(message) {
       if (idx !== -1) state.askMessages.splice(idx, 1);
     }
   } finally {
-    if (typewriter) {
-      typewriter.flush();
-    }
     if (accumulatedFullText && (!assistantMsg.content || assistantMsg.content.length < accumulatedFullText.length)) {
       assistantMsg.content = accumulatedFullText;
     }
@@ -2076,7 +2075,7 @@ function showLoadingAskModal(initialQuery) {
         },
         body: JSON.stringify({
           messages: thread,
-          model: state.askModel || "flash",
+          model: state.askModel || "auto",
           chatId: state.askChatId || undefined,
           stream: true,
         }),
@@ -2143,7 +2142,7 @@ function showLoadingAskModal(initialQuery) {
         eventLines = [];
       }
 
-      if (!reply) throw new Error("Gemini boş cavab qaytardı.");
+      if (!reply) throw new Error("AI boş cavab qaytardı.");
       renderReply();
       thread.push({ role: "assistant", content: reply });
     } catch (err) {

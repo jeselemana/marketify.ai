@@ -21,8 +21,8 @@ import { FileStrategyRepository } from "./src/repositories/file-strategy-reposit
 import { FileChatRepository } from "./src/repositories/file-chat-repository.js";
 import { FilePlannerRepository } from "./src/repositories/file-planner-repository.js";
 import { createPlannerRouter } from "./src/http/planner-router.js";
-import { aiConfig, hasGeminiConfiguration } from "./src/services/ai/config.js";
-import { generateGeminiAskResponse, generateGeminiAskStreamResponse } from "./src/services/ai/gemini-client.js";
+import { aiConfig } from "./src/services/ai/config.js";
+import { resolveAskModelRoute } from "./src/services/ai/ask-routing.js";
 import { buildPersonalizationContext, getRelevantUserContext } from "./src/services/ai/personal-context.js";
 
 dotenv.config();
@@ -372,6 +372,7 @@ app.post("/api/legal-report", async (req, res) => {
 
 
 const ASK_MODEL = aiConfig.askModel;
+const ASK_COMPLEX_MODEL = aiConfig.askComplexModel;
 const ASK_INSTRUCTIONS = `You are Marketify Ask, a precise, fast, and helpful AI assistant inside the Marketify workspace.
 Answer the user's question directly, clearly, and concisely in the language they use.
 Avoid unnecessary preamble, boilerplate introductory phrases, or overly exhaustive breakdowns unless the user specifically asks for deep detail.
@@ -561,17 +562,6 @@ app.delete("/api/ask/chats/:id", async (req, res) => {
   }
 });
 
-function isComplexAskQuery(lastUserMsg = "", messages = [], hasStrategyContext = false) {
-  if (hasStrategyContext) return true;
-  const cleanMsg = (lastUserMsg || "").trim();
-  // Large input prompts (>= 350 chars) are treated as comprehensive briefs
-  if (cleanMsg.length >= 350) return true;
-
-  // Specific indicators of heavy analysis, multi-step audit or explicit deep reasoning requests
-  const complexPattern = /(hərtərəfli dərin analiz|hərtərəfli analiz|hərtərəfli təhlil|geniş təhlil|rəqib analizi|swot analizi|swot matrisi|audit hesabatı|maliyyə modeli|büdcə bölgüsü|cac\s*\/\s*ltv|tam marketinq planı|daha dərindən düşün|bütün detalları ilə)/i;
-  return complexPattern.test(cleanMsg);
-}
-
 async function generateOpenAIAskStreamResponse({
   openaiClient,
   model = ASK_MODEL,
@@ -583,52 +573,60 @@ async function generateOpenAIAskStreamResponse({
 }) {
   let accumulated = "";
 
-  // 1. Try standard Chat Completions streaming first
+  // Responses streaming is the primary path. It is compatible with the GPT-5.6
+  // models and emits text deltas immediately instead of waiting for a full reply.
   try {
-    const formattedMessages = [
-      { role: "system", content: instructions },
-      ...messages.map(({ role, content }) => ({ role, content })),
-    ];
-    const stream = await openaiClient.chat.completions.create(
+    const stream = await openaiClient.responses.create(
       {
         model,
-        messages: formattedMessages,
+        instructions,
+        input: messages.map(({ role, content }) => ({ role, content })),
         stream: true,
-        max_tokens: 8192,
+        max_output_tokens: aiConfig.askMaxOutputTokens,
+        safety_identifier: askSafetyIdentifier(ownerId),
       },
       signal ? { signal } : undefined,
     );
 
-    for await (const part of stream) {
-      const chunk = part.choices?.[0]?.delta?.content || "";
+    for await (const event of stream) {
+      const chunk = event.type === "response.output_text.delta" ? event.delta : "";
       if (chunk) {
         accumulated += chunk;
         onChunk(chunk);
       }
     }
     if (accumulated.trim()) return accumulated.trim();
-  } catch (chatErr) {
-    console.warn("OpenAI chat completion stream fallback to responses:", chatErr?.message);
+  } catch (responsesErr) {
+    // Once a response has started, switching providers would duplicate text in
+    // the user's live bubble. Surface the interrupted stream instead.
+    if (accumulated.trim()) throw responsesErr;
+    console.warn("OpenAI Responses stream failed, trying chat completions:", responsesErr?.message);
   }
 
-  // 2. Fallback to OpenAI responses.create
-  const response = await openaiClient.responses.create(
+  // Compatibility fallback for environments that only expose Chat Completions.
+  accumulated = "";
+  const formattedMessages = [
+    { role: "system", content: instructions },
+    ...messages.map(({ role, content }) => ({ role, content })),
+  ];
+  const stream = await openaiClient.chat.completions.create(
     {
       model,
-      instructions,
-      input: messages.map(({ role, content }) => ({ role, content })),
-      max_output_tokens: 8192,
-      safety_identifier: askSafetyIdentifier(ownerId),
+      messages: formattedMessages,
+      stream: true,
+      max_tokens: aiConfig.askMaxOutputTokens,
     },
     signal ? { signal } : undefined,
   );
-
-  accumulated = response.output_text?.trim() || "";
-  if (!accumulated) {
-    throw new Error("OpenAI boş cavab qaytardı.");
+  for await (const part of stream) {
+    const chunk = part.choices?.[0]?.delta?.content || "";
+    if (chunk) {
+      accumulated += chunk;
+      onChunk(chunk);
+    }
   }
-  onChunk(accumulated);
-  return accumulated;
+  if (!accumulated.trim()) throw new Error("OpenAI boş cavab qaytardı.");
+  return accumulated.trim();
 }
 
 async function generateOpenAIAskResponse({
@@ -646,7 +644,7 @@ async function generateOpenAIAskResponse({
         model,
         instructions,
         input: messages.map(({ role, content }) => ({ role, content })),
-        max_output_tokens: 8192,
+        max_output_tokens: aiConfig.askMaxOutputTokens,
         reasoning: { effort: "low" },
         safety_identifier: askSafetyIdentifier(ownerId),
       },
@@ -680,10 +678,9 @@ async function generateOpenAIAskResponse({
 
 app.post("/api/ask", async (req, res) => {
   try {
-    const geminiAvailable = hasGeminiConfiguration();
     const openAiAvailable = Boolean(openai);
 
-    if (!geminiAvailable && !openAiAvailable) {
+    if (!openAiAvailable) {
       return res.status(503).json({ error: "AI xidməti hələ konfiqurasiya edilməyib." });
     }
 
@@ -739,29 +736,14 @@ app.post("/api/ask", async (req, res) => {
 
     const fullInstructions = `${ASK_INSTRUCTIONS}${strategyContext}${personalizationContext}`;
     let reply = "";
-    let activeModel = "Mini";
+    let activeModel = "GPT-5.6 Luna";
     const hasStrategyContext = Boolean(selectedStrategy);
     const lastUserMsg = messages.at(-1)?.content || "";
-    const isComplex = isComplexAskQuery(lastUserMsg, messages, hasStrategyContext);
+    const route = resolveAskModelRoute({ requestedModel, lastUserMsg, hasStrategyContext });
+    const selectedAskModel = route === "terra" ? ASK_COMPLEX_MODEL : ASK_MODEL;
+    activeModel = route === "terra" ? "GPT-5.6 Terra" : "GPT-5.6 Luna";
 
-    let routeToFlash = false;
-    if (requestedModel === "flash" || requestedModel.includes("gemini") || requestedModel.includes("3.7")) {
-      routeToFlash = true;
-    } else if (requestedModel === "mini" || requestedModel.includes("openai") || requestedModel.includes("luna") || requestedModel.includes("gpt")) {
-      routeToFlash = false;
-    } else {
-      // Auto mode:
-      // Route heavy/complex queries to Gemini 3.7 Flash, small/standard queries to gpt-5.6-luna (Mini)
-      if (isComplex && geminiAvailable) {
-        routeToFlash = true;
-      } else if (!isComplex && openAiAvailable) {
-        routeToFlash = false;
-      } else {
-        routeToFlash = geminiAvailable && !openAiAvailable;
-      }
-    }
-
-    // Real-time SSE streaming for instantaneous Gemini 3.7 & OpenAI response
+    // Real-time SSE streaming for responsive GPT-5.6 output.
     if (req.body.stream === true || req.headers.accept?.includes("text/event-stream")) {
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -774,107 +756,17 @@ app.post("/api/ask", async (req, res) => {
 
       let accumulated = "";
       try {
-        if (routeToFlash) {
-          // Route: Gemini 3.7 Flash with fallback to OpenAI gpt-5.6-luna
-          if (geminiAvailable) {
-            try {
-              activeModel = "Flash";
-              accumulated = await generateGeminiAskStreamResponse({
-                messages,
-                systemInstruction: fullInstructions,
-                model: aiConfig.geminiAskModel,
-                onChunk: (chunk) => {
-                  res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
-                  if (typeof res.flush === "function") res.flush();
-                },
-              });
-            } catch (geminiErr) {
-              console.warn("Gemini stream failed, falling back to OpenAI (gpt-5.6-luna):", geminiErr?.message);
-              if (openAiAvailable) {
-                activeModel = "Mini";
-                accumulated = await generateOpenAIAskStreamResponse({
-                  openaiClient: openai,
-                  model: ASK_MODEL,
-                  instructions: fullInstructions,
-                  messages,
-                  ownerId: req.ownerId,
-                  onChunk: (chunk) => {
-                    res.write(`data: ${JSON.stringify({ chunk, model: "Mini" })}\n\n`);
-                    if (typeof res.flush === "function") res.flush();
-                  },
-                });
-              } else {
-                throw geminiErr;
-              }
-            }
-          } else if (openAiAvailable) {
-            activeModel = "Mini";
-            accumulated = await generateOpenAIAskStreamResponse({
-              openaiClient: openai,
-              model: ASK_MODEL,
-              instructions: fullInstructions,
-              messages,
-              ownerId: req.ownerId,
-              onChunk: (chunk) => {
-                res.write(`data: ${JSON.stringify({ chunk, model: "Mini" })}\n\n`);
-                if (typeof res.flush === "function") res.flush();
-              },
-            });
-          } else {
-            res.write(`data: ${JSON.stringify({ error: "AI xidməti konfiqurasiya edilməyib." })}\n\n`);
+        accumulated = await generateOpenAIAskStreamResponse({
+          openaiClient: openai,
+          model: selectedAskModel,
+          instructions: fullInstructions,
+          messages,
+          ownerId: req.ownerId,
+          onChunk: (chunk) => {
+            res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
             if (typeof res.flush === "function") res.flush();
-            return res.end();
-          }
-        } else {
-          // Route: OpenAI gpt-5.6-luna (Mini) with fallback to Gemini 3.7 Flash
-          if (openAiAvailable) {
-            try {
-              activeModel = "Mini";
-              accumulated = await generateOpenAIAskStreamResponse({
-                openaiClient: openai,
-                model: ASK_MODEL,
-                instructions: fullInstructions,
-                messages,
-                ownerId: req.ownerId,
-                onChunk: (chunk) => {
-                  res.write(`data: ${JSON.stringify({ chunk, model: "Mini" })}\n\n`);
-                  if (typeof res.flush === "function") res.flush();
-                },
-              });
-            } catch (openAiErr) {
-              console.warn("OpenAI stream failed, falling back to Gemini 3.7 Flash:", openAiErr?.message);
-              if (geminiAvailable) {
-                activeModel = "Flash";
-                accumulated = await generateGeminiAskStreamResponse({
-                  messages,
-                  systemInstruction: fullInstructions,
-                  model: aiConfig.geminiAskModel,
-                  onChunk: (chunk) => {
-                    res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
-                    if (typeof res.flush === "function") res.flush();
-                  },
-                });
-              } else {
-                throw openAiErr;
-              }
-            }
-          } else if (geminiAvailable) {
-            activeModel = "Flash";
-            accumulated = await generateGeminiAskStreamResponse({
-              messages,
-              systemInstruction: fullInstructions,
-              model: aiConfig.geminiAskModel,
-              onChunk: (chunk) => {
-                res.write(`data: ${JSON.stringify({ chunk, model: "Flash" })}\n\n`);
-                if (typeof res.flush === "function") res.flush();
-              },
-            });
-          } else {
-            res.write(`data: ${JSON.stringify({ error: "AI xidməti konfiqurasiya edilməyib." })}\n\n`);
-            if (typeof res.flush === "function") res.flush();
-            return res.end();
-          }
-        }
+          },
+        });
 
         const updatedMessages = [
           ...messages,
@@ -897,76 +789,13 @@ app.post("/api/ask", async (req, res) => {
       }
     }
 
-    if (routeToFlash) {
-      if (geminiAvailable) {
-        try {
-          reply = await generateGeminiAskResponse({
-            messages,
-            systemInstruction: fullInstructions,
-            model: aiConfig.geminiAskModel,
-          });
-          activeModel = "Flash";
-        } catch (geminiErr) {
-          if (openAiAvailable) {
-            reply = await generateOpenAIAskResponse({
-              openaiClient: openai,
-              model: ASK_MODEL,
-              instructions: fullInstructions,
-              messages,
-              ownerId: req.ownerId,
-            });
-            activeModel = "Mini";
-          } else {
-            throw geminiErr;
-          }
-        }
-      } else if (openAiAvailable) {
-        reply = await generateOpenAIAskResponse({
-          openaiClient: openai,
-          model: ASK_MODEL,
-          instructions: fullInstructions,
-          messages,
-          ownerId: req.ownerId,
-        });
-        activeModel = "Mini";
-      } else {
-        return res.status(503).json({ error: "AI xidməti konfiqurasiya edilməyib." });
-      }
-    } else {
-      // Mini (OpenAI gpt-5.6-luna)
-      if (openAiAvailable) {
-        try {
-          reply = await generateOpenAIAskResponse({
-            openaiClient: openai,
-            model: ASK_MODEL,
-            instructions: fullInstructions,
-            messages,
-            ownerId: req.ownerId,
-          });
-          activeModel = "Mini";
-        } catch (openAiErr) {
-          if (geminiAvailable) {
-            reply = await generateGeminiAskResponse({
-              messages,
-              systemInstruction: fullInstructions,
-              model: aiConfig.geminiAskModel,
-            });
-            activeModel = "Flash";
-          } else {
-            throw openAiErr;
-          }
-        }
-      } else if (geminiAvailable) {
-        reply = await generateGeminiAskResponse({
-          messages,
-          systemInstruction: fullInstructions,
-          model: aiConfig.geminiAskModel,
-        });
-        activeModel = "Flash";
-      } else {
-        return res.status(503).json({ error: "AI xidməti konfiqurasiya edilməyib." });
-      }
-    }
+    reply = await generateOpenAIAskResponse({
+      openaiClient: openai,
+      model: selectedAskModel,
+      instructions: fullInstructions,
+      messages,
+      ownerId: req.ownerId,
+    });
 
     if (!reply) throw new Error("Ask mode returned an empty response.");
 
