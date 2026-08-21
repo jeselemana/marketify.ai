@@ -562,7 +562,7 @@ function renderIntake() {
   form.append(attach, label, textarea, fileInput, composerActions);
 
   const helper = element("div", "ask-composer-meta");
-  const disclaimer = element("p", "ask-disclaimer", "Marketify səhv edə bilər. Məlumatlar informasiya məqsədlidir.");
+  const disclaimer = element("p", "ask-disclaimer", "Marketify süni intellekt funksiyası yerinə yetirir və səhvlər edə bilər.");
   helper.appendChild(disclaimer);
 
   composerArea.append(form, helper);
@@ -1007,7 +1007,7 @@ function renderAsk() {
     contextPills.appendChild(sPill);
     helper.appendChild(contextPills);
   }
-  const disclaimer = element("p", "ask-disclaimer", "Marketify səhv edə bilər. Məlumatlar informasiya məqsədlidir.");
+  const disclaimer = element("p", "ask-disclaimer", "Marketify süni intellekt funksiyası yerinə yetirir və səhvlər edə bilər.");
   helper.appendChild(disclaimer);
   composerArea.append(form, helper);
   shell.append(thread, composerArea);
