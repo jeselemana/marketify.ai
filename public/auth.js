@@ -9,6 +9,7 @@ const AUTH_PATHS = new Set([
   "/signup",
   "/forgot-password",
   "/reset-password",
+  "/verify-email",
 ]);
 
 let pendingReturnPath = "/";
@@ -50,6 +51,7 @@ async function request(path, options = {}) {
     error.code = data.code;
     error.field = data.field;
     error.details = data.details;
+    error.email = data.email;
     throw error;
   }
   return data;
@@ -342,6 +344,11 @@ function renderLogin() {
       }
       await completeAuthentication(data.user);
     } catch (error) {
+      if (error.code === "EMAIL_VERIFICATION_REQUIRED" && error.email) {
+        route(`/verify-email?email=${encodeURIComponent(error.email)}`);
+        renderRoute();
+        return;
+      }
       setFormError(form, error.message);
       submitState(submit, false, "Daxil ol");
     }
@@ -436,7 +443,12 @@ function renderSignup() {
         method: "POST",
         body: JSON.stringify(formData),
       });
-      await completeAuthentication(data.user);
+      if (data.verificationRequired && data.email) {
+        route(`/verify-email?email=${encodeURIComponent(data.email)}`);
+        renderRoute();
+        return;
+      }
+      throw new Error("Təsdiq prosesini başlatmaq mümkün olmadı.");
     } catch (error) {
       setFormError(form, error.message, error.field);
       submitState(submit, false, "Hesab yarat");
@@ -444,6 +456,64 @@ function renderSignup() {
   });
   content.appendChild(form);
   setTimeout(() => form.fullName.focus(), 0);
+}
+
+function renderEmailVerification() {
+  document.title = "E-poçtu təsdiqlə — Marketify";
+  const email = new URLSearchParams(location.search).get("email") || "";
+  const content = shell("E-poçtunu təsdiqlə", "E-poçtuna göndərilən 6 rəqəmli kodu daxil et.");
+  const { form, submit } = formBase("Təsdiqlə və davam et");
+  const emailField = field({ label: "E-poçt", name: "email", type: "email", autocomplete: "email", placeholder: "ad@sirket.az" });
+  emailField.querySelector("input").value = email;
+  const codeField = field({ label: "Təsdiq kodu", name: "code", autocomplete: "one-time-code", placeholder: "123456", hint: "Kod 10 dəqiqə ərzində etibarlıdır." });
+  const codeInput = codeField.querySelector("input");
+  codeInput.inputMode = "numeric";
+  codeInput.maxLength = 6;
+  codeInput.pattern = "[0-9]{6}";
+  form.append(emailField, codeField, submit);
+
+  const resend = document.createElement("button");
+  resend.type = "button";
+  resend.className = "auth-link-button";
+  resend.textContent = "Kodu yenidən göndər";
+  resend.addEventListener("click", async () => {
+    setFormError(form, "");
+    resend.disabled = true;
+    try {
+      const data = await request("/api/auth/email-verification/resend", {
+        method: "POST",
+        body: JSON.stringify({ email: form.email.value }),
+      });
+      setFormError(form, data.message || "Yeni kod göndərildi.");
+      form.querySelector(".auth-error").classList.add("is-success");
+    } catch (error) {
+      setFormError(form, error.message, "email");
+    } finally {
+      resend.disabled = false;
+    }
+  });
+  const switcher = document.createElement("p");
+  switcher.className = "auth-switch";
+  switcher.append(resend, document.createTextNode(" · "), linkButton("Daxil olmağa qayıt", "/login"));
+  form.append(switcher);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setFormError(form, "");
+    if (!/^\d{6}$/.test(form.code.value.trim())) return setFormError(form, "6 rəqəmli təsdiq kodunu daxil et.", "code");
+    submitState(submit, true, "Təsdiqlənir…");
+    try {
+      const data = await request("/api/auth/email-verification/confirm", {
+        method: "POST",
+        body: JSON.stringify({ email: form.email.value, code: form.code.value.trim() }),
+      });
+      await completeAuthentication(data.user);
+    } catch (error) {
+      setFormError(form, error.message, error.code === "INVALID_EMAIL_VERIFICATION_CODE" ? "code" : "email");
+      submitState(submit, false, "Təsdiqlə və davam et");
+    }
+  });
+  content.appendChild(form);
+  setTimeout(() => (email ? codeInput : form.email).focus(), 0);
 }
 
 function renderForgot() {
@@ -551,6 +621,7 @@ function renderRoute() {
   if (path === "/signup") return renderSignup();
   if (path === "/forgot-password") return renderForgot();
   if (path === "/reset-password") return renderReset();
+  if (path === "/verify-email") return renderEmailVerification();
   if (path !== "/login") route("/login", true);
   return renderLogin();
 }

@@ -83,7 +83,11 @@ test("signup, session, login, reset, and single-use reset token work end to end"
   const users = new FileUserRepository(path.join(directory, "users.json"));
   const store = new FileAuthStore(path.join(directory, "sessions.json"));
   const sent = [];
-  const emailService = { sendPasswordResetEmail: async (message) => sent.push(message) };
+  const verificationMessages = [];
+  const emailService = {
+    sendPasswordResetEmail: async (message) => sent.push(message),
+    sendEmailVerificationCode: async (message) => verificationMessages.push(message),
+  };
   const app = express();
   app.use(express.json());
   app.use(createIdentityMiddleware({ authStore: store, userRepository: users }));
@@ -117,11 +121,22 @@ test("signup, session, login, reset, and single-use reset token work end to end"
     body: JSON.stringify({ fullName: "Market Lead", username: "market.lead", email: "lead@example.com", password: "strongpass1" }),
   });
   assert.equal(signup.status, 201);
-  const cookie = signup.headers.get("set-cookie").split(";")[0];
   const created = await signup.json();
-  assert.equal(created.user.username, "market.lead");
-  assert.equal(created.user.settings.personalIntelligence, false);
-  assert.equal("passwordHash" in created.user, false);
+  assert.equal(created.verificationRequired, true);
+  assert.equal(created.email, "lead@example.com");
+  assert.equal(verificationMessages.length, 1);
+
+  const verification = await fetch(`${base}/api/auth/email-verification/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "lead@example.com", code: verificationMessages[0].code }),
+  });
+  assert.equal(verification.status, 200);
+  const cookie = verification.headers.get("set-cookie").split(";")[0];
+  const verified = await verification.json();
+  assert.equal(verified.user.username, "market.lead");
+  assert.equal(verified.user.settings.personalIntelligence, false);
+  assert.equal("passwordHash" in verified.user, false);
 
   const enabledSettings = await fetch(`${base}/api/auth/settings`, {
     method: "PATCH",

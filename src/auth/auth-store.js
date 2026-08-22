@@ -3,7 +3,7 @@ import path from "node:path";
 import { loadJSONFromR2, saveJSONToR2 } from "../http/r2-storage.js";
 
 function emptyStore() {
-  return { schemaVersion: 1, sessions: {}, resetTokens: {}, rates: {} };
+  return { schemaVersion: 1, sessions: {}, resetTokens: {}, emailVerificationTokens: {}, rates: {} };
 }
 
 export class FileAuthStore {
@@ -60,6 +60,9 @@ export class FileAuthStore {
       for (const [key, value] of Object.entries(store.resetTokens)) {
         if (value.expiresAt <= now) delete store.resetTokens[key];
       }
+      for (const [key, value] of Object.entries(store.emailVerificationTokens)) {
+        if (value.expiresAt <= now) delete store.emailVerificationTokens[key];
+      }
       for (const [key, value] of Object.entries(store.rates)) {
         if (value.resetAt <= now) delete store.rates[key];
       }
@@ -107,6 +110,20 @@ export class FileAuthStore {
     return this.mutate((store) => {
       const token = store.resetTokens[id] || null;
       delete store.resetTokens[id];
+      return token;
+    });
+  }
+
+  async createEmailVerificationToken(id, userId, ttlSeconds) {
+    return this.mutate((store, now) => {
+      store.emailVerificationTokens[id] = { userId, createdAt: now, expiresAt: now + ttlSeconds * 1000 };
+    });
+  }
+
+  async consumeEmailVerificationToken(id) {
+    return this.mutate((store) => {
+      const token = store.emailVerificationTokens[id] || null;
+      delete store.emailVerificationTokens[id];
       return token;
     });
   }
@@ -171,6 +188,19 @@ export class RedisAuthStore {
 
   async consumeResetToken(id) {
     const key = `auth:reset:${id}`;
+    const value = typeof this.client.getDel === "function"
+      ? await this.client.getDel(key)
+      : await this.client.get(key);
+    if (value && typeof this.client.getDel !== "function") await this.client.del(key);
+    return value ? JSON.parse(value) : null;
+  }
+
+  async createEmailVerificationToken(id, userId, ttlSeconds) {
+    await this.client.set(`auth:verify-email:${id}`, JSON.stringify({ userId }), { EX: ttlSeconds });
+  }
+
+  async consumeEmailVerificationToken(id) {
+    const key = `auth:verify-email:${id}`;
     const value = typeof this.client.getDel === "function"
       ? await this.client.getDel(key)
       : await this.client.get(key);

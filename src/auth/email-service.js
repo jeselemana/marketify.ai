@@ -22,31 +22,63 @@ export class PasswordResetEmailService {
       : null;
   }
 
-  async sendPasswordResetEmail({ email, fullName, resetUrl }) {
-    const subject = "Marketify şifrəsini yenilə";
-    const text = `Salam ${fullName},\n\nMarketify şifrəsini yeniləmək üçün bu keçiddən istifadə et:\n${resetUrl}\n\nKeçid 20 dəqiqə ərzində etibarlıdır və yalnız bir dəfə işləyir. Bu sorğunu sən etməmisənsə, mesajı nəzərə alma.`;
-    const html = `<!doctype html><html><body style="margin:0;background:#f5f6f8;color:#171b24;font-family:Inter,Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:40px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:auto;background:#fff;border:1px solid #e4e7ec;border-radius:16px"><tr><td style="padding:34px"><div style="font-weight:700;margin-bottom:32px">Marketify</div><h1 style="margin:0 0 12px;font-size:25px;letter-spacing:-.5px">Şifrəni yenilə</h1><p style="margin:0 0 24px;color:#667085;line-height:1.65">Salam ${escapeHtml(fullName)}, Marketify hesabının şifrəsini yeniləmək üçün aşağıdakı düymədən istifadə et.</p><a href="${escapeHtml(resetUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;font-size:14px;font-weight:600">Şifrəni yenilə</a><p style="margin:24px 0 0;color:#98a2b3;font-size:12px;line-height:1.6">Bu keçid 20 dəqiqə ərzində etibarlıdır və yalnız bir dəfə işləyir. Sorğunu sən etməmisənsə, bu mesajı nəzərə alma.</p></td></tr></table></td></tr></table></body></html>`;
-    if (this.transport) {
-      await this.transport.sendMail({
-        from: this.env.EMAIL_FROM || "Marketify <no-reply@marketify-ai.com>",
-        to: email,
+  async sendWithResend({ to, subject, text, html, replyTo }) {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+        "User-Agent": "marketify-ai/1.0",
+      },
+      body: JSON.stringify({
+        from: this.env.EMAIL_FROM || "Marketify <onboarding@resend.dev>",
+        to: [to],
         subject,
         text,
         html,
+        ...(replyTo ? { reply_to: replyTo } : {}),
+      }),
+    });
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(`Resend email delivery failed (${response.status}): ${detail.slice(0, 300)}`);
+    }
+  }
+
+  async deliver({ to, subject, text, html, replyTo }) {
+    if (this.env.RESEND_API_KEY) return this.sendWithResend({ to, subject, text, html, replyTo });
+    if (this.transport) {
+      await this.transport.sendMail({
+        from: this.env.EMAIL_FROM || "Marketify <no-reply@marketify-ai.com>",
+        to,
+        subject,
+        text,
+        html,
+        replyTo,
       });
       return;
     }
-
-    if (this.env.NODE_ENV === "production") {
-      throw new Error("Password reset email transport is not configured.");
-    }
-
+    if (this.env.NODE_ENV === "production") throw new Error("Email transport is not configured.");
     const outboxPath = path.join(this.dataDir, "email-outbox.json");
     await fs.mkdir(this.dataDir, { recursive: true });
     let outbox = [];
     try { outbox = JSON.parse(await fs.readFile(outboxPath, "utf8")); } catch {}
-    outbox.push({ to: email, subject, text, html, createdAt: new Date().toISOString() });
+    outbox.push({ to, replyTo, subject, text, html, createdAt: new Date().toISOString() });
     await fs.writeFile(outboxPath, `${JSON.stringify(outbox, null, 2)}\n`, "utf8");
+  }
+
+  async sendEmailVerificationCode({ email, fullName, code }) {
+    const subject = "Marketify e-poçt təsdiqi";
+    const text = `Salam ${fullName},\n\nMarketify hesabını təsdiqləmək üçün kodun: ${code}\n\nKod 10 dəqiqə ərzində etibarlıdır. Bu sorğunu sən etməmisənsə, mesajı nəzərə alma.`;
+    const html = `<!doctype html><html><body style="margin:0;background:#f5f6f8;color:#171b24;font-family:Inter,Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:40px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:auto;background:#fff;border:1px solid #e4e7ec;border-radius:16px"><tr><td style="padding:34px"><div style="font-weight:700;margin-bottom:32px">Marketify</div><h1 style="margin:0 0 12px;font-size:25px">E-poçtunu təsdiqlə</h1><p style="margin:0 0 24px;color:#667085;line-height:1.65">Salam ${escapeHtml(fullName)}, hesabını aktivləşdirmək üçün aşağıdakı kodu daxil et.</p><div style="font-size:32px;letter-spacing:8px;font-weight:700;background:#f3f4f6;border-radius:10px;padding:16px;text-align:center">${escapeHtml(code)}</div><p style="margin:24px 0 0;color:#98a2b3;font-size:12px;line-height:1.6">Kod 10 dəqiqə ərzində etibarlıdır. Sorğunu sən etməmisənsə, mesajı nəzərə alma.</p></td></tr></table></td></tr></table></body></html>`;
+    await this.deliver({ to: email, subject, text, html });
+  }
+
+  async sendPasswordResetEmail({ email, fullName, resetUrl }) {
+    const subject = "Marketify şifrəsini yenilə";
+    const text = `Salam ${fullName},\n\nMarketify şifrəsini yeniləmək üçün bu keçiddən istifadə et:\n${resetUrl}\n\nKeçid 20 dəqiqə ərzində etibarlıdır və yalnız bir dəfə işləyir. Bu sorğunu sən etməmisənsə, mesajı nəzərə alma.`;
+    const html = `<!doctype html><html><body style="margin:0;background:#f5f6f8;color:#171b24;font-family:Inter,Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:40px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:auto;background:#fff;border:1px solid #e4e7ec;border-radius:16px"><tr><td style="padding:34px"><div style="font-weight:700;margin-bottom:32px">Marketify</div><h1 style="margin:0 0 12px;font-size:25px;letter-spacing:-.5px">Şifrəni yenilə</h1><p style="margin:0 0 24px;color:#667085;line-height:1.65">Salam ${escapeHtml(fullName)}, Marketify hesabının şifrəsini yeniləmək üçün aşağıdakı düymədən istifadə et.</p><a href="${escapeHtml(resetUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;font-size:14px;font-weight:600">Şifrəni yenilə</a><p style="margin:24px 0 0;color:#98a2b3;font-size:12px;line-height:1.6">Bu keçid 20 dəqiqə ərzində etibarlıdır və yalnız bir dəfə işləyir. Sorğunu sən etməmisənsə, bu mesajı nəzərə alma.</p></td></tr></table></td></tr></table></body></html>`;
+    await this.deliver({ to: email, subject, text, html });
   }
 
   async sendLegalReportEmail({
@@ -151,4 +183,3 @@ export class PasswordResetEmailService {
 }
 
 export const EmailService = PasswordResetEmailService;
-

@@ -161,7 +161,7 @@ const userRepository = new FileUserRepository(USERS_PATH, redis);
 const authStore = redis?.isReady ? new RedisAuthStore(redis) : new FileAuthStore(AUTH_STORE_PATH);
 const emailService = new PasswordResetEmailService({ dataDir: DATA_DIR });
 const adminUsernames = new Set(
-  String(process.env.ADMIN_USERNAMES || "boss,admin")
+  String(process.env.ADMIN_USERNAMES || "")
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean)
@@ -191,10 +191,7 @@ function requireAdmin(req, res, next) {
   if (
     req.user &&
     (adminUsernames.has(username) ||
-     adminUsernames.has(email) ||
-     email === "elemanajes@gmail.com" ||
-     username === "boss" ||
-     username === "admin")
+     adminUsernames.has(email))
   ) {
     return next();
   }

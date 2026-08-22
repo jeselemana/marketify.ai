@@ -20,7 +20,7 @@ Marketify AI is an AI strategy workspace built on the project's existing Express
 - `APP_URL` — the canonical public origin, for example `https://marketify-ai.com`.
 - `TRUSTED_ORIGINS` — optional comma-separated additional browser origins.
 - `REDIS_URL` — recommended in production; used as the primary session, password-reset-token, and auth rate-limit store, plus the preserved legacy analytics limit.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` — password reset delivery. SMTP is required for reset emails in production; development writes messages to the ignored `data/email-outbox.json`.
+- `RESEND_API_KEY`, `EMAIL_FROM` — Resend HTTP API ilə e-poçt təsdiq kodu və şifrə bərpası göndərişi. `EMAIL_FROM` Resend-də təsdiqlənmiş domenə aid olmalıdır. SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`) alternativ olaraq dəstəklənir.
 - `ADMIN_USERNAMES` — comma-separated usernames allowed to access the preserved admin interface. With no value the admin interface is closed.
 
 ## Data and ownership

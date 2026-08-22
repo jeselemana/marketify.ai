@@ -1,10 +1,12 @@
 import { OAuth2Client } from "google-auth-library";
 import express from "express";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
 import {
   AccountUpdateSchema,
   AddMemoryItemSchema,
   ChangePasswordSchema,
+  EmailVerificationConfirmSchema,
+  EmailVerificationRequestSchema,
   ForgotPasswordSchema,
   ImportMemoryPayloadSchema,
   LoginSchema,
@@ -25,6 +27,7 @@ import {
 } from "./auth-middleware.js";
 
 const RESET_TTL_SECONDS = 20 * 60;
+const EMAIL_VERIFICATION_TTL_SECONDS = 10 * 60;
 const DUMMY_PASSWORD_HASH = "$argon2id$v=19$m=19456,p=1,t=2$vcP17Lqj+FV8BaSbIBHvAg$SvwldQJW4f14U7Cv2tgeeuVIFT0LfFBIUNxAGWfNPLU";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -93,6 +96,25 @@ async function startSession(req, res, authStore, userId) {
 
 export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, appUrl }) {
   const router = express.Router();
+
+  async function sendEmailVerificationCode(user) {
+    const code = String(randomInt(100000, 1000000));
+    const tokenId = hashOpaqueToken(`${user.id}:${code}`);
+    await authStore.createEmailVerificationToken(tokenId, user.id, EMAIL_VERIFICATION_TTL_SECONDS);
+    try {
+      await emailService.sendEmailVerificationCode({ email: user.email, fullName: user.fullName, code });
+    } catch (error) {
+      // Do not leave a usable code behind if delivery fails.
+      await authStore.consumeEmailVerificationToken(tokenId);
+      throw error;
+    }
+  }
+
+  async function claimGuestData(req, userId) {
+    if (req.guestOwnerId && strategyRepository?.claimOwner) await strategyRepository.claimOwner(req.guestOwnerId, userId);
+    if (req.guestOwnerId && chatRepository?.claimOwner) await chatRepository.claimOwner(req.guestOwnerId, userId);
+    if (req.guestOwnerId && plannerRepository?.claimOwner) await plannerRepository.claimOwner(req.guestOwnerId, userId);
+  }
 
   router.get("/username-availability", limit(authStore, "username", 120, 60), asyncRoute(async (req, res) => {
     const raw = String(req.query.username || "").trim().replace(/^@+/, "");
@@ -204,17 +226,31 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     const payload = parseBody(SignupSchema, req.body);
     const passwordHash = await hashPassword(payload.password);
     const user = await userRepository.create({ ...payload, passwordHash });
-    await startSession(req, res, authStore, user.id);
-    if (req.guestOwnerId && strategyRepository?.claimOwner) {
-      await strategyRepository.claimOwner(req.guestOwnerId, user.id);
+    await sendEmailVerificationCode(user);
+    return res.status(201).json({ verificationRequired: true, email: user.email });
+  }));
+
+  router.post("/email-verification/resend", limit(authStore, "email-verification-resend", 3, 15 * 60, (req) => normalizeEmail(req.body?.email)), asyncRoute(async (req, res) => {
+    const payload = parseBody(EmailVerificationRequestSchema, req.body);
+    const user = await userRepository.findByEmail(payload.email);
+    if (user && !user.emailVerifiedAt) await sendEmailVerificationCode(user);
+    return res.json({ message: "Hesab mövcuddursa, təsdiq kodu e-poçta göndərildi." });
+  }));
+
+  router.post("/email-verification/confirm", limit(authStore, "email-verification-confirm", 10, 15 * 60, (req) => normalizeEmail(req.body?.email)), asyncRoute(async (req, res) => {
+    const payload = parseBody(EmailVerificationConfirmSchema, req.body);
+    const user = await userRepository.findByEmail(payload.email);
+    const tokenId = user ? hashOpaqueToken(`${user.id}:${payload.code}`) : hashOpaqueToken(`missing:${payload.code}`);
+    const token = await authStore.consumeEmailVerificationToken(tokenId);
+    if (!user || !token || token.userId !== user.id) {
+      return res.status(400).json({ error: "Təsdiq kodu yanlışdır və ya vaxtı bitib.", code: "INVALID_EMAIL_VERIFICATION_CODE" });
     }
-    if (req.guestOwnerId && chatRepository?.claimOwner) {
-      await chatRepository.claimOwner(req.guestOwnerId, user.id);
-    }
-    if (req.guestOwnerId && plannerRepository?.claimOwner) {
-      await plannerRepository.claimOwner(req.guestOwnerId, user.id);
-    }
-    return res.status(201).json({ user: publicUser(user) });
+    const verifiedUser = user.emailVerifiedAt
+      ? user
+      : await userRepository.update(user.id, { emailVerifiedAt: new Date().toISOString() });
+    await startSession(req, res, authStore, verifiedUser.id);
+    await claimGuestData(req, verifiedUser.id);
+    return res.json({ user: publicUser(verifiedUser) });
   }));
 
   router.post("/login", limit(authStore, "login", 12, 15 * 60, (req) => String(req.body?.identifier || "").toLowerCase()), asyncRoute(async (req, res) => {
@@ -227,6 +263,14 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       return res.status(401).json({
         error: "E-poçt/istifadəçi adı və ya şifrə yanlışdır.",
         code: "INVALID_CREDENTIALS",
+      });
+    }
+
+    if (!user.emailVerifiedAt) {
+      return res.status(403).json({
+        error: "Daxil olmaq üçün əvvəlcə e-poçtunu təsdiqlə.",
+        code: "EMAIL_VERIFICATION_REQUIRED",
+        email: user.email,
       });
     }
 
