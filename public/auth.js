@@ -444,7 +444,8 @@ function renderSignup() {
         body: JSON.stringify(formData),
       });
       if (data.verificationRequired && data.email) {
-        route(`/verify-email?email=${encodeURIComponent(data.email)}`);
+        const delivery = data.deliveryPending ? "&delivery=pending" : "";
+        route(`/verify-email?email=${encodeURIComponent(data.email)}${delivery}`);
         renderRoute();
         return;
       }
@@ -461,6 +462,7 @@ function renderSignup() {
 function renderEmailVerification() {
   document.title = "E-poçtu təsdiqlə — Marketify";
   const email = new URLSearchParams(location.search).get("email") || "";
+  const deliveryPending = new URLSearchParams(location.search).get("delivery") === "pending";
   const content = shell("E-poçtunu təsdiqlə", "E-poçtuna göndərilən 6 rəqəmli kodu daxil et.");
   const { form, submit } = formBase("Təsdiqlə və davam et");
   const emailField = field({ label: "E-poçt", name: "email", type: "email", autocomplete: "email", placeholder: "ad@sirket.az" });
@@ -496,6 +498,9 @@ function renderEmailVerification() {
   switcher.className = "auth-switch";
   switcher.append(resend, document.createTextNode(" · "), linkButton("Daxil olmağa qayıt", "/login"));
   form.append(switcher);
+  if (deliveryPending) {
+    setFormError(form, "Hesab yaradıldı, amma kod göndərilmədi. Aşağıdakı düymə ilə yenidən göndər.");
+  }
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     setFormError(form, "");

@@ -106,6 +106,11 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     } catch (error) {
       // Do not leave a usable code behind if delivery fails.
       await authStore.consumeEmailVerificationToken(tokenId);
+      console.error("Email verification delivery failed", {
+        userId: user.id,
+        emailDomain: user.email.split("@")[1] || "unknown",
+        message: error.message,
+      });
       throw error;
     }
   }
@@ -226,14 +231,32 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     const payload = parseBody(SignupSchema, req.body);
     const passwordHash = await hashPassword(payload.password);
     const user = await userRepository.create({ ...payload, passwordHash });
-    await sendEmailVerificationCode(user);
+    try {
+      await sendEmailVerificationCode(user);
+    } catch {
+      return res.status(202).json({
+        verificationRequired: true,
+        deliveryPending: true,
+        email: user.email,
+        message: "Hesab yaradıldı, lakin təsdiq kodu göndərilmədi. Kodu yenidən göndərmək üçün davam et.",
+      });
+    }
     return res.status(201).json({ verificationRequired: true, email: user.email });
   }));
 
   router.post("/email-verification/resend", limit(authStore, "email-verification-resend", 3, 15 * 60, (req) => normalizeEmail(req.body?.email)), asyncRoute(async (req, res) => {
     const payload = parseBody(EmailVerificationRequestSchema, req.body);
     const user = await userRepository.findByEmail(payload.email);
-    if (user && !user.emailVerifiedAt) await sendEmailVerificationCode(user);
+    if (user && !user.emailVerifiedAt) {
+      try {
+        await sendEmailVerificationCode(user);
+      } catch {
+        return res.status(503).json({
+          error: "Təsdiq kodu hazırda göndərilə bilmədi. Bir neçə dəqiqə sonra yenidən yoxla.",
+          code: "EMAIL_DELIVERY_UNAVAILABLE",
+        });
+      }
+    }
     return res.json({ message: "Hesab mövcuddursa, təsdiq kodu e-poçta göndərildi." });
   }));
 
@@ -267,6 +290,14 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     }
 
     if (!user.emailVerifiedAt) {
+      const deliveryLimit = await authStore.hitRateLimit(
+        rateKey(req, "email-verification-login-delivery", user.email),
+        3,
+        15 * 60,
+      );
+      if (deliveryLimit.allowed) {
+        await sendEmailVerificationCode(user).catch(() => {});
+      }
       return res.status(403).json({
         error: "Daxil olmaq üçün əvvəlcə e-poçtunu təsdiqlə.",
         code: "EMAIL_VERIFICATION_REQUIRED",
