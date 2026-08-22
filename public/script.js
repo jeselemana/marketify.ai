@@ -5206,25 +5206,84 @@ const LEGAL_DOCS = {
     subtitle: "Son yenilənmə tarixi: Avqust 2026",
     html: `
       <div class="legal-highlight-box">
-        <strong>✦ Süni İntellekt API İstifadəsi</strong>
-        Marketify AI xidməti strateji analizləri və marketinq nəticələrini generasiya etmək üçün qabaqcıl süni intellekt və böyük dil modellərinin (LLM) rəsmi API infrastrukturları ilə fəaliyyət göstərir.
+        <strong>✦ Süni İntellekt və API İnfrastrukturu</strong>
+        Marketify AI strateji analizlərin, marketinq materiallarının və digər nəticələrin generasiyası üçün süni intellekt, böyük dil modelləri (LLM), API infrastrukturları və digər üçüncü tərəf texnologiyalarından istifadə edə bilər. İstifadə olunan modellər, provayderlər və texniki infrastruktur xidmətin inkişafı ilə əlaqədar dəyişdirilə bilər.
       </div>
+
       <h3>1. Ümumi Müddəalar və Xidmətin Təyinatı</h3>
-      <p>Marketify AI platformasına (“Platforma”, “Xidmət”) xoş gəlmisiniz. Bu İstifadə Şərtləri (“Şərtlər”) sizin platformadan istifadənizi tənzimləyir. Xidmətdən istifadə etməklə siz bu şərtləri tam və qeyd-şərtsiz qəbul etmiş olursunuz.</p>
-      
-      <h3>2. Süni İntellekt Emalı və Təhlükəsizlik</h3>
-      <p>Platformada daxil etdiyiniz biznes brifləri, cavablar və sorğular ən müasir süni intellekt modelləri vasitəsilə təhlil edilir. Bu proses təhlükəsiz və şifrələnmiş kanallarla həyata keçirilir.</p>
-      <p>Marketify AI generasiya prosesində ən yüksək dəqiqlik və kontekstual uyğunluq təmin etmək üçün API sorğularını optimallaşdırır.</p>
+      <p>Marketify AI platformasına (“Marketify”, “Platforma”, “Xidmət”) xoş gəlmisiniz. Bu İstifadə Şərtləri (“Şərtlər”) Platformaya girişinizi və ondan istifadənizi tənzimləyir. Platformaya daxil olmaqla və ya ondan istifadə etməklə bu Şərtləri oxuduğunuzu, başa düşdüyünüzü və onlara əməl etməyə razı olduğunuzu təsdiq edirsiniz. Şərtlərlə razı deyilsinizsə, Platformadan istifadə etməməlisiniz.</p>
 
-      <h3>3. Əqli Mülkiyyət və Məzmun Hüquqları</h3>
-      <p><strong>İstifadəçi Məlumatları:</strong> Daxil etdiyiniz bütün biznes ideyaları, məhsul detalları və fərdi qeydlər müstəsna olaraq sizə məxsusdur.</p>
-      <p><strong>Generasiya Edilən Strategiyalar:</strong> Marketify AI vasitəsilə hazırladığınız bütün marketinq strategiyaları, fəaliyyət planları və sənədlər sizin sərəncamınızdadır və kommersiya və ya qeyri-kommersiya fəaliyyətinizdə sərbəst istifadə edilə bilər.</p>
+      <p>Marketify süni intellekt texnologiyalarından istifadə etməklə marketinq, biznes strategiyası, bazar analizi, ideya inkişafı, planlaşdırma və əlaqəli sahələr üzrə məzmun və analitik nəticələr yaratmağa kömək edən proqram təminatı platformasıdır.</p>
 
-      <h3>4. Məsuliyyətin Məhdudlaşdırılması və Tövsiyə Xarakteri</h3>
-      <p>Süni intellekt tərəfindən generasiya olunan nəticələr, proqnozlar və fəaliyyət planları strateji bələdçi və məsləhət xarakteri daşıyır. Marketinq kampaniyalarının icrası, büdcə xərcləri və biznes qərarları üzrə yekun məsuliyyət istifadəçinin üzərindədir.</p>
+      <p>Platformanın təqdim etdiyi nəticələr avtomatlaşdırılmış süni intellekt sistemləri tərəfindən generasiya edilir və peşəkar hüquqi, maliyyə, vergi, investisiya və ya digər ixtisaslaşdırılmış məsləhətin əvəzi hesab edilmir.</p>
 
-      <h3>5. İstifadəçi Öhdəlikləri</h3>
-      <p>İstifadəçilər qanunvericiliyə zidd, fırıldaqçılıq xarakterli və ya üçüncü şəxslərin hüquqlarını pozan sorğular göndərməməyi və sistemin fəaliyyətinə mane olmamağı öhdələrinə götürürlər.</p>
+      <h3>2. Süni İntellekt Emalı və Üçüncü Tərəf Xidmətləri</h3>
+      <p>Platformaya daxil etdiyiniz sorğular, biznes brifləri, mətnlər, fayllar və digər məlumatlar Xidmətin funksiyalarını təmin etmək məqsədilə süni intellekt modelləri, API-lər, hosting, məlumat bazası və digər texniki infrastrukturlar vasitəsilə emal edilə bilər.</p>
+
+      <p>Marketify konkret süni intellekt modelinin, API provayderinin və ya digər üçüncü tərəf xidmətinin daimi mövcudluğuna zəmanət vermir. Marketify istifadə olunan modelləri, provayderləri və texniki infrastrukturu tətbiq olunan qanunvericiliyin tələb etdiyi hallar istisna olmaqla dəyişdirmək hüququnu özündə saxlayır.</p>
+
+      <h3>3. Süni İntellekt Nəticələrinin Dəqiqliyi</h3>
+      <p>Süni intellekt sistemlərinin xüsusiyyətlərinə görə Platforma tərəfindən generasiya olunan nəticələr yanlış, natamam, qeyri-dəqiq və ya köhnəlmiş məlumatlar ehtiva edə bilər. Sistem bəzi hallarda mövcud olmayan faktları, statistik məlumatları, mənbələri və ya digər məlumatları səhvən təqdim edə bilər.</p>
+
+      <p>Marketify generasiya edilən nəticələrin dəqiqliyinə, tamlığına, aktuallığına, etibarlılığına və ya konkret məqsədə uyğunluğuna zəmanət vermir. İstifadəçi mühüm məlumatları müstəqil və etibarlı mənbələrdən yoxlamalıdır.</p>
+
+      <h3>4. Əqli Mülkiyyət və İstifadəçi Məzmunu</h3>
+      <p><strong>İstifadəçi Məzmunu:</strong> Platformaya daxil etdiyiniz biznes məlumatları, ideyalar, briflər, mətnlər, fayllar və digər materiallar üzərində mövcud hüquqlarınız sizdə qalır.</p>
+
+      <p>Marketify-a məlumat təqdim etməklə həmin məlumatların Xidmətin funksiyalarını yerinə yetirmək üçün zəruri həcmdə emal edilməsinə icazə verirsiniz. Platformaya təqdim etdiyiniz məlumatlardan istifadə etmək və onların emalına icazə vermək üçün zəruri hüquq və səlahiyyətlərə malik olduğunuza görə məsuliyyət daşıyırsınız.</p>
+
+      <p><strong>Generasiya Edilən Məzmun:</strong> Qanunvericiliyin və tətbiq olunan üçüncü tərəf şərtlərinin icazə verdiyi həddə Marketify vasitəsilə sizin üçün generasiya edilmiş strategiya, fəaliyyət planı, mətn və digər nəticələrdən kommersiya və qeyri-kommersiya məqsədləri üçün istifadə edə bilərsiniz.</p>
+
+      <p>Süni intellekt sistemlərinin xüsusiyyətlərinə görə eyni və ya oxşar nəticələr digər istifadəçilər üçün də generasiya edilə bilər. Marketify generasiya edilmiş məzmunun unikal, eksklüziv və ya müəllif hüquqları ilə qoruna bilən olmasına zəmanət vermir.</p>
+
+      <h3>5. Biznes Qərarları və Tövsiyə Xarakteri</h3>
+      <p>Marketify tərəfindən generasiya edilən strategiyalar, proqnozlar, bazar təhlilləri, büdcə təklifləri, fəaliyyət planları və digər nəticələr məlumatlandırıcı və yardımçı xarakter daşıyır.</p>
+
+      <p>Marketify müəyyən satış, gəlir, mənfəət, investisiya nəticəsinə, marketinq kampaniyasının uğuruna və ya digər konkret biznes nəticəsinə zəmanət vermir. Platformanın təqdim etdiyi məlumatlara əsaslanan qərarların qəbul edilməsi və həyata keçirilməsi istifadəçinin müstəqil qərarı və məsuliyyətidir.</p>
+
+      <h3>6. Qadağan Olunmuş İstifadə</h3>
+      <p>Platformadan qanunsuz fəaliyyət, fırıldaqçılıq, aldatma, üçüncü şəxslərin hüquqlarının pozulması, zərərli proqramların yayılması, sistemlərə icazəsiz giriş, təhlükəsizlik mexanizmlərinin aşılması və ya Platformanın normal fəaliyyətinə müdaxilə məqsədilə istifadə etmək qadağandır.</p>
+
+      <p>Marketify bu Şərtlərin pozulduğunu əsaslı şəkildə müəyyən etdikdə istifadəçinin Platformaya girişini məhdudlaşdırmaq, müvəqqəti dayandırmaq və ya ləğv etmək hüququnu özündə saxlayır.</p>
+
+      <h3>7. Xidmətin Mövcudluğu və Dəyişdirilməsi</h3>
+      <p>Marketify Platformanın fasiləsiz, səhvsiz və ya hər zaman əlçatan olacağına zəmanət vermir. Texniki xidmət, yeniləmələr, server problemləri, üçüncü tərəf API-lərində nasazlıqlar və Marketify-ın ağlabatan nəzarətindən kənar digər hallar Xidmətin müvəqqəti əlçatmaz olmasına və ya müəyyən funksiyaların işləməməsinə səbəb ola bilər.</p>
+
+      <p>Marketify Platformanın funksiyalarını, interfeysini, süni intellekt modellərini, istifadə limitlərini və digər texniki xüsusiyyətlərini dəyişdirmək, əlavə etmək və ya dayandırmaq hüququnu özündə saxlayır.</p>
+
+      <h3>8. Zəmanətlərin Məhdudlaşdırılması</h3>
+      <p>Qanunvericiliyin icazə verdiyi maksimum həddə Platforma və onun funksiyaları “olduğu kimi” və “mövcud olduğu şəkildə” təqdim edilir.</p>
+
+      <p>Marketify Platformanın konkret məqsədə uyğunluğu, fasiləsiz işləməsi, bütün səhvlərdən azad olması və ya generasiya edilən nəticələrin konkret kommersiya və ya biznes nəticəsi yaradacağı barədə açıq və ya nəzərdə tutulan zəmanət vermir.</p>
+
+      <h3>9. Məsuliyyətin Məhdudlaşdırılması</h3>
+      <p>Qanunvericiliyin icazə verdiyi maksimum həddə Marketify Platformadan istifadə, Platformadan istifadə edə bilməmə və ya generasiya edilmiş nəticələrə əsaslanan qərarlar nəticəsində yaranan dolayı, təsadüfi, xüsusi və ya nəticə etibarilə meydana çıxan zərərlərə, o cümlədən itirilmiş mənfəət, gəlir, biznes imkanı, məlumat və ya reputasiya itkisinə görə məsuliyyət daşımır.</p>
+
+      <p>Bu müddəa tətbiq olunan qanunvericiliklə məhdudlaşdırılması və ya istisna edilməsi mümkün olmayan məsuliyyət hallarını aradan qaldırmır.</p>
+
+      <h3>10. Hesab və Təhlükəsizlik</h3>
+      <p>Hesab funksiyası təqdim edildiyi halda istifadəçi öz giriş məlumatlarının məxfiliyini və təhlükəsizliyini qorumağa görə məsuliyyət daşıyır. İcazəsiz giriş və ya hesab təhlükəsizliyinin pozulmasından şübhələndikdə istifadəçi Marketify-a mümkün qədər tez məlumat verməlidir.</p>
+
+      <h3>11. Məxfilik və Fərdi Məlumatlar</h3>
+      <p>Fərdi məlumatların toplanması, istifadəsi, saxlanması və digər emal əməliyyatları Marketify-ın qüvvədə olan Məxfilik Siyasətinə və tətbiq olunan qanunvericiliyə uyğun həyata keçirilir.</p>
+
+      <p>İstifadəçilər Platformaya xidmətin göstərilməsi üçün zəruri olmayan həssas, məxfi və ya üçüncü şəxslərə aid məlumatları daxil etməməlidirlər.</p>
+
+      <h3>12. Şərtlərin Dəyişdirilməsi</h3>
+      <p>Marketify Platformanın inkişafı, hüquqi tələblər, təhlükəsizlik məsələləri və ya xidmət modelində dəyişikliklərlə əlaqədar bu Şərtləri vaxtaşırı yeniləyə bilər. Əhəmiyyətli dəyişikliklər barədə tətbiq olunan qanunvericiliyin tələb etdiyi hallarda istifadəçilərə uyğun vasitələrlə məlumat verilə bilər.</p>
+
+      <p>Yenilənmiş Şərtlər göstərilən qüvvəyə minmə tarixindən tətbiq edilir.</p>
+
+      <h3>13. Şərtlərin Ayrı-ayrılıqda Qüvvədə Qalması</h3>
+      <p>Bu Şərtlərin hər hansı müddəasının etibarsız və ya icraedilməz hesab edilməsi digər müddəaların etibarlılığına təsir göstərmir.</p>
+
+      <h3>14. Tətbiq Olunan Qanunvericilik</h3>
+      <p>Bu Şərtlər Azərbaycan Respublikasının qanunvericiliyinə uyğun olaraq şərh və tətbiq edilir. İstehlakçıların və digər şəxslərin tətbiq olunan qanunvericiliklə məhdudlaşdırılması mümkün olmayan hüquqları bu Şərtlərlə aradan qaldırılmır.</p>
+
+      <div class="legal-highlight-box">
+        <strong>Vacib qeyd</strong>
+        Marketify səhv edə bilər. Vacib məlumatları və Platformanın təqdim etdiyi nəticələri müstəqil və etibarlı mənbələrdən yoxlayın.
+      </div>
     `,
   },
   privacy: {
