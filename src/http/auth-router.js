@@ -28,6 +28,7 @@ import {
 
 const RESET_TTL_SECONDS = 20 * 60;
 const EMAIL_VERIFICATION_TTL_SECONDS = 10 * 60;
+const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
 const DUMMY_PASSWORD_HASH = "$argon2id$v=19$m=19456,p=1,t=2$vcP17Lqj+FV8BaSbIBHvAg$SvwldQJW4f14U7Cv2tgeeuVIFT0LfFBIUNxAGWfNPLU";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -119,6 +120,14 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     if (req.guestOwnerId && strategyRepository?.claimOwner) await strategyRepository.claimOwner(req.guestOwnerId, userId);
     if (req.guestOwnerId && chatRepository?.claimOwner) await chatRepository.claimOwner(req.guestOwnerId, userId);
     if (req.guestOwnerId && plannerRepository?.claimOwner) await plannerRepository.claimOwner(req.guestOwnerId, userId);
+  }
+
+  async function startEmailVerificationCooldown(req, email) {
+    return authStore.hitRateLimit(
+      rateKey(req, "email-verification-resend-cooldown", email),
+      1,
+      EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
+    );
   }
 
   router.get("/username-availability", limit(authStore, "username", 120, 60), asyncRoute(async (req, res) => {
@@ -233,6 +242,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     const user = await userRepository.create({ ...payload, passwordHash });
     try {
       await sendEmailVerificationCode(user);
+      await startEmailVerificationCooldown(req, user.email);
     } catch {
       return res.status(202).json({
         verificationRequired: true,
@@ -241,13 +251,27 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
         message: "Hesab yaradıldı, lakin təsdiq kodu göndərilmədi. Kodu yenidən göndərmək üçün davam et.",
       });
     }
-    return res.status(201).json({ verificationRequired: true, email: user.email });
+    return res.status(201).json({
+      verificationRequired: true,
+      email: user.email,
+      resendAfterSeconds: EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
+    });
   }));
 
   router.post("/email-verification/resend", limit(authStore, "email-verification-resend", 3, 15 * 60, (req) => normalizeEmail(req.body?.email)), asyncRoute(async (req, res) => {
     const payload = parseBody(EmailVerificationRequestSchema, req.body);
     const user = await userRepository.findByEmail(payload.email);
     if (user && !user.emailVerifiedAt) {
+      const cooldown = await startEmailVerificationCooldown(req, user.email);
+      if (!cooldown.allowed) {
+        const retryAfter = Math.max(1, Math.ceil((cooldown.resetAt - Date.now()) / 1000));
+        res.set("Retry-After", String(retryAfter));
+        return res.status(429).json({
+          error: `Yeni kodu ${retryAfter} saniyə sonra istəyə bilərsən.`,
+          code: "EMAIL_VERIFICATION_COOLDOWN",
+          retryAfter,
+        });
+      }
       try {
         await sendEmailVerificationCode(user);
       } catch {
@@ -262,6 +286,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
 
   router.post("/email-verification/confirm", limit(authStore, "email-verification-confirm", 10, 15 * 60, (req) => normalizeEmail(req.body?.email)), asyncRoute(async (req, res) => {
     const payload = parseBody(EmailVerificationConfirmSchema, req.body);
+    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore });
     const user = await userRepository.findByEmail(payload.email);
     const tokenId = user ? hashOpaqueToken(`${user.id}:${payload.code}`) : hashOpaqueToken(`missing:${payload.code}`);
     const token = await authStore.consumeEmailVerificationToken(tokenId);
@@ -290,18 +315,17 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     }
 
     if (!user.emailVerifiedAt) {
-      const deliveryLimit = await authStore.hitRateLimit(
-        rateKey(req, "email-verification-login-delivery", user.email),
-        3,
-        15 * 60,
-      );
-      if (deliveryLimit.allowed) {
+      const cooldown = await startEmailVerificationCooldown(req, user.email);
+      if (cooldown.allowed) {
         await sendEmailVerificationCode(user).catch(() => {});
       }
       return res.status(403).json({
         error: "Daxil olmaq üçün əvvəlcə e-poçtunu təsdiqlə.",
         code: "EMAIL_VERIFICATION_REQUIRED",
         email: user.email,
+        resendAfterSeconds: cooldown.allowed
+          ? EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS
+          : Math.max(1, Math.ceil((cooldown.resetAt - Date.now()) / 1000)),
       });
     }
 

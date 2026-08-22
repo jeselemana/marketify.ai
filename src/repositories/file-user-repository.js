@@ -282,9 +282,17 @@ export class FileUserRepository {
       const store = await this.readStore();
       const now = new Date();
       const expiredUsers = store.users.filter((user) => {
-        if (!user.scheduledDeletionAt) return false;
-        const sched = new Date(user.scheduledDeletionAt);
-        return !isNaN(sched.getTime()) && sched <= now;
+        if (user.scheduledDeletionAt) {
+          const sched = new Date(user.scheduledDeletionAt);
+          if (!isNaN(sched.getTime()) && sched <= now) return true;
+        }
+
+        // Signup hesabı 24 saat ərzində e-poçtla təsdiqlənməzsə,
+        // yarımçıq qeydiyyat məlumatını saxlamırıq.
+        if (user.emailVerifiedAt) return false;
+        const createdAt = new Date(user.createdAt);
+        const unverifiedExpiry = now.getTime() - 24 * 60 * 60 * 1000;
+        return !isNaN(createdAt.getTime()) && createdAt.getTime() <= unverifiedExpiry;
       });
 
       if (expiredUsers.length === 0) return 0;

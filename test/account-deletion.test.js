@@ -120,6 +120,19 @@ test("14-day account deletion: schedule, cancel, and auto-purge with cascading c
   const remainingTasks = await plannerRepo.list(userA.id);
   assert.equal(remainingTasks.length, 0);
 
+  // 7. Unverified signup accounts are removed after 24 hours.
+  await userRepo.update(userB.id, {
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000 - 1).toISOString(),
+  });
+  const unverifiedPurged = await userRepo.purgeExpiredAccounts({
+    strategyRepository: strategyRepo,
+    chatRepository: chatRepo,
+    plannerRepository: plannerRepo,
+    authStore,
+  });
+  assert.equal(unverifiedPurged, 1);
+  assert.equal(await userRepo.findById(userB.id), null);
+
   // Cleanup
   await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
 });

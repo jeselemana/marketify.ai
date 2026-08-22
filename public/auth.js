@@ -52,6 +52,7 @@ async function request(path, options = {}) {
     error.field = data.field;
     error.details = data.details;
     error.email = data.email;
+    error.resendAfterSeconds = data.resendAfterSeconds || data.retryAfter;
     throw error;
   }
   return data;
@@ -345,7 +346,7 @@ function renderLogin() {
       await completeAuthentication(data.user);
     } catch (error) {
       if (error.code === "EMAIL_VERIFICATION_REQUIRED" && error.email) {
-        route(`/verify-email?email=${encodeURIComponent(error.email)}`);
+        route(`/verify-email?email=${encodeURIComponent(error.email)}&cooldown=${encodeURIComponent(error.resendAfterSeconds || 0)}`);
         renderRoute();
         return;
       }
@@ -445,7 +446,8 @@ function renderSignup() {
       });
       if (data.verificationRequired && data.email) {
         const delivery = data.deliveryPending ? "&delivery=pending" : "";
-        route(`/verify-email?email=${encodeURIComponent(data.email)}${delivery}`);
+        const cooldown = `&cooldown=${encodeURIComponent(data.resendAfterSeconds || 0)}`;
+        route(`/verify-email?email=${encodeURIComponent(data.email)}${delivery}${cooldown}`);
         renderRoute();
         return;
       }
@@ -463,6 +465,7 @@ function renderEmailVerification() {
   document.title = "E-poçtu təsdiqlə — Marketify";
   const email = new URLSearchParams(location.search).get("email") || "";
   const deliveryPending = new URLSearchParams(location.search).get("delivery") === "pending";
+  const requestedCooldown = Number(new URLSearchParams(location.search).get("cooldown"));
   const content = shell("E-poçtunu təsdiqlə", "E-poçtuna göndərilən 6 rəqəmli kodu daxil et.");
   const { form, submit } = formBase("Təsdiqlə və davam et");
   const emailField = field({ label: "E-poçt", name: "email", type: "email", autocomplete: "email", placeholder: "ad@sirket.az" });
@@ -476,8 +479,23 @@ function renderEmailVerification() {
 
   const resend = document.createElement("button");
   resend.type = "button";
-  resend.className = "auth-link-button";
-  resend.textContent = "Kodu yenidən göndər";
+  resend.className = "auth-resend-button";
+  const resendHint = document.createElement("span");
+  resendHint.className = "auth-resend-hint";
+  const startResendCooldown = (seconds = 60) => {
+    const endsAt = Date.now() + Math.max(0, seconds) * 1000;
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      const minutes = Math.floor(remaining / 60);
+      const secondsPart = remaining % 60;
+      resend.disabled = remaining > 0;
+      resend.textContent = remaining > 0 ? `Kodu yenidən göndər · ${minutes}:${String(secondsPart).padStart(2, "0")}` : "Kodu yenidən göndər";
+      resendHint.textContent = remaining > 0 ? "Yeni kod üçün qısa gözləmə" : "Kod gəlməyibsə, yenidən göndər.";
+      if (remaining > 0) window.setTimeout(update, 1000);
+    };
+    update();
+  };
+  startResendCooldown(Number.isFinite(requestedCooldown) ? Math.min(60, Math.max(0, requestedCooldown)) : 0);
   resend.addEventListener("click", async () => {
     setFormError(form, "");
     resend.disabled = true;
@@ -486,17 +504,23 @@ function renderEmailVerification() {
         method: "POST",
         body: JSON.stringify({ email: form.email.value }),
       });
-      setFormError(form, data.message || "Yeni kod göndərildi.");
-      form.querySelector(".auth-error").classList.add("is-success");
+      resendHint.textContent = data.message || "Yeni kod e-poçtuna göndərildi.";
+      startResendCooldown(60);
     } catch (error) {
-      setFormError(form, error.message, "email");
-    } finally {
-      resend.disabled = false;
+      if (error.code === "EMAIL_VERIFICATION_COOLDOWN") {
+        startResendCooldown(error.resendAfterSeconds || 60);
+      } else {
+        setFormError(form, error.message, "email");
+        resend.disabled = false;
+      }
     }
   });
-  const switcher = document.createElement("p");
+  const resendWrap = document.createElement("div");
+  resendWrap.className = "auth-resend";
+  resendWrap.append(resend, resendHint);
+  const switcher = document.createElement("div");
   switcher.className = "auth-switch";
-  switcher.append(resend, document.createTextNode(" · "), linkButton("Daxil olmağa qayıt", "/login"));
+  switcher.append(resendWrap, linkButton("Daxil olmağa qayıt", "/login"));
   form.append(switcher);
   if (deliveryPending) {
     setFormError(form, "Hesab yaradıldı, amma kod göndərilmədi. Aşağıdakı düymə ilə yenidən göndər.");
