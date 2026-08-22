@@ -6,6 +6,7 @@ import {
   AddMemoryItemSchema,
   ChangePasswordSchema,
   ForgotPasswordSchema,
+  ImportMemoryPayloadSchema,
   LoginSchema,
   OnboardingSchema,
   ResetPasswordSchema,
@@ -360,6 +361,57 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       },
     });
     return res.json({ ok: true, user: publicUser(updated) });
+  }));
+
+  router.post("/settings/import-memory", asyncRoute(async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+    const payload = parseBody(ImportMemoryPayloadSchema, req.body);
+    const currentSettings = req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {};
+    const currentMemories = Array.isArray(currentSettings.memories) ? currentSettings.memories : [];
+
+    const now = new Date().toISOString();
+    const importedMemories = (payload.memories || []).map((m) => ({
+      id: m.id || `mem_${randomUUID().slice(0, 8)}`,
+      text: m.text,
+      category: m.category || "general",
+      createdAt: now,
+    }));
+
+    let finalMemories = [];
+    if (payload.mergeMode === "replace") {
+      finalMemories = importedMemories.slice(0, 50);
+    } else {
+      const existingTexts = new Set(currentMemories.map((m) => m.text.trim().toLowerCase()));
+      const newItems = importedMemories.filter((m) => !existingTexts.has(m.text.trim().toLowerCase()));
+      finalMemories = [...newItems, ...currentMemories].slice(0, 50);
+    }
+
+    const updatedSettings = {
+      ...currentSettings,
+      personalIntelligence: payload.enablePersonalIntelligence !== false ? true : (currentSettings.personalIntelligence ?? true),
+      brandName: payload.brandName !== undefined && payload.brandName !== "" ? payload.brandName : (currentSettings.brandName || ""),
+      industry: payload.industry !== undefined && payload.industry !== "" ? payload.industry : (currentSettings.industry || ""),
+      primaryMarket: payload.primaryMarket !== undefined && payload.primaryMarket !== "" ? payload.primaryMarket : (currentSettings.primaryMarket || ""),
+      targetAudience: payload.targetAudience !== undefined && payload.targetAudience !== "" ? payload.targetAudience : (currentSettings.targetAudience || ""),
+      tone: payload.tone || currentSettings.tone || "professional",
+      customInstructions: payload.customInstructions !== undefined && payload.customInstructions !== ""
+        ? (payload.mergeMode === "merge" && currentSettings.customInstructions && currentSettings.customInstructions !== payload.customInstructions
+            ? `${currentSettings.customInstructions}\n\n${payload.customInstructions}`.slice(0, 2000)
+            : payload.customInstructions)
+        : (currentSettings.customInstructions || ""),
+      memories: finalMemories,
+    };
+
+    const updated = await userRepository.update(req.user.id, {
+      settings: updatedSettings,
+    });
+
+    return res.status(200).json({
+      ok: true,
+      importedCount: importedMemories.length,
+      totalMemories: finalMemories.length,
+      user: publicUser(updated),
+    });
   }));
 
   router.post("/onboarding", asyncRoute(async (req, res) => {

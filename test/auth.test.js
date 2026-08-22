@@ -96,7 +96,7 @@ test("signup, session, login, reset, and single-use reset token work end to end"
   }));
   app.get("/protected", requireAuth, (req, res) => res.json({ ownerId: req.ownerId }));
   app.use(authErrorHandler);
-  const server = app.listen(0);
+  const server = app.listen(0, "127.0.0.1");
   t.after(() => new Promise((resolve) => server.close(resolve)));
   await new Promise((resolve) => server.once("listening", resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -132,6 +132,33 @@ test("signup, session, login, reset, and single-use reset token work end to end"
   assert.equal((await enabledSettings.json()).user.settings.personalIntelligence, true);
   const refreshedMe = await fetch(`${base}/api/auth/me`, { headers: { Cookie: cookie } });
   assert.equal((await refreshedMe.json()).user.settings.personalIntelligence, true);
+
+  const importRes = await fetch(`${base}/api/auth/settings/import-memory`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: cookie },
+    body: JSON.stringify({
+      brandName: "Marketify AI",
+      industry: "B2B SaaS",
+      primaryMarket: "Azərbaycan",
+      targetAudience: "Startaplar və marketoloqlar",
+      tone: "creative",
+      customInstructions: "Qısa və icra yönümlü ol.",
+      memories: [
+        { text: "Biz yalnız B2B şirkətlərlə işləyirik.", category: "business" },
+        { text: "TV və radio reklamlarından istifadə etmirik.", category: "constraint" },
+      ],
+      mergeMode: "merge",
+      enablePersonalIntelligence: true,
+    }),
+  });
+  assert.equal(importRes.status, 200);
+  const importJson = await importRes.json();
+  assert.equal(importJson.ok, true);
+  assert.equal(importJson.importedCount, 2);
+  assert.equal(importJson.user.settings.brandName, "Marketify AI");
+  assert.equal(importJson.user.settings.tone, "creative");
+  assert.equal(importJson.user.settings.memories.length, 2);
+  assert.equal(importJson.user.settings.personalIntelligence, true);
 
   const unauthenticatedSettings = await fetch(`${base}/api/auth/settings`, {
     method: "PATCH",

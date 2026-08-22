@@ -7,7 +7,13 @@ import {
   relevance,
   TONE_DIRECTIVES,
 } from "../src/services/ai/personal-context.js";
-import { UserSettingsSchema, AddMemoryItemSchema, detectSensitiveInformation } from "../src/auth/validation.js";
+import {
+  UserSettingsSchema,
+  AddMemoryItemSchema,
+  ImportedMemoryItemSchema,
+  ImportMemoryPayloadSchema,
+  detectSensitiveInformation,
+} from "../src/auth/validation.js";
 
 function repository(records) {
   return { readAll: async () => records };
@@ -267,6 +273,45 @@ test("AddMemoryItemSchema and UserSettingsSchema reject sensitive personal info"
       memories: [{ id: "m1", text: "Şifrə: AdminPass2026!", category: "general", createdAt: "2026-08-20" }],
     }),
     (err) => err.issues[0].message.includes("şifrə"),
+  );
+});
+
+test("ImportMemoryPayloadSchema validates correctly with merge and replace modes", () => {
+  const payload = ImportMemoryPayloadSchema.parse({
+    brandName: "Marketify AI",
+    industry: "B2B SaaS",
+    primaryMarket: "Azərbaycan",
+    targetAudience: "Startaplar",
+    tone: "creative",
+    customInstructions: "Həmişə ROI göstəricisini vurğula.",
+    memories: [
+      { text: "Biz yalnız B2B şirkətlərlə işləyirik.", category: "business" },
+      { text: "TV və radio reklamları etmirik.", category: "constraint" },
+    ],
+    mergeMode: "merge",
+    enablePersonalIntelligence: true,
+  });
+
+  assert.equal(payload.brandName, "Marketify AI");
+  assert.equal(payload.industry, "B2B SaaS");
+  assert.equal(payload.tone, "creative");
+  assert.equal(payload.memories.length, 2);
+  assert.equal(payload.mergeMode, "merge");
+  assert.equal(payload.enablePersonalIntelligence, true);
+});
+
+test("ImportedMemoryItemSchema rejects sensitive personal info during import", () => {
+  assert.throws(
+    () => ImportedMemoryItemSchema.parse({ text: "Əlaqə nömrəsi: +994 50 123 45 67" }),
+    (err) => err.issues[0].message.includes("telefon"),
+  );
+
+  assert.throws(
+    () => ImportMemoryPayloadSchema.parse({
+      brandName: "Test Brand",
+      memories: [{ text: "Kart nömrəsi 4169 7388 1234 5678", category: "business" }],
+    }),
+    (err) => err.issues[0].message.includes("bank kartı"),
   );
 });
 

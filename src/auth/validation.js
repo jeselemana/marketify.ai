@@ -204,6 +204,31 @@ export const UserSettingsSchema = z.object({
   strategyPersonalization: z.boolean().optional().default(true),
 });
 
+export const ImportedMemoryItemSchema = z.object({
+  id: z.string().trim().max(100).optional(),
+  text: z
+    .string()
+    .trim()
+    .min(1, "Qeyd daxil edin.")
+    .max(500, "Qeyd 500 simvoldan uzun ola bilməz.")
+    .refine((text) => !detectSensitiveInformation(text).isSensitive, (text) => ({
+      message: detectSensitiveInformation(text).reason || "Yaddaşda həssas şəxsi məlumatların saxlanılmasına icazə verilmir.",
+    })),
+  category: z.enum(["business", "audience", "preference", "constraint", "general"]).optional().default("general"),
+});
+
+export const ImportMemoryPayloadSchema = z.object({
+  brandName: z.string().trim().max(100, "Brend adı 100 simvoldan uzun ola bilməz.").optional().default(""),
+  industry: z.string().trim().max(100, "Sənaye sahəsi 100 simvoldan uzun ola bilməz.").optional().default(""),
+  targetAudience: z.string().trim().max(500, "Hədəf kütlə 500 simvoldan uzun ola bilməz.").optional().default(""),
+  primaryMarket: z.string().trim().max(100, "Bazar məlumatı 100 simvoldan uzun ola bilməz.").optional().default(""),
+  tone: z.enum(["professional", "creative", "concise", "friendly", "data_driven"]).optional().default("professional"),
+  customInstructions: z.string().trim().max(2000, "Xüsusi təlimatlar 2000 simvoldan uzun ola bilməz.").optional().default(""),
+  memories: z.array(ImportedMemoryItemSchema).max(50, "Maksimum 50 yaddaş qeydi saxlanıla bilər.").optional().default([]),
+  mergeMode: z.enum(["merge", "replace"]).optional().default("merge"),
+  enablePersonalIntelligence: z.boolean().optional().default(true),
+});
+
 export function parseBody(schema, body) {
   const result = schema.safeParse(body);
   if (result.success) return result.data;

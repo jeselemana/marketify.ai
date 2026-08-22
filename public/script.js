@@ -3864,6 +3864,31 @@ function renderSettings() {
     let currentTone = userSettings.tone || "professional";
     let memoriesList = Array.isArray(userSettings.memories) ? [...userSettings.memories] : [];
 
+    // Import Memory Banner / Action Card
+    const importCard = element("div", "experience-import-banner");
+    const importLeft = element("div", "experience-import-left");
+    importLeft.innerHTML = `
+      <div class="experience-import-icon-badge">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </div>
+      <div class="experience-import-text">
+        <strong>Yaddaş köçür</strong>
+        <p>ChatGPT, Claude və ya Gemini-dakı yaddaşınızı və brend məlumatlarınızı Marketify-a birbaşa köçürün.</p>
+      </div>
+    `;
+    const importBtn = button("Yaddaşı köçür", "secondary-button experience-import-trigger-btn", () => {
+      openImportMemoryModal({
+        userSettings: state.currentUser?.settings || {},
+        onImportSuccess: (updatedUser) => {
+          updateWorkspaceIdentity(updatedUser);
+          renderSettings();
+        },
+      });
+    });
+    importBtn.type = "button";
+    importCard.append(importLeft, importBtn);
+    panel.appendChild(importCard);
+
     // Master Switch
     const masterCard = element("div", "experience-hero-toggle");
     const masterLeft = element("div", "experience-hero-left");
@@ -4080,54 +4105,6 @@ function renderSettings() {
       memoryCategorySelect.appendChild(opt);
     });
 
-    const checkSensitiveData = (txt) => {
-      if (!txt) return null;
-      const t = txt.trim();
-      const phonePats = [
-        /(?:\+994|00994|994)?[\s.-]?(?:0?(?:10|50|51|55|60|70|77|99|12|18|20|21|22|23|24|25|26|36))[\s.-]?[0-9]{3}[\s.-]?[0-9]{2}[\s.-]?[0-9]{2}/i,
-        /(?:\btelefon|\bnömrə|\bnömrəm|\bmobil|\bwhatsapp|\bəlaqə|\bphone|\bcall|\btel)[\s:]*[\s.-]?(?:\+?[0-9]{1,4}[\s.-]?)?[0-9]{5,12}/i,
-        /(?:\+\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2,4}/,
-        /\b0[1-9][0-9]{8}\b/,
-      ];
-      for (const r of phonePats) {
-        if (r.test(t)) return "Yaddaşda telefon və ya mobil nömrələrin saxlanılmasına icazə verilmir.";
-      }
-      const addrPats = [
-        /(?:yaşayış\s*ünvanı|ev\s*ünvanı|ev\s*ünvanım|yaşayış\s*yeri|evimin\s*ünvanı|qeydiyyat\s*ünvanı)/i,
-        /(?:residential\s*address|home\s*address|living\s*address|apartment\s*address)/i,
-        /(?:küç(?:əsi|\.)|prospekt(?:i|\.)|pr\.|döngə(?:si|\.)|dalan(?:ı|\.))\s*(?:[0-9]+|[A-ZƏÖĞÇŞÜa-zəöğçşü]+)\s*,?\s*(?:ev|bina|mənzil|blok|korpus|mərtəbə)\s*[0-9]+/i,
-        /(?:ev|bina|korpus)\s*[0-9]+\s*,\s*mənzil\s*[0-9]+/i,
-        /(?:mənzil\s*no|mənzil\s*№|mənzil\s*nömrəsi|apt\s*#|apt\s*no)\s*[0-9]+/i,
-        /(?:yaşayıram|yaşayırıq)\s*:\s*.+/i,
-      ];
-      for (const r of addrPats) {
-        if (r.test(t)) return "Yaddaşda dəqiq yaşayış və ya ev ünvanlarının saxlanılmasına icazə verilmir.";
-      }
-      const payPats = [
-        /\b(?:\d{4}[ -]?){3}\d{4}\b/,
-        /\b(?:cvv|cvc|cvv2|cvc2)(?:\s*(?:kodu?m?|code))?[\s:=]*[0-9]{3,4}\b/i,
-        /\bAZ\d{2}[A-Z0-9]{24}\b/i,
-        /(?:kart\s*nömrəsi|hesab\s*nömrəsi|kredit\s*kartı|bank\s*kartı)[\s:]*[0-9]{8,20}/i,
-      ];
-      for (const r of payPats) {
-        if (r.test(t)) return "Yaddaşda bank kartı, CVV və ya hesab məlumatlarının saxlanılmasına icazə verilmir.";
-      }
-      const idPats = [
-        /(?:fin(?:\s*kodu?m?)?|f[iİ]n|şv(?:\s*seriya(?:sı)?)?|şəxsiyyət\s*vəsiqəsi|pasport(?:\s*nömrəsi)?|pin(?:\s*code|\s*kodu?m?)?|ssn)[\s:=]*[a-zA-Z0-9]{6,10}/i,
-        /\b(?:AZE|AA)\s*[0-9]{7,8}\b/i,
-      ];
-      for (const r of idPats) {
-        if (r.test(t)) return "Yaddaşda FİN kod, şəxsiyyət vəsiqəsi və ya pasport məlumatlarının saxlanılmasına icazə verilmir.";
-      }
-      const secPats = [
-        /(?:şifrə(?:m)?|parol(?:um)?|password|api[_-]?key|secret[_-]?key|token|auth[_-]?token)[\s:=]+[\S]{4,}/i,
-      ];
-      for (const r of secPats) {
-        if (r.test(t)) return "Yaddaşda şifrə, API açarı və ya məxfi tokenlərin saxlanılmasına icazə verilmir.";
-      }
-      return null;
-    };
-
     const addMemoryBtn = button("Əlavə et", "secondary-button experience-add-btn", () => {
       const text = memoryInput.value.trim();
       if (!text) return;
@@ -4154,6 +4131,17 @@ function renderSettings() {
     addMemoryRow.append(memoryInput, memoryCategorySelect, addMemoryBtn);
 
     const memoryFooter = element("div", "experience-memory-footer");
+    const importMemoryInlineBtn = button("Başqa AI-dan köçür", "secondary-button experience-import-inline-btn", () => {
+      openImportMemoryModal({
+        userSettings: state.currentUser?.settings || {},
+        onImportSuccess: (updatedUser) => {
+          updateWorkspaceIdentity(updatedUser);
+          renderSettings();
+        },
+      });
+    });
+    importMemoryInlineBtn.type = "button";
+
     const clearMemoriesBtn = button("Bütün yaddaşı təmizlə", "danger-text-button", () => {
       if (confirm("Bütün yaddaş qeydlərini silmək istədiyinizdən əminsiniz?")) {
         memoriesList = [];
@@ -4161,7 +4149,7 @@ function renderSettings() {
       }
     });
     clearMemoriesBtn.type = "button";
-    memoryFooter.appendChild(clearMemoriesBtn);
+    memoryFooter.append(importMemoryInlineBtn, clearMemoriesBtn);
 
     memoryWrapper.append(memoryListContainer, addMemoryRow, memoryFooter);
 
@@ -5598,6 +5586,799 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
   setTimeout(() => typeSelect.focus(), 80);
+}
+
+function checkSensitiveData(txt) {
+  if (!txt) return null;
+  const t = txt.trim();
+  const phonePats = [
+    /(?:\+994|00994|994)?[\s.-]?(?:0?(?:10|50|51|55|60|70|77|99|12|18|20|21|22|23|24|25|26|36))[\s.-]?[0-9]{3}[\s.-]?[0-9]{2}[\s.-]?[0-9]{2}/i,
+    /(?:\btelefon|\bnömrə|\bnömrəm|\bmobil|\bwhatsapp|\bəlaqə|\bphone|\bcall|\btel)[\s:]*[\s.-]?(?:\+?[0-9]{1,4}[\s.-]?)?[0-9]{5,12}/i,
+    /(?:\+\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2,4}/,
+    /\b0[1-9][0-9]{8}\b/,
+  ];
+  for (const r of phonePats) {
+    if (r.test(t)) return "Yaddaşda telefon və ya mobil nömrələrin saxlanılmasına icazə verilmir.";
+  }
+  const addrPats = [
+    /(?:yaşayış\s*ünvanı|ev\s*ünvanı|ev\s*ünvanım|yaşayış\s*yeri|evimin\s*ünvanı|qeydiyyat\s*ünvanı)/i,
+    /(?:residential\s*address|home\s*address|living\s*address|apartment\s*address)/i,
+    /(?:küç(?:əsi|\.)|prospekt(?:i|\.)|pr\.|döngə(?:si|\.)|dalan(?:ı|\.))\s*(?:[0-9]+|[A-ZƏÖĞÇŞÜa-zəöğçşü]+)\s*,?\s*(?:ev|bina|mənzil|blok|korpus|mərtəbə)\s*[0-9]+/i,
+    /(?:ev|bina|korpus)\s*[0-9]+\s*,\s*mənzil\s*[0-9]+/i,
+    /(?:mənzil\s*no|mənzil\s*№|mənzil\s*nömrəsi|apt\s*#|apt\s*no)\s*[0-9]+/i,
+    /(?:yaşayıram|yaşayırıq)\s*:\s*.+/i,
+  ];
+  for (const r of addrPats) {
+    if (r.test(t)) return "Yaddaşda dəqiq yaşayış və ya ev ünvanlarının saxlanılmasına icazə verilmir.";
+  }
+  const payPats = [
+    /\b(?:\d{4}[ -]?){3}\d{4}\b/,
+    /\b(?:cvv|cvc|cvv2|cvc2)(?:\s*(?:kodu?m?|code))?[\s:=]*[0-9]{3,4}\b/i,
+    /\bAZ\d{2}[A-Z0-9]{24}\b/i,
+    /(?:kart\s*nömrəsi|hesab\s*nömrəsi|kredit\s*kartı|bank\s*kartı)[\s:]*[0-9]{8,20}/i,
+  ];
+  for (const r of payPats) {
+    if (r.test(t)) return "Yaddaşda bank kartı, CVV və ya hesab məlumatlarının saxlanılmasına icazə verilmir.";
+  }
+  const idPats = [
+    /(?:fin(?:\s*kodu?m?)?|f[iİ]n|şv(?:\s*seriya(?:sı)?)?|şəxsiyyət\s*vəsiqəsi|pasport(?:\s*nömrəsi)?|pin(?:\s*code|\s*kodu?m?)?|ssn)[\s:=]*[a-zA-Z0-9]{6,10}/i,
+    /\b(?:AZE|AA)\s*[0-9]{7,8}\b/i,
+  ];
+  for (const r of idPats) {
+    if (r.test(t)) return "Yaddaşda FİN kod, şəxsiyyət vəsiqəsi və ya pasport məlumatlarının saxlanılmasına icazə verilmir.";
+  }
+  const secPats = [
+    /(?:şifrə(?:m)?|parol(?:um)?|password|api[_-]?key|secret[_-]?key|token|auth[_-]?token)[\s:=]+[\S]{4,}/i,
+  ];
+  for (const r of secPats) {
+    if (r.test(t)) return "Yaddaşda şifrə, API açarı və ya məxfi tokenlərin saxlanılmasına icazə verilmir.";
+  }
+  return null;
+}
+
+const IMPORT_MEMORY_PROMPT = `Marketify AI-a keçid üçün mənim haqqımda mövcud biznes və marketinq kontekstini ixrac et.
+
+Keçmiş söhbətlərimizi, mövcud yaddaşı və mənim haqqımda etibarlı şəkildə bildiyin məlumatları nəzərdən keçir. Yalnız Marketify AI-ın gələcəkdə daha uyğun marketinq strategiyaları, kontent, kampaniyalar və biznes tövsiyələri verməsinə kömək edəcək davamlı məlumatları seç.
+
+Mümkün olduqda mənim öz ifadələrimi, terminologiyamı, seçimlərimi və verdiyim konkret təlimatları mənasını dəyişmədən qoru.
+
+Yalnız həqiqətən bildiyin məlumatlardan istifadə et. Məlumatı təxmin etmə, uydurma və ya çatışmayan sahələri özün tamamlama.
+
+Məlumatları aşağıdakı JSON strukturunda ixrac et:
+
+{
+  "brandName": "Brend və ya layihə adı",
+  "industry": "Sənaye və ya fəaliyyət sahəsi",
+  "primaryMarket": "Əsas bazar və coğrafiya",
+  "targetAudience": "Hədəf auditoriya təsviri",
+  "tone": "professional",
+  "customInstructions": "Marketify AI-ın gələcək cavablarında nəzərə almalı olduğu xüsusi marketinq və kommunikasiya təlimatları",
+  "memories": [
+    {
+      "category": "business",
+      "text": "Konkret və davamlı biznes və ya marketinq faktı"
+    }
+  ]
+}
+
+Yaddaş qeydlərinə əsasən bunları daxil et:
+- brend, biznes, məhsul və xidmətlər haqqında davamlı faktlar;
+- fəaliyyət sahəsi, biznes modeli və əsas bazar;
+- hədəf auditoriya və ideal müştəri haqqında məlum məlumatlar;
+- marketinq, kontent, reklam və kommunikasiya üstünlükləri;
+- brend tonu, dil və üslub seçimləri;
+- davamlı biznes qaydaları və məhdudiyyətlər;
+- gələcək Marketify cavablarına təsir edə biləcək aktiv biznes məqsədləri və layihələr;
+- Marketify AI-ın daha uyğun nəticə verməsinə kömək edəcək digər davamlı biznes konteksti.
+
+Daxil etmə:
+- biznes və marketinq üçün praktik əhəmiyyəti olmayan şəxsi məlumatları;
+- birdəfəlik söhbətləri, təsadüfi sualları və keçici hadisələri;
+- artıq aktual olmadığı məlum olan məlumatları;
+- şifrələri, API açarlarını, autentifikasiya məlumatlarını, telefon nömrələrini, dəqiq ünvanları, kart və bank məlumatlarını;
+- sağlamlıq, siyasi baxışlar və mənsubiyyət, dini inanclar, etnik mənsubiyyət, cinsi həyat və ya oriyentasiya kimi həssas şəxsi məlumatları.
+
+Qaydalar:
+1. Cavab yalnız sintaktik olaraq etibarlı JSON olmalıdır. Markdown code block, giriş, izah, qeyd və ya əlavə mətn yazma.
+2. "tone" yalnız bu dəyərlərdən biri ola bilər: "professional", "creative", "concise", "friendly", "data_driven".
+3. İstifadəçinin üslub seçimi məlum deyilsə "tone": "professional" istifadə et.
+4. "category" yalnız bu dəyərlərdən biri ola bilər: "business", "audience", "preference", "constraint", "general".
+5. Hər "memories" elementi yalnız bir konkret fakt, üstünlük və ya qayda ifadə etməlidir.
+6. Eyni və ya çox oxşar yaddaş faktlarını təkrarlama.
+7. Məlum olmayan əsas sahələr üçün boş string ("") istifadə et.
+8. Uyğun yaddaş faktı yoxdursa "memories": [] qaytar.
+9. "customInstructions" daxilində faktları sadalamaq əvəzinə Marketify AI-ın gələcək cavablarını necə uyğunlaşdırmalı olduğunu qısa şəkildə ifadə et.
+10. Bütün key və string-lər double quote ilə yazılmalı və trailing comma istifadə edilməməlidir.
+
+Yalnız JSON qaytar.`;
+
+function parseImportedMemoryText(raw) {
+  if (!raw || typeof raw !== "string") {
+    return { brandName: "", industry: "", primaryMarket: "", targetAudience: "", tone: "professional", customInstructions: "", memories: [], sensitiveExcluded: 0 };
+  }
+
+  const text = raw.trim();
+  let parsedJson = null;
+
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const jsonCandidate = codeBlockMatch ? codeBlockMatch[1].trim() : text;
+
+  try {
+    parsedJson = JSON.parse(jsonCandidate);
+  } catch {
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        parsedJson = JSON.parse(text.slice(firstBrace, lastBrace + 1));
+      } catch {}
+    }
+    if (!parsedJson) {
+      const firstBracket = text.indexOf("[");
+      const lastBracket = text.lastIndexOf("]");
+      if (firstBracket !== -1 && lastBracket > firstBracket) {
+        try {
+          parsedJson = JSON.parse(text.slice(firstBracket, lastBracket + 1));
+        } catch {}
+      }
+    }
+  }
+
+  let brandName = "";
+  let industry = "";
+  let primaryMarket = "";
+  let targetAudience = "";
+  let tone = "professional";
+  let customInstructions = "";
+  let rawMemories = [];
+  let sensitiveExcluded = 0;
+
+  const validTones = new Set(["professional", "creative", "concise", "friendly", "data_driven"]);
+  const validCategories = new Set(["business", "audience", "preference", "constraint", "general"]);
+
+  function sanitizeCategory(cat, txt = "") {
+    const c = String(cat || "").toLowerCase().trim();
+    if (validCategories.has(c)) return c;
+    if (c.includes("biznes") || c.includes("business") || c.includes("fakt")) return "business";
+    if (c.includes("auditor") || c.includes("kütlə") || c.includes("müştəri") || c.includes("audience")) return "audience";
+    if (c.includes("üstün") || c.includes("pref") || c.includes("istək")) return "preference";
+    if (c.includes("məhdud") || c.includes("qadağa") || c.includes("constrain") || c.includes("limit")) return "constraint";
+    const lowerTxt = String(txt).toLowerCase();
+    if (/(?:etmirik|olmaz|qadağandır|istifadə etmirik|don't|never|no tv|no radio|heç vaxt)/i.test(lowerTxt)) return "constraint";
+    if (/(?:yaş|auditoriya|müştəri|gənc|qadın|kişi|segment|b2b|b2c)/i.test(lowerTxt)) return "audience";
+    if (/(?:üstünlük|sevirik|əsasən|tərz|prioritet)/i.test(lowerTxt)) return "preference";
+    if (/(?:şirkət|məhsul|xidmət|satış|qiymət|brend|biznes)/i.test(lowerTxt)) return "business";
+    return "general";
+  }
+
+  if (parsedJson && typeof parsedJson === "object") {
+    if (Array.isArray(parsedJson)) {
+      rawMemories = parsedJson;
+    } else {
+      brandName = String(parsedJson.brandName || parsedJson.brand || parsedJson.name || "").trim().slice(0, 100);
+      industry = String(parsedJson.industry || parsedJson.sector || parsedJson.sahə || "").trim().slice(0, 100);
+      primaryMarket = String(parsedJson.primaryMarket || parsedJson.market || parsedJson.bazar || parsedJson.geography || "").trim().slice(0, 100);
+      targetAudience = String(parsedJson.targetAudience || parsedJson.audience || parsedJson.hədəf || "").trim().slice(0, 500);
+      if (validTones.has(parsedJson.tone)) tone = parsedJson.tone;
+      customInstructions = String(parsedJson.customInstructions || parsedJson.instructions || parsedJson.təlimatlar || "").trim().slice(0, 2000);
+
+      const memCandidate = parsedJson.memories || parsedJson.memory || parsedJson.facts || parsedJson.knowledge || parsedJson.items || parsedJson.qeydlər;
+      if (Array.isArray(memCandidate)) {
+        rawMemories = memCandidate;
+      }
+    }
+  } else {
+    const lines = text.split("\n");
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+
+      const brandMatch = line.match(/^(?:brend|brand|layihə|şirkət)\s*[:=]\s*(.+)$/i);
+      if (brandMatch && !brandName) { brandName = brandMatch[1].trim().slice(0, 100); continue; }
+
+      const industryMatch = line.match(/^(?:sənaye|sahə|industry|sector)\s*[:=]\s*(.+)$/i);
+      if (industryMatch && !industry) { industry = industryMatch[1].trim().slice(0, 100); continue; }
+
+      const marketMatch = line.match(/^(?:bazar|coğrafiya|market|region)\s*[:=]\s*(.+)$/i);
+      if (marketMatch && !primaryMarket) { primaryMarket = marketMatch[1].trim().slice(0, 100); continue; }
+
+      const audienceMatch = line.match(/^(?:hədəf(?:\s*kütlə|\s*auditoriya)?|audience|target)\s*[:=]\s*(.+)$/i);
+      if (audienceMatch && !targetAudience) { targetAudience = audienceMatch[1].trim().slice(0, 500); continue; }
+
+      const toneMatch = line.match(/^(?:üslub|ton|tone|voice)\s*[:=]\s*(.+)$/i);
+      if (toneMatch) {
+        const tVal = toneMatch[1].trim().toLowerCase();
+        if (validTones.has(tVal)) tone = tVal;
+        continue;
+      }
+
+      const instrMatch = line.match(/^(?:təlimat(?:lar)?|instructions?|qaydalar)\s*[:=]\s*(.+)$/i);
+      if (instrMatch && !customInstructions) { customInstructions = instrMatch[1].trim().slice(0, 2000); continue; }
+
+      const bulletMatch = line.match(/^(?:[-*•+]|\d+[.)])\s*(.+)$/);
+      if (bulletMatch) {
+        const itemTxt = bulletMatch[1].trim();
+        if (itemTxt) rawMemories.push(itemTxt);
+      }
+    }
+  }
+
+  const memories = [];
+  const seen = new Set();
+
+  for (const item of rawMemories) {
+    let itemText = "";
+    let itemCat = "general";
+
+    if (typeof item === "string") {
+      itemText = item.trim();
+      itemCat = sanitizeCategory("", itemText);
+    } else if (item && typeof item === "object") {
+      itemText = String(item.text || item.fact || item.note || item.content || item.value || "").trim();
+      itemCat = sanitizeCategory(item.category || item.type || item.cat, itemText);
+    }
+
+    if (!itemText) continue;
+    itemText = itemText.slice(0, 500);
+
+    const norm = itemText.toLowerCase();
+    if (seen.has(norm)) continue;
+    seen.add(norm);
+
+    const sensitive = checkSensitiveData(itemText);
+    if (sensitive) {
+      sensitiveExcluded += 1;
+      continue;
+    }
+
+    memories.push({
+      id: `mem_imp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      text: itemText,
+      category: itemCat,
+      selected: true,
+    });
+  }
+
+  return {
+    brandName,
+    industry,
+    primaryMarket,
+    targetAudience,
+    tone,
+    customInstructions,
+    memories: memories.slice(0, 50),
+    sensitiveExcluded,
+  };
+}
+
+function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {}) {
+  const overlay = document.querySelector("#legalModalOverlay");
+  if (!overlay) return;
+
+  overlay.replaceChildren();
+
+  const card = element("div", "legal-modal-card import-memory-modal-card");
+
+  // Header
+  const header = element("header", "legal-modal-header import-memory-modal-header");
+
+  const titleGroup = element("div", "legal-modal-title-group");
+  titleGroup.append(
+    element("h2", "", "Yaddaşın köçürülməsi"),
+    element(
+      "p",
+      "",
+      "Başqa AI xidmətindəki yaddaş və brend məlumatlarını Marketify-a köçür."
+    )
+  );
+
+  const closeBtn = button("✕", "legal-modal-close", closeLegalModal);
+  closeBtn.setAttribute("aria-label", "Bağla");
+
+  header.append(titleGroup, closeBtn);
+
+  const body = element("div", "legal-modal-body import-memory-modal-body");
+
+  // ------------------------------------------------------------
+  // STEP 1
+  // ------------------------------------------------------------
+  const step1 = element("section", "import-step");
+
+  const step1Header = element("div", "import-step-heading");
+  step1Header.innerHTML = `
+    <span class="import-step-number">1</span>
+    <div>
+      <strong>Promptu AI xidmətinə göndər</strong>
+      <p>ChatGPT, Claude və ya Gemini-yə bu promptu göndər.</p>
+    </div>
+  `;
+
+  const promptBox = element("div", "import-prompt-box");
+
+  const promptPreview = element("div", "import-prompt-preview");
+  promptPreview.textContent = IMPORT_MEMORY_PROMPT;
+
+  const copyBtn = button(
+    "Promptu kopyala",
+    "secondary-button import-copy-btn",
+    async () => {
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(IMPORT_MEMORY_PROMPT);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = IMPORT_MEMORY_PROMPT;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+        }
+
+        copyBtn.textContent = "Kopyalandı ✓";
+        copyBtn.classList.add("is-copied");
+
+        setTimeout(() => {
+          copyBtn.textContent = "Promptu kopyala";
+          copyBtn.classList.remove("is-copied");
+        }, 1800);
+
+        showToast("Prompt kopyalandı.");
+      } catch {
+        showToast("Promptu kopyalamaq mümkün olmadı.", "error");
+      }
+    }
+  );
+
+  copyBtn.type = "button";
+
+  promptBox.append(promptPreview, copyBtn);
+  step1.append(step1Header, promptBox);
+
+  // ------------------------------------------------------------
+  // STEP 2
+  // ------------------------------------------------------------
+  const step2 = element("section", "import-step");
+
+  const step2Header = element("div", "import-step-heading");
+  step2Header.innerHTML = `
+    <span class="import-step-number">2</span>
+    <div>
+      <strong>Cavabı bura yapışdır</strong>
+      <p>AI tərəfindən yaradılmış JSON və ya mətn nəticəsini daxil et.</p>
+    </div>
+  `;
+
+  const textarea = element(
+    "textarea",
+    "settings-input settings-textarea import-textarea"
+  );
+
+  textarea.rows = 5;
+  textarea.placeholder = `AI cavabını buraya yapışdır...
+
+{
+  "brandName": "Marketify AI",
+  "industry": "B2B SaaS",
+  "memories": [...]
+}`;
+
+  step2.append(step2Header, textarea);
+
+  // ------------------------------------------------------------
+  // STEP 3
+  // ------------------------------------------------------------
+  const step3 = element("section", "import-step import-step-review");
+
+  const step3Header = element("div", "import-step-heading");
+  step3Header.innerHTML = `
+    <span class="import-step-number">3</span>
+    <div>
+      <strong>Nəticəni yoxla</strong>
+      <p>Aşkarlanan məlumatları nəzərdən keçir və idxal et.</p>
+    </div>
+  `;
+
+  const previewContainer = element("div", "import-preview-container");
+
+  step3.append(step3Header, previewContainer);
+
+  let currentParsedData = null;
+  let importMode = "merge";
+  let enablePersonalIntelligence = true;
+
+  function createImportChip(label, value) {
+    const chip = element("div", "import-chip");
+
+    chip.innerHTML = `
+      <span class="import-chip-label">${escapeHtml(label)}</span>
+      <span class="import-chip-val">${escapeHtml(value)}</span>
+    `;
+
+    return chip;
+  }
+
+  function createModeOption({
+    value,
+    title,
+    description,
+    recommended = false,
+  }) {
+    const label = element(
+      "label",
+      `import-mode-option${importMode === value ? " is-selected" : ""}`
+    );
+
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "importMode";
+    radio.value = value;
+    radio.checked = importMode === value;
+    radio.className = "import-mode-radio";
+
+    const text = element("div", "import-mode-text");
+    text.innerHTML = `
+      <strong>
+        ${escapeHtml(title)}
+        ${recommended ? '<span class="import-recommended">Tövsiyə olunur</span>' : ""}
+      </strong>
+      <p>${escapeHtml(description)}</p>
+    `;
+
+    radio.addEventListener("change", () => {
+      importMode = value;
+
+      document
+        .querySelectorAll(".import-mode-option")
+        .forEach((item) => item.classList.remove("is-selected"));
+
+      label.classList.add("is-selected");
+    });
+
+    label.append(radio, text);
+    return label;
+  }
+
+  const renderPreview = () => {
+    previewContainer.replaceChildren();
+
+    const raw = textarea.value.trim();
+
+    if (!raw) {
+      const empty = element(
+        "div",
+        "import-preview-empty",
+        "Cavabı yapışdırdıqdan sonra aşkarlanan məlumatlar burada görünəcək."
+      );
+
+      previewContainer.appendChild(empty);
+      currentParsedData = null;
+      return;
+    }
+
+    currentParsedData = parseImportedMemoryText(raw);
+
+    const hasProfile = Boolean(
+      currentParsedData.brandName ||
+        currentParsedData.industry ||
+        currentParsedData.primaryMarket ||
+        currentParsedData.targetAudience ||
+        currentParsedData.customInstructions ||
+        (currentParsedData.tone &&
+          currentParsedData.tone !== "professional")
+    );
+
+    const hasMemories = currentParsedData.memories.length > 0;
+
+    if (!hasProfile && !hasMemories) {
+      const warning = element("div", "import-warning-box");
+
+      warning.innerHTML = `
+        <strong>Məlumat aşkarlanmadı</strong>
+        <p>AI cavabının tam şəkildə kopyalandığından əmin ol.</p>
+      `;
+
+      previewContainer.appendChild(warning);
+      return;
+    }
+
+    // Sensitive data alert
+    if (currentParsedData.sensitiveExcluded > 0) {
+      const notice = element("div", "import-sensitive-alert");
+
+      notice.innerHTML = `
+        <span>
+          ${currentParsedData.sensitiveExcluded} həssas məlumat təhlükəsizlik səbəbilə idxaldan çıxarıldı.
+        </span>
+      `;
+
+      previewContainer.appendChild(notice);
+    }
+
+    // Profile
+    if (hasProfile) {
+      const profileBox = element("div", "import-review-section");
+
+      profileBox.appendChild(
+        element("strong", "import-section-subtitle", "Brend və profil")
+      );
+
+      const chipGrid = element("div", "import-chips-grid");
+
+      const toneNames = {
+        professional: "Peşəkar",
+        creative: "Yaradıcı",
+        concise: "Qısa və konkret",
+        friendly: "Dostcasına",
+        data_driven: "Nəticə yönümlü",
+      };
+
+      if (currentParsedData.brandName) {
+        chipGrid.appendChild(
+          createImportChip("Brend", currentParsedData.brandName)
+        );
+      }
+
+      if (currentParsedData.industry) {
+        chipGrid.appendChild(
+          createImportChip("Sahə", currentParsedData.industry)
+        );
+      }
+
+      if (currentParsedData.primaryMarket) {
+        chipGrid.appendChild(
+          createImportChip("Bazar", currentParsedData.primaryMarket)
+        );
+      }
+
+      if (currentParsedData.targetAudience) {
+        chipGrid.appendChild(
+          createImportChip("Auditoriya", currentParsedData.targetAudience)
+        );
+      }
+
+      if (currentParsedData.tone) {
+        chipGrid.appendChild(
+          createImportChip(
+            "Üslub",
+            toneNames[currentParsedData.tone] || currentParsedData.tone
+          )
+        );
+      }
+
+      if (currentParsedData.customInstructions) {
+        chipGrid.appendChild(
+          createImportChip(
+            "Təlimat",
+            currentParsedData.customInstructions
+          )
+        );
+      }
+
+      profileBox.appendChild(chipGrid);
+      previewContainer.appendChild(profileBox);
+    }
+
+    // Memories
+    if (hasMemories) {
+      const memBox = element("div", "import-review-section");
+
+      const memHeader = element("div", "import-memories-header");
+
+      memHeader.append(
+        element(
+          "strong",
+          "import-section-subtitle",
+          `Yaddaş qeydləri · ${currentParsedData.memories.length}`
+        ),
+        element(
+          "span",
+          "import-hint-text",
+          "İstəmədiyin qeydlərin seçimini sil."
+        )
+      );
+
+      const list = element("div", "import-memories-list");
+
+      const categoryNames = {
+        business: "Biznes",
+        audience: "Auditoriya",
+        preference: "Üstünlük",
+        constraint: "Məhdudiyyət",
+        general: "Qeyd",
+      };
+
+      currentParsedData.memories.forEach((mem) => {
+        const row = element("label", "import-memory-item-row");
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "import-memory-checkbox";
+        checkbox.checked = mem.selected !== false;
+
+        checkbox.addEventListener("change", () => {
+          mem.selected = checkbox.checked;
+        });
+
+        const tag = element(
+          "span",
+          `memory-category-tag tag-${mem.category || "general"}`,
+          categoryNames[mem.category] || "Qeyd"
+        );
+
+        const text = element("span", "import-memory-text", mem.text);
+
+        row.append(checkbox, tag, text);
+        list.appendChild(row);
+      });
+
+      memBox.append(memHeader, list);
+      previewContainer.appendChild(memBox);
+    }
+
+    // Import mode
+    const settingsBox = element("div", "import-review-section import-options-box");
+
+    settingsBox.appendChild(
+      element("strong", "import-section-subtitle", "İdxal üsulu")
+    );
+
+    const modeWrap = element("div", "import-mode-selector");
+
+    modeWrap.append(
+      createModeOption({
+        value: "merge",
+        title: "Mövcud yaddaşla birləşdir",
+        description: "Cari məlumatlar qalır, yeni faktlar əlavə olunur.",
+        recommended: true,
+      }),
+      createModeOption({
+        value: "replace",
+        title: "Yaddaşı əvəzlə",
+        description: "Cari yaddaş silinir və yalnız bu məlumatlar saxlanılır.",
+      })
+    );
+
+    const autoEnableRow = element("label", "import-auto-enable-row");
+
+    const autoEnableCheck = document.createElement("input");
+    autoEnableCheck.type = "checkbox";
+    autoEnableCheck.className = "import-auto-enable-check";
+    autoEnableCheck.checked = enablePersonalIntelligence;
+
+    autoEnableCheck.addEventListener("change", () => {
+      enablePersonalIntelligence = autoEnableCheck.checked;
+    });
+
+    autoEnableRow.append(
+      autoEnableCheck,
+      element(
+        "span",
+        "",
+        "Fərdiləşdirilmiş təcrübəni aktiv et"
+      )
+    );
+
+    settingsBox.append(modeWrap, autoEnableRow);
+    previewContainer.appendChild(settingsBox);
+  };
+
+  textarea.addEventListener("input", renderPreview);
+
+  renderPreview();
+
+  body.append(step1, step2, step3);
+
+  // ------------------------------------------------------------
+  // FOOTER
+  // ------------------------------------------------------------
+  const footer = element(
+    "div",
+    "legal-modal-footer import-modal-footer"
+  );
+
+  const cancelBtn = button(
+    "Ləğv et",
+    "secondary-button",
+    closeLegalModal
+  );
+
+  const confirmBtn = button(
+    "Təsdiqlə",
+    "primary-button import-confirm-btn",
+    async () => {
+      if (!currentParsedData) {
+        renderPreview();
+      }
+
+      if (!currentParsedData) {
+        showToast("Əvvəlcə AI cavabını yapışdır.", "error");
+        return;
+      }
+
+      const selectedMemories = (
+        currentParsedData.memories || []
+      ).filter((m) => m.selected !== false);
+
+      const hasProfileData = Boolean(
+        currentParsedData.brandName ||
+          currentParsedData.industry ||
+          currentParsedData.primaryMarket ||
+          currentParsedData.targetAudience ||
+          currentParsedData.customInstructions ||
+          (currentParsedData.tone &&
+            currentParsedData.tone !== "professional")
+      );
+
+      if (!hasProfileData && !selectedMemories.length) {
+        showToast(
+          "İdxal ediləcək məlumat seçilməyib.",
+          "error"
+        );
+        return;
+      }
+
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = "İdxal edilir…";
+
+      const payload = {
+        brandName: currentParsedData.brandName || "",
+        industry: currentParsedData.industry || "",
+        primaryMarket: currentParsedData.primaryMarket || "",
+        targetAudience: currentParsedData.targetAudience || "",
+        tone: currentParsedData.tone || "professional",
+        customInstructions:
+          currentParsedData.customInstructions || "",
+        memories: selectedMemories.map((m) => ({
+          text: m.text,
+          category: m.category,
+        })),
+        mergeMode: importMode,
+        enablePersonalIntelligence,
+      };
+
+      try {
+        const res = await authRequest(
+          "/api/auth/settings/import-memory",
+          {
+            method: "POST",
+            body: JSON.stringify(payload),
+          }
+        );
+
+        closeLegalModal();
+
+        if (typeof onImportSuccess === "function") {
+          onImportSuccess(res.user);
+        } else {
+          updateWorkspaceIdentity(res.user);
+        }
+
+        showToast(
+          `Yaddaş idxal edildi · ${
+            res.importedCount || selectedMemories.length
+          } fakt`
+        );
+      } catch (err) {
+        showToast(
+          err.message || "İdxal zamanı xəta baş verdi.",
+          "error"
+        );
+
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "Yaddaşı köçür";
+      }
+    }
+  );
+
+  confirmBtn.type = "button";
+
+  footer.append(cancelBtn, confirmBtn);
+
+  card.append(header, body, footer);
+  overlay.appendChild(card);
+
+  overlay.hidden = false;
+  document.body.style.overflow = "hidden";
 }
 
 window.addEventListener("marketify:account-restored", () => {
