@@ -3919,7 +3919,7 @@ function renderSettings() {
   });
   securityTab.setAttribute("role", "tab");
   securityTab.setAttribute("aria-selected", String(state.settingsTab === "security"));
-  const experienceTab = button("Təcrübə", `settings-tab${state.settingsTab === "experience" ? " is-active" : ""}`, () => {
+  const experienceTab = button("Fərdiləşdirmə", `settings-tab${state.settingsTab === "experience" ? " is-active" : ""}`, () => {
     state.settingsTab = "experience";
     renderSettings();
   });
