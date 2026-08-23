@@ -61,7 +61,7 @@ function createShortcutKey(value) {
 }
 
 function openShortcutModal() {
-  if (!keyboardShortcutsOverlay) return;
+  if (!keyboardShortcutsOverlay || window.innerWidth <= 767) return;
 
   keyboardShortcutsOverlay.replaceChildren();
   const card = element("div", "keyboard-shortcuts-card");
