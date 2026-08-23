@@ -30,9 +30,6 @@ const RESET_TTL_SECONDS = 20 * 60;
 const EMAIL_VERIFICATION_TTL_SECONDS = 10 * 60;
 const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
 const DUMMY_PASSWORD_HASH = "$argon2id$v=19$m=19456,p=1,t=2$vcP17Lqj+FV8BaSbIBHvAg$SvwldQJW4f14U7Cv2tgeeuVIFT0LfFBIUNxAGWfNPLU";
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
-
 function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
@@ -96,6 +93,10 @@ async function startSession(req, res, authStore, userId) {
 }
 
 export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, appUrl }) {
+  // server.js loads dotenv after ESM imports have been evaluated. Resolve this
+  // value when the router is created so the configured client ID is available.
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const googleClient = new OAuth2Client(googleClientId);
   const router = express.Router();
 
   async function sendEmailVerificationCode(user) {
@@ -151,7 +152,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       });
     }
 
-    if (!GOOGLE_CLIENT_ID) {
+    if (!googleClientId) {
       return res.status(503).json({
         error: "Google girişi serverdə konfiqurasiya edilməyib.",
         code: "GOOGLE_AUTH_NOT_CONFIGURED",
@@ -160,7 +161,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
 
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
-      audience: GOOGLE_CLIENT_ID,
+      audience: googleClientId,
     });
 
     const profile = ticket.getPayload();

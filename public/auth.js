@@ -2,7 +2,7 @@ const authRoot = document.querySelector("#authRoot");
 const appShell = document.querySelector("#appShell");
 
 const GOOGLE_CLIENT_ID =
-  "121941263403-i4qt374rqirc8uord3r5omdtqvcnamb9.apps.googleusercontent.com";
+  "471975374819-mgn2g8auc7q9eko71air922aoo7h963p.apps.googleusercontent.com";
 
 const AUTH_PATHS = new Set([
   "/login",
@@ -230,6 +230,8 @@ async function handleGoogleCredential(response) {
     await completeAuthentication(data.user);
   } catch (error) {
     console.error("Google login xətası:", error);
+    const form = authRoot.querySelector(".auth-form");
+    if (form) setFormError(form, error.message);
   }
 }
 
