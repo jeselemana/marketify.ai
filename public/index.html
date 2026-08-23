@@ -16,7 +16,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
       rel="stylesheet"
     />
-<link rel="stylesheet" href="/style.css?v=4.0" />
+<link rel="stylesheet" href="/style.css?v=4.4" />
 
 <script
   src="https://accounts.google.com/gsi/client"
@@ -24,7 +24,7 @@
   defer
 ></script>
 
-<script src="/script.js?v=4.0" type="module"></script>
+<script src="/script.js?v=4.4" type="module"></script>
   </head>
   <body>
     <a class="skip-link" href="#workspace">Əsas hissəyə keç</a>
@@ -139,6 +139,8 @@
         </button>
 
         <div class="sidebar-legal">
+          <button class="sidebar-legal-link" id="keyboardShortcutsBtn" type="button">Qısayollar</button>
+          <span class="sidebar-legal-dot">•</span>
           <button class="sidebar-legal-link" id="sidebarTermsBtn" type="button">İstifadə şərtləri</button>
           <span class="sidebar-legal-dot">•</span>
           <button class="sidebar-legal-link" id="sidebarPrivacyBtn" type="button">Məxfilik siyasəti</button>
@@ -147,6 +149,7 @@
 
       <div class="mobile-overlay" id="mobileOverlay" hidden></div>
       <div class="legal-modal-overlay" id="legalModalOverlay" hidden></div>
+      <div class="keyboard-shortcuts-overlay" id="keyboardShortcutsOverlay" hidden></div>
 
       <div class="app-main">
         <header class="mobile-header">

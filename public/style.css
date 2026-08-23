@@ -10174,6 +10174,7 @@ body {
   padding: 10px 4px 2px;
   font-size: 11px;
   color: var(--text-tertiary, #94a3b8);
+  white-space: nowrap;
 }
 
 .sidebar-legal-link {
@@ -10348,6 +10349,161 @@ body {
   padding: 16px 28px;
   border-top: 1px solid var(--border-subtle, #e2e8f0);
   background: var(--bg-soft, #f8fafc);
+}
+
+/* ===== KEYBOARD SHORTCUTS ===== */
+
+.keyboard-shortcuts-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeInModal 180ms ease forwards;
+}
+
+.keyboard-shortcuts-card {
+  width: min(100%, 560px);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 16px;
+  background: var(--bg-elevated, #ffffff);
+  box-shadow: 0 20px 48px -10px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  animation: scaleUpModal 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.keyboard-shortcuts-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+}
+
+.keyboard-shortcuts-title-group h2 {
+  margin: 0 0 4px;
+  color: var(--text-primary, #0f172a);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.keyboard-shortcuts-title-group p {
+  margin: 0;
+  color: var(--text-secondary, #64748b);
+  font-size: 13px;
+}
+
+.keyboard-shortcuts-close {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg-soft, #f8fafc);
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.keyboard-shortcuts-close:hover {
+  background: var(--bg-hover, #f1f5f9);
+  color: var(--text-primary, #0f172a);
+  border-color: var(--border-hover, #cbd5e1);
+}
+
+.keyboard-shortcuts-body {
+  padding: 16px 28px 22px;
+}
+
+.keyboard-shortcuts-list {
+  display: grid;
+  gap: 2px;
+}
+
+.keyboard-shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(20, 27, 42, 0.06);
+}
+
+.keyboard-shortcut-row:last-child {
+  border-bottom: 0;
+}
+
+.keyboard-shortcut-copy strong {
+  color: var(--text-primary, #0f172a);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.keyboard-shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.shortcut-key {
+  min-width: 58px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-subtle, #dbe1ea);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--bg-soft, #f8fafc);
+  color: var(--text-primary, #334155);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.keyboard-shortcut-or {
+  color: var(--text-tertiary, #94a3b8);
+  font-size: 11px;
+}
+
+.keyboard-shortcuts-hint {
+  margin: 16px 0 0;
+  color: var(--text-tertiary, #64748b);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 767px) {
+  .keyboard-shortcuts-overlay {
+    align-items: flex-end;
+    padding: 12px;
+  }
+
+  .keyboard-shortcuts-header,
+  .keyboard-shortcuts-body {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .keyboard-shortcut-row {
+    gap: 10px;
+  }
+
+  .keyboard-shortcut-keys .shortcut-key:first-child,
+  .keyboard-shortcut-keys .keyboard-shortcut-or {
+    display: none;
+  }
 }
 
 /* Settings Legal Tab */

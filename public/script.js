@@ -31,6 +31,82 @@ const buildModeButton = document.querySelector("#buildModeButton");
 const askModeButton = document.querySelector("#askModeButton");
 const sidebarBuildModeButton = document.querySelector("#sidebarBuildModeButton");
 const sidebarAskModeButton = document.querySelector("#sidebarAskModeButton");
+const keyboardShortcutsButton = document.querySelector("#keyboardShortcutsBtn");
+const keyboardShortcutsOverlay = document.querySelector("#keyboardShortcutsOverlay");
+
+const KEYBOARD_SHORTCUTS = [
+  { label: "Yeni strategiya və ya söhbət", mac: "⌘ ⌥ N", windows: "Ctrl Alt N", action: () => newStrategyButton?.click() },
+  { label: "Başlanğıc", mac: "⌘ 1", windows: "Ctrl 1", action: () => homeNav?.click() },
+  { label: "Arxiv", mac: "⌘ 2", windows: "Ctrl 2", action: () => strategiesNav?.click() },
+  { label: "Planlaşdırılanlar", mac: "⌘ 3", windows: "Ctrl 3", action: () => plannerNav?.click() },
+  { label: "Parametrlər", mac: "⌘ ,", windows: "Ctrl ,", action: () => settingsNav?.click() },
+  { label: "Build və Ask rejimi arasında keçid", mac: "⌘ ⇧ A", windows: "Ctrl ⇧ A", action: () => setMode(state.mode === "build" ? "ask" : "build") },
+  { label: "Bu pəncərəni bağla", mac: "Esc", windows: "Esc", action: () => closeShortcutModal() },
+];
+
+function isMacPlatform() {
+  return /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
+}
+
+function shortcutSuffix(macShortcut, windowsShortcut) {
+  return ` · ${isMacPlatform() ? macShortcut : windowsShortcut}`;
+}
+
+function isTypingTarget(target) {
+  return target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+}
+
+function createShortcutKey(value) {
+  return element("kbd", "shortcut-key", value);
+}
+
+function openShortcutModal() {
+  if (!keyboardShortcutsOverlay) return;
+
+  keyboardShortcutsOverlay.replaceChildren();
+  const card = element("div", "keyboard-shortcuts-card");
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-modal", "true");
+  card.setAttribute("aria-labelledby", "keyboardShortcutsTitle");
+
+  const header = element("header", "keyboard-shortcuts-header");
+  const titleGroup = element("div", "keyboard-shortcuts-title-group");
+  const title = element("h2", "", "Klaviatura qısayolları");
+  title.id = "keyboardShortcutsTitle";
+  titleGroup.append(title, element("p", "", `${isMacPlatform() ? "macOS" : "Windows/Linux"} üçün sürətli idarəetmə`));
+
+  const closeButton = button("✕", "keyboard-shortcuts-close", closeShortcutModal);
+  closeButton.setAttribute("aria-label", "Qısayollar pəncərəsini bağla");
+  header.append(titleGroup, closeButton);
+
+  const body = element("div", "keyboard-shortcuts-body");
+  const table = element("div", "keyboard-shortcuts-list");
+  table.setAttribute("role", "list");
+  KEYBOARD_SHORTCUTS.forEach((shortcut) => {
+    const row = element("div", "keyboard-shortcut-row");
+    row.setAttribute("role", "listitem");
+    const copy = element("div", "keyboard-shortcut-copy");
+    copy.appendChild(element("strong", "", shortcut.label));
+    const keys = element("div", "keyboard-shortcut-keys");
+    keys.append(createShortcutKey(shortcut.mac), element("span", "keyboard-shortcut-or", "və"), createShortcutKey(shortcut.windows));
+    row.append(copy, keys);
+    table.appendChild(row);
+  });
+  body.append(table, element("p", "keyboard-shortcuts-hint", "Qısayollar mətn sahəsində yazarkən də işləyir. Bu siyahını açmaq üçün ⌘/Ctrl + / və ya ? bas."));
+
+  card.append(header, body);
+  keyboardShortcutsOverlay.appendChild(card);
+  keyboardShortcutsOverlay.hidden = false;
+  document.body.style.overflow = "hidden";
+  closeButton.focus();
+}
+
+function closeShortcutModal() {
+  if (!keyboardShortcutsOverlay) return;
+  keyboardShortcutsOverlay.hidden = true;
+  keyboardShortcutsOverlay.replaceChildren();
+  if (document.querySelector("#legalModalOverlay[hidden]")) document.body.style.overflow = "";
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -345,6 +421,11 @@ function syncNav() {
   railPlannerButton?.classList.toggle("is-active", isBuild && state.view === "planner");
   railLimitsButton?.classList.toggle("is-active", state.view === "limits");
 
+  railHomeButton.setAttribute("data-tooltip", `Başlanğıc${shortcutSuffix("⌘ 1", "Ctrl 1")}`);
+  railStrategiesButton.setAttribute("data-tooltip", `Arxiv${shortcutSuffix("⌘ 2", "Ctrl 2")}`);
+  railPlannerButton?.setAttribute("data-tooltip", `Planlaşdırılanlar${shortcutSuffix("⌘ 3", "Ctrl 3")}`);
+  railLimitsButton?.setAttribute("data-tooltip", "İstifadə limiti");
+
   const homeLabel = homeNav.querySelector("span");
   if (homeLabel) {
     homeLabel.textContent = isBuild ? "Başlanğıc" : "Sual-Cavab";
@@ -385,7 +466,7 @@ function syncMode() {
   if (railModeToggleButton) {
     railModeToggleButton.setAttribute(
       "data-tooltip",
-      isBuild ? "Rejim: Build (Ask-a keç)" : "Rejim: Ask (Build-ə keç)",
+      `${isBuild ? "Rejim: Build (Ask-a keç)" : "Rejim: Ask (Build-ə keç)"}${shortcutSuffix("⌘ ⇧ A", "Ctrl ⇧ A")}`,
     );
     railModeToggleButton.setAttribute(
       "aria-label",
@@ -6557,20 +6638,75 @@ document.querySelector("#sidebarPrivacyBtn")?.addEventListener("click", () => {
   closeSidebar();
   openLegalModal("privacy");
 });
+keyboardShortcutsButton?.addEventListener("click", () => {
+  closeSidebar();
+  openShortcutModal();
+});
 document.querySelector("#legalModalOverlay")?.addEventListener("click", (event) => {
   if (event.target === document.querySelector("#legalModalOverlay")) closeLegalModal();
+});
+keyboardShortcutsOverlay?.addEventListener("click", (event) => {
+  if (event.target === keyboardShortcutsOverlay) closeShortcutModal();
 });
 buildModeButton?.addEventListener("click", () => setMode("build"));
 askModeButton?.addEventListener("click", () => setMode("ask"));
 sidebarBuildModeButton?.addEventListener("click", () => setMode("build"));
 sidebarAskModeButton?.addEventListener("click", () => setMode("ask"));
 railModeToggleButton?.addEventListener("click", () => setMode(state.mode === "build" ? "ask" : "build"));
-document.addEventListener("keydown", (event) => {
+function handleKeyboardShortcut(event) {
   if (event.key === "Escape") {
     closeSidebar();
     closeLegalModal();
+    closeShortcutModal();
+    return;
   }
-});
+
+  if (window.innerWidth <= 767) return;
+
+  const typing = isTypingTarget(event.target);
+  const primary = event.metaKey || event.ctrlKey;
+  const key = event.code === "KeyN" ? "n" : event.key.toLowerCase();
+
+  if (!typing && (event.key === "?" || (primary && event.key === "/"))) {
+    event.preventDefault();
+    openShortcutModal();
+    return;
+  }
+
+  if (typing && primary && event.key === "/") {
+    event.preventDefault();
+    openShortcutModal();
+    return;
+  }
+
+  if (!primary || event.isComposing) return;
+
+  // Alt/Option is intentionally allowed for the new-workspace fallback.
+  if (event.altKey && key !== "n") return;
+
+  if (event.shiftKey && key === "a") {
+    event.preventDefault();
+    setMode(state.mode === "build" ? "ask" : "build");
+    return;
+  }
+
+  const actions = {
+    n: () => newStrategyButton?.click(),
+    "1": () => homeNav?.click(),
+    "2": () => strategiesNav?.click(),
+    "3": () => plannerNav?.click(),
+    ",": () => settingsNav?.click(),
+  };
+
+  if (actions[key]) {
+    event.preventDefault();
+    actions[key]();
+  }
+}
+
+// Capture phase gives app shortcuts the earliest possible chance to run.
+// Some browsers reserve Meta+N for a new window and may not dispatch it to the page.
+window.addEventListener("keydown", handleKeyboardShortcut, true);
 
 function checkPrivacyPolicyBanner() {
   const STORAGE_KEY = "marketify_privacy_notice_2026_08";
