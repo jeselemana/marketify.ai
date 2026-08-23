@@ -5751,6 +5751,25 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   font-weight: 600;
 }
 
+.ask-context-menu-heading { display: block; padding: 9px 10px 8px; color: var(--text-primary); font-size: 13px; font-weight: 650; }
+.ask-context-menu-option { display: flex; width: 100%; min-height: 58px; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; border-radius: 10px; background: transparent; color: var(--text-primary); text-align: left; }
+.ask-context-menu-option:hover, .ask-context-menu-back:hover { background: var(--bg-hover); }
+.ask-context-menu-option-copy { display: grid; gap: 3px; min-width: 0; }.ask-context-menu-option-copy strong { font-size: 13px; font-weight: 600; }.ask-context-menu-option-copy small { color: var(--text-tertiary); font-size: 11px; }
+.ask-context-menu-chevron { flex: 0 0 auto; color: var(--text-tertiary); font-size: 25px; font-weight: 300; line-height: 1; }
+.ask-context-menu-divider { height: 1px; margin: 7px 2px; background: var(--border-subtle); }
+.ask-context-menu-subheader { display: flex; align-items: center; gap: 3px; }.ask-context-menu-subheader .ask-context-menu-heading { padding-left: 3px; }
+.ask-context-menu-back { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 9px; background: transparent; color: var(--text-secondary); font-size: 25px; font-weight: 300; line-height: 1; }
+
+@media (max-width: 767px) {
+  .ask-context-popover { width: min(360px, calc(100vw - 32px)); max-height: min(440px, calc(100vh - 116px)); border-radius: 16px; }
+  .ask-context-menu-option { min-height: 64px; padding: 12px; }
+  .ask-context-menu-option-copy strong { font-size: 14px; }
+  .ask-context-menu-back { width: 40px; height: 40px; }
+  .ask-context-list { max-height: min(42vh, 300px); }
+  .ask-context-item { min-height: 58px; padding: 11px 12px; }
+  .ask-context-item span { font-size: 13px; }
+}
+
 .ask-context-list {
   display: grid;
   max-height: 260px;
@@ -7497,18 +7516,21 @@ body {
 .account-chevron { margin-left: auto; }
 
 .workspace-settings {
-  padding: 88px 32px 64px;
+  padding: 72px 40px 88px;
 }
 
 .settings-view {
-  width: min(100%, 760px);
+  width: min(100%, 920px);
   margin: 0 auto;
 }
 
+.settings-header { max-width: 610px; }
+
 .settings-header h1 {
-  margin: 7px 0 7px;
-  font-size: 34px;
-  letter-spacing: -0.035em;
+  margin: 8px 0 9px;
+  font-size: clamp(32px, 4vw, 40px);
+  line-height: 1.08;
+  letter-spacing: -0.045em;
 }
 
 .settings-header p,
@@ -7521,9 +7543,16 @@ body {
 
 .settings-tabs {
   display: flex;
-  gap: 20px;
-  margin: 32px 0 28px;
-  border-bottom: 1px solid var(--border-subtle);
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 36px 0 24px;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.025);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -7532,24 +7561,19 @@ body {
 .settings-tab {
   position: relative;
   flex: 0 0 auto;
-  padding: 0 1px 12px;
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 9px;
   background: transparent;
   color: var(--text-tertiary);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  transition: color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
-.settings-tab.is-active { color: var(--text-primary); }
-.settings-tab.is-active::after {
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--accent);
-  content: "";
-}
+.settings-tab:hover { color: var(--text-primary); background: rgba(20, 27, 42, 0.04); }
+.settings-tab.is-active { background: var(--bg-elevated); color: var(--text-primary); box-shadow: 0 1px 3px rgba(20, 27, 42, 0.1), 0 5px 14px rgba(20, 27, 42, 0.045); }
 
 .settings-panels {
   display: grid;
@@ -7558,21 +7582,22 @@ body {
 }
 
 .settings-panel {
-  padding: 26px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 16px;
-  padding: 32px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 8px 24px rgba(31, 41, 55, 0.03);
+  position: relative;
+  overflow: hidden;
+  padding: 34px;
+  border: 1px solid rgba(20, 27, 42, 0.1);
+  border-radius: 20px;
+  background: linear-gradient(145deg, #ffffff 0%, #fdfdff 100%);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.025), 0 18px 45px rgba(31, 41, 55, 0.055);
 }
 
+.settings-panel::before { position: absolute; top: 0; left: 34px; width: 46px; height: 3px; border-radius: 0 0 4px 4px; background: linear-gradient(90deg, var(--accent), #8c9fff); content: ""; }
+
 .settings-panel h2 {
-  margin: 0 0 6px;
-  font-size: 19px;
+  margin: 0 0 7px;
+  font-size: 20px;
   font-weight: 650;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--text-primary);
 }
 
@@ -7588,14 +7613,18 @@ body {
 
 .settings-form {
   display: grid;
-  gap: 20px;
-  max-width: 480px;
-  margin-top: 24px;
+  gap: 19px;
+  max-width: 560px;
+  margin-top: 28px;
 }
+
+.account-settings-form { max-width: none; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.account-settings-form .settings-field:nth-child(3) { grid-column: 1 / -1; }
+.account-settings-form .primary-button { grid-column: 1 / -1; }
 
 .settings-field {
   display: grid;
-  gap: 7px;
+  gap: 8px;
 }
 
 .settings-field-label,
@@ -7613,30 +7642,31 @@ body {
 .settings-form input[type="email"],
 .settings-form input[type="password"] {
   width: 100%;
-  height: 42px;
+  height: 44px;
   padding: 0 14px;
-  border: 1px solid rgba(20, 27, 42, 0.12);
-  border-radius: 10px;
+  border: 1px solid rgba(20, 27, 42, 0.13);
+  border-radius: 11px;
+  box-shadow: inset 0 1px 1px rgba(16, 24, 40, 0.015);
   outline: none;
   background: #ffffff;
   color: var(--text-primary);
   font-size: 13.5px;
   font-family: inherit;
   box-sizing: border-box;
-  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease, transform 140ms ease;
 }
 
 .settings-input:hover,
 .settings-field input:hover,
 .settings-form input:hover {
-  border-color: rgba(20, 27, 42, 0.22);
+  border-color: rgba(20, 27, 42, 0.26);
 }
 
 .settings-input:focus,
 .settings-field input:focus,
 .settings-form input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(79, 110, 232, 0.12);
+  box-shadow: 0 0 0 3px rgba(79, 110, 232, 0.11), 0 4px 12px rgba(79, 110, 232, 0.07);
   background: #ffffff;
 }
 
@@ -7664,9 +7694,9 @@ body {
 .settings-form .primary-button {
   justify-self: start;
   margin-top: 6px;
-  height: 42px;
-  padding: 0 20px;
-  border-radius: 10px;
+  height: 44px;
+  padding: 0 19px;
+  border-radius: 11px;
   font-weight: 550;
   font-size: 13.5px;
 }
@@ -8906,15 +8936,24 @@ body {
   .auth-mobile-header { display: flex; }
   .auth-panel { min-height: 100vh; padding: 40px 24px; align-items: flex-start; }
   .auth-container { width: 100%; max-width: 400px; margin: 0 auto; }
-  .workspace-settings { padding: 78px 16px 108px; }
-  .settings-panel { padding: 20px; }
+  .workspace-settings { padding: 72px 16px 108px; }
+  .settings-panel { padding: 26px 20px; border-radius: 16px; }
+  .settings-panel::before { left: 20px; }
+  .settings-tabs { width: 100%; }
 }
 
 @media (max-width: 480px) {
   .auth-panel { padding: 32px 20px; }
   .auth-header h1 { font-size: 24px; }
   .settings-signout { align-items: flex-start; flex-direction: column; }
+  .settings-header h1 { font-size: 32px; }
+  .settings-tabs { margin-top: 28px; }
+  .settings-tab { padding: 0 11px; }
+  .account-settings-form { grid-template-columns: 1fr; }
+  .account-settings-form .settings-field:nth-child(3) { grid-column: auto; }
 }
+
+/* Marketify v3.0 release page — reuses workspace surfaces and controls. */
 
 /* Native-feeling Build / Ask home layout. Desktop rules stay untouched. */
 @media (max-width: 767px) {
@@ -8929,6 +8968,11 @@ body {
   .app-main {
     position: relative;
     min-height: 100dvh;
+  }
+
+  /* Keep the open drawer above the mobile header controls. */
+  .sidebar {
+    z-index: 60;
   }
 
   .mobile-header {

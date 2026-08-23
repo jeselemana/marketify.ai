@@ -117,7 +117,7 @@ export class FileChatRepository {
     return records.find((record) => record.id === id && record.ownerId === ownerId) || null;
   }
 
-  async saveChat({ id, ownerId, title, messages, strategyId }) {
+  async saveChat({ id, ownerId, title, messages, strategyId, taskId }) {
     const records = await this.readAll();
     const now = new Date().toISOString();
     const existingIndex = id ? records.findIndex((r) => r.id === id && r.ownerId === ownerId) : -1;
@@ -128,6 +128,7 @@ export class FileChatRepository {
         title: title || records[existingIndex].title,
         messages,
         strategyId: strategyId !== undefined ? strategyId : records[existingIndex].strategyId,
+        taskId: taskId !== undefined ? taskId : records[existingIndex].taskId,
         updatedAt: now,
       };
       await this.writeAll(records);
@@ -143,6 +144,7 @@ export class FileChatRepository {
       title: cleanTitle,
       messages,
       strategyId: strategyId || null,
+      taskId: taskId || null,
       createdAt: now,
       updatedAt: now,
     };

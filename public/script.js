@@ -117,6 +117,7 @@ const state = {
   askLoading: false,
   askError: "",
   askStrategyId: "",
+  askTaskId: "",
   askModel: "auto",
   currentUser: null,
   settingsTab: "account",
@@ -417,6 +418,7 @@ function startNewChat() {
   state.askChatId = null;
   state.askMessages = [];
   state.askStrategyId = "";
+  state.askTaskId = "";
   state.askError = "";
   render();
   closeSidebar();
@@ -753,6 +755,8 @@ function renderAsk() {
   workspace.classList.toggle("is-empty", !isChatActive);
 
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
+  const selectedTask = state.plannerTasks.find((task) => task.id === state.askTaskId) || null;
+  if (state.askTaskId && !selectedTask) state.askTaskId = "";
   const shell = element("section", `ask-shell${isChatActive ? " has-messages" : " is-empty"}`);
   shell.setAttribute("aria-label", "Ask");
   const thread = element("div", "ask-thread");
@@ -903,6 +907,9 @@ function renderAsk() {
         if (message.strategyTitle) {
           content.appendChild(element("span", "ask-message-context", `Strategiya: ${message.strategyTitle}`));
         }
+        if (message.taskTitle) {
+          content.appendChild(element("span", "ask-message-context", `Tapşırıq: ${message.taskTitle}`));
+        }
       }
       row.appendChild(content);
       thread.appendChild(row);
@@ -920,52 +927,64 @@ function renderAsk() {
 
   const composerArea = element("div", "ask-composer-area");
   const contextMenu = document.createElement("details");
-  contextMenu.className = `ask-context-menu${selectedStrategy ? " has-selection" : ""}`;
+  contextMenu.className = `ask-context-menu${selectedStrategy || selectedTask ? " has-selection" : ""}`;
   const contextTrigger = element("summary", "ask-context-trigger");
-  contextTrigger.setAttribute("aria-label", "Strategiya arxivindən seç");
-  contextTrigger.title = selectedStrategy ? `Kontekst: ${selectedStrategy.title}` : "Strategiya arxivindən seç";
+  contextTrigger.setAttribute("aria-label", "Kontekst seç");
+  contextTrigger.title = selectedStrategy || selectedTask ? `Kontekst: ${[selectedStrategy?.title, selectedTask?.text].filter(Boolean).join(" · ")}` : "Kontekst seç";
   contextTrigger.appendChild(element("span", "ask-context-plus", "+"));
   const contextPopover = element("div", "ask-context-popover");
-  contextPopover.appendChild(element("strong", "ask-context-title", "Strategiya arxivindən seç"));
-  const contextList = element("div", "ask-context-list");
-  if (state.savedStrategies.length) {
-    state.savedStrategies.forEach((strategy) => {
-      const item = button("", `ask-context-item${strategy.id === state.askStrategyId ? " is-selected" : ""}`);
-      item.append(
-        element("span", "", strategy.title),
-        element("small", "", strategy.id === state.askStrategyId ? "Seçilib" : formatDate(strategy.updatedAt)),
-      );
+  const activeTasks = state.plannerTasks.filter((task) => !task.completed);
+  let contextPane = "main";
+  const drawContextMenu = () => {
+    contextPopover.replaceChildren();
+    if (contextPane === "main") {
+      contextPopover.appendChild(element("strong", "ask-context-menu-heading", "Kontekst əlavə et"));
+      const option = (title, description, pane) => {
+        const btn = button("", "ask-context-menu-option", (event) => {
+          event.preventDefault(); event.stopPropagation(); contextMenu.open = true;
+          contextPane = pane; drawContextMenu();
+        });
+        const text = element("span", "ask-context-menu-option-copy");
+        text.append(element("strong", "", title), element("small", "", description));
+        btn.append(text, element("span", "ask-context-menu-chevron", "›"));
+        contextPopover.appendChild(btn);
+      };
+      option("Strategiyalar", "Yadda saxlanılan strategiyanı müzakirə et", "strategies");
+      option("Planlaşdırılanlar", "Aktiv taskı kontekst kimi seç", "tasks");
+      if (selectedStrategy || selectedTask) {
+        contextPopover.appendChild(element("div", "ask-context-menu-divider"));
+        contextPopover.appendChild(button("Konteksti sil", "ask-context-clear", () => {
+          state.askStrategyId = ""; state.askTaskId = ""; contextMenu.open = false; render();
+        }));
+      }
+      return;
+    }
+    const isStrategy = contextPane === "strategies";
+    const back = button("‹", "ask-context-menu-back", (event) => {
+      event.preventDefault(); event.stopPropagation(); contextMenu.open = true;
+      contextPane = "main"; drawContextMenu();
+    });
+    back.setAttribute("aria-label", "Kontekst menyusuna qayıt");
+    const subHeader = element("div", "ask-context-menu-subheader");
+    subHeader.append(back, element("strong", "ask-context-menu-heading", isStrategy ? "Strategiyalar" : "Planlaşdırılanlar"));
+    contextPopover.appendChild(subHeader);
+    const list = element("div", "ask-context-list");
+    const entries = isStrategy ? state.savedStrategies : activeTasks;
+    if (!entries.length) {
+      list.appendChild(element("div", "ask-context-empty", isStrategy ? "Arxiv hələ boşdur." : "Aktiv planlaşdırılan task yoxdur."));
+    } else entries.forEach((entry) => {
+      const selected = isStrategy ? entry.id === state.askStrategyId : entry.id === state.askTaskId;
+      const item = button("", `ask-context-item${selected ? " is-selected" : ""}`);
+      item.append(element("span", "", isStrategy ? entry.title : entry.text), element("small", "", selected ? "Seçilib" : (isStrategy ? formatDate(entry.updatedAt) : entry.groupLabel || "Ümumi")));
       item.addEventListener("click", () => {
-        state.askStrategyId = strategy.id;
-        contextMenu.open = false;
-        render();
+        if (isStrategy) state.askStrategyId = entry.id; else state.askTaskId = entry.id;
+        contextMenu.open = false; render();
       });
-      contextList.appendChild(item);
+      list.appendChild(item);
     });
-  } else {
-    const emptyContext = element("div", "ask-context-empty");
-    emptyContext.append(
-      element("span", "", "Arxiv hələ boşdur."),
-      element("small", "", "Build bölməsində strategiya yaradıb yadda saxla."),
-    );
-    contextList.appendChild(emptyContext);
-  }
-  contextPopover.appendChild(contextList);
-  if (selectedStrategy) {
-    const clearContext = button("Konteksti sil", "ask-context-clear", () => {
-      state.askStrategyId = "";
-      contextMenu.open = false;
-      render();
-    });
-    contextPopover.appendChild(clearContext);
-  }
-  const openArchive = button("Strategiyalar arxivinə keç →", "ask-context-archive", () => {
-    contextMenu.open = false;
-    state.mode = "build";
-    state.view = "list";
-    render();
-  });
-  contextPopover.appendChild(openArchive);
+    contextPopover.appendChild(list);
+  };
+  drawContextMenu();
   contextMenu.append(contextTrigger, contextPopover);
   contextMenu.addEventListener("keydown", (event) => {
     if (event.key === "Escape") contextMenu.open = false;
@@ -1001,10 +1020,10 @@ function renderAsk() {
   form.append(contextMenu, label, input, composerActions);
 
   const helper = element("div", "ask-composer-meta");
-  if (selectedStrategy) {
+  if (selectedStrategy || selectedTask) {
     const contextPills = element("div", "ask-context-pills");
-    const sPill = element("span", "ask-context-pill", `Kontekst: ${selectedStrategy.title}`);
-    contextPills.appendChild(sPill);
+    if (selectedStrategy) contextPills.appendChild(element("span", "ask-context-pill", `Strategiya: ${selectedStrategy.title}`));
+    if (selectedTask) contextPills.appendChild(element("span", "ask-context-pill", `Tapşırıq: ${selectedTask.text}`));
     helper.appendChild(contextPills);
   }
   const disclaimer = element("p", "ask-disclaimer", "Marketify süni intellekt funksiyası yerinə yetirir və səhvlər edə bilər.");
@@ -1159,6 +1178,7 @@ async function thinkDeeperWithTerra(messageIndex) {
         messages: historyMessages,
         model: "terra",
         strategyId: state.askStrategyId || undefined,
+        taskId: state.askTaskId || undefined,
         chatId: state.askChatId || undefined,
         stream: true,
       }),
@@ -1275,7 +1295,8 @@ async function thinkDeeperWithTerra(messageIndex) {
 
 async function submitAskMessage(message) {
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
-  state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "" });
+  const selectedTask = state.plannerTasks.find((task) => task.id === state.askTaskId) || null;
+  state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "", taskTitle: selectedTask?.text || "" });
 
   const chosenModel = state.askModel || "auto";
   const initialPlaceholderModel = chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : "auto");
@@ -1306,6 +1327,7 @@ async function submitAskMessage(message) {
         messages: state.askMessages.slice(0, -1),
         model: chosenModel,
         strategyId: state.askStrategyId || undefined,
+        taskId: state.askTaskId || undefined,
         chatId: state.askChatId || undefined,
         stream: true,
       }),
@@ -3641,6 +3663,7 @@ async function openSavedChat(chatId) {
     state.askChatId = data.chat.id;
     state.askMessages = data.chat.messages || [];
     state.askStrategyId = data.chat.strategyId || "";
+    state.askTaskId = data.chat.taskId || "";
     state.askError = "";
     syncMode();
     syncNav();
@@ -3802,29 +3825,38 @@ function renderSettings() {
     return;
   }
   const tabs = element("div", "settings-tabs");
+  tabs.setAttribute("role", "tablist");
   const accountTab = button("Hesab", `settings-tab${state.settingsTab === "account" ? " is-active" : ""}`, () => {
     state.settingsTab = "account";
     renderSettings();
   });
+  accountTab.setAttribute("role", "tab");
+  accountTab.setAttribute("aria-selected", String(state.settingsTab === "account"));
   const securityTab = button("Təhlükəsizlik", `settings-tab${state.settingsTab === "security" ? " is-active" : ""}`, () => {
     state.settingsTab = "security";
     renderSettings();
   });
+  securityTab.setAttribute("role", "tab");
+  securityTab.setAttribute("aria-selected", String(state.settingsTab === "security"));
   const experienceTab = button("Təcrübə", `settings-tab${state.settingsTab === "experience" ? " is-active" : ""}`, () => {
     state.settingsTab = "experience";
     renderSettings();
   });
+  experienceTab.setAttribute("role", "tab");
+  experienceTab.setAttribute("aria-selected", String(state.settingsTab === "experience"));
   const legalTab = button("Hüquqi & Məxfilik", `settings-tab${state.settingsTab === "legal" ? " is-active" : ""}`, () => {
     state.settingsTab = "legal";
     renderSettings();
   });
+  legalTab.setAttribute("role", "tab");
+  legalTab.setAttribute("aria-selected", String(state.settingsTab === "legal"));
   tabs.append(accountTab, experienceTab, securityTab, legalTab);
   view.append(header, tabs);
 
   if (state.settingsTab === "account") {
     const panel = element("section", "settings-panel");
     panel.append(element("h2", "", "Hesab məlumatları"), element("p", "settings-panel-intro", "Workspace-də görünən adını və giriş məlumatlarını yenilə."));
-    const form = element("form", "settings-form");
+    const form = element("form", "settings-form account-settings-form");
     form.append(
       settingsField("Ad və soyad", "fullName", state.currentUser.fullName, "text", "name"),
       settingsField("İstifadəçi adı", "username", state.currentUser.username, "text", "username"),
@@ -4342,6 +4374,11 @@ function renderSettings() {
     const termsInfo = element("div");
     termsInfo.append(element("strong", "", "İstifadə Şərtləri"), element("p", "", "Xidmətdən istifadə qaydaları, hüquqlar və öhdəliklər."));
     termsRow.append(termsInfo, button("Baxış keçir →", "secondary-button", () => openLegalModal("terms")));
+
+    const privacyRow = element("div", "settings-legal-row");
+    const privacyInfo = element("div");
+    privacyInfo.append(element("strong", "", "Məxfilik siyasəti"), element("p", "", "Məlumatlarınızın necə toplandığı, istifadə edildiyi və qorunduğu."));
+    privacyRow.append(privacyInfo, button("Baxış keçir →", "secondary-button", () => openLegalModal("privacy")));
 
     const reportRow = element("div", "settings-legal-row");
     const reportInfo = element("div");
