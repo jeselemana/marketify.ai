@@ -6623,6 +6623,11 @@ function checkPrivacyPolicyBanner() {
   });
 }
 
+// Render the workspace immediately while authentication and saved data load in the background.
+if (!new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/verify-email"]).has(window.location.pathname)) {
+  render();
+}
+
 initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
   resumeBackgroundJobs();

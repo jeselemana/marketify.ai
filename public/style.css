@@ -776,13 +776,6 @@ body.sidebar-open .app-main {
     var(--bg-canvas);
 }
 
-.initial-loader {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
-  color: var(--muted);
-}
-
 .intake-view {
   width: min(100%, 760px);
   max-width: 760px;
