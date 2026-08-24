@@ -79,13 +79,13 @@ function shell(title, subtitle) {
 
       <div class="auth-story-body">
         <div class="auth-brand-statement">
-          <h2>Strategiyanı düşünməkdən<br>icraya keç.</h2>
+          <h2>Düşündüyün strategiyanın<br>icrasına başla.</h2>
           <p class="auth-brand-subtext">AI-powered strategy workspace</p>
         </div>
       </div>
 
       <div class="auth-story-footer">
-        <span class="auth-story-copyright">© Marketify AI</span>
+        <span class="auth-story-copyright">© Innova Group Azerbaijan</span>
       </div>
     </section>
 

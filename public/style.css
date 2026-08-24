@@ -7192,6 +7192,10 @@ body {
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
+.auth-field.auth-username-field input {
+  padding-left: 38px;
+}
+
 .auth-field input::placeholder {
   color: #a1a1aa;
 }
