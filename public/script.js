@@ -195,6 +195,8 @@ const state = {
   askStrategyId: "",
   askTaskId: "",
   askModel: "auto",
+  strategyAskOpen: false,
+  refinementOpen: false,
   currentUser: null,
   settingsTab: "account",
   strategyFormat: "blog",
@@ -530,6 +532,8 @@ function resetStrategy() {
     strategyFormat: "blog",
     faqFilter: "",
     faqExpandedAll: false,
+    strategyAskOpen: false,
+    refinementOpen: false,
   });
   render();
   closeSidebar();
@@ -1229,6 +1233,20 @@ function updateActiveAskMessageContent(message, showCaret = true) {
   }
 }
 
+function rememberSavedAskChat(chat) {
+  if (!chat?.id) return;
+  state.askChatId = chat.id;
+  const messages = Array.isArray(chat.messages) ? chat.messages : [];
+  const historyItem = {
+    ...chat,
+    messageCount: messages.length,
+    lastMessage: messages.at(-1)?.content?.slice(0, 100) || "",
+  };
+  state.savedChats = [historyItem, ...state.savedChats.filter((item) => item.id !== chat.id)];
+  renderRecentList();
+  loadSavedChats();
+}
+
 async function thinkDeeperWithTerra(messageIndex) {
   if (state.askLoading) return;
   const assistantMsg = state.askMessages[messageIndex];
@@ -1310,10 +1328,7 @@ async function thinkDeeperWithTerra(messageIndex) {
             const finalReply = data.reply || accumulatedFullText;
             accumulatedFullText = finalReply;
             typewriter.finish(finalReply);
-            if (data.chat?.id) {
-              state.askChatId = data.chat.id;
-              loadSavedChats();
-            }
+            rememberSavedAskChat(data.chat);
           }
         } catch (parseErr) {
           if (parseErr.message && !parseErr.message.includes("JSON")) {
@@ -1357,10 +1372,7 @@ async function thinkDeeperWithTerra(messageIndex) {
       assistantMsg.content = data.reply;
       assistantMsg.model = data.model || "terra";
       assistantMsg.isStreaming = false;
-      if (data.chat?.id) {
-        state.askChatId = data.chat.id;
-        loadSavedChats();
-      }
+      rememberSavedAskChat(data.chat);
     }
   } catch (error) {
     state.askError = error.message;
@@ -1459,10 +1471,7 @@ async function submitAskMessage(message) {
             const finalReply = data.reply || accumulatedFullText;
             accumulatedFullText = finalReply;
             typewriter.finish(finalReply);
-            if (data.chat?.id) {
-              state.askChatId = data.chat.id;
-              loadSavedChats();
-            }
+            rememberSavedAskChat(data.chat);
           }
         } catch (parseErr) {
           if (parseErr.message && !parseErr.message.includes("JSON")) {
@@ -1506,10 +1515,7 @@ async function submitAskMessage(message) {
       assistantMsg.content = data.reply;
       assistantMsg.model = data.model || assistantMsg.model;
       assistantMsg.isStreaming = false;
-      if (data.chat?.id) {
-        state.askChatId = data.chat.id;
-        loadSavedChats();
-      }
+      rememberSavedAskChat(data.chat);
     }
   } catch (error) {
     state.askError = error.message;
@@ -2213,10 +2219,7 @@ function showLoadingAskModal(initialQuery) {
           if (data.done) {
             reply = data.reply || reply;
             renderReply();
-            if (data.chat?.id) {
-              state.askChatId = data.chat.id;
-              loadSavedChats();
-            }
+            rememberSavedAskChat(data.chat);
           }
         } catch (parseErr) {
           if (parseErr.message && !parseErr.message.includes("JSON")) {
@@ -3357,6 +3360,228 @@ function buildRoadmapView(strategy) {
   return container;
 }
 
+function resetAskForStrategy(strategyId, force = false) {
+  if (!force && state.askStrategyId === strategyId && !state.askTaskId) return;
+  state.askChatId = null;
+  state.askMessages = [];
+  state.askError = "";
+  state.askTaskId = "";
+  state.askStrategyId = strategyId || "";
+}
+
+async function ensureStrategyAskContext() {
+  // Strategy chat always delegates model choice to the shared Ask router.
+  state.askModel = "auto";
+  if (state.savedId) {
+    resetAskForStrategy(state.savedId);
+    return true;
+  }
+  if (!state.strategy) return false;
+
+  try {
+    const data = await api("/api/strategy/save", {
+      method: "POST",
+      body: JSON.stringify({
+        clientSaveId: state.clientSaveId,
+        brief: state.brief,
+        answers: state.answers,
+        strategy: state.strategy,
+        versions: state.versions,
+      }),
+    });
+    state.savedId = data.strategy.id;
+    state.updatedAt = data.strategy.updatedAt;
+    state.versions = data.strategy.versions;
+    state.status = "saved";
+    resetAskForStrategy(state.savedId);
+    trackEvent("strategy_saved", { versionCount: state.versions.length, source: "strategy_ask" });
+    await loadSavedStrategies();
+    return true;
+  } catch (error) {
+    state.askError = error.message || "Strategiyanı söhbət kontekstinə əlavə etmək mümkün olmadı.";
+    render();
+    return false;
+  }
+}
+
+function buildStrategyAskMessage(message, messageIndex) {
+  const isAssistant = message.role === "assistant";
+  const isStreaming = Boolean(message.isStreaming);
+  const row = element("article", `strategy-ask-message ask-message ask-message-${message.role}${isStreaming ? " is-streaming" : ""}`);
+  const content = element("div", "ask-message-content");
+
+  if (!isAssistant) {
+    content.textContent = message.content;
+    row.appendChild(content);
+    return row;
+  }
+
+  if (isStreaming && !message.content) {
+    const thinking = element("div", "ask-thinking strategy-ask-thinking");
+    const sparkle = element("span", "strategy-ask-thinking-spark", "✦");
+    const modelInfo = getAskMessageModelInfo(message.model);
+    const label = element("span", "ask-thinking-label", modelInfo.isTerra ? "Dərin analiz" : "Cavab hazırlanır");
+    const dots = element("span", "ask-thinking-dots");
+    dots.append(element("i"), element("i"), element("i"));
+    thinking.append(sparkle, label, dots);
+    content.appendChild(thinking);
+  } else {
+    content.appendChild(renderAskRichText(message.content));
+    if (isStreaming) content.appendChild(element("span", "ask-answer-caret is-streaming"));
+  }
+
+  if (!isStreaming && message.content) {
+    const actions = element("div", "strategy-ask-message-actions");
+    const copy = button("", "strategy-ask-action", async () => {
+      const copied = await copyAskResponse(message.content);
+      if (!copied) return;
+      copy.classList.add("is-copied");
+      copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>';
+      setTimeout(() => copy.classList.remove("is-copied"), 1400);
+    });
+    copy.type = "button";
+    copy.title = "Kopyala";
+    copy.setAttribute("aria-label", "Cavabı kopyala");
+    copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    actions.appendChild(copy);
+
+    if (!getAskMessageModelInfo(message.model).isTerra) {
+      const deeper = button("✦ Dərin düşün", "strategy-ask-action strategy-ask-deeper", () => thinkDeeperWithTerra(messageIndex));
+      deeper.type = "button";
+      deeper.disabled = state.askLoading;
+      actions.appendChild(deeper);
+    }
+    const report = button("", "strategy-ask-action strategy-ask-report", () => {
+      openLegalReportModal({ messageContent: message.content, model: getAskMessageModelInfo(message.model).displayName });
+    });
+    report.type = "button";
+    report.title = "Hüquqi problem bildir";
+    report.setAttribute("aria-label", "Hüquqi problem bildir");
+    report.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5h.01"/></svg>';
+    actions.appendChild(report);
+    content.appendChild(actions);
+  }
+
+  row.appendChild(content);
+  return row;
+}
+
+function buildStrategyAskAssistant() {
+  const root = element("div", `strategy-ask-root${state.strategyAskOpen ? " is-open" : ""}`);
+  const launcher = button("", "strategy-ask-launcher", () => {
+    state.askModel = "auto";
+    if (state.savedId) resetAskForStrategy(state.savedId);
+    else resetAskForStrategy("", true);
+    state.strategyAskOpen = true;
+    render();
+  });
+  launcher.type = "button";
+  launcher.setAttribute("aria-label", "Bu strategiya haqqında Marketify-dan soruş");
+  launcher.setAttribute("aria-expanded", String(state.strategyAskOpen));
+  launcher.innerHTML = `
+    <span class="strategy-ask-launcher-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h8M8 13h5"/></svg>
+      <span>✦</span>
+    </span>
+    <span>Strategiya barədə soruş</span>
+  `;
+  root.appendChild(launcher);
+
+  if (!state.strategyAskOpen) return root;
+
+  const panel = element("section", "strategy-ask-panel");
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Strategiya üzrə Marketify Ask");
+
+  const header = element("header", "strategy-ask-header");
+  const heading = element("div", "strategy-ask-heading");
+  const title = element("strong", "", "Marketify Ask");
+  const context = element("span", "strategy-ask-context", state.strategy?.title || "Aktiv strategiya");
+  heading.append(title, context);
+  const close = button("", "strategy-ask-close", () => {
+    state.strategyAskOpen = false;
+    render();
+  });
+  close.type = "button";
+  close.setAttribute("aria-label", "Söhbəti kiçilt");
+  close.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 12h12"/></svg>';
+  header.append(heading, close);
+
+  const body = element("div", "strategy-ask-body");
+  body.setAttribute("aria-live", "polite");
+  if (!state.askMessages.length) {
+    const welcome = element("div", "strategy-ask-welcome");
+    welcome.innerHTML = `<span class="strategy-ask-orb">✦</span><strong>Strategiyanı birlikdə təhlil edək</strong><p>Bu strategiyanın qərarları, prioritetləri, riskləri və icra addımları barədə soruş.</p>`;
+    body.appendChild(welcome);
+    [
+      "Bu strategiyada ən böyük risk nədir?",
+      "İlk 30 gündə nəyə fokuslanmalıyam?",
+      "Bu planın zəif nöqtələrini göstər.",
+    ].forEach((question) => {
+      const suggestion = button(question, "strategy-ask-suggestion", async () => {
+        if (state.askLoading) return;
+        const ready = await ensureStrategyAskContext();
+        if (ready) submitAskMessage(question);
+      });
+      suggestion.type = "button";
+      body.appendChild(suggestion);
+    });
+  } else {
+    state.askMessages.forEach((message, index) => body.appendChild(buildStrategyAskMessage(message, index)));
+  }
+
+  if (state.askError) {
+    const error = element("div", "strategy-ask-error", state.askError);
+    body.appendChild(error);
+  }
+
+  const footer = element("footer", "strategy-ask-footer");
+  const form = element("form", "strategy-ask-composer");
+  const input = element("textarea", "strategy-ask-input");
+  input.rows = 1;
+  input.maxLength = 8000;
+  input.placeholder = "Strategiya haqqında soruş…";
+  input.disabled = state.askLoading;
+  const send = button("", "strategy-ask-send");
+  send.type = "submit";
+  send.disabled = true;
+  send.setAttribute("aria-label", "Sualı göndər");
+  send.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>';
+  form.append(input, send);
+
+  const resize = () => {
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 110)}px`;
+    send.disabled = input.value.trim().length < 2 || state.askLoading;
+  };
+  input.addEventListener("input", resize);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      if (!send.disabled) form.requestSubmit();
+    }
+  });
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = input.value.trim();
+    if (message.length < 2 || state.askLoading) return;
+    input.value = "";
+    send.disabled = true;
+    const ready = await ensureStrategyAskContext();
+    if (ready) submitAskMessage(message);
+  });
+
+  footer.append(form, element("p", "strategy-ask-disclaimer", "Söhbət Ask tarixçəsində saxlanılır · Cavab aktiv strategiya əsasında hazırlanır."));
+  panel.append(header, body, footer);
+  root.appendChild(panel);
+
+  requestAnimationFrame(() => {
+    body.scrollTop = body.scrollHeight;
+    if (!state.askLoading && window.innerWidth > 767) input.focus();
+  });
+  return root;
+}
+
 function renderStrategyWorkspace() {
   workspace.classList.add("workspace-document");
   const strategy = state.strategy;
@@ -3425,7 +3650,7 @@ function renderStrategyWorkspace() {
 
   const shell = element("div", "strategy-local-shell");
   shell.append(toc, documentCanvas);
-  view.append(toolbar, shell, buildRefinementPanel());
+  view.append(toolbar, shell, buildRefinementPanel(), buildStrategyAskAssistant());
 
   if (state.status === "refining") {
     const working = element("div", "refining-banner");
@@ -3464,27 +3689,28 @@ function budgetSignal(brief) {
 }
 
 function buildRefinementPanel() {
-  const panel = element("section", "refinement-dock");
+  const panel = element("section", `refinement-dock${state.refinementOpen ? " is-expanded" : ""}`);
   panel.setAttribute("aria-label", "Strategiyanı idarə et və yenilə");
 
-  // Top Action Buttons Strip: Dəyişiklik istə, İxrac, Yadda saxla
+  // Compact document actions live in the same surface as the refinement composer.
   const actionsStrip = element("div", "dock-actions-strip");
 
-  // 1. Refine button with minimalist magic wand / edit icon
-  const refineBtn = button("", "dock-action-btn dock-refine-btn", (e) => {
-    e.stopPropagation();
-    panel.classList.toggle("is-expanded");
-    const input = document.querySelector("#refinementInput");
-    input?.focus();
+  const refineToggle = button("", "dock-action-btn dock-refine-toggle", () => {
+    state.refinementOpen = !state.refinementOpen;
+    render();
   });
-  refineBtn.innerHTML = `
+  refineToggle.type = "button";
+  refineToggle.setAttribute("aria-label", state.refinementOpen ? "Düzəliş pəncərəsini bağla" : "Strategiyada düzəliş istə");
+  refineToggle.setAttribute("aria-expanded", String(state.refinementOpen));
+  refineToggle.title = state.refinementOpen ? "Bağla" : "Düzəliş istə";
+  refineToggle.innerHTML = `
     <svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+      <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
     </svg>
-    <span>Dəyişiklik istə</span>
+    <span>Düzəliş istə</span>
   `;
 
-  // 2. Export wrap + button with minimalist download/export icon + menu
+  // Export wrap + button with minimalist download/export icon + menu
   const exportWrap = element("div", "export-wrap dock-export-wrap");
   const exportBtn = button("", "dock-action-btn dock-export-btn");
   exportBtn.setAttribute("aria-haspopup", "menu");
@@ -3506,14 +3732,12 @@ function buildRefinementPanel() {
   });
   exportWrap.append(exportBtn, menu);
 
-  // Close export menu and dock expansion when clicking outside
+  // Close only the export menu when clicking outside. The refinement flyout
+  // itself is explicitly controlled by its edit icon.
   document.addEventListener("click", (e) => {
     if (!exportWrap.contains(e.target)) {
       menu.classList.remove("is-open");
       exportBtn.setAttribute("aria-expanded", "false");
-    }
-    if (!panel.contains(e.target)) {
-      panel.classList.remove("is-expanded");
     }
   });
 
@@ -3528,7 +3752,7 @@ function buildRefinementPanel() {
     <span>${state.savedId ? "Yadda saxlanıb" : "Yadda saxla"}</span>
   `;
 
-  actionsStrip.append(refineBtn, exportWrap, saveBtn);
+  actionsStrip.append(refineToggle, exportWrap, saveBtn);
 
   // Middle: Quick suggestions with modern icons
   const quick = element("div", "quick-actions");
@@ -3559,7 +3783,7 @@ function buildRefinementPanel() {
   input.id = "refinementInput";
   input.rows = 1;
   input.maxLength = 2000;
-  input.placeholder = "Marketify-dan dəyişiklik istə";
+  input.placeholder = "Strategiyada nəyi dəyişək?";
   input.disabled = state.status === "refining";
 
   const submit = button("", "refine-submit");
@@ -3589,7 +3813,15 @@ function buildRefinementPanel() {
     if (request.length >= 3) requestRefinement("custom", request);
   });
 
-  panel.append(actionsStrip, quick, form);
+  panel.append(actionsStrip);
+  if (state.refinementOpen) {
+    const popover = element("div", "refinement-popover");
+    popover.append(quick, form);
+    panel.appendChild(popover);
+    requestAnimationFrame(() => {
+      if (!input.disabled) input.focus();
+    });
+  }
   return panel;
 }
 
@@ -3597,6 +3829,7 @@ async function requestRefinement(action, request) {
   const previousStatus = state.savedId ? "saved" : "ready";
   clearError();
   state.changeSummary = "";
+  state.refinementOpen = false;
   trackEvent("refinement_requested", { action, saved: Boolean(state.savedId) });
   if (action !== "custom") trackEvent("quick_action_used", { action });
   setStatus("refining");
@@ -4619,6 +4852,8 @@ async function openSavedStrategy(id) {
       error: null,
       retry: null,
       changeSummary: "",
+      strategyAskOpen: false,
+      refinementOpen: false,
     });
     render();
     closeSidebar();
