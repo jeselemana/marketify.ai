@@ -11546,6 +11546,13 @@ body {
   display: none;
 }
 
+/* A single focused action at a time: refinement owns the dock while open. */
+.strategy-ask-root.is-refinement-open .strategy-ask-launcher {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px) scale(0.96);
+}
+
 .strategy-ask-launcher-icon {
   position: relative;
   display: grid;

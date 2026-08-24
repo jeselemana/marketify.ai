@@ -3467,7 +3467,10 @@ function buildStrategyAskMessage(message, messageIndex) {
 }
 
 function buildStrategyAskAssistant() {
-  const root = element("div", `strategy-ask-root${state.strategyAskOpen ? " is-open" : ""}`);
+  const root = element(
+    "div",
+    `strategy-ask-root${state.strategyAskOpen ? " is-open" : ""}${state.refinementOpen ? " is-refinement-open" : ""}`,
+  );
   const launcher = button("", "strategy-ask-launcher", () => {
     state.askModel = "auto";
     if (state.savedId) resetAskForStrategy(state.savedId);
