@@ -67,12 +67,7 @@ export function createStrategyRouter(repository) {
         userMessage: payload.brief,
         mode: "strategy",
       });
-      const assessment = await assessBrief({
-        ...payload,
-        ownerId: req.ownerId,
-        personalizationContext,
-        signal: abortController.signal,
-      });
+      const assessment = await assessBrief({ ...payload, ownerId: req.ownerId, personalizationContext, signal: abortController.signal });
       if (!res.writableEnded) {
         res.json({ assessment });
       }
@@ -82,83 +77,9 @@ export function createStrategyRouter(repository) {
   router.post(
     "/generate",
     asyncRoute(async (req, res) => {
-      const abortController = new AbortController();
-      req.on("close", () => {
-        if (!res.writableEnded) abortController.abort();
-      });
-
       const payload = parse(GenerateRequestSchema, req.body);
-      const isStream = req.body.stream === true || req.headers.accept?.includes("text/event-stream");
-
-      if (isStream) {
-        res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-        res.setHeader("Cache-Control", "no-cache, no-transform");
-        res.setHeader("Connection", "keep-alive");
-        res.setHeader("X-Accel-Buffering", "no");
-        res.setHeader("Content-Encoding", "identity");
-        if (typeof res.flushHeaders === "function") res.flushHeaders();
-
-        try {
-          const personalizationContext = await buildPersonalizationContext({
-            user: req.user,
-            userMessage: payload.brief,
-            mode: "strategy",
-          });
-
-          const strategy = await generateStrategy({
-            ...payload,
-            ownerId: req.ownerId,
-            personalizationContext,
-            signal: abortController.signal,
-            onChunk: ({ chunk, finishReason, model }) => {
-              if (res.writableEnded) return;
-              res.write(`data: ${JSON.stringify({ chunk, finishReason, model })}\n\n`);
-              if (typeof res.flush === "function") res.flush();
-            },
-          });
-
-          // Auto-save strategy to repository
-          try {
-            const now = new Date().toISOString();
-            await repository.create(
-              {
-                clientSaveId: payload.idempotencyKey,
-                brief: payload.brief,
-                answers: payload.answers,
-                strategy,
-                versions: [
-                  {
-                    versionNumber: 1,
-                    data: strategy,
-                    changeRequest: "İlkin strategiya",
-                    createdAt: now,
-                  },
-                ],
-              },
-              req.ownerId,
-            );
-          } catch (saveErr) {
-            console.error("Auto-save on server failed:", saveErr);
-          }
-
-          if (!res.writableEnded) {
-            res.write(`data: ${JSON.stringify({ done: true, strategy, model: payload.model, finishReason: "STOP" })}\n\n`);
-            if (typeof res.flush === "function") res.flush();
-            return res.end();
-          }
-        } catch (err) {
-          if (res.writableEnded) return;
-          console.error("Strategy generation stream error:", err.message);
-          const statusCode = err.status || 500;
-          const errorCode = err.code || "STRATEGY_STREAM_ERROR";
-          res.write(`data: ${JSON.stringify({ error: err.message || "Generasiya zamanı xəta baş verdi", code: errorCode, status: statusCode, partialText: err.partialText })}\n\n`);
-          if (typeof res.flush === "function") res.flush();
-          return res.end();
-        }
-        return;
-      }
-
-      const requestKey = `${req.ownerId}:${payload.idempotencyKey}:${payload.model}`;
+      const requestKey = `${req.ownerId}:${payload.idempotencyKey}`;
+      
       let generation = activeGenerations.get(requestKey);
       if (!generation) {
         generation = (async () => {
@@ -167,13 +88,8 @@ export function createStrategyRouter(repository) {
             userMessage: payload.brief,
             mode: "strategy",
           });
-          const strategy = await generateStrategy({
-            ...payload,
-            ownerId: req.ownerId,
-            personalizationContext,
-            signal: abortController.signal,
-          });
-
+          const strategy = await generateStrategy({ ...payload, ownerId: req.ownerId, personalizationContext });
+          // Automatically save completed strategy to server repository so it is never lost if user closes browser
           try {
             const now = new Date().toISOString();
             await repository.create(
@@ -208,7 +124,7 @@ export function createStrategyRouter(repository) {
 
       const strategy = await generation;
       if (!res.writableEnded) {
-        res.json({ strategy, model: payload.model });
+        res.json({ strategy });
       }
     }),
   );
@@ -221,53 +137,14 @@ export function createStrategyRouter(repository) {
         if (!res.writableEnded) abortController.abort();
       });
       const payload = parse(RefineRequestSchema, req.body);
-      const isStream = req.body.stream === true || req.headers.accept?.includes("text/event-stream");
-
       const personalizationContext = await buildPersonalizationContext({
         user: req.user,
         userMessage: payload.brief || payload.request || "",
         mode: "strategy",
       });
-
-      if (isStream) {
-        res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-        res.setHeader("Cache-Control", "no-cache, no-transform");
-        res.setHeader("Connection", "keep-alive");
-        res.setHeader("X-Accel-Buffering", "no");
-        res.setHeader("Content-Encoding", "identity");
-        if (typeof res.flushHeaders === "function") res.flushHeaders();
-
-        try {
-          const strategy = await refineStrategy(
-            payload,
-            req.ownerId,
-            abortController.signal,
-            personalizationContext,
-            ({ chunk, finishReason, model }) => {
-              if (res.writableEnded) return;
-              res.write(`data: ${JSON.stringify({ chunk, finishReason, model })}\n\n`);
-              if (typeof res.flush === "function") res.flush();
-            },
-          );
-
-          if (!res.writableEnded) {
-            res.write(`data: ${JSON.stringify({ done: true, strategy, model: payload.model, finishReason: "STOP" })}\n\n`);
-            if (typeof res.flush === "function") res.flush();
-            return res.end();
-          }
-        } catch (err) {
-          if (res.writableEnded) return;
-          console.error("Refine stream error:", err.message);
-          res.write(`data: ${JSON.stringify({ error: err.message || "Dəqiqləşdirmə zamanı xəta baş verdi", code: err.code || "REFINE_ERROR", status: err.status || 500 })}\n\n`);
-          if (typeof res.flush === "function") res.flush();
-          return res.end();
-        }
-        return;
-      }
-
       const strategy = await refineStrategy(payload, req.ownerId, abortController.signal, personalizationContext);
       if (!res.writableEnded) {
-        res.json({ strategy, model: payload.model });
+        res.json({ strategy });
       }
     }),
   );
@@ -308,7 +185,7 @@ export function createStrategyRouter(repository) {
       const strategy = await refineStrategy(payload, req.ownerId, undefined, personalizationContext);
       const changeRequest = payload.action === "custom" ? payload.request : payload.action;
       const updated = await repository.appendVersion(req.params.id, req.ownerId, strategy, changeRequest);
-      res.json({ strategy: publicRecord(updated), model: payload.model });
+      res.json({ strategy: publicRecord(updated) });
     }),
   );
 
@@ -345,42 +222,29 @@ export function strategyErrorHandler(error, req, res, next) {
 
   if (error.code === "AI_NOT_CONFIGURED") {
     return res.status(503).json({
-      error: error.message || "AI xidməti hələ konfiqurasiya edilməyib. API açarını əlavə et və yenidən yoxla.",
+      error: "AI xidməti hələ konfiqurasiya edilməyib. OPENAI_API_KEY əlavə et və yenidən yoxla.",
       code: error.code,
-      model: error.model,
     });
   }
 
-  if (error.status === 401 || error.code === "invalid_api_key" || error.code === "AI_AUTH_ERROR") {
+  if (error.status === 401 || error.code === "invalid_api_key") {
     return res.status(503).json({
-      error: error.message || "AI bağlantısı doğrulanmadı. Serverdəki API açarını yoxla.",
+      error: "OpenAI bağlantısı doğrulanmadı. Serverdəki OPENAI_API_KEY dəyərini yoxla.",
       code: "AI_AUTH_ERROR",
-      model: error.model,
     });
   }
 
-  if (error.status === 429 || error.code === "rate_limit_exceeded" || error.code === "AI_RATE_LIMITED") {
+  if (error.status === 429 || error.code === "rate_limit_exceeded") {
     return res.status(429).json({
-      error: error.message || "AI xidməti hazırda çox məşğuldur (429). Bir az sonra yenidən yoxla.",
+      error: "AI xidməti hazırda çox məşğuldur. Bir az sonra yenidən yoxla.",
       code: "AI_RATE_LIMITED",
-      model: error.model,
-    });
-  }
-
-  if (error.code === "AI_MAX_TOKENS") {
-    return res.status(422).json({
-      error: error.message || "Strategiya generasiyası token limitinə görə yarımçıq qaldı.",
-      code: "AI_MAX_TOKENS",
-      model: error.model,
-      partialText: error.partialText,
     });
   }
 
   if (error.code === "AI_INVALID_OUTPUT") {
     return res.status(502).json({
-      error: error.message || "Strategiya strukturunu tamamlamaq mümkün olmadı. Yenidən cəhd et.",
+      error: "Strategiya strukturunu tamamlamaq mümkün olmadı. Yenidən cəhd et.",
       code: error.code,
-      model: error.model,
     });
   }
 
@@ -390,13 +254,9 @@ export function strategyErrorHandler(error, req, res, next) {
     code: error.code,
     status: error.status,
     name: error.name,
-    message: error.message,
   });
-
-  return res.status(error.status || 500).json({
-    error: error.message || "Marketify hazırda sorğunu tamamlaya bilmədi. Məlumatların qorunub — yenidən cəhd et.",
-    code: error.code || "STRATEGY_ERROR",
-    model: error.model,
+  return res.status(500).json({
+    error: "Marketify hazırda sorğunu tamamlaya bilmədi. Məlumatların qorunub — yenidən cəhd et.",
+    code: "STRATEGY_ERROR",
   });
 }
-

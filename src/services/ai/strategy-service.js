@@ -1,12 +1,13 @@
+import { createHash } from "node:crypto";
+import { zodTextFormat } from "openai/helpers/zod";
 import {
   StrategyAssessmentSchema,
   StrategySchema,
   analyzeBriefSignals,
-  normalizeBuildModel,
   validateAssessment,
 } from "../../domain/strategy.js";
+import { getOpenAIClient } from "./client.js";
 import { aiConfig } from "./config.js";
-import { routeStructuredGeneration } from "./llm-router.js";
 import {
   ASSESSOR_PROMPT,
   REFINEMENT_PROMPT,
@@ -14,21 +15,40 @@ import {
   buildRefinementInput,
 } from "./prompts.js";
 
+function privacySafeIdentifier(ownerId) {
+  return createHash("sha256").update(ownerId).digest("hex").slice(0, 32);
+}
+
 function clarificationContext(answers) {
-  if (!answers?.length) return "No clarification answers have been provided.";
+  if (!answers.length) return "No clarification answers have been provided.";
   return answers.map((item) => `${item.question}\nAnswer: ${item.answer}`).join("\n\n");
 }
 
-export async function assessBrief({
-  brief,
-  answers = [],
-  round = 0,
-  ownerId,
-  signal,
-  personalizationContext = "",
-  model = aiConfig.defaultBuildModel,
-  onChunk,
-}) {
+async function parseStructured({ model, schema, name, instructions, input, maxOutputTokens, reasoning, ownerId, signal }) {
+  const requestOptions = signal ? { signal } : undefined;
+  const response = await getOpenAIClient().responses.parse(
+    {
+      model,
+      instructions,
+      input,
+      text: { format: zodTextFormat(schema, name) },
+      reasoning: { effort: reasoning },
+      max_output_tokens: maxOutputTokens,
+      safety_identifier: privacySafeIdentifier(ownerId),
+    },
+    requestOptions,
+  );
+
+  if (!response.output_parsed) {
+    const error = new Error("The AI response could not be validated.");
+    error.code = "AI_INVALID_OUTPUT";
+    throw error;
+  }
+
+  return response.output_parsed;
+}
+
+export async function assessBrief({ brief, answers, round, ownerId, signal, personalizationContext = "" }) {
   const signals = analyzeBriefSignals(brief);
   const forceDecision = round >= aiConfig.maxClarificationRounds;
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake signals (advisory only):\n${JSON.stringify(signals)}\n\nClarification round: ${round} of ${aiConfig.maxClarificationRounds}.\n${
@@ -37,9 +57,8 @@ export async function assessBrief({
       : "Decide whether a targeted clarification round is materially useful."
   }`;
 
-  const resolvedModel = normalizeBuildModel(model);
-  const result = await routeStructuredGeneration({
-    model: resolvedModel,
+  const parsed = await parseStructured({
+    model: aiConfig.fastModel,
     schema: StrategyAssessmentSchema,
     name: "strategy_assessment",
     instructions: `${ASSESSOR_PROMPT}${personalizationContext || ""}`,
@@ -48,10 +67,9 @@ export async function assessBrief({
     reasoning: "low",
     ownerId,
     signal,
-    onChunk,
   });
 
-  const assessment = validateAssessment(result.data);
+  const assessment = validateAssessment(parsed);
   if (forceDecision && assessment.status === "needs_clarification") {
     return {
       status: "ready",
@@ -60,58 +78,39 @@ export async function assessBrief({
       assumptions: [
         "Some intake details were not provided, so the strategy proceeds with clearly labeled working assumptions.",
       ],
-      model: result.model,
     };
   }
-  return { ...assessment, model: result.model };
+  return assessment;
 }
 
-export async function generateStrategy({
-  brief,
-  answers = [],
-  assumptions = [],
-  ownerId,
-  signal,
-  personalizationContext = "",
-  model = aiConfig.defaultBuildModel,
-  onChunk,
-}) {
+export async function generateStrategy({ brief, answers, assumptions, ownerId, signal, personalizationContext = "" }) {
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
     assumptions.length ? assumptions.join("\n- ") : "None supplied."
   }`;
 
-  const resolvedModel = normalizeBuildModel(model);
-  const result = await routeStructuredGeneration({
-    model: resolvedModel,
+  return parseStructured({
+    model: aiConfig.strategyModel,
     schema: StrategySchema,
     name: "marketify_strategy",
     instructions: `${STRATEGY_PROMPT}${personalizationContext || ""}`,
     input,
-    maxOutputTokens: resolvedModel === "gemini-3.7-flash" ? aiConfig.geminiMaxOutputTokens : aiConfig.strategyMaxOutputTokens,
+    maxOutputTokens: aiConfig.strategyMaxOutputTokens,
     reasoning: "medium",
     ownerId,
     signal,
-    onChunk,
   });
-
-  return result.data;
 }
 
-export async function refineStrategy(payload, ownerId, signal, personalizationContext = "", onChunk) {
-  const resolvedModel = normalizeBuildModel(payload.model || aiConfig.defaultBuildModel);
-  const result = await routeStructuredGeneration({
-    model: resolvedModel,
+export async function refineStrategy(payload, ownerId, signal, personalizationContext = "") {
+  return parseStructured({
+    model: aiConfig.strategyModel,
     schema: StrategySchema,
     name: "marketify_refined_strategy",
     instructions: `${REFINEMENT_PROMPT}${personalizationContext || ""}`,
     input: buildRefinementInput(payload),
-    maxOutputTokens: resolvedModel === "gemini-3.7-flash" ? aiConfig.geminiMaxOutputTokens : aiConfig.refinementMaxOutputTokens,
+    maxOutputTokens: aiConfig.refinementMaxOutputTokens,
     reasoning: payload.action === "think_deeper" ? "high" : "medium",
     ownerId,
     signal,
-    onChunk,
   });
-
-  return result.data;
 }
-
