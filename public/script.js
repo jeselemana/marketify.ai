@@ -3489,8 +3489,17 @@ function buildStrategyAskAssistant() {
 
   if (!state.strategyAskOpen) return root;
 
+  const backdrop = button("", "strategy-ask-backdrop", () => {
+    state.strategyAskOpen = false;
+    render();
+  });
+  backdrop.type = "button";
+  backdrop.setAttribute("aria-label", "Strategiya söhbətini bağla");
+  root.appendChild(backdrop);
+
   const panel = element("section", "strategy-ask-panel");
   panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
   panel.setAttribute("aria-label", "Strategiya üzrə Marketify Ask");
 
   const header = element("header", "strategy-ask-header");
@@ -3504,7 +3513,7 @@ function buildStrategyAskAssistant() {
   });
   close.type = "button";
   close.setAttribute("aria-label", "Söhbəti kiçilt");
-  close.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 12h12"/></svg>';
+  close.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>';
   header.append(heading, close);
 
   const body = element("div", "strategy-ask-body");
