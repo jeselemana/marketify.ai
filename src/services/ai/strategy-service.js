@@ -1,13 +1,12 @@
 import { createHash } from "node:crypto";
-import { zodTextFormat } from "openai/helpers/zod";
 import {
   StrategyAssessmentSchema,
   StrategySchema,
   analyzeBriefSignals,
   validateAssessment,
 } from "../../domain/strategy.js";
-import { getOpenAIClient } from "./client.js";
 import { aiConfig } from "./config.js";
+import { openBuildStrategyStream, openBuildStructuredStream } from "./provider-router.js";
 import {
   ASSESSOR_PROMPT,
   REFINEMENT_PROMPT,
@@ -24,31 +23,55 @@ function clarificationContext(answers) {
   return answers.map((item) => `${item.question}\nAnswer: ${item.answer}`).join("\n\n");
 }
 
-async function parseStructured({ model, schema, name, instructions, input, maxOutputTokens, reasoning, ownerId, signal }) {
-  const requestOptions = signal ? { signal } : undefined;
-  const response = await getOpenAIClient().responses.parse(
-    {
-      model,
-      instructions,
-      input,
-      text: { format: zodTextFormat(schema, name) },
-      reasoning: { effort: reasoning },
-      max_output_tokens: maxOutputTokens,
-      safety_identifier: privacySafeIdentifier(ownerId),
-    },
-    requestOptions,
-  );
-
-  if (!response.output_parsed) {
-    const error = new Error("The AI response could not be validated.");
+async function parseRoutedStructured({
+  selectedModel,
+  schema,
+  name,
+  instructions,
+  input,
+  maxOutputTokens,
+  temperature = 0.6,
+  thinkingBudget = 0,
+  reasoningEffort = "medium",
+  ownerId,
+  signal,
+}) {
+  const upstream = await openBuildStructuredStream({
+    selectedModel,
+    instructions,
+    input,
+    schema,
+    schemaName: name,
+    maxOutputTokens,
+    temperature,
+    thinkingBudget,
+    reasoningEffort,
+    ownerId: privacySafeIdentifier(ownerId),
+    signal,
+  });
+  let text = "";
+  let finishReason = "stop";
+  for await (const event of upstream.events) {
+    if (event.type === "delta") text += event.delta;
+    if (event.type === "done") finishReason = event.finishReason || "stop";
+  }
+  if (["max_output_tokens", "max_tokens"].includes(finishReason)) {
+    const error = new Error("Model çıxış limitinə çatdı.");
+    error.code = "AI_MAX_TOKENS";
+    error.status = 409;
+    throw error;
+  }
+  try {
+    const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    return schema.parse(JSON.parse(cleaned));
+  } catch (cause) {
+    const error = new Error("AI cavabının strukturu doğrulanmadı.", { cause });
     error.code = "AI_INVALID_OUTPUT";
     throw error;
   }
-
-  return response.output_parsed;
 }
 
-export async function assessBrief({ brief, answers, round, ownerId, signal, personalizationContext = "" }) {
+export async function assessBrief({ brief, answers, round, selectedModel, ownerId, signal, personalizationContext = "" }) {
   const signals = analyzeBriefSignals(brief);
   const forceDecision = round >= aiConfig.maxClarificationRounds;
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake signals (advisory only):\n${JSON.stringify(signals)}\n\nClarification round: ${round} of ${aiConfig.maxClarificationRounds}.\n${
@@ -57,14 +80,16 @@ export async function assessBrief({ brief, answers, round, ownerId, signal, pers
       : "Decide whether a targeted clarification round is materially useful."
   }`;
 
-  const parsed = await parseStructured({
-    model: aiConfig.fastModel,
+  const parsed = await parseRoutedStructured({
+    selectedModel,
     schema: StrategyAssessmentSchema,
     name: "strategy_assessment",
     instructions: `${ASSESSOR_PROMPT}${personalizationContext || ""}`,
     input,
     maxOutputTokens: aiConfig.assessmentMaxOutputTokens,
-    reasoning: "low",
+    temperature: 0.6,
+    thinkingBudget: 0,
+    reasoningEffort: "low",
     ownerId,
     signal,
   });
@@ -83,33 +108,39 @@ export async function assessBrief({ brief, answers, round, ownerId, signal, pers
   return assessment;
 }
 
-export async function generateStrategy({ brief, answers, assumptions, ownerId, signal, personalizationContext = "" }) {
+export function streamStrategy({
+  brief,
+  answers,
+  assumptions,
+  continuation,
+  selectedModel,
+  ownerId,
+  signal,
+  personalizationContext = "",
+}) {
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
     assumptions.length ? assumptions.join("\n- ") : "None supplied."
-  }`;
+  }${continuation ? `\n\nA previous response reached its output limit. Return one complete valid strategy JSON object, preserving useful completed work and finishing every required field. Previous partial response:\n<partial_response>\n${continuation}\n</partial_response>` : ""}`;
 
-  return parseStructured({
-    model: aiConfig.strategyModel,
-    schema: StrategySchema,
-    name: "marketify_strategy",
+  return openBuildStrategyStream({
+    selectedModel,
     instructions: `${STRATEGY_PROMPT}${personalizationContext || ""}`,
     input,
-    maxOutputTokens: aiConfig.strategyMaxOutputTokens,
-    reasoning: "medium",
-    ownerId,
+    ownerId: privacySafeIdentifier(ownerId),
     signal,
   });
 }
 
 export async function refineStrategy(payload, ownerId, signal, personalizationContext = "") {
-  return parseStructured({
-    model: aiConfig.strategyModel,
+  return parseRoutedStructured({
+    selectedModel: payload.selectedModel,
     schema: StrategySchema,
     name: "marketify_refined_strategy",
     instructions: `${REFINEMENT_PROMPT}${personalizationContext || ""}`,
     input: buildRefinementInput(payload),
     maxOutputTokens: aiConfig.refinementMaxOutputTokens,
-    reasoning: payload.action === "think_deeper" ? "high" : "medium",
+    thinkingBudget: payload.action === "think_deeper" ? 512 : 0,
+    reasoningEffort: payload.action === "think_deeper" ? "high" : "medium",
     ownerId,
     signal,
   });

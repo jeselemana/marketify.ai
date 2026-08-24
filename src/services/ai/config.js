@@ -4,8 +4,6 @@ function positiveInteger(value, fallback) {
 }
 
 export const aiConfig = Object.freeze({
-  fastModel: process.env.OPENAI_FAST_MODEL || "gpt-5.6-luna",
-  strategyModel: process.env.OPENAI_STRATEGY_MODEL || "gpt-5.6-terra",
   askModel: process.env.OPENAI_ASK_MODEL || "gpt-5.6-luna",
   askComplexModel: process.env.OPENAI_ASK_COMPLEX_MODEL || "gpt-5.6-terra",
   askMaxOutputTokens: positiveInteger(process.env.ASK_MAX_OUTPUT_TOKENS, 8192),

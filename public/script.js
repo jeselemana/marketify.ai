@@ -162,10 +162,30 @@ const LOADING_ASK_PLACEHOLDERS = [
   "Kontent marketinqi ilə orqanik trafiki necə artıraq?",
 ];
 
+const BUILD_MODEL_STORAGE_KEY = "marketify_build_model";
+const BUILD_MODELS = Object.freeze({
+  "gemini-3.7-flash": { name: "Flash", subtitle: "Gemini 3.7 Flash" },
+  "gpt-5.6-terra": { name: "Core", subtitle: "GPT-5.6 Terra" },
+});
+
+function loadBuildModel() {
+  try {
+    const stored = localStorage.getItem(BUILD_MODEL_STORAGE_KEY);
+    if (BUILD_MODELS[stored]) return stored;
+  } catch {}
+  return "gemini-3.7-flash";
+}
+
+function persistBuildModel(model) {
+  if (!BUILD_MODELS[model]) return;
+  try { localStorage.setItem(BUILD_MODEL_STORAGE_KEY, model); } catch {}
+}
+
 let loadingAskPlaceholderTimer = null;
 
 const state = {
   mode: "build",
+  buildModel: loadBuildModel(),
   view: "home",
   status: "draft",
   brief: "",
@@ -184,6 +204,8 @@ const state = {
   updatedAt: null,
   error: null,
   retry: null,
+  retryLabel: "",
+  generationContinuation: "",
   changeSummary: "",
   askChatId: null,
   savedChats: [],
@@ -350,6 +372,93 @@ async function api(path, options = {}) {
   return data;
 }
 
+async function requestBuildStrategy(payload, { signal, onChunk } = {}) {
+  let response;
+  try {
+    response = await fetch("/api/strategy/generate", {
+      method: "POST",
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
+      body: JSON.stringify({ ...payload, stream: true }),
+    });
+  } catch (error) {
+    if (error.name === "AbortError" || signal?.aborted) throw error;
+    throw new Error(navigator.onLine ? "Generasiya stream-inə qoşulmaq mümkün olmadı." : "İnternet bağlantısı yoxdur.");
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const error = new Error(data.error || "Strategiyanı hazırlamaq mümkün olmadı.");
+    error.code = data.code;
+    error.status = response.status;
+    throw error;
+  }
+  if (!(response.headers.get("content-type") || "").includes("text/event-stream") || !response.body) {
+    throw new Error("Server gözlənilən canlı stream-i qaytarmadı.");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let eventName = "message";
+  let dataLines = [];
+  let partial = "";
+  let terminal = null;
+
+  const dispatch = () => {
+    if (!dataLines.length) {
+      eventName = "message";
+      return;
+    }
+    const raw = dataLines.join("\n");
+    dataLines = [];
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      const error = new Error("Server stream-də etibarsız JSON hadisəsi qaytardı.");
+      error.code = "STREAM_PROTOCOL_ERROR";
+      throw error;
+    }
+
+    if (eventName === "delta" && data.chunk) {
+      partial += data.chunk;
+      onChunk?.(data.chunk, partial.length);
+    } else if (eventName === "complete") {
+      terminal = { ...data, partial };
+    } else if (eventName === "incomplete") {
+      terminal = { ...data, partial, incomplete: true };
+    } else if (eventName === "error") {
+      const error = new Error(data.error || "Generasiya stream-i yarımçıq dayandı.");
+      error.code = data.code;
+      error.status = data.status;
+      error.provider = data.provider;
+      throw error;
+    }
+    eventName = "message";
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    if (done) buffer += "\n\n";
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      if (line.startsWith("event:")) eventName = line.slice(6).trim() || "message";
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+      else if (!line.trim()) dispatch();
+    }
+    if (done) break;
+  }
+
+  if (!terminal) throw new Error("Generasiya stream-i tamamlanma siqnalı olmadan bağlandı.");
+  return terminal;
+}
+
 function showToast(message, tone = "success") {
   const toast = element("div", `toast toast-${tone}`);
   const dot = element("span", "toast-dot");
@@ -364,9 +473,10 @@ function showToast(message, tone = "success") {
 }
 
 
-function setError(error, retry, returnStatus = "draft") {
+function setError(error, retry, returnStatus = "draft", retryLabel = "") {
   state.error = error?.message || "Gözlənilməz xəta baş verdi.";
   state.retry = retry;
+  state.retryLabel = retryLabel;
   setStatus(returnStatus);
   render();
 }
@@ -374,6 +484,7 @@ function setError(error, retry, returnStatus = "draft") {
 function clearError() {
   state.error = null;
   state.retry = null;
+  state.retryLabel = "";
 }
 
 function errorBanner() {
@@ -384,7 +495,7 @@ function errorBanner() {
   banner.append(copy);
   if (state.retry) {
     banner.append(
-      button("Yenidən cəhd et", "secondary-button compact", () => {
+      button(state.retryLabel || "Yenidən cəhd et", "secondary-button compact", () => {
         const retry = state.retry;
         clearError();
         retry();
@@ -528,6 +639,8 @@ function resetStrategy() {
     updatedAt: null,
     error: null,
     retry: null,
+    retryLabel: "",
+    generationContinuation: "",
     changeSummary: "",
     strategyFormat: "blog",
     faqFilter: "",
@@ -648,9 +761,30 @@ function renderIntake() {
 
   form.append(attach, label, textarea, fileInput, composerActions);
 
-  const helper = element("div", "ask-composer-meta");
+  const helper = element("div", "ask-composer-meta build-composer-meta");
+  const modelSelector = element("div", "build-model-selector");
+  modelSelector.setAttribute("role", "radiogroup");
+  modelSelector.setAttribute("aria-label", "Build modeli");
+  Object.entries(BUILD_MODELS).forEach(([modelId, model]) => {
+    const option = button("", `build-model-option${state.buildModel === modelId ? " is-selected" : ""}`);
+    option.setAttribute("role", "radio");
+    option.setAttribute("aria-checked", String(state.buildModel === modelId));
+    option.dataset.model = modelId;
+    option.append(element("strong", "", model.name), element("small", "", model.subtitle));
+    option.addEventListener("click", () => {
+      state.buildModel = modelId;
+      persistBuildModel(modelId);
+      modelSelector.querySelectorAll(".build-model-option").forEach((item) => {
+        const selected = item.dataset.model === modelId;
+        item.classList.toggle("is-selected", selected);
+        item.setAttribute("aria-checked", String(selected));
+      });
+      trackEvent("build_model_selected", { model: modelId });
+    });
+    modelSelector.appendChild(option);
+  });
   const disclaimer = element("p", "ask-disclaimer", "Marketify süni intellekt funksiyası yerinə yetirir və səhvlər edə bilər.");
-  helper.appendChild(disclaimer);
+  helper.append(modelSelector, disclaimer);
 
   composerArea.append(form, helper);
 
@@ -1195,19 +1329,12 @@ class LiveTypewriter {
     const remaining = this.targetText.length - this.currentText.length;
 
     if (remaining > 0) {
-      // Keep the stream calm and readable even when the network sends a large chunk.
-      const charsToType = Math.min(
-        remaining,
-        remaining > 260 ? 5 :
-        remaining > 90 ? 3 :
-        remaining > 24 ? 2 : 1
-      );
+      // Coalesce fast provider deltas into a bounded 30fps render cadence. This
+      // keeps Markdown parsing responsive without building a long visual queue.
+      const charsToType = Math.min(remaining, 320, Math.max(12, Math.ceil(remaining / 4)));
       this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
       this.onUpdate(this.currentText, false);
-      const typedTail = this.currentText.slice(-charsToType);
-      const hasNaturalPause = /[.!?,;:\n]$/.test(typedTail);
-      const delay = (remaining > 260 ? 26 : remaining > 90 ? 32 : remaining > 24 ? 38 : 46) + (hasNaturalPause ? 28 : 0);
-      this.rafId = setTimeout(() => this.tick(), delay);
+      this.rafId = setTimeout(() => this.tick(), 32);
     } else if (this.isDone) {
       this.currentText = this.targetText;
       this.onUpdate(this.currentText, true);
@@ -1557,6 +1684,12 @@ function renderLoading() {
     element("span", "loading-live-dot"),
     element("span", "loading-eyebrow", isAssessment ? "BRİF ANALİZİ" : "STRATEGİYA HAZIRLANIR"),
   );
+  if (!isAssessment) {
+    const activeModel = BUILD_MODELS[state.buildModel] || BUILD_MODELS["gemini-3.7-flash"];
+    const streamMetric = element("span", "loading-model-indicator", `${activeModel.name} · qoşulur`);
+    streamMetric.id = "generationStreamMetric";
+    statusLine.appendChild(streamMetric);
+  }
   const title = element(
     "h1",
     "loading-title",
@@ -1720,6 +1853,7 @@ function minimizeToBackground() {
     answers: [...state.answers],
     assumptions: [...state.assumptions],
     idempotencyKey: state.clientSaveId,
+    selectedModel: state.buildModel,
     status: "generating",
     strategy: null,
     versions: [],
@@ -1739,7 +1873,6 @@ function minimizeToBackground() {
 
   // Do NOT abort currentAbortController — let the fetch continue
   // Detach the controller so resetStrategy doesn't abort it
-  const detachedController = currentAbortController;
   currentAbortController = null;
 
   // Reset state to home without aborting
@@ -1764,6 +1897,8 @@ function minimizeToBackground() {
     updatedAt: null,
     error: null,
     retry: null,
+    retryLabel: "",
+    generationContinuation: "",
     changeSummary: "",
     strategyFormat: "blog",
     faqFilter: "",
@@ -1815,15 +1950,20 @@ function resumeBackgroundJobs() {
     if (job.status !== "generating") return;
 
     try {
-      const data = await api("/api/strategy/generate", {
-        method: "POST",
-        body: JSON.stringify({
-          brief: job.brief,
-          answers: job.answers,
-          assumptions: job.assumptions,
-          idempotencyKey: job.idempotencyKey,
-        }),
+      const data = await requestBuildStrategy({
+        brief: job.brief,
+        answers: job.answers,
+        assumptions: job.assumptions,
+        idempotencyKey: job.idempotencyKey,
+        selectedModel: job.selectedModel || "gemini-3.7-flash",
       });
+
+      if (data.incomplete) {
+        job.continuation = data.partial || "";
+        const limitError = new Error(data.message || "Model çıxış limitinə çatdı.");
+        limitError.code = data.code || "AI_MAX_TOKENS";
+        throw limitError;
+      }
 
       // Check if user restored this job to foreground while in flight
       if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
@@ -1902,6 +2042,8 @@ function openBackgroundJob(jobId) {
       updatedAt: job.completedAt,
       error: null,
       retry: null,
+      retryLabel: "",
+      generationContinuation: "",
     });
     removeBackgroundJob(jobId);
     render();
@@ -1915,11 +2057,32 @@ function openBackgroundJob(jobId) {
       answers: job.answers || [],
       assumptions: job.assumptions || [],
       clientSaveId: job.idempotencyKey,
+      buildModel: job.selectedModel || state.buildModel,
     });
     removeBackgroundJob(jobId);
     render();
     closeSidebar();
   } else if (job.status === "error") {
+    if (job.continuation) {
+      const continuation = job.continuation;
+      Object.assign(state, {
+        view: "home",
+        status: "draft",
+        brief: job.brief,
+        answers: job.answers || [],
+        assumptions: job.assumptions || [],
+        clientSaveId: job.idempotencyKey,
+        buildModel: job.selectedModel || state.buildModel,
+        generationContinuation: continuation,
+        error: job.error || "Model çıxış limitinə çatdı.",
+        retry: () => startGeneration({ continuation }),
+        retryLabel: "Davam et",
+      });
+      removeBackgroundJob(jobId);
+      render();
+      closeSidebar();
+      return;
+    }
     showToast(job.error || "Xəta baş verdi", "error");
     removeBackgroundJob(jobId);
     if (state.view === "list") render();
@@ -2317,6 +2480,7 @@ async function startAssessment() {
         brief: state.brief,
         answers: state.answers,
         round: state.round,
+        selectedModel: state.buildModel,
       }),
     });
     currentAbortController = null;
@@ -2464,28 +2628,65 @@ function renderClarification() {
   setTimeout(() => textInput?.focus(), 0);
 }
 
-async function startGeneration() {
+async function startGeneration({ continuation = "" } = {}) {
   clearError();
   currentAbortController?.abort();
   currentAbortController = new AbortController();
   const generationKey = state.clientSaveId;
+  const selectedModel = state.buildModel;
+  state.generationContinuation = continuation;
   setStatus("generating");
   render();
+  let progressFrame = null;
+  let receivedCharacters = 0;
+  const updateStreamMetric = (_chunk, total) => {
+    receivedCharacters = total;
+    if (progressFrame) return;
+    progressFrame = requestAnimationFrame(() => {
+      progressFrame = null;
+      const metric = document.querySelector("#generationStreamMetric");
+      if (!metric) return;
+      const modelName = BUILD_MODELS[selectedModel]?.name || "AI";
+      metric.textContent = `${modelName} · ${receivedCharacters.toLocaleString("az-AZ")} simvol`;
+    });
+  };
   try {
-    const data = await api("/api/strategy/generate", {
-      method: "POST",
+    const data = await requestBuildStrategy({
+      brief: state.brief,
+      answers: state.answers,
+      assumptions: state.assumptions,
+      idempotencyKey: state.clientSaveId,
+      selectedModel,
+      continuation: continuation || undefined,
+    }, {
       signal: currentAbortController.signal,
-      body: JSON.stringify({
-        brief: state.brief,
-        answers: state.answers,
-        assumptions: state.assumptions,
-        idempotencyKey: state.clientSaveId,
-      }),
+      onChunk: updateStreamMetric,
     });
     currentAbortController = null;
 
-    // Check if this generation was moved to background while awaiting
+    // Check if this generation was moved to background while awaiting.
     const bgJob = backgroundJobs.find((j) => j.idempotencyKey === generationKey && j.status === "generating");
+    if (data.incomplete) {
+      if (bgJob) {
+        bgJob.status = "error";
+        bgJob.error = data.message || "Model çıxış limitinə çatdı. İşi açıb davam et.";
+        bgJob.continuation = data.partial || "";
+        persistBackgroundJobs();
+        return;
+      }
+      state.generationContinuation = data.partial || "";
+      const limitError = new Error(data.message || "Model çıxış limitinə çatdı. Davam et seçərək strategiyanı tamamla.");
+      limitError.code = data.code || "AI_MAX_TOKENS";
+      showToast(limitError.message, "error");
+      setError(
+        limitError,
+        () => startGeneration({ continuation: state.generationContinuation }),
+        state.questions.length ? "needs_clarification" : "draft",
+        "Davam et",
+      );
+      return;
+    }
+
     if (bgJob) {
       bgJob.status = "ready";
       bgJob.strategy = data.strategy;
@@ -2497,6 +2698,7 @@ async function startGeneration() {
     }
 
     state.strategy = data.strategy;
+    state.generationContinuation = "";
     state.updatedAt = new Date().toISOString();
     state.versions = [
       {
@@ -2510,6 +2712,7 @@ async function startGeneration() {
     setStatus("ready");
     render();
   } catch (error) {
+    if (progressFrame) cancelAnimationFrame(progressFrame);
     if (error.name === "AbortError" || currentAbortController?.signal?.aborted) {
       return;
     }
@@ -2522,7 +2725,10 @@ async function startGeneration() {
       if (state.view === "list") render();
       return;
     }
-    setError(error, startGeneration, state.questions.length ? "needs_clarification" : "draft");
+    if (error.status === 429 || error.code === "AI_RATE_LIMITED") showToast(error.message, "error");
+    setError(error, () => startGeneration({ continuation: state.generationContinuation }), state.questions.length ? "needs_clarification" : "draft");
+  } finally {
+    if (progressFrame) cancelAnimationFrame(progressFrame);
   }
 }
 
@@ -3856,6 +4062,7 @@ async function requestRefinement(action, request) {
         strategy: state.strategy,
         action,
         request,
+        selectedModel: state.buildModel,
       }),
     });
     const record = data.strategy;
