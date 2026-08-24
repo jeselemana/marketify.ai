@@ -75,148 +75,247 @@ export async function streamGeminiContent({
     };
   }
 
-  let response;
-  try {
-    response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": process.env.GEMINI_API_KEY.trim(),
-      },
-      body: JSON.stringify(payload),
-      signal,
-    });
-  } catch (netErr) {
-    if (netErr.name === "AbortError" || signal?.aborted) {
-      throw netErr;
-    }
-    throw new LLMProviderError(`Gemini ilə bağlantı qurmaq mümkün olmadı: ${netErr.message}`, {
-      code: "AI_NETWORK_ERROR",
-      status: 502,
-      model: modelId,
-      provider: "google",
-      details: netErr,
-    });
-  }
+  let attempts = 0;
+  const maxAttempts = 3;
+  let lastError = null;
 
-  if (!response.ok) {
-    let errBody = null;
+  while (attempts < maxAttempts) {
+    attempts++;
+    let accumulatedText = "";
+    let finalFinishReason = null;
+    let rawBuffer = "";
+
     try {
-      errBody = await response.json();
-    } catch {
-      try { errBody = await response.text(); } catch {}
-    }
-
-    const httpStatus = response.status;
-    const googleErrorMessage = errBody?.error?.message || (typeof errBody === "string" ? errBody : "Naməlum xəta");
-
-    if (httpStatus === 429 || googleErrorMessage.includes("RESOURCE_EXHAUSTED") || googleErrorMessage.includes("quota")) {
-      throw new LLMProviderError("Gemini 3.7 Flash xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
-        code: "AI_RATE_LIMITED",
-        status: 429,
-        model: modelId,
-        provider: "google",
-        details: errBody,
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": process.env.GEMINI_API_KEY.trim(),
+        },
+        body: JSON.stringify(payload),
+        signal,
       });
-    }
 
-    if (httpStatus === 401 || httpStatus === 403 || googleErrorMessage.includes("API_KEY_INVALID")) {
-      throw new LLMProviderError("Gemini API açarı etibarsızdır. GEMINI_API_KEY konfiqurasiyasını yoxlayın.", {
-        code: "AI_AUTH_ERROR",
-        status: 503,
-        model: modelId,
-        provider: "google",
-        details: errBody,
-      });
-    }
-
-    throw new LLMProviderError(`Gemini API xətası (${httpStatus}): ${googleErrorMessage}`, {
-      code: "AI_PROVIDER_ERROR",
-      status: httpStatus >= 500 ? 503 : httpStatus,
-      model: modelId,
-      provider: "google",
-      details: errBody,
-    });
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let rawBuffer = "";
-  let accumulatedText = "";
-  let finalFinishReason = null;
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      rawBuffer += decoder.decode(value, { stream: true });
-      const lines = rawBuffer.split(/\r?\n/);
-      rawBuffer = lines.pop() || "";
-
-      for (const line of lines) {
-        if (!line.startsWith("data:")) continue;
-        const jsonStr = line.replace(/^data:\s*/, "").trim();
-        if (!jsonStr || jsonStr === "[DONE]") continue;
-
+      if (!response.ok) {
+        let errBody = null;
         try {
-          const parsed = JSON.parse(jsonStr);
-          const candidate = parsed?.candidates?.[0];
-          if (!candidate) continue;
+          errBody = await response.json();
+        } catch {
+          try { errBody = await response.text(); } catch {}
+        }
 
-          const textPart = candidate.content?.parts?.[0]?.text;
-          const finishReason = candidate.finishReason || null;
-          if (finishReason) finalFinishReason = finishReason;
+        const httpStatus = response.status || 500;
+        const googleErrorMessage = errBody?.error?.message || (typeof errBody === "string" ? errBody : "Naməlum xəta");
 
-          if (textPart) {
-            accumulatedText += textPart;
-            if (typeof onChunk === "function") {
-              onChunk({ chunk: textPart, finishReason, model: modelId });
+        if (httpStatus === 429 || googleErrorMessage.includes("RESOURCE_EXHAUSTED") || googleErrorMessage.includes("quota")) {
+          throw new LLMProviderError("Gemini 3.7 Flash xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
+            code: "AI_RATE_LIMITED",
+            status: 429,
+            model: modelId,
+            provider: "google",
+            details: errBody,
+          });
+        }
+
+        if (httpStatus === 503 || googleErrorMessage.includes("high demand") || googleErrorMessage.includes("UNAVAILABLE")) {
+          if (attempts < maxAttempts && !signal?.aborted) {
+            await new Promise((r) => setTimeout(r, 1200 * attempts));
+            continue;
+          }
+          throw new LLMProviderError("Gemini 3.7 Flash xidməti hazırda yüksək yüklənmə altındadır (503). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
+            code: "AI_PROVIDER_UNAVAILABLE",
+            status: 503,
+            model: modelId,
+            provider: "google",
+            details: errBody,
+          });
+        }
+
+        if (httpStatus === 401 || httpStatus === 403 || googleErrorMessage.includes("API_KEY_INVALID")) {
+          throw new LLMProviderError("Gemini API açarı etibarsızdır. GEMINI_API_KEY konfiqurasiyasını yoxlayın.", {
+            code: "AI_AUTH_ERROR",
+            status: 503,
+            model: modelId,
+            provider: "google",
+            details: errBody,
+          });
+        }
+
+        throw new LLMProviderError(`Gemini API xətası (${httpStatus}): ${googleErrorMessage}`, {
+          code: "AI_PROVIDER_ERROR",
+          status: httpStatus >= 500 ? 503 : httpStatus,
+          model: modelId,
+          provider: "google",
+          details: errBody,
+        });
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        rawBuffer += decoder.decode(value, { stream: true });
+
+        // Check for in-band multi-line error from Google (e.g. 503 high demand)
+        if (rawBuffer.includes('"error"') && rawBuffer.includes('"code"')) {
+          const match = rawBuffer.match(/\{[\s\S]*"error"[\s\S]*\}/);
+          if (match) {
+            try {
+              const parsedErr = JSON.parse(match[0]);
+              if (parsedErr?.error) {
+                const errCode = parsedErr.error.code || 500;
+                const errMsg = parsedErr.error.message || "Gemini axın xətası";
+                if (errCode === 503 || errMsg.includes("high demand") || errMsg.includes("UNAVAILABLE")) {
+                  throw new LLMProviderError("Gemini 3.7 Flash xidməti hazırda yüksək yüklənmə altındadır (503). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
+                    code: "AI_PROVIDER_UNAVAILABLE",
+                    status: 503,
+                    model: modelId,
+                    provider: "google",
+                    details: parsedErr.error,
+                  });
+                }
+                if (errCode === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
+                  throw new LLMProviderError("Gemini 3.7 Flash xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
+                    code: "AI_RATE_LIMITED",
+                    status: 429,
+                    model: modelId,
+                    provider: "google",
+                    details: parsedErr.error,
+                  });
+                }
+                throw new LLMProviderError(`Gemini axın xətası (${errCode}): ${errMsg}`, {
+                  code: "AI_PROVIDER_ERROR",
+                  status: errCode,
+                  model: modelId,
+                  provider: "google",
+                  details: parsedErr.error,
+                });
+              }
+            } catch (pErr) {
+              if (pErr instanceof LLMProviderError) throw pErr;
             }
           }
-        } catch {
-          // Ignore partial or unparseable SSE line
+        }
+
+        const lines = rawBuffer.split(/\r?\n/);
+        rawBuffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data:")) continue;
+
+          const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
+          if (!jsonStr || jsonStr === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+
+            if (parsed?.error) {
+              const errCode = parsed.error.code || 500;
+              const errMsg = parsed.error.message || "Gemini axın xətası";
+              if (errCode === 503 || errMsg.includes("high demand") || errMsg.includes("UNAVAILABLE")) {
+                const err = new LLMProviderError("Gemini 3.7 Flash xidməti hazırda yüksək yüklənmə altındadır (503). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
+                  code: "AI_PROVIDER_UNAVAILABLE",
+                  status: 503,
+                  model: modelId,
+                  provider: "google",
+                  details: parsed.error,
+                });
+                throw err;
+              }
+              if (errCode === 429 || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
+                const err = new LLMProviderError("Gemini 3.7 Flash xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
+                  code: "AI_RATE_LIMITED",
+                  status: 429,
+                  model: modelId,
+                  provider: "google",
+                  details: parsed.error,
+                });
+                throw err;
+              }
+              throw new LLMProviderError(`Gemini axın xətası (${errCode}): ${errMsg}`, {
+                code: "AI_PROVIDER_ERROR",
+                status: errCode,
+                model: modelId,
+                provider: "google",
+                details: parsed.error,
+              });
+            }
+
+            const candidate = parsed?.candidates?.[0];
+            if (!candidate) continue;
+
+            const finishReason = candidate.finishReason || null;
+            if (finishReason) finalFinishReason = finishReason;
+
+            const parts = candidate.content?.parts;
+            if (Array.isArray(parts)) {
+              for (const part of parts) {
+                if (part?.text) {
+                  accumulatedText += part.text;
+                  if (typeof onChunk === "function") {
+                    onChunk({ chunk: part.text, finishReason, model: modelId });
+                  }
+                }
+              }
+            }
+          } catch (parseErr) {
+            if (parseErr instanceof LLMProviderError) throw parseErr;
+          }
         }
       }
-    }
 
-    if (rawBuffer.trim().startsWith("data:")) {
-      try {
-        const jsonStr = rawBuffer.replace(/^data:\s*/, "").trim();
-        const parsed = JSON.parse(jsonStr);
-        const candidate = parsed?.candidates?.[0];
-        if (candidate) {
-          const textPart = candidate.content?.parts?.[0]?.text;
-          const finishReason = candidate.finishReason || null;
-          if (finishReason) finalFinishReason = finishReason;
-          if (textPart) {
-            accumulatedText += textPart;
-            if (typeof onChunk === "function") {
-              onChunk({ chunk: textPart, finishReason, model: modelId });
+      if (rawBuffer.trim()) {
+        const trimmed = rawBuffer.trim();
+        const jsonStr = trimmed.startsWith("data:") ? trimmed.replace(/^data:\s*/, "").trim() : trimmed;
+        if (jsonStr && jsonStr !== "[DONE]") {
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const candidate = parsed?.candidates?.[0];
+            if (candidate) {
+              const finishReason = candidate.finishReason || null;
+              if (finishReason) finalFinishReason = finishReason;
+              const parts = candidate.content?.parts;
+              if (Array.isArray(parts)) {
+                for (const part of parts) {
+                  if (part?.text) {
+                    accumulatedText += part.text;
+                    if (typeof onChunk === "function") {
+                      onChunk({ chunk: part.text, finishReason, model: modelId });
+                    }
+                  }
+                }
+              }
             }
-          }
+          } catch {}
         }
-      } catch {}
+      }
+
+      if (accumulatedText.trim().length > 0) {
+        return {
+          text: accumulatedText,
+          finishReason: finalFinishReason || "STOP",
+          model: modelId,
+          provider: "google",
+        };
+      }
+    } catch (err) {
+      if (err.name === "AbortError" || signal?.aborted) throw err;
+      lastError = err;
+      if (err.status === 503 || err.code === "AI_PROVIDER_UNAVAILABLE" || err.code === "AI_NETWORK_ERROR") {
+        if (attempts < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 1200 * attempts));
+          continue;
+        }
+      }
+      throw err;
     }
-  } catch (streamErr) {
-    if (streamErr.name === "AbortError" || signal?.aborted) {
-      throw streamErr;
-    }
-    throw new LLMProviderError(`Gemini stream xətası: ${streamErr.message}`, {
-      code: "AI_STREAM_ERROR",
-      status: 502,
-      model: modelId,
-      provider: "google",
-      details: streamErr,
-    });
   }
 
-  return {
-    text: accumulatedText,
-    finishReason: finalFinishReason || "STOP",
-    model: modelId,
-    provider: "google",
-  };
+  throw lastError || new LLMProviderError("Gemini ilə generasiya tamamlanmadı.", { code: "AI_PROVIDER_ERROR", status: 502, model: modelId, provider: "google" });
 }
 
 /**
@@ -366,6 +465,132 @@ export async function streamOpenAIContent({
   };
 }
 
+function schemaGuide(name) {
+  if (name === "strategy_assessment") {
+    return `
+Output MUST be a pure valid JSON object conforming strictly to this schema:
+{
+  "status": "needs_clarification" | "ready",
+  "understanding": "string (clear assessment of business context and strategic intent)",
+  "questions": [
+    {
+      "id": "snake_case_id",
+      "question": "string",
+      "reason": "string",
+      "inputType": "single_choice" | "multi_choice" | "text",
+      "options": ["string"]
+    }
+  ],
+  "assumptions": ["string"]
+}
+`;
+  }
+  if (name === "marketify_strategy" || name === "marketify_refined_strategy") {
+    return `
+Output MUST be a pure valid JSON object conforming strictly to this schema:
+{
+  "title": "string",
+  "summary": "string",
+  "context": {
+    "business": "string",
+    "objective": "string",
+    "market": "string",
+    "targetAudience": "string"
+  },
+  "sections": [
+    {
+      "id": "snake_case_id",
+      "title": "string",
+      "summary": "string",
+      "content": "string",
+      "bullets": ["string"]
+    }
+  ],
+  "priorities": [
+    {
+      "title": "string",
+      "description": "string",
+      "priority": "high" | "medium" | "low"
+    }
+  ],
+  "actionPlan": [
+    {
+      "phase": "string",
+      "actions": ["string"],
+      "expectedOutcome": "string"
+    }
+  ],
+  "kpis": [
+    {
+      "name": "string",
+      "reason": "string",
+      "target": "string"
+    }
+  ],
+  "risks": [
+    {
+      "risk": "string",
+      "mitigation": "string"
+    }
+  ],
+  "assumptions": ["string"],
+  "nextSteps": ["string"]
+}
+`;
+  }
+  return "";
+}
+
+function normalizeStructuredOutput(parsed, name) {
+  if (!parsed || typeof parsed !== "object") return parsed;
+
+  if (name === "strategy_assessment") {
+    if (parsed.status === "clarification_needed") {
+      parsed.status = "needs_clarification";
+    }
+    if (!parsed.understanding || typeof parsed.understanding !== "string") {
+      parsed.understanding = "Brif analiz edildi və strateji istiqamətlər müəyyənləşdirildi.";
+    }
+    if (!Array.isArray(parsed.questions)) {
+      parsed.questions = [];
+    } else {
+      parsed.questions = parsed.questions.map((q, idx) => ({
+        id: q.id || `q_${idx + 1}`,
+        question: q.question || "Əlavə detal",
+        reason: q.reason || "",
+        inputType: ["single_choice", "multi_choice", "text"].includes(q.inputType) ? q.inputType : "single_choice",
+        options: Array.isArray(q.options) ? q.options : [],
+      }));
+    }
+    if (!Array.isArray(parsed.assumptions)) {
+      parsed.assumptions = [];
+    }
+  } else if (name === "marketify_strategy" || name === "marketify_refined_strategy") {
+    if (!parsed.title) parsed.title = "Marketinq Strategiyası";
+    if (!parsed.summary) parsed.summary = "Məhsul və bazar üçün hazırlanmış hərtərəfli marketinq strategiyası.";
+    if (!parsed.context || typeof parsed.context !== "object") {
+      parsed.context = { business: "Biznes", objective: "Böyümə", market: "Azərbaycan", targetAudience: "Hədəf kütlə" };
+    }
+    if (Array.isArray(parsed.sections)) {
+      parsed.sections = parsed.sections.map((sec, idx) => ({
+        id: sec.id || `section_${idx + 1}`,
+        title: sec.title || `Bölmə ${idx + 1}`,
+        summary: sec.summary || "",
+        content: sec.content || "",
+        bullets: Array.isArray(sec.bullets) ? sec.bullets : [],
+      }));
+    }
+    if (!Array.isArray(parsed.priorities)) parsed.priorities = [];
+    if (!Array.isArray(parsed.actionPlan)) parsed.actionPlan = [];
+    if (!Array.isArray(parsed.kpis)) parsed.kpis = [];
+    if (!Array.isArray(parsed.risks)) parsed.risks = [];
+    if (!Array.isArray(parsed.assumptions)) parsed.assumptions = [];
+    if (!Array.isArray(parsed.nextSteps)) parsed.nextSteps = ["Strategiyanı nəzərdən keçirmək"];
+  }
+
+  return parsed;
+}
+
 /**
  * Universal structured LLM router for Build mode.
  * Zero silent fallback: routes explicitly to requested model provider.
@@ -386,7 +611,7 @@ export async function routeStructuredGeneration({
 
   if (targetModel === "gemini-3.7-flash") {
     const streamResult = await streamGeminiContent({
-      instructions: `${instructions}\n\nYou MUST return valid JSON adhering to the ${name} schema.`,
+      instructions: `${instructions}\n\n${schemaGuide(name)}\n\nIMPORTANT: Return valid JSON adhering strictly to the above schema.`,
       input,
       onChunk,
       signal,
@@ -406,7 +631,8 @@ export async function routeStructuredGeneration({
 
     try {
       const parsedJson = JSON.parse(rawText);
-      const validated = schema.parse(parsedJson);
+      const normalizedJson = normalizeStructuredOutput(parsedJson, name);
+      const validated = schema.parse(normalizedJson);
       return {
         data: validated,
         model: "gemini-3.7-flash",

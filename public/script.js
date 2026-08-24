@@ -455,13 +455,13 @@ async function api(path, options = {}) {
     if (response.status === 401 && data.code === "AUTH_REQUIRED") {
       window.dispatchEvent(new CustomEvent("marketify:auth-required"));
     }
-    const safeMessage = path === "/api/ask"
-      ? data.error || "Cavabı hazırlamaq mümkün olmadı."
-      : ["AI_AUTH_ERROR", "AI_NOT_CONFIGURED", "STRATEGY_ERROR"].includes(data.code)
-      ? "Strategiyanı hazırlamaq mümkün olmadı. Bir neçə saniyə sonra yenidən yoxla."
-      : data.error || "Sorğunu tamamlamaq mümkün olmadı.";
+    const safeMessage = data.error || (path === "/api/ask"
+      ? "Cavabı hazırlamaq mümkün olmadı."
+      : "Strategiyanı hazırlamaq mümkün olmadı. Bir neçə saniyə sonra yenidən yoxla.");
     const error = new Error(safeMessage);
     error.code = data.code;
+    error.status = response.status;
+    error.model = data.model;
     throw error;
   }
   return data;

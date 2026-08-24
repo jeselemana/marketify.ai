@@ -574,6 +574,14 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
 
 export function authErrorHandler(error, req, res, next) {
   if (res.headersSent) return next(error);
+  const isAuthRoute = Boolean(
+    req.baseUrl?.startsWith("/api/auth") ||
+    req.originalUrl?.startsWith("/api/auth") ||
+    req.path?.startsWith("/api/auth")
+  );
+  if (!isAuthRoute) {
+    return next(error);
+  }
   if (error.code === "VALIDATION_ERROR") {
     return res.status(400).json({ error: error.message, code: error.code, details: error.details });
   }

@@ -263,7 +263,7 @@ test("signup, session, login, reset, and single-use reset token work end to end"
   assert.equal(unknownForgot.status, 200);
 
   const expiredRawToken = "expired-reset-token-value-1234567890";
-  await store.createResetToken(hashOpaqueToken(expiredRawToken), created.user.id, -1);
+  await store.createResetToken(hashOpaqueToken(expiredRawToken), verified.user.id, -1);
   const expiredReset = await fetch(`${base}/api/auth/reset-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
