@@ -128,6 +128,119 @@ function getAskMessageModelInfo(model) {
   };
 }
 
+function normalizeBuildModel(model) {
+  const normalized = typeof model === "string" ? model.trim().toLowerCase() : "";
+  if (normalized === "flash" || normalized.includes("gemini")) return "gemini-3.7-flash";
+  return "gpt-5.6-terra";
+}
+
+function getBuildModelInfo(model = state.buildModel) {
+  const isFlash = normalizeBuildModel(model) === "gemini-3.7-flash";
+  return {
+    id: isFlash ? "gemini-3.7-flash" : "gpt-5.6-terra",
+    shortName: isFlash ? "Flash" : "Core",
+    displayName: isFlash ? "Flash" : "Core",
+    subtitle: isFlash ? "Gemini 3.7 Flash" : "GPT-5.6 Terra",
+    icon: isFlash ? "⚡" : "🧠",
+    badgeClass: isFlash ? "model-badge-flash" : "model-badge-core",
+    isFlash,
+  };
+}
+
+function setBuildModel(model) {
+  const resolved = normalizeBuildModel(model);
+  state.buildModel = resolved;
+  try {
+    localStorage.setItem("marketify_build_model", resolved);
+  } catch {}
+  trackEvent("build_model_changed", { model: resolved });
+}
+
+function buildBuildModelDropdown() {
+  const wrap = element("div", "build-model-dropdown-wrap");
+  const modelInfo = getBuildModelInfo(state.buildModel);
+
+  const trigger = button("", "build-model-dropdown-trigger", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const isOpen = wrap.classList.toggle("is-open");
+    trigger.setAttribute("aria-expanded", String(isOpen));
+    if (isOpen) {
+      const closeHandler = (evt) => {
+        if (!wrap.contains(evt.target)) {
+          wrap.classList.remove("is-open");
+          trigger.setAttribute("aria-expanded", "false");
+          document.removeEventListener("click", closeHandler);
+        }
+      };
+      setTimeout(() => document.addEventListener("click", closeHandler), 0);
+    }
+  });
+  trigger.type = "button";
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.setAttribute("aria-label", "Build AI modeli");
+
+  const labelSpan = element("span", "build-model-trigger-label", modelInfo.displayName);
+  const chevron = element("span", "build-model-trigger-chevron");
+  chevron.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+  trigger.append(labelSpan, chevron);
+
+  const menu = element("div", "build-model-dropdown-menu");
+  menu.setAttribute("role", "listbox");
+
+  const models = [
+    {
+      id: "gpt-5.6-terra",
+      name: "Core",
+      subtitle: "GPT-5.6 Terra",
+      desc: "Dərin strateji təhlil və strukturlaşdırma",
+      icon: "🧠",
+    },
+    {
+      id: "gemini-3.7-flash",
+      name: "Flash",
+      subtitle: "Gemini 3.7 Flash",
+      desc: "Sürətli generasiya və operativ icra",
+      icon: "⚡",
+    },
+  ];
+
+  models.forEach((m) => {
+    const isSelected = (state.buildModel || "gpt-5.6-terra") === m.id;
+    const item = button("", `build-model-dropdown-item${isSelected ? " is-selected" : ""}`, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setBuildModel(m.id);
+      wrap.classList.remove("is-open");
+      trigger.setAttribute("aria-expanded", "false");
+      render();
+    });
+    item.type = "button";
+    item.setAttribute("role", "option");
+    item.setAttribute("aria-selected", String(isSelected));
+
+    const itemIcon = element("span", "build-model-item-icon", m.icon);
+    const itemInfo = element("div", "build-model-item-info");
+    const itemHead = element("div", "build-model-item-head");
+    const itemName = element("strong", "build-model-item-name", m.name);
+    const itemSub = element("span", "build-model-item-sub", m.subtitle);
+    itemHead.append(itemName, itemSub);
+    const itemDesc = element("p", "build-model-item-desc", m.desc);
+    itemInfo.append(itemHead, itemDesc);
+
+    item.append(itemIcon, itemInfo);
+    if (isSelected) {
+      const check = element("span", "build-model-item-check", "✓");
+      item.appendChild(check);
+    }
+    menu.appendChild(item);
+  });
+
+  wrap.append(trigger, menu);
+  return wrap;
+}
+
 const STATUS_LABELS = {
   draft: "Qaralama",
   analyzing: "Analiz edilir",
@@ -145,6 +258,7 @@ const QUICK_ACTIONS = [
   ["think_deeper", "Daha dərindən düşün"],
   ["make_practical", "Praktik et"],
   ["budget_optimize", "Büdcəni optimallaşdır"],
+  ["custom", "Xüsusi dəyişiklik"],
 ];
 
 const LOADING_ASK_PLACEHOLDERS = [
@@ -162,30 +276,13 @@ const LOADING_ASK_PLACEHOLDERS = [
   "Kontent marketinqi ilə orqanik trafiki necə artıraq?",
 ];
 
-const BUILD_MODEL_STORAGE_KEY = "marketify_build_model";
-const BUILD_MODELS = Object.freeze({
-  "gemini-3.7-flash": { name: "Flash", subtitle: "Gemini 3.7 Flash" },
-  "gpt-5.6-terra": { name: "Core", subtitle: "GPT-5.6 Terra" },
-});
-
-function loadBuildModel() {
-  try {
-    const stored = localStorage.getItem(BUILD_MODEL_STORAGE_KEY);
-    if (BUILD_MODELS[stored]) return stored;
-  } catch {}
-  return "gemini-3.7-flash";
-}
-
-function persistBuildModel(model) {
-  if (!BUILD_MODELS[model]) return;
-  try { localStorage.setItem(BUILD_MODEL_STORAGE_KEY, model); } catch {}
-}
-
 let loadingAskPlaceholderTimer = null;
 
 const state = {
   mode: "build",
-  buildModel: loadBuildModel(),
+  buildModel: localStorage.getItem("marketify_build_model") || "gpt-5.6-terra",
+  buildStreamingText: "",
+  buildStreamingFinishReason: null,
   view: "home",
   status: "draft",
   brief: "",
@@ -204,8 +301,6 @@ const state = {
   updatedAt: null,
   error: null,
   retry: null,
-  retryLabel: "",
-  generationContinuation: "",
   changeSummary: "",
   askChatId: null,
   savedChats: [],
@@ -372,93 +467,6 @@ async function api(path, options = {}) {
   return data;
 }
 
-async function requestBuildStrategy(payload, { signal, onChunk } = {}) {
-  let response;
-  try {
-    response = await fetch("/api/strategy/generate", {
-      method: "POST",
-      signal,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/event-stream",
-      },
-      body: JSON.stringify({ ...payload, stream: true }),
-    });
-  } catch (error) {
-    if (error.name === "AbortError" || signal?.aborted) throw error;
-    throw new Error(navigator.onLine ? "Generasiya stream-inə qoşulmaq mümkün olmadı." : "İnternet bağlantısı yoxdur.");
-  }
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    const error = new Error(data.error || "Strategiyanı hazırlamaq mümkün olmadı.");
-    error.code = data.code;
-    error.status = response.status;
-    throw error;
-  }
-  if (!(response.headers.get("content-type") || "").includes("text/event-stream") || !response.body) {
-    throw new Error("Server gözlənilən canlı stream-i qaytarmadı.");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let eventName = "message";
-  let dataLines = [];
-  let partial = "";
-  let terminal = null;
-
-  const dispatch = () => {
-    if (!dataLines.length) {
-      eventName = "message";
-      return;
-    }
-    const raw = dataLines.join("\n");
-    dataLines = [];
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      const error = new Error("Server stream-də etibarsız JSON hadisəsi qaytardı.");
-      error.code = "STREAM_PROTOCOL_ERROR";
-      throw error;
-    }
-
-    if (eventName === "delta" && data.chunk) {
-      partial += data.chunk;
-      onChunk?.(data.chunk, partial.length);
-    } else if (eventName === "complete") {
-      terminal = { ...data, partial };
-    } else if (eventName === "incomplete") {
-      terminal = { ...data, partial, incomplete: true };
-    } else if (eventName === "error") {
-      const error = new Error(data.error || "Generasiya stream-i yarımçıq dayandı.");
-      error.code = data.code;
-      error.status = data.status;
-      error.provider = data.provider;
-      throw error;
-    }
-    eventName = "message";
-  };
-
-  while (true) {
-    const { done, value } = await reader.read();
-    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-    if (done) buffer += "\n\n";
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || "";
-    for (const line of lines) {
-      if (line.startsWith("event:")) eventName = line.slice(6).trim() || "message";
-      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
-      else if (!line.trim()) dispatch();
-    }
-    if (done) break;
-  }
-
-  if (!terminal) throw new Error("Generasiya stream-i tamamlanma siqnalı olmadan bağlandı.");
-  return terminal;
-}
-
 function showToast(message, tone = "success") {
   const toast = element("div", `toast toast-${tone}`);
   const dot = element("span", "toast-dot");
@@ -473,10 +481,9 @@ function showToast(message, tone = "success") {
 }
 
 
-function setError(error, retry, returnStatus = "draft", retryLabel = "") {
+function setError(error, retry, returnStatus = "draft") {
   state.error = error?.message || "Gözlənilməz xəta baş verdi.";
   state.retry = retry;
-  state.retryLabel = retryLabel;
   setStatus(returnStatus);
   render();
 }
@@ -484,7 +491,6 @@ function setError(error, retry, returnStatus = "draft", retryLabel = "") {
 function clearError() {
   state.error = null;
   state.retry = null;
-  state.retryLabel = "";
 }
 
 function errorBanner() {
@@ -495,7 +501,7 @@ function errorBanner() {
   banner.append(copy);
   if (state.retry) {
     banner.append(
-      button(state.retryLabel || "Yenidən cəhd et", "secondary-button compact", () => {
+      button("Yenidən cəhd et", "secondary-button compact", () => {
         const retry = state.retry;
         clearError();
         retry();
@@ -639,8 +645,6 @@ function resetStrategy() {
     updatedAt: null,
     error: null,
     retry: null,
-    retryLabel: "",
-    generationContinuation: "",
     changeSummary: "",
     strategyFormat: "blog",
     faqFilter: "",
@@ -757,34 +761,13 @@ function renderIntake() {
   submit.appendChild(element("span", "", "↑"));
 
   const composerActions = element("div", "ask-composer-actions");
-  composerActions.append(submit);
+  composerActions.append(buildBuildModelDropdown(), submit);
 
   form.append(attach, label, textarea, fileInput, composerActions);
 
-  const helper = element("div", "ask-composer-meta build-composer-meta");
-  const modelSelector = element("div", "build-model-selector");
-  modelSelector.setAttribute("role", "radiogroup");
-  modelSelector.setAttribute("aria-label", "Build modeli");
-  Object.entries(BUILD_MODELS).forEach(([modelId, model]) => {
-    const option = button("", `build-model-option${state.buildModel === modelId ? " is-selected" : ""}`);
-    option.setAttribute("role", "radio");
-    option.setAttribute("aria-checked", String(state.buildModel === modelId));
-    option.dataset.model = modelId;
-    option.append(element("strong", "", model.name), element("small", "", model.subtitle));
-    option.addEventListener("click", () => {
-      state.buildModel = modelId;
-      persistBuildModel(modelId);
-      modelSelector.querySelectorAll(".build-model-option").forEach((item) => {
-        const selected = item.dataset.model === modelId;
-        item.classList.toggle("is-selected", selected);
-        item.setAttribute("aria-checked", String(selected));
-      });
-      trackEvent("build_model_selected", { model: modelId });
-    });
-    modelSelector.appendChild(option);
-  });
+  const helper = element("div", "ask-composer-meta");
   const disclaimer = element("p", "ask-disclaimer", "Marketify süni intellekt funksiyası yerinə yetirir və səhvlər edə bilər.");
-  helper.append(modelSelector, disclaimer);
+  helper.appendChild(disclaimer);
 
   composerArea.append(form, helper);
 
@@ -1329,12 +1312,19 @@ class LiveTypewriter {
     const remaining = this.targetText.length - this.currentText.length;
 
     if (remaining > 0) {
-      // Coalesce fast provider deltas into a bounded 30fps render cadence. This
-      // keeps Markdown parsing responsive without building a long visual queue.
-      const charsToType = Math.min(remaining, 320, Math.max(12, Math.ceil(remaining / 4)));
+      // Keep the stream calm and readable even when the network sends a large chunk.
+      const charsToType = Math.min(
+        remaining,
+        remaining > 260 ? 5 :
+        remaining > 90 ? 3 :
+        remaining > 24 ? 2 : 1
+      );
       this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
       this.onUpdate(this.currentText, false);
-      this.rafId = setTimeout(() => this.tick(), 32);
+      const typedTail = this.currentText.slice(-charsToType);
+      const hasNaturalPause = /[.!?,;:\n]$/.test(typedTail);
+      const delay = (remaining > 260 ? 26 : remaining > 90 ? 32 : remaining > 24 ? 38 : 46) + (hasNaturalPause ? 28 : 0);
+      this.rafId = setTimeout(() => this.tick(), delay);
     } else if (this.isDone) {
       this.currentText = this.targetText;
       this.onUpdate(this.currentText, true);
@@ -1677,19 +1667,17 @@ function renderLoading() {
         ["Ölçü və risklər yoxlanılır", "KPI-lar, risklər və növbəti addımlar strategiya ilə uyğunlaşdırılır."],
       ];
   let currentPhase = 0;
+  const modelInfo = getBuildModelInfo(state.buildModel);
   const view = element("section", `loading-view ${isAssessment ? "is-assessment" : "is-generation"}`);
   view.setAttribute("aria-live", "polite");
   const statusLine = element("div", "loading-status-line");
+  const modelPill = element("span", `loading-model-pill ${modelInfo.isFlash ? "is-flash" : "is-core"}`);
+  modelPill.innerHTML = `${modelInfo.icon} <span>${modelInfo.displayName}</span>`;
   statusLine.append(
     element("span", "loading-live-dot"),
     element("span", "loading-eyebrow", isAssessment ? "BRİF ANALİZİ" : "STRATEGİYA HAZIRLANIR"),
+    modelPill,
   );
-  if (!isAssessment) {
-    const activeModel = BUILD_MODELS[state.buildModel] || BUILD_MODELS["gemini-3.7-flash"];
-    const streamMetric = element("span", "loading-model-indicator", `${activeModel.name} · qoşulur`);
-    streamMetric.id = "generationStreamMetric";
-    statusLine.appendChild(streamMetric);
-  }
   const title = element(
     "h1",
     "loading-title",
@@ -1740,6 +1728,27 @@ function renderLoading() {
     progress.appendChild(step);
   });
   timelineWrap.appendChild(progress);
+
+  let streamCard = null;
+  if (!isAssessment) {
+    streamCard = element("div", "loading-stream-card");
+    const streamCardTop = element("div", "loading-stream-card-top");
+    streamCardTop.append(
+      element("span", "loading-stream-label", `Canlı çıxış (${modelInfo.subtitle})`),
+      element("span", "loading-stream-indicator", "⚡ Canlı axın"),
+    );
+    const streamOutput = element("div", "loading-stream-output", state.buildStreamingText || "Model strateji strukturu generasiya edir…");
+    const streamCaret = element("span", "loading-stream-caret");
+    streamOutput.appendChild(streamCaret);
+    streamCard.append(streamCardTop, streamOutput);
+
+    if (state.buildStreamingFinishReason === "MAX_TOKENS") {
+      const continueBtn = button("Davam et (Token limiti tamamlandı)", "primary-button continue-generation-btn", () => {
+        continueGeneration();
+      });
+      streamCard.appendChild(continueBtn);
+    }
+  }
 
   const reassurance = element("p", "loading-reassurance");
   const sparkIcon = element("span", "loading-reassurance-icon", "✦");
@@ -1812,7 +1821,11 @@ function renderLoading() {
   secondaryRow.append(cancelBtn, historyBtn);
   cardActions.appendChild(secondaryRow);
 
-  view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
+  if (streamCard) {
+    view.append(statusLine, title, intro, activity, timelineWrap, streamCard, reassurance, cardActions);
+  } else {
+    view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
+  }
   workspace.appendChild(view);
 
   progressTimer = setInterval(() => {
@@ -1853,7 +1866,6 @@ function minimizeToBackground() {
     answers: [...state.answers],
     assumptions: [...state.assumptions],
     idempotencyKey: state.clientSaveId,
-    selectedModel: state.buildModel,
     status: "generating",
     strategy: null,
     versions: [],
@@ -1873,6 +1885,7 @@ function minimizeToBackground() {
 
   // Do NOT abort currentAbortController — let the fetch continue
   // Detach the controller so resetStrategy doesn't abort it
+  const detachedController = currentAbortController;
   currentAbortController = null;
 
   // Reset state to home without aborting
@@ -1897,8 +1910,6 @@ function minimizeToBackground() {
     updatedAt: null,
     error: null,
     retry: null,
-    retryLabel: "",
-    generationContinuation: "",
     changeSummary: "",
     strategyFormat: "blog",
     faqFilter: "",
@@ -1950,20 +1961,15 @@ function resumeBackgroundJobs() {
     if (job.status !== "generating") return;
 
     try {
-      const data = await requestBuildStrategy({
-        brief: job.brief,
-        answers: job.answers,
-        assumptions: job.assumptions,
-        idempotencyKey: job.idempotencyKey,
-        selectedModel: job.selectedModel || "gemini-3.7-flash",
+      const data = await api("/api/strategy/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          brief: job.brief,
+          answers: job.answers,
+          assumptions: job.assumptions,
+          idempotencyKey: job.idempotencyKey,
+        }),
       });
-
-      if (data.incomplete) {
-        job.continuation = data.partial || "";
-        const limitError = new Error(data.message || "Model çıxış limitinə çatdı.");
-        limitError.code = data.code || "AI_MAX_TOKENS";
-        throw limitError;
-      }
 
       // Check if user restored this job to foreground while in flight
       if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
@@ -2042,8 +2048,6 @@ function openBackgroundJob(jobId) {
       updatedAt: job.completedAt,
       error: null,
       retry: null,
-      retryLabel: "",
-      generationContinuation: "",
     });
     removeBackgroundJob(jobId);
     render();
@@ -2057,32 +2061,11 @@ function openBackgroundJob(jobId) {
       answers: job.answers || [],
       assumptions: job.assumptions || [],
       clientSaveId: job.idempotencyKey,
-      buildModel: job.selectedModel || state.buildModel,
     });
     removeBackgroundJob(jobId);
     render();
     closeSidebar();
   } else if (job.status === "error") {
-    if (job.continuation) {
-      const continuation = job.continuation;
-      Object.assign(state, {
-        view: "home",
-        status: "draft",
-        brief: job.brief,
-        answers: job.answers || [],
-        assumptions: job.assumptions || [],
-        clientSaveId: job.idempotencyKey,
-        buildModel: job.selectedModel || state.buildModel,
-        generationContinuation: continuation,
-        error: job.error || "Model çıxış limitinə çatdı.",
-        retry: () => startGeneration({ continuation }),
-        retryLabel: "Davam et",
-      });
-      removeBackgroundJob(jobId);
-      render();
-      closeSidebar();
-      return;
-    }
     showToast(job.error || "Xəta baş verdi", "error");
     removeBackgroundJob(jobId);
     if (state.view === "list") render();
@@ -2480,7 +2463,7 @@ async function startAssessment() {
         brief: state.brief,
         answers: state.answers,
         round: state.round,
-        selectedModel: state.buildModel,
+        model: state.buildModel || "gpt-5.6-terra",
       }),
     });
     currentAbortController = null;
@@ -2500,6 +2483,11 @@ async function startAssessment() {
   } catch (error) {
     if (error.name === "AbortError" || currentAbortController?.signal?.aborted) {
       return;
+    }
+    if (error.status === 429 || error.code === "AI_RATE_LIMITED") {
+      showToast("AI xidmətində sorğu limiti aşılıb (429). Bir az sonra yenidən yoxla.", "error");
+    } else {
+      showToast(error.message || "Brif analizi zamanı xəta baş verdi.", "error");
     }
     setError(error, startAssessment, state.answers.length ? "needs_clarification" : "draft");
   }
@@ -2628,77 +2616,170 @@ function renderClarification() {
   setTimeout(() => textInput?.focus(), 0);
 }
 
-async function startGeneration({ continuation = "" } = {}) {
+async function startGeneration() {
   clearError();
   currentAbortController?.abort();
   currentAbortController = new AbortController();
   const generationKey = state.clientSaveId;
-  const selectedModel = state.buildModel;
-  state.generationContinuation = continuation;
+  const chosenModel = state.buildModel || "gpt-5.6-terra";
+  state.buildStreamingText = "";
+  state.buildStreamingFinishReason = null;
   setStatus("generating");
   render();
-  let progressFrame = null;
-  let receivedCharacters = 0;
-  const updateStreamMetric = (_chunk, total) => {
-    receivedCharacters = total;
-    if (progressFrame) return;
-    progressFrame = requestAnimationFrame(() => {
-      progressFrame = null;
-      const metric = document.querySelector("#generationStreamMetric");
-      if (!metric) return;
-      const modelName = BUILD_MODELS[selectedModel]?.name || "AI";
-      metric.textContent = `${modelName} · ${receivedCharacters.toLocaleString("az-AZ")} simvol`;
-    });
-  };
-  try {
-    const data = await requestBuildStrategy({
-      brief: state.brief,
-      answers: state.answers,
-      assumptions: state.assumptions,
-      idempotencyKey: state.clientSaveId,
-      selectedModel,
-      continuation: continuation || undefined,
-    }, {
-      signal: currentAbortController.signal,
-      onChunk: updateStreamMetric,
-    });
-    currentAbortController = null;
 
-    // Check if this generation was moved to background while awaiting.
-    const bgJob = backgroundJobs.find((j) => j.idempotencyKey === generationKey && j.status === "generating");
-    if (data.incomplete) {
-      if (bgJob) {
-        bgJob.status = "error";
-        bgJob.error = data.message || "Model çıxış limitinə çatdı. İşi açıb davam et.";
-        bgJob.continuation = data.partial || "";
-        persistBackgroundJobs();
+  try {
+    const response = await fetch("/api/strategy/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+      },
+      signal: currentAbortController.signal,
+      body: JSON.stringify({
+        brief: state.brief,
+        answers: state.answers,
+        assumptions: state.assumptions,
+        idempotencyKey: state.clientSaveId,
+        model: chosenModel,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      let errData = null;
+      try { errData = await response.json(); } catch {}
+      const errorMsg = errData?.error || (response.status === 429 ? "AI xidmətində sorğu limiti aşılıb (429)." : "Strategiya generasiyası uğursuz oldu.");
+      const error = new Error(errorMsg);
+      error.status = response.status;
+      error.code = errData?.code || (response.status === 429 ? "AI_RATE_LIMITED" : "STRATEGY_ERROR");
+      error.model = chosenModel;
+      throw error;
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("text/event-stream")) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let rawBuffer = "";
+      let eventLines = [];
+      let finalStrategy = null;
+      let finalFinishReason = null;
+      let streamedChars = "";
+
+      // High-speed RAF batcher without layout thrashing
+      let rafId = null;
+      const updateStreamUI = () => {
+        const streamOutput = document.querySelector(".loading-stream-output");
+        if (streamOutput) {
+          streamOutput.textContent = streamedChars;
+          const caret = element("span", "loading-stream-caret");
+          streamOutput.appendChild(caret);
+          streamOutput.scrollTop = streamOutput.scrollHeight;
+        }
+      };
+
+      const dispatchEvent = (lines) => {
+        if (!lines?.length) return;
+        const jsonStr = lines.join("\n").trim();
+        if (!jsonStr || jsonStr === "[DONE]") return;
+
+        try {
+          const data = JSON.parse(jsonStr);
+          if (data.error) {
+            const err = new Error(data.error);
+            err.code = data.code;
+            err.status = data.status;
+            err.model = data.model;
+            throw err;
+          }
+
+          if (data.chunk) {
+            streamedChars += data.chunk;
+            state.buildStreamingText = streamedChars;
+            if (!rafId) {
+              rafId = requestAnimationFrame(() => {
+                rafId = null;
+                updateStreamUI();
+              });
+            }
+          }
+
+          if (data.finishReason) {
+            finalFinishReason = data.finishReason;
+            state.buildStreamingFinishReason = data.finishReason;
+          }
+
+          if (data.done) {
+            if (data.strategy) finalStrategy = data.strategy;
+          }
+        } catch (parseErr) {
+          if (parseErr.message && !parseErr.message.includes("JSON")) {
+            throw parseErr;
+          }
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        rawBuffer += decoder.decode(value, { stream: true });
+        const lines = rawBuffer.split(/\r?\n/);
+        rawBuffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            eventLines.push(line.replace(/^data:\s*/, ""));
+          } else if (line.trim() === "" && eventLines.length > 0) {
+            dispatchEvent(eventLines);
+            eventLines = [];
+          }
+        }
+      }
+
+      if (eventLines.length > 0) {
+        dispatchEvent(eventLines);
+        eventLines = [];
+      }
+
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      updateStreamUI();
+
+      if (!finalStrategy && finalFinishReason === "MAX_TOKENS") {
+        state.buildStreamingFinishReason = "MAX_TOKENS";
+        render();
+        showToast("Token limitinə çatıldı. Davam etmək üçün 'Davam et' düyməsinə klikləyin.", "neutral");
         return;
       }
-      state.generationContinuation = data.partial || "";
-      const limitError = new Error(data.message || "Model çıxış limitinə çatdı. Davam et seçərək strategiyanı tamamla.");
-      limitError.code = data.code || "AI_MAX_TOKENS";
-      showToast(limitError.message, "error");
-      setError(
-        limitError,
-        () => startGeneration({ continuation: state.generationContinuation }),
-        state.questions.length ? "needs_clarification" : "draft",
-        "Davam et",
-      );
+
+      if (!finalStrategy) {
+        throw new Error("Strategiya generasiyası natamam qaldı. Yenidən cəhd edin.");
+      }
+
+      currentAbortController = null;
+      state.strategy = finalStrategy;
+      state.updatedAt = new Date().toISOString();
+      state.versions = [
+        {
+          versionNumber: 1,
+          data: finalStrategy,
+          changeRequest: "İlkin strategiya",
+          createdAt: state.updatedAt,
+        },
+      ];
+      trackEvent("strategy_generated", { clarificationRounds: state.round, model: chosenModel });
+      setStatus("ready");
+      render();
+      showToast("Strategiya hazırdır ✓");
       return;
     }
 
-    if (bgJob) {
-      bgJob.status = "ready";
-      bgJob.strategy = data.strategy;
-      bgJob.completedAt = new Date().toISOString();
-      bgJob.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: bgJob.completedAt }];
-      persistBackgroundJobs();
-      autoSaveBackgroundJob(bgJob);
-      return;
-    }
-
+    const data = await response.json();
+    currentAbortController = null;
     state.strategy = data.strategy;
-    state.generationContinuation = "";
     state.updatedAt = new Date().toISOString();
     state.versions = [
       {
@@ -2708,14 +2789,20 @@ async function startGeneration({ continuation = "" } = {}) {
         createdAt: state.updatedAt,
       },
     ];
-    trackEvent("strategy_generated", { clarificationRounds: state.round });
+    trackEvent("strategy_generated", { clarificationRounds: state.round, model: chosenModel });
     setStatus("ready");
     render();
+    showToast("Strategiya hazırdır ✓");
   } catch (error) {
-    if (progressFrame) cancelAnimationFrame(progressFrame);
     if (error.name === "AbortError" || currentAbortController?.signal?.aborted) {
       return;
     }
+    if (error.status === 429 || error.code === "AI_RATE_LIMITED") {
+      showToast("AI xidmətində sorğu limiti aşılıb (429). Bir az sonra yenidən yoxla.", "error");
+    } else {
+      showToast(error.message || "Strategiya generasiyası zamanı xəta baş verdi.", "error");
+    }
+
     // Check if this generation was moved to background
     const bgJob = backgroundJobs.find((j) => j.idempotencyKey === generationKey && j.status === "generating");
     if (bgJob) {
@@ -2725,10 +2812,27 @@ async function startGeneration({ continuation = "" } = {}) {
       if (state.view === "list") render();
       return;
     }
-    if (error.status === 429 || error.code === "AI_RATE_LIMITED") showToast(error.message, "error");
-    setError(error, () => startGeneration({ continuation: state.generationContinuation }), state.questions.length ? "needs_clarification" : "draft");
-  } finally {
-    if (progressFrame) cancelAnimationFrame(progressFrame);
+    setError(error, startGeneration, state.questions.length ? "needs_clarification" : "draft");
+  }
+}
+
+async function continueGeneration() {
+  const previousText = state.buildStreamingText || "";
+  state.buildStreamingFinishReason = null;
+  renderLoading();
+  try {
+    const additionalAnswers = [
+      ...state.answers,
+      {
+        questionId: "continue_generation",
+        question: "Davam et",
+        answer: `Əvvəlki yarımçıq qalmış mətni davam etdir və tam StrategySchema JSON formatında tamamla:\n${previousText.slice(-800)}`,
+      },
+    ];
+    state.answers = additionalAnswers;
+    await startGeneration();
+  } catch (err) {
+    showToast(err.message || "Davam etdirmək mümkün olmadı.", "error");
   }
 }
 
@@ -3813,7 +3917,11 @@ function renderStrategyWorkspace() {
   });
 
   const switcher = buildFormatSwitcher();
-  toolbar.append(crumb, switcher);
+  const modelInfo = getBuildModelInfo(strategy.model || state.buildModel);
+  const modelPill = element("div", `strategy-model-pill ${modelInfo.isFlash ? "is-flash" : "is-core"}`);
+  modelPill.title = `Model: ${modelInfo.subtitle}`;
+  modelPill.innerHTML = `${modelInfo.icon} <span>${modelInfo.displayName}</span>`;
+  toolbar.append(crumb, modelPill, switcher);
 
   // Header
   const header = buildStrategyHeader(strategy);
@@ -4048,7 +4156,7 @@ async function requestRefinement(action, request) {
   clearError();
   state.changeSummary = "";
   state.refinementOpen = false;
-  trackEvent("refinement_requested", { action, saved: Boolean(state.savedId) });
+  trackEvent("refinement_requested", { action, saved: Boolean(state.savedId), model: state.buildModel });
   if (action !== "custom") trackEvent("quick_action_used", { action });
   setStatus("refining");
   render();
@@ -4062,7 +4170,7 @@ async function requestRefinement(action, request) {
         strategy: state.strategy,
         action,
         request,
-        selectedModel: state.buildModel,
+        model: state.buildModel || "gpt-5.6-terra",
       }),
     });
     const record = data.strategy;
@@ -4085,6 +4193,11 @@ async function requestRefinement(action, request) {
     showToast("Yeni strategiya versiyası hazırdır.");
     if (state.savedId) loadSavedStrategies();
   } catch (error) {
+    if (error.status === 429 || error.code === "AI_RATE_LIMITED") {
+      showToast("AI xidmətində sorğu limiti aşılıb (429). Bir az sonra yenidən yoxla.", "error");
+    } else {
+      showToast(error.message || "Dəqiqləşdirmə zamanı xəta baş verdi.", "error");
+    }
     setError(error, () => requestRefinement(action, request), previousStatus);
   }
 }

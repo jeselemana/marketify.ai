@@ -108,11 +108,21 @@ export const ClarificationAnswerSchema = z.object({
   answer: z.string().trim().min(1).max(1500),
 });
 
+export const validBuildModels = ["gemini-3.7-flash", "gpt-5.6-terra", "flash", "core"];
+export const BuildModelSchema = z.enum(["gemini-3.7-flash", "gpt-5.6-terra", "flash", "core"]).default("gpt-5.6-terra");
+
+export function normalizeBuildModel(model = "gpt-5.6-terra") {
+  const normalized = String(model || "").trim().toLowerCase();
+  if (normalized === "flash" || normalized.includes("gemini")) return "gemini-3.7-flash";
+  if (normalized === "core" || normalized.includes("terra") || normalized.includes("gpt")) return "gpt-5.6-terra";
+  return "gpt-5.6-terra";
+}
+
 export const AssessRequestSchema = z.object({
   brief: z.string().trim().min(8).max(8000),
   answers: z.array(ClarificationAnswerSchema).max(10).default([]),
   round: z.number().int().min(0).max(2).default(0),
-  selectedModel: z.enum(["gemini-3.7-flash", "gpt-5.6-terra"]),
+  model: BuildModelSchema,
 });
 
 export const GenerateRequestSchema = z.object({
@@ -120,8 +130,7 @@ export const GenerateRequestSchema = z.object({
   answers: z.array(ClarificationAnswerSchema).max(10).default([]),
   assumptions: z.array(shortText).max(12).default([]),
   idempotencyKey: z.string().trim().min(8).max(120),
-  selectedModel: z.enum(["gemini-3.7-flash", "gpt-5.6-terra"]),
-  continuation: z.string().max(60000).optional(),
+  model: BuildModelSchema,
 });
 
 export const RefineRequestSchema = z
@@ -131,7 +140,7 @@ export const RefineRequestSchema = z
     strategy: StrategySchema,
     action: z.enum(refinementActions),
     request: z.string().trim().max(2000).default(""),
-    selectedModel: z.enum(["gemini-3.7-flash", "gpt-5.6-terra"]),
+    model: BuildModelSchema,
   })
   .superRefine((value, context) => {
     if (value.action === "custom" && value.request.length < 3) {

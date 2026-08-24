@@ -4,7 +4,7 @@ Marketify AI is an AI strategy workspace built on the project's existing Express
 
 ## Run locally
 
-1. Copy `.env.example` to `.env` and add `OPENAI_API_KEY` plus `GOOGLE_API_KEY`.
+1. Copy `.env.example` to `.env` and add `OPENAI_API_KEY`.
 2. Install dependencies with `npm install`.
 3. Start with `npm start`.
 4. Open `http://localhost:5050`.
@@ -12,7 +12,9 @@ Marketify AI is an AI strategy workspace built on the project's existing Express
 ## Configuration
 
 - `OPENAI_API_KEY` — required for the Core Build engine (`gpt-5.6-terra`) and Ask mode.
-- `GOOGLE_API_KEY` (or `GEMINI_API_KEY`) — required for the Flash Build engine (`gemini-3.7-flash`).
+- `GEMINI_API_KEY` — required for the Flash Build engine (`gemini-3.7-flash`).
+- `OPENAI_FAST_MODEL` — intake/clarification model; defaults to `gpt-5.6-luna`.
+- `OPENAI_STRATEGY_MODEL` — generation/refinement model; defaults to `gpt-5.6-terra`.
 - `OPENAI_ASK_MODEL` — optional server-only model override for Ask mode.
 - `MAX_CLARIFICATION_ROUNDS` — defaults to `2`.
 - `PORT` — defaults to `5050`.

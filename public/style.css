@@ -5927,76 +5927,6 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   text-align: center;
 }
 
-.build-composer-meta {
-  gap: 9px;
-}
-
-.build-model-selector {
-  display: grid;
-  width: min(100%, 410px);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--bg-soft) 72%, transparent);
-}
-
-.build-model-option {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
-  padding: 7px 12px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text-secondary);
-  text-align: left;
-  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
-}
-
-.build-model-option:hover {
-  color: var(--text-primary);
-}
-
-.build-model-option.is-selected {
-  border-color: var(--border-subtle);
-  background: var(--bg-elevated);
-  box-shadow: 0 2px 7px rgba(20, 27, 42, 0.07);
-  color: var(--text-primary);
-}
-
-.build-model-option strong {
-  overflow: hidden;
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.build-model-option small {
-  overflow: hidden;
-  color: var(--text-tertiary);
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.loading-model-indicator {
-  min-width: 118px;
-  margin-left: auto;
-  color: var(--text-tertiary);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-align: right;
-  text-transform: none;
-}
-
 .ask-disclaimer {
   margin: 0;
   text-align: center;
@@ -12259,3 +12189,278 @@ body {
     width: calc(100vw - 24px);
   }
 }
+
+/* ==========================================================================
+   Build Mode Multi-Model Dropdown (Flash & Core) and Streaming UI
+   ========================================================================== */
+
+.build-model-dropdown-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+}
+
+.build-model-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #475569);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+  white-space: nowrap;
+}
+
+.build-model-dropdown-trigger:hover,
+.build-model-dropdown-wrap.is-open .build-model-dropdown-trigger {
+  background: var(--bg-soft, rgba(0, 0, 0, 0.05));
+  color: var(--text-primary, #0f172a);
+}
+
+.build-model-trigger-label {
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.build-model-trigger-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary, #94a3b8);
+  transition: transform 180ms ease, color 150ms ease;
+}
+
+.build-model-dropdown-wrap.is-open .build-model-trigger-chevron {
+  transform: rotate(180deg);
+  color: var(--text-primary, #0f172a);
+}
+
+.build-model-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  min-width: 270px;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  border-radius: 16px;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12), 0 4px 12px rgba(15, 23, 42, 0.04);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px) scale(0.97);
+  transform-origin: bottom right;
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.build-model-dropdown-wrap.is-open .build-model-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+.build-model-dropdown-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease;
+  font-family: inherit;
+}
+
+.build-model-dropdown-item:hover {
+  background: var(--bg-soft, rgba(0, 0, 0, 0.04));
+}
+
+.build-model-dropdown-item.is-selected {
+  background: rgba(79, 110, 232, 0.08);
+}
+
+.build-model-item-icon {
+  font-size: 16px;
+  line-height: 1.2;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.build-model-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.build-model-item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.build-model-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+}
+
+.build-model-dropdown-item.is-selected .build-model-item-name {
+  color: var(--accent, #4f6ee8);
+}
+
+.build-model-item-sub {
+  font-size: 11px;
+  color: var(--text-tertiary, #64748b);
+  font-weight: 400;
+}
+
+.build-model-item-desc {
+  font-size: 11px;
+  color: var(--text-secondary, #64748b);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.build-model-item-check {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent, #4f6ee8);
+  margin-left: auto;
+  align-self: center;
+}
+
+/* Loading Model Pill and Live Streaming Preview */
+.loading-model-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+  background: var(--bg-soft, #f1f3f7);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+}
+
+.loading-model-pill.is-flash {
+  background: rgba(26, 115, 232, 0.08);
+  color: #1a73e8;
+  border-color: rgba(26, 115, 232, 0.2);
+}
+
+.loading-model-pill.is-core {
+  background: rgba(16, 163, 127, 0.08);
+  color: #10a37f;
+  border-color: rgba(16, 163, 127, 0.2);
+}
+
+.loading-stream-card {
+  width: 100%;
+  max-width: 580px;
+  margin: 16px auto 0;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  text-align: left;
+}
+
+.loading-stream-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.06));
+}
+
+.loading-stream-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+}
+
+.loading-stream-indicator {
+  font-size: 11px;
+  color: var(--accent, #3b82f6);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.loading-stream-output {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-primary, #1e293b);
+  max-height: 140px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 4px 0;
+}
+
+.loading-stream-caret {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--accent, #3b82f6);
+  animation: streamCaretBlink 800ms infinite;
+}
+
+@keyframes streamCaretBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.continue-generation-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+/* Strategy Workspace Model Badge */
+.strategy-model-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--bg-soft, #f8fafc);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+}
+
+.strategy-model-pill.is-flash {
+  color: #1a73e8;
+}
+
+.strategy-model-pill.is-core {
+  color: #10a37f;
+}
+
