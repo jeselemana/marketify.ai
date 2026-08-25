@@ -108,10 +108,23 @@ export const ClarificationAnswerSchema = z.object({
   answer: z.string().trim().min(1).max(1500),
 });
 
+export const BuildModelSchema = z.enum(["gpt-5.6-terra", "gemini-3.7-flash"]);
+
+export function normalizeBuildModel(model) {
+  if (typeof model === "string") {
+    const trimmed = model.trim().toLowerCase();
+    if (trimmed === "gemini-3.7-flash" || trimmed === "flash" || trimmed === "gemini") {
+      return "gemini-3.7-flash";
+    }
+  }
+  return "gpt-5.6-terra";
+}
+
 export const AssessRequestSchema = z.object({
   brief: z.string().trim().min(8).max(8000),
   answers: z.array(ClarificationAnswerSchema).max(10).default([]),
   round: z.number().int().min(0).max(2).default(0),
+  model: z.string().trim().optional(),
 });
 
 export const GenerateRequestSchema = z.object({
@@ -119,6 +132,7 @@ export const GenerateRequestSchema = z.object({
   answers: z.array(ClarificationAnswerSchema).max(10).default([]),
   assumptions: z.array(shortText).max(12).default([]),
   idempotencyKey: z.string().trim().min(8).max(120),
+  model: z.string().trim().optional(),
 });
 
 export const RefineRequestSchema = z
@@ -128,6 +142,7 @@ export const RefineRequestSchema = z
     strategy: StrategySchema,
     action: z.enum(refinementActions),
     request: z.string().trim().max(2000).default(""),
+    model: z.string().trim().optional(),
   })
   .superRefine((value, context) => {
     if (value.action === "custom" && value.request.length < 3) {

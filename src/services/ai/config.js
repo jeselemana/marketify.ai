@@ -13,8 +13,19 @@ export const aiConfig = Object.freeze({
   assessmentMaxOutputTokens: 1800,
   strategyMaxOutputTokens: 9000,
   refinementMaxOutputTokens: 9000,
+  // Build Mode Flagship Models
+  defaultBuildModel: "gpt-5.6-terra",
+  coreModel: process.env.OPENAI_STRATEGY_MODEL || "gpt-5.6-terra",
+  geminiModel: process.env.GEMINI_MODEL || "gemini-3.7-flash",
+  geminiTemperature: 0.7,
+  geminiMaxOutputTokens: 8192,
+  geminiThinkingBudget: 0,
 });
 
 export function hasOpenAIConfiguration() {
   return Boolean(process.env.OPENAI_API_KEY?.trim());
+}
+
+export function hasGeminiConfiguration() {
+  return Boolean(process.env.GEMINI_API_KEY?.trim());
 }

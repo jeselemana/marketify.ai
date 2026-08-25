@@ -128,6 +128,125 @@ function getAskMessageModelInfo(model) {
   };
 }
 
+function getBuildModelInfo(model) {
+  const normalized = typeof model === "string" ? model.trim().toLowerCase() : "";
+  const isFlash = normalized === "gemini-3.7-flash" || normalized === "flash" || normalized === "gemini";
+  return {
+    id: isFlash ? "gemini-3.7-flash" : "gpt-5.6-terra",
+    displayName: isFlash ? "Flash" : "Core",
+    subtitle: isFlash ? "Gemini 3.7 Flash" : "GPT-5.6 Terra",
+    description: isFlash ? "Ultra-sürətli düşünmə və icra" : "Dərin strateji təhlil və arxitektura",
+    isFlash,
+    isCore: !isFlash,
+    icon: isFlash
+      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`,
+  };
+}
+
+function buildBuildModelDropdown() {
+  const currentModel = state.buildModel || "gpt-5.6-terra";
+  const info = getBuildModelInfo(currentModel);
+
+  const wrap = element("div", "build-model-dropdown-wrap");
+
+  const trigger = element("button", "build-model-dropdown-trigger");
+  trigger.type = "button";
+  trigger.setAttribute("aria-haspopup", "true");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.title = `Aktiv Model: ${info.subtitle}`;
+  trigger.innerHTML = `<span class="build-model-dropdown-label">${info.displayName}</span> <svg class="build-model-dropdown-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+  const menu = element("div", "build-model-dropdown-menu");
+  menu.hidden = true;
+
+  const models = [
+    {
+      id: "gpt-5.6-terra",
+      displayName: "Core",
+      subtitle: "GPT-5.6 Terra",
+      desc: "Dərin strateji təhlil və arxitektura",
+      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`,
+    },
+    {
+      id: "gemini-3.7-flash",
+      displayName: "Flash",
+      subtitle: "Gemini 3.7 Flash",
+      desc: "Ultra-sürətli düşünmə və icra",
+      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+    },
+  ];
+
+  models.forEach((m) => {
+    const isSelected = (m.id === "gemini-3.7-flash" && info.isFlash) || (m.id === "gpt-5.6-terra" && info.isCore);
+    const item = element("button", `build-model-dropdown-item ${isSelected ? "is-selected" : ""}`);
+    item.type = "button";
+    item.innerHTML = `
+      <div class="build-model-item-left">
+        <span class="build-model-item-icon">${m.icon}</span>
+        <div class="build-model-item-text">
+          <div class="build-model-item-header">
+            <span class="build-model-item-title">${m.displayName}</span>
+            <span class="build-model-item-subtitle">${m.subtitle}</span>
+          </div>
+          <div class="build-model-item-desc">${m.desc}</div>
+        </div>
+      </div>
+      ${isSelected ? `<span class="build-model-item-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>` : ""}
+    `;
+
+    item.addEventListener("click", (e) => {
+      e.stopPropagation();
+      state.buildModel = m.id;
+      try {
+        localStorage.setItem("marketify_build_model", m.id);
+      } catch {}
+      closeMenu();
+      render();
+    });
+
+    menu.appendChild(item);
+  });
+
+  const toggleMenu = (e) => {
+    e.stopPropagation();
+    const willOpen = menu.hidden;
+    closeAllBuildModelDropdowns();
+    if (willOpen) {
+      menu.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+      trigger.classList.add("is-open");
+    }
+  };
+
+  const closeMenu = () => {
+    menu.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.classList.remove("is-open");
+  };
+
+  trigger.addEventListener("click", toggleMenu);
+
+  wrap.append(trigger, menu);
+  return wrap;
+}
+
+function closeAllBuildModelDropdowns() {
+  document.querySelectorAll(".build-model-dropdown-menu").forEach((m) => {
+    m.hidden = true;
+  });
+  document.querySelectorAll(".build-model-dropdown-trigger").forEach((t) => {
+    t.setAttribute("aria-expanded", "false");
+    t.classList.remove("is-open");
+  });
+}
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".build-model-dropdown-wrap")) {
+    closeAllBuildModelDropdowns();
+  }
+});
+
 const STATUS_LABELS = {
   draft: "Qaralama",
   analyzing: "Analiz edilir",
@@ -178,6 +297,15 @@ const state = {
   round: 0,
   strategy: null,
   versions: [],
+  buildModel: (() => {
+    try {
+      return localStorage.getItem("marketify_build_model") || "gpt-5.6-terra";
+    } catch {
+      return "gpt-5.6-terra";
+    }
+  })(),
+  buildStreamingText: "",
+  buildStreamingFinishReason: null,
   savedId: null,
   clientSaveId: crypto.randomUUID(),
   savedStrategies: [],
@@ -338,13 +466,13 @@ async function api(path, options = {}) {
     if (response.status === 401 && data.code === "AUTH_REQUIRED") {
       window.dispatchEvent(new CustomEvent("marketify:auth-required"));
     }
-    const safeMessage = path === "/api/ask"
-      ? data.error || "Cavabı hazırlamaq mümkün olmadı."
-      : ["AI_AUTH_ERROR", "AI_NOT_CONFIGURED", "STRATEGY_ERROR"].includes(data.code)
-      ? "Strategiyanı hazırlamaq mümkün olmadı. Bir neçə saniyə sonra yenidən yoxla."
-      : data.error || "Sorğunu tamamlamaq mümkün olmadı.";
+    const safeMessage = data.error || (path === "/api/ask"
+      ? "Cavabı hazırlamaq mümkün olmadı."
+      : "Strategiyanı hazırlamaq mümkün olmadı. Bir neçə saniyə sonra yenidən yoxla.");
     const error = new Error(safeMessage);
     error.code = data.code;
+    error.status = response.status;
+    error.model = data.model;
     throw error;
   }
   return data;
@@ -643,8 +771,9 @@ function renderIntake() {
   submit.setAttribute("aria-label", "Strategiyanı qur");
   submit.appendChild(element("span", "", "↑"));
 
+  const modelDropdown = buildBuildModelDropdown();
   const composerActions = element("div", "ask-composer-actions");
-  composerActions.append(submit);
+  composerActions.append(modelDropdown, submit);
 
   form.append(attach, label, textarea, fileInput, composerActions);
 
@@ -2317,6 +2446,7 @@ async function startAssessment() {
         brief: state.brief,
         answers: state.answers,
         round: state.round,
+        model: state.buildModel || "gpt-5.6-terra",
       }),
     });
     currentAbortController = null;
@@ -2469,44 +2599,140 @@ async function startGeneration() {
   currentAbortController?.abort();
   currentAbortController = new AbortController();
   const generationKey = state.clientSaveId;
+  state.buildStreamingText = "";
+  state.buildStreamingFinishReason = null;
   setStatus("generating");
   render();
+
   try {
-    const data = await api("/api/strategy/generate", {
-      method: "POST",
-      signal: currentAbortController.signal,
-      body: JSON.stringify({
-        brief: state.brief,
-        answers: state.answers,
-        assumptions: state.assumptions,
-        idempotencyKey: state.clientSaveId,
-      }),
-    });
+    let finalStrategy = null;
+    const chosenModel = state.buildModel || "gpt-5.6-terra";
+
+    try {
+      const response = await fetch("/api/strategy/generate-stream", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "text/event-stream",
+        },
+        body: JSON.stringify({
+          brief: state.brief,
+          answers: state.answers,
+          assumptions: state.assumptions,
+          idempotencyKey: state.clientSaveId,
+          model: chosenModel,
+        }),
+        signal: currentAbortController.signal,
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const err = new Error(errData.error || "Strategiyanı hazırlamaq mümkün olmadı.");
+        err.code = errData.code;
+        err.status = response.status;
+        err.model = errData.model || chosenModel;
+        throw err;
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("text/event-stream")) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let rawBuffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          rawBuffer += decoder.decode(value, { stream: true });
+          const lines = rawBuffer.split(/\r?\n/);
+          rawBuffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith("data:")) continue;
+
+            const jsonStr = trimmed.replace(/^data:\s*/, "").trim();
+            if (!jsonStr || jsonStr === "[DONE]") continue;
+
+            try {
+              const evt = JSON.parse(jsonStr);
+              if (evt.error) {
+                const streamErr = new Error(evt.error);
+                streamErr.code = evt.code;
+                streamErr.status = evt.status;
+                streamErr.model = evt.model;
+                throw streamErr;
+              }
+
+              if (evt.chunk) {
+                state.buildStreamingText = (state.buildStreamingText || "") + evt.chunk;
+              }
+
+              if (evt.finishReason) {
+                state.buildStreamingFinishReason = evt.finishReason;
+              }
+
+              if (evt.done && evt.strategy) {
+                finalStrategy = evt.strategy;
+              }
+            } catch (pErr) {
+              if (pErr.code || (pErr.message && !pErr.message.includes("JSON"))) throw pErr;
+            }
+          }
+        }
+      } else {
+        const data = await response.json();
+        finalStrategy = data.strategy;
+      }
+    } catch (streamFetchErr) {
+      if (streamFetchErr.name === "AbortError" || currentAbortController?.signal?.aborted) throw streamFetchErr;
+      if (streamFetchErr.code && streamFetchErr.code !== "AI_PROVIDER_ERROR") throw streamFetchErr;
+
+      // Direct fallback to non-streaming generate endpoint
+      const data = await api("/api/strategy/generate", {
+        method: "POST",
+        signal: currentAbortController.signal,
+        body: JSON.stringify({
+          brief: state.brief,
+          answers: state.answers,
+          assumptions: state.assumptions,
+          idempotencyKey: state.clientSaveId,
+          model: chosenModel,
+        }),
+      });
+      finalStrategy = data.strategy;
+    }
+
+    if (!finalStrategy) {
+      throw new Error("Strategiya generasiyası tamamlanmadı.");
+    }
+
     currentAbortController = null;
 
     // Check if this generation was moved to background while awaiting
     const bgJob = backgroundJobs.find((j) => j.idempotencyKey === generationKey && j.status === "generating");
     if (bgJob) {
       bgJob.status = "ready";
-      bgJob.strategy = data.strategy;
+      bgJob.strategy = finalStrategy;
       bgJob.completedAt = new Date().toISOString();
-      bgJob.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: bgJob.completedAt }];
+      bgJob.versions = [{ versionNumber: 1, data: finalStrategy, changeRequest: "İlkin strategiya", createdAt: bgJob.completedAt }];
       persistBackgroundJobs();
       autoSaveBackgroundJob(bgJob);
       return;
     }
 
-    state.strategy = data.strategy;
+    state.strategy = finalStrategy;
     state.updatedAt = new Date().toISOString();
     state.versions = [
       {
         versionNumber: 1,
-        data: data.strategy,
+        data: finalStrategy,
         changeRequest: "İlkin strategiya",
         createdAt: state.updatedAt,
       },
     ];
-    trackEvent("strategy_generated", { clarificationRounds: state.round });
+    trackEvent("strategy_generated", { clarificationRounds: state.round, model: chosenModel });
     setStatus("ready");
     render();
   } catch (error) {
@@ -3856,6 +4082,7 @@ async function requestRefinement(action, request) {
         strategy: state.strategy,
         action,
         request,
+        model: state.buildModel || "gpt-5.6-terra",
       }),
     });
     const record = data.strategy;
