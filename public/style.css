@@ -8192,29 +8192,41 @@ body {
   line-height: 1.4;
 }
 
-/* Memory Hub (Minimalist & Clean) */
+/* Memory Hub — Quiet, editorial and purposefully compact. */
+.experience-memory-wrapper {
+  display: grid;
+  gap: 16px;
+}
+
 .experience-memory-list {
   display: grid;
-  gap: 8px;
-  max-height: 240px;
+  gap: 7px;
+  max-height: 258px;
   overflow-y: auto;
+  padding: 3px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.28) transparent;
 }
 
 .experience-memory-item {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  background: #fbfcfd;
-  border: 1px solid rgba(20, 27, 42, 0.08);
-  padding: 10px 14px;
-  border-radius: 10px;
+  gap: 14px;
+  background: linear-gradient(105deg, #ffffff 0%, #fbfcff 100%);
+  border: 1px solid rgba(20, 27, 42, 0.09);
+  padding: 12px 12px 12px 14px;
+  border-radius: 12px;
   font-size: 13px;
-  transition: border-color 140ms ease;
+  box-shadow: 0 1px 1px rgba(15, 23, 42, 0.015);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .experience-memory-item:hover {
-  border-color: rgba(20, 27, 42, 0.16);
+  border-color: rgba(79, 110, 232, 0.24);
+  box-shadow: 0 5px 14px rgba(31, 41, 55, 0.055);
+  transform: translateY(-1px);
 }
 
 .memory-item-content {
@@ -8226,11 +8238,12 @@ body {
 }
 
 .memory-category-tag {
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 2.5px 8px;
-  border-radius: 6px;
-  letter-spacing: -0.01em;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.015em;
+  line-height: 1.1;
   flex-shrink: 0;
 }
 
@@ -8242,8 +8255,8 @@ body {
 
 .memory-text {
   color: var(--text-primary);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 13.25px;
+  line-height: 1.5;
   word-break: break-word;
 }
 
@@ -8251,25 +8264,57 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  background: none;
+  width: 28px;
+  height: 28px;
+  background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #a3afc2;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 0;
-  transition: all 140ms ease;
+  opacity: 0.72;
+  transition: all 160ms ease;
 }
 
 .memory-delete-btn:hover {
   color: #ef4444;
   background: rgba(239, 68, 68, 0.08);
+  opacity: 1;
+}
+
+.experience-memory-composer {
+  padding: 14px;
+  border: 1px solid rgba(79, 110, 232, 0.13);
+  border-radius: 13px;
+  background: linear-gradient(135deg, rgba(247, 249, 255, 0.92), #ffffff 72%);
+}
+
+.experience-memory-composer-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin: 0 1px 10px;
+}
+
+.experience-memory-composer-title {
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.experience-memory-composer-hint {
+  color: #94a3b8;
+  font-size: 11.5px;
+  line-height: 1.35;
+  text-align: right;
 }
 
 .experience-add-memory-row {
   display: flex;
-  gap: 8px;
+  gap: 9px;
   align-items: center;
 }
 
@@ -8278,17 +8323,17 @@ body {
 }
 
 .experience-add-memory-row .settings-select {
-  width: 150px;
+  width: 156px;
   flex-shrink: 0;
 }
 
 .experience-add-btn {
-  height: 42px;
-  padding: 0 16px;
+  height: 44px;
+  padding: 0 17px;
   flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 550;
-  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 650;
+  border-radius: 9px;
 }
 
 .experience-memory-footer {
@@ -8296,14 +8341,14 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 6px;
+  padding: 0 3px;
 }
 
 .danger-text-button {
   background: none;
   border: none;
   color: #94a3b8;
-  font-size: 12px;
+  font-size: 11.5px;
   cursor: pointer;
   padding: 2px 4px;
   text-decoration: none;
@@ -8316,10 +8361,46 @@ body {
 }
 
 .experience-memory-empty {
-  margin: 6px 0;
+  margin: 0;
+  padding: 24px 16px;
+  border: 1px dashed rgba(100, 116, 139, 0.22);
+  border-radius: 12px;
+  background: #fbfcfd;
   font-size: 12.5px;
   color: var(--text-tertiary);
-  font-style: italic;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .experience-memory-composer-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .experience-memory-composer-hint {
+    text-align: left;
+  }
+
+  .experience-add-memory-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+
+  .experience-add-memory-row .settings-select {
+    width: auto;
+  }
+
+  .experience-add-btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .memory-item-content {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
 }
 
 .experience-save-btn {

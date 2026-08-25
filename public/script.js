@@ -4544,7 +4544,7 @@ function renderSettings() {
     customLabel.append(element("span", "settings-field-label", "Təlimat mətni"), customTextarea);
 
     const customAccordion = createExperienceAccordion({
-      title: "Xüsusi təlimatlar (Custom Instructions)",
+      title: "Xüsusi təlimatlar",
       desc: "Marketify-ın sizin üçün cavab hazırlayarkən riayət etməli olduğu xüsusi qaydalar.",
       isOpen: false,
       contentNode: customLabel,
@@ -4593,13 +4593,22 @@ function renderSettings() {
     };
     renderMemories();
 
+    const memoryComposer = element("div", "experience-memory-composer");
+    const composerHeading = element("div", "experience-memory-composer-heading");
+    composerHeading.append(
+      element("span", "experience-memory-composer-title", "Yeni yaddaş qeydi"),
+      element("span", "experience-memory-composer-hint", "Model üçün qısa və konkret saxlayın"),
+    );
+
     const addMemoryRow = element("div", "experience-add-memory-row");
     const memoryInput = element("input", "settings-input");
     memoryInput.type = "text";
     memoryInput.placeholder = "Yeni fakt əlavə et... məs. Biz yalnız B2B şirkətlərlə işləyirik";
     memoryInput.maxLength = 500;
+    memoryInput.setAttribute("aria-label", "Yeni yaddaş qeydi");
 
     const memoryCategorySelect = element("select", "settings-input settings-select");
+    memoryCategorySelect.setAttribute("aria-label", "Yaddaş qeydi kateqoriyası");
     [
       { val: "business", label: "Biznes Faktı" },
       { val: "audience", label: "Hədəf Kütlə" },
@@ -4636,6 +4645,7 @@ function renderSettings() {
     addMemoryBtn.type = "button";
 
     addMemoryRow.append(memoryInput, memoryCategorySelect, addMemoryBtn);
+    memoryComposer.append(composerHeading, addMemoryRow);
 
     const memoryFooter = element("div", "experience-memory-footer");
     const importMemoryInlineBtn = button("Başqa AI-dan köçür", "secondary-button experience-import-inline-btn", () => {
@@ -4658,10 +4668,10 @@ function renderSettings() {
     clearMemoriesBtn.type = "button";
     memoryFooter.append(importMemoryInlineBtn, clearMemoriesBtn);
 
-    memoryWrapper.append(memoryListContainer, addMemoryRow, memoryFooter);
+    memoryWrapper.append(memoryListContainer, memoryComposer, memoryFooter);
 
     const memoryAccordion = createExperienceAccordion({
-      title: "Aktiv yaddaş qeydləri (Memory Hub)",
+      title: "Memory Hub",
       desc: "Modelin sizin biznesiniz haqqında unutmamasını istədiyiniz konkret faktlar.",
       badgeNode: memoryBadge,
       isOpen: false,
