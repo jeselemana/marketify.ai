@@ -1748,6 +1748,60 @@ function renderLoading() {
   );
   reassurance.append(sparkIcon, reassuranceText);
 
+  // Desktop actions live outside the workspace so they remain accessible while
+  // the loading view is vertically centered. Mobile uses the card actions below.
+  const topActions = element("div", "loading-top-actions loading-desktop-actions");
+  topActions.id = "loadingTopActions";
+
+  if (!isAssessment) {
+    const bgBtn = element("button", "loading-back-button");
+    bgBtn.type = "button";
+    bgBtn.setAttribute("aria-label", "İşi arxa planda davam etdir");
+    bgBtn.title = "İşi arxa planda davam etdir";
+    bgBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+      </svg>
+      <span>İşi arxa planda davam etdir</span>
+    `;
+    bgBtn.addEventListener("click", () => {
+      if (window.confirm("Əsas səhifəyə qayıdırsınız bu analizi arxa planda davam etdirmək istədiyinizdən əminsiniz? Daha sonra onunla \"Arxiv\" səhifəsindən tanış ola biləcəksiniz.")) {
+        minimizeToBackground();
+      }
+    });
+    topActions.appendChild(bgBtn);
+  }
+
+  const desktopCancelBtn = element("button", "loading-cancel-button");
+  desktopCancelBtn.type = "button";
+  desktopCancelBtn.setAttribute("aria-label", "Brif analizini dayandır");
+  desktopCancelBtn.title = "Analizi dayandır";
+  desktopCancelBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" fill="currentColor" rx="1"/>
+    </svg>
+    <span>Dayandır</span>
+  `;
+  desktopCancelBtn.addEventListener("click", () => {
+    if (window.confirm("Brif analizini dayandırmaq istədiyinizdən əminsiniz?")) cancelCurrentAnalysis();
+  });
+
+  const desktopHistoryBtn = element("button", "loading-history-button");
+  desktopHistoryBtn.type = "button";
+  desktopHistoryBtn.setAttribute("aria-label", "Tarixçə");
+  desktopHistoryBtn.title = "Söhbət və brif tarixçəsi";
+  desktopHistoryBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/>
+    </svg>
+    <span>Tarixçə</span>
+    ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
+  `;
+  desktopHistoryBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
+  topActions.append(desktopCancelBtn, desktopHistoryBtn);
+
   // Card Actions
   const cardActions = element("div", "loading-card-actions");
 
@@ -1810,6 +1864,7 @@ function renderLoading() {
 
   view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
   workspace.appendChild(view);
+  document.body.appendChild(topActions);
 
   progressTimer = setInterval(() => {
     currentPhase = Math.min(currentPhase + 1, phases.length - 1);
