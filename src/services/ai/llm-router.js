@@ -44,7 +44,7 @@ export async function streamOpenAIContent({ model = aiConfig.strategyModel, inst
       model,
       messages: [...(instructions ? [{ role: "system", content: instructions }] : []), { role: "user", content: input }],
       stream: true,
-      max_tokens: maxOutputTokens,
+      max_completion_tokens: maxOutputTokens,
       reasoning_effort: reasoning,
       user: privacySafeIdentifier(ownerId),
     }, signal ? { signal } : undefined);
