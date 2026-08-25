@@ -4555,24 +4555,71 @@ function renderSettings() {
     const memoryWrapper = element("div", "experience-memory-wrapper");
     const memoryListContainer = element("div", "experience-memory-list");
     const memoryBadge = element("span", "experience-summary-badge", `${memoriesList.length} qeyd`);
+    const categoryNames = {
+      business: "Biznes faktı",
+      audience: "Auditoriya",
+      preference: "Üstünlük",
+      constraint: "Məhdudiyyət",
+      general: "Qeyd",
+    };
+    const memoryFilters = [
+      { id: "all", label: "Hamısı" },
+      { id: "preference", label: "Üstünlüklər" },
+      { id: "constraint", label: "Məhdudiyyətlər" },
+      { id: "business", label: "Biznes faktları" },
+    ];
+    let activeMemoryFilter = "all";
+
+    const memoryFilterBar = element("div", "experience-memory-filters");
+    memoryFilterBar.setAttribute("role", "tablist");
+    memoryFilterBar.setAttribute("aria-label", "Yaddaş kateqoriyası");
+
+    const updateMemoryFilterState = () => {
+      const counts = memoriesList.reduce((result, memory) => {
+        result[memory.category || "general"] = (result[memory.category || "general"] || 0) + 1;
+        return result;
+      }, {});
+      memoryFilterBar.querySelectorAll(".memory-filter-btn").forEach((filterButton) => {
+        const filter = filterButton.dataset.filter;
+        const count = filter === "all" ? memoriesList.length : (counts[filter] || 0);
+        const countNode = filterButton.querySelector(".memory-filter-count");
+        if (countNode) countNode.textContent = count;
+        const selected = activeMemoryFilter === filter;
+        filterButton.classList.toggle("is-active", selected);
+        filterButton.setAttribute("aria-selected", String(selected));
+      });
+    };
+
+    memoryFilters.forEach(({ id, label }) => {
+      const filterButton = button("", "memory-filter-btn", () => {
+        activeMemoryFilter = id;
+        updateMemoryFilterState();
+        renderMemories();
+      });
+      filterButton.dataset.filter = id;
+      filterButton.setAttribute("role", "tab");
+      filterButton.setAttribute("aria-selected", String(id === "all"));
+      filterButton.append(element("span", "memory-filter-label", label), element("span", "memory-filter-count", "0"));
+      memoryFilterBar.appendChild(filterButton);
+    });
 
     const renderMemories = () => {
       memoryListContainer.replaceChildren();
       memoryBadge.textContent = `${memoriesList.length} qeyd`;
-      if (!memoriesList.length) {
-        const empty = element("p", "experience-memory-empty", "Hələ heç bir yaddaş qeydi saxlanılmayıb.");
+      updateMemoryFilterState();
+      const visibleMemories = activeMemoryFilter === "all"
+        ? memoriesList
+        : memoriesList.filter((memory) => memory.category === activeMemoryFilter);
+      if (!visibleMemories.length) {
+        const emptyText = memoriesList.length
+          ? "Bu kateqoriyada yaddaş qeydi yoxdur."
+          : "Hələ heç bir yaddaş qeydi saxlanılmayıb.";
+        const empty = element("p", "experience-memory-empty", emptyText);
         memoryListContainer.appendChild(empty);
         return;
       }
-      memoriesList.forEach((mem) => {
+      visibleMemories.forEach((mem) => {
         const item = element("div", "experience-memory-item");
-        const categoryNames = {
-          business: "Biznes",
-          audience: "Auditoriya",
-          preference: "Üstünlük",
-          constraint: "Məhdudiyyət",
-          general: "Qeyd",
-        };
         const catLabel = categoryNames[mem.category] || "Qeyd";
         item.innerHTML = `
           <div class="memory-item-content">
@@ -4585,19 +4632,39 @@ function renderSettings() {
           renderMemories();
         });
         delBtn.type = "button";
-        delBtn.title = "Qeydi sil";
-        delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        delBtn.setAttribute("aria-label", "Yaddaş qeydini sil");
+        delBtn.title = "Yaddaş qeydini sil";
+        delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="m6 7 1 13h10l1-13"/><path d="M9 7V4h6v3"/></svg>';
         item.appendChild(delBtn);
         memoryListContainer.appendChild(item);
       });
     };
     renderMemories();
 
-    const memoryComposer = element("div", "experience-memory-composer");
+    const memoryComposer = element("div", "experience-memory-composer is-collapsed");
     const composerHeading = element("div", "experience-memory-composer-heading");
-    composerHeading.append(
+    const composerHeadingCopy = element("div", "experience-memory-composer-heading-copy");
+    composerHeadingCopy.append(
       element("span", "experience-memory-composer-title", "Yeni yaddaş qeydi"),
       element("span", "experience-memory-composer-hint", "Model üçün qısa və konkret saxlayın"),
+    );
+    const setMemoryComposerOpen = (isOpen) => {
+      memoryComposer.classList.toggle("is-open", isOpen);
+      memoryComposer.classList.toggle("is-collapsed", !isOpen);
+      memoryFilterBar.classList.toggle("is-collapsed", isOpen);
+      memoryListContainer.classList.toggle("is-collapsed", isOpen);
+      composerToggle.setAttribute("aria-expanded", String(isOpen));
+      composerToggle.title = isOpen ? "Yaddaş qeydini bağla" : "Yeni yaddaş qeydi əlavə et";
+    };
+    const composerToggle = button("", "memory-composer-toggle", () => setMemoryComposerOpen(false));
+    composerToggle.type = "button";
+    composerToggle.setAttribute("aria-label", "Yaddaş qeydini bağla");
+    composerToggle.setAttribute("aria-expanded", "false");
+    composerToggle.title = "Yaddaş qeydini bağla";
+    composerToggle.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+    composerHeading.append(
+      composerHeadingCopy,
+      composerToggle,
     );
 
     const addMemoryRow = element("div", "experience-add-memory-row");
@@ -4611,17 +4678,15 @@ function renderSettings() {
     memoryCategorySelect.setAttribute("aria-label", "Yaddaş qeydi kateqoriyası");
     [
       { val: "business", label: "Biznes Faktı" },
-      { val: "audience", label: "Hədəf Kütlə" },
       { val: "preference", label: "Üstünlük" },
       { val: "constraint", label: "Məhdudiyyət" },
-      { val: "general", label: "Ümumi Qeyd" },
     ].forEach((c) => {
       const opt = element("option", "", c.label);
       opt.value = c.val;
       memoryCategorySelect.appendChild(opt);
     });
 
-    const addMemoryBtn = button("Əlavə et", "secondary-button experience-add-btn", () => {
+    const addMemoryBtn = button("Yaddaşı saxla", "primary-button experience-add-btn", () => {
       const text = memoryInput.value.trim();
       if (!text) return;
       const sensitiveWarning = checkSensitiveData(text);
@@ -4640,6 +4705,7 @@ function renderSettings() {
         createdAt: new Date().toISOString(),
       });
       memoryInput.value = "";
+      setMemoryComposerOpen(false);
       renderMemories();
     });
     addMemoryBtn.type = "button";
@@ -4647,7 +4713,13 @@ function renderSettings() {
     addMemoryRow.append(memoryInput, memoryCategorySelect, addMemoryBtn);
     memoryComposer.append(composerHeading, addMemoryRow);
 
-    const memoryFooter = element("div", "experience-memory-footer");
+    const memoryActionArea = element("div", "experience-memory-action-area");
+    const memoryPrimaryActions = element("div", "experience-memory-primary-actions");
+    const addMemoryActionBtn = button("+ Yaddaş əlavə et", "primary-button memory-add-action-btn", () => {
+      setMemoryComposerOpen(true);
+      window.requestAnimationFrame(() => memoryInput.focus());
+    });
+    addMemoryActionBtn.type = "button";
     const importMemoryInlineBtn = button("Başqa AI-dan köçür", "secondary-button experience-import-inline-btn", () => {
       openImportMemoryModal({
         userSettings: state.currentUser?.settings || {},
@@ -4658,6 +4730,7 @@ function renderSettings() {
       });
     });
     importMemoryInlineBtn.type = "button";
+    memoryPrimaryActions.append(addMemoryActionBtn, importMemoryInlineBtn);
 
     const clearMemoriesBtn = button("Bütün yaddaşı təmizlə", "danger-text-button", () => {
       if (confirm("Bütün yaddaş qeydlərini silmək istədiyinizdən əminsiniz?")) {
@@ -4666,13 +4739,13 @@ function renderSettings() {
       }
     });
     clearMemoriesBtn.type = "button";
-    memoryFooter.append(importMemoryInlineBtn, clearMemoriesBtn);
+    memoryActionArea.append(memoryPrimaryActions, clearMemoriesBtn);
 
-    memoryWrapper.append(memoryListContainer, memoryComposer, memoryFooter);
+    memoryWrapper.append(memoryFilterBar, memoryListContainer, memoryComposer, memoryActionArea);
 
     const memoryAccordion = createExperienceAccordion({
       title: "Memory Hub",
-      desc: "Modelin sizin biznesiniz haqqında unutmamasını istədiyiniz konkret faktlar.",
+      desc: "Marketify-ın biznesiniz haqqında yadda saxladığı məlumatları idarə edin.",
       badgeNode: memoryBadge,
       isOpen: false,
       contentNode: memoryWrapper,
