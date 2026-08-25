@@ -2,7 +2,6 @@ import {
   StrategyAssessmentSchema,
   StrategySchema,
   analyzeBriefSignals,
-  normalizeBuildModel,
   validateAssessment,
 } from "../../domain/strategy.js";
 import { aiConfig } from "./config.js";
@@ -26,7 +25,6 @@ export async function assessBrief({
   ownerId,
   signal,
   personalizationContext = "",
-  model = aiConfig.defaultBuildModel,
   onChunk,
 }) {
   const signals = analyzeBriefSignals(brief);
@@ -37,9 +35,7 @@ export async function assessBrief({
       : "Decide whether a targeted clarification round is materially useful."
   }`;
 
-  const resolvedModel = normalizeBuildModel(model);
   const result = await routeStructuredGeneration({
-    model: resolvedModel,
     schema: StrategyAssessmentSchema,
     name: "strategy_assessment",
     instructions: `${ASSESSOR_PROMPT}${personalizationContext || ""}`,
@@ -73,21 +69,18 @@ export async function generateStrategy({
   ownerId,
   signal,
   personalizationContext = "",
-  model = aiConfig.defaultBuildModel,
   onChunk,
 }) {
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
     assumptions.length ? assumptions.join("\n- ") : "None supplied."
   }`;
 
-  const resolvedModel = normalizeBuildModel(model);
   const result = await routeStructuredGeneration({
-    model: resolvedModel,
     schema: StrategySchema,
     name: "marketify_strategy",
     instructions: `${STRATEGY_PROMPT}${personalizationContext || ""}`,
     input,
-    maxOutputTokens: resolvedModel === "gemini-3.7-flash" ? aiConfig.geminiMaxOutputTokens : aiConfig.strategyMaxOutputTokens,
+    maxOutputTokens: aiConfig.strategyMaxOutputTokens,
     reasoning: "medium",
     ownerId,
     signal,
@@ -98,14 +91,12 @@ export async function generateStrategy({
 }
 
 export async function refineStrategy(payload, ownerId, signal, personalizationContext = "", onChunk) {
-  const resolvedModel = normalizeBuildModel(payload.model || aiConfig.defaultBuildModel);
   const result = await routeStructuredGeneration({
-    model: resolvedModel,
     schema: StrategySchema,
     name: "marketify_refined_strategy",
     instructions: `${REFINEMENT_PROMPT}${personalizationContext || ""}`,
     input: buildRefinementInput(payload),
-    maxOutputTokens: resolvedModel === "gemini-3.7-flash" ? aiConfig.geminiMaxOutputTokens : aiConfig.refinementMaxOutputTokens,
+    maxOutputTokens: aiConfig.refinementMaxOutputTokens,
     reasoning: payload.action === "think_deeper" ? "high" : "medium",
     ownerId,
     signal,

@@ -128,125 +128,6 @@ function getAskMessageModelInfo(model) {
   };
 }
 
-function getBuildModelInfo(model) {
-  const normalized = typeof model === "string" ? model.trim().toLowerCase() : "";
-  const isFlash = normalized === "gemini-3.7-flash" || normalized === "flash" || normalized === "gemini";
-  return {
-    id: isFlash ? "gemini-3.7-flash" : "gpt-5.6-terra",
-    displayName: isFlash ? "Flash" : "Core",
-    subtitle: isFlash ? "Gemini 3.7 Flash" : "GPT-5.6 Terra",
-    description: isFlash ? "Ultra-sürətli düşünmə və icra" : "Dərin strateji təhlil və arxitektura",
-    isFlash,
-    isCore: !isFlash,
-    icon: isFlash
-      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`
-      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`,
-  };
-}
-
-function buildBuildModelDropdown() {
-  const currentModel = state.buildModel || "gpt-5.6-terra";
-  const info = getBuildModelInfo(currentModel);
-
-  const wrap = element("div", "build-model-dropdown-wrap");
-
-  const trigger = element("button", "build-model-dropdown-trigger");
-  trigger.type = "button";
-  trigger.setAttribute("aria-haspopup", "true");
-  trigger.setAttribute("aria-expanded", "false");
-  trigger.title = `Aktiv Model: ${info.subtitle}`;
-  trigger.innerHTML = `<span class="build-model-dropdown-label">${info.displayName}</span> <svg class="build-model-dropdown-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`;
-
-  const menu = element("div", "build-model-dropdown-menu");
-  menu.hidden = true;
-
-  const models = [
-    {
-      id: "gpt-5.6-terra",
-      displayName: "Core",
-      subtitle: "GPT-5.6 Terra",
-      desc: "Dərin strateji təhlil və arxitektura",
-      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`,
-    },
-    {
-      id: "gemini-3.7-flash",
-      displayName: "Flash",
-      subtitle: "Gemini 3.7 Flash",
-      desc: "Ultra-sürətli düşünmə və icra",
-      icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
-    },
-  ];
-
-  models.forEach((m) => {
-    const isSelected = (m.id === "gemini-3.7-flash" && info.isFlash) || (m.id === "gpt-5.6-terra" && info.isCore);
-    const item = element("button", `build-model-dropdown-item ${isSelected ? "is-selected" : ""}`);
-    item.type = "button";
-    item.innerHTML = `
-      <div class="build-model-item-left">
-        <span class="build-model-item-icon">${m.icon}</span>
-        <div class="build-model-item-text">
-          <div class="build-model-item-header">
-            <span class="build-model-item-title">${m.displayName}</span>
-            <span class="build-model-item-subtitle">${m.subtitle}</span>
-          </div>
-          <div class="build-model-item-desc">${m.desc}</div>
-        </div>
-      </div>
-      ${isSelected ? `<span class="build-model-item-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>` : ""}
-    `;
-
-    item.addEventListener("click", (e) => {
-      e.stopPropagation();
-      state.buildModel = m.id;
-      try {
-        localStorage.setItem("marketify_build_model", m.id);
-      } catch {}
-      closeMenu();
-      render();
-    });
-
-    menu.appendChild(item);
-  });
-
-  const toggleMenu = (e) => {
-    e.stopPropagation();
-    const willOpen = menu.hidden;
-    closeAllBuildModelDropdowns();
-    if (willOpen) {
-      menu.hidden = false;
-      trigger.setAttribute("aria-expanded", "true");
-      trigger.classList.add("is-open");
-    }
-  };
-
-  const closeMenu = () => {
-    menu.hidden = true;
-    trigger.setAttribute("aria-expanded", "false");
-    trigger.classList.remove("is-open");
-  };
-
-  trigger.addEventListener("click", toggleMenu);
-
-  wrap.append(trigger, menu);
-  return wrap;
-}
-
-function closeAllBuildModelDropdowns() {
-  document.querySelectorAll(".build-model-dropdown-menu").forEach((m) => {
-    m.hidden = true;
-  });
-  document.querySelectorAll(".build-model-dropdown-trigger").forEach((t) => {
-    t.setAttribute("aria-expanded", "false");
-    t.classList.remove("is-open");
-  });
-}
-
-document.addEventListener("click", (e) => {
-  if (!e.target.closest(".build-model-dropdown-wrap")) {
-    closeAllBuildModelDropdowns();
-  }
-});
-
 const STATUS_LABELS = {
   draft: "Qaralama",
   analyzing: "Analiz edilir",
@@ -297,13 +178,6 @@ const state = {
   round: 0,
   strategy: null,
   versions: [],
-  buildModel: (() => {
-    try {
-      return localStorage.getItem("marketify_build_model") || "gpt-5.6-terra";
-    } catch {
-      return "gpt-5.6-terra";
-    }
-  })(),
   buildStreamingText: "",
   buildStreamingFinishReason: null,
   savedId: null,
@@ -771,9 +645,8 @@ function renderIntake() {
   submit.setAttribute("aria-label", "Strategiyanı qur");
   submit.appendChild(element("span", "", "↑"));
 
-  const modelDropdown = buildBuildModelDropdown();
   const composerActions = element("div", "ask-composer-actions");
-  composerActions.append(modelDropdown, submit);
+  composerActions.append(submit);
 
   form.append(attach, label, textarea, fileInput, composerActions);
 
@@ -2501,7 +2374,6 @@ async function startAssessment() {
         brief: state.brief,
         answers: state.answers,
         round: state.round,
-        model: state.buildModel || "gpt-5.6-terra",
       }),
     });
     currentAbortController = null;
@@ -2661,8 +2533,6 @@ async function startGeneration() {
 
   try {
     let finalStrategy = null;
-    const chosenModel = state.buildModel || "gpt-5.6-terra";
-
     try {
       const response = await fetch("/api/strategy/generate-stream", {
         method: "POST",
@@ -2675,7 +2545,6 @@ async function startGeneration() {
           answers: state.answers,
           assumptions: state.assumptions,
           idempotencyKey: state.clientSaveId,
-          model: chosenModel,
         }),
         signal: currentAbortController.signal,
       });
@@ -2685,7 +2554,7 @@ async function startGeneration() {
         const err = new Error(errData.error || "Strategiyanı hazırlamaq mümkün olmadı.");
         err.code = errData.code;
         err.status = response.status;
-        err.model = errData.model || chosenModel;
+        err.model = errData.model;
         throw err;
       }
 
@@ -2753,7 +2622,6 @@ async function startGeneration() {
           answers: state.answers,
           assumptions: state.assumptions,
           idempotencyKey: state.clientSaveId,
-          model: chosenModel,
         }),
       });
       finalStrategy = data.strategy;
@@ -2787,7 +2655,7 @@ async function startGeneration() {
         createdAt: state.updatedAt,
       },
     ];
-    trackEvent("strategy_generated", { clarificationRounds: state.round, model: chosenModel });
+    trackEvent("strategy_generated", { clarificationRounds: state.round, model: "gpt-5.6-terra" });
     setStatus("ready");
     render();
   } catch (error) {
@@ -4137,7 +4005,6 @@ async function requestRefinement(action, request) {
         strategy: state.strategy,
         action,
         request,
-        model: state.buildModel || "gpt-5.6-terra",
       }),
     });
     const record = data.strategy;

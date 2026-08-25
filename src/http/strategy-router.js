@@ -88,7 +88,7 @@ export function createStrategyRouter(repository) {
             userMessage: payload.brief,
             mode: "strategy",
           });
-          const strategy = await generateStrategy({ ...payload, model: payload.model, ownerId: req.ownerId, personalizationContext });
+          const strategy = await generateStrategy({ ...payload, ownerId: req.ownerId, personalizationContext });
           // Automatically save completed strategy to server repository so it is never lost if user closes browser
           try {
             const now = new Date().toISOString();
@@ -158,7 +158,6 @@ export function createStrategyRouter(repository) {
 
         const strategy = await generateStrategy({
           ...payload,
-          model: payload.model,
           ownerId: req.ownerId,
           personalizationContext,
           signal: abortController.signal,
@@ -207,7 +206,7 @@ export function createStrategyRouter(repository) {
           error: streamError.message || "Strategiya generasiyası uğursuz oldu.",
           code: streamError.code || (isRateLimit ? "AI_RATE_LIMITED" : isUnavailable ? "AI_PROVIDER_UNAVAILABLE" : isMaxTokens ? "AI_MAX_TOKENS" : isAuth ? "AI_AUTH_ERROR" : "STRATEGY_ERROR"),
           status: streamError.status || 500,
-          model: streamError.model || payload.model,
+          model: streamError.model,
           partialText: streamError.partialText || undefined,
         };
 

@@ -15,5 +15,5 @@ test("complex Ask queries and strategy context route to GPT-5.6 Terra", () => {
 test("only Terra and Luna can be selected explicitly", () => {
   assert.equal(resolveAskModelRoute({ requestedModel: "terra", lastUserMsg: "qısa sual" }), "terra");
   assert.equal(resolveAskModelRoute({ requestedModel: "luna", lastUserMsg: "dərin analiz" }), "luna");
-  assert.equal(resolveAskModelRoute({ requestedModel: "gemini-3.7-flash", lastUserMsg: "qısa sual" }), "luna");
+  assert.equal(resolveAskModelRoute({ requestedModel: "unsupported-model", lastUserMsg: "qısa sual" }), "luna");
 });

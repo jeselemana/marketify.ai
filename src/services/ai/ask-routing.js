@@ -7,7 +7,7 @@ export function isComplexAskQuery(lastUserMsg = "", hasStrategyContext = false) 
 }
 
 // Only GPT-5.6 Luna and GPT-5.6 Terra are accepted routes. Unsupported model
-// names (including Gemini) fall back to automatic routing instead of granting access.
+// names fall back to automatic routing instead of granting access.
 export function resolveAskModelRoute({ requestedModel = "auto", lastUserMsg = "", hasStrategyContext = false } = {}) {
   const requested = String(requestedModel || "auto").trim().toLowerCase();
   if (requested === "terra" || requested.includes("gpt-5.6-terra")) return "terra";
