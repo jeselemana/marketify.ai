@@ -82,6 +82,32 @@ export const CATEGORY_LABELS = Object.freeze({
   general: "Ümumi Qeyd",
 });
 
+const BUILD_TONE_LABELS = Object.freeze({
+  professional: "Peşəkar və analitik",
+  creative: "Yaradıcı və cəsarətli",
+  concise: "Qısa və icra yönümlü",
+  friendly: "Dostcasına və izahlı",
+  data_driven: "Nəticə və satış yönümlü",
+});
+
+export function buildStrategyPersonalizationContext({ user }) {
+  if (!user) return "";
+  const settings = user.settings && typeof user.settings === "object" ? user.settings : {};
+  if (settings.personalIntelligence !== true || settings.strategyPersonalization === false) return "";
+
+  const lines = [];
+  if (settings.brandName) lines.push(`Brand: ${clip(settings.brandName, 100)}`);
+  if (settings.industry) lines.push(`Industry: ${clip(settings.industry, 100)}`);
+  if (settings.primaryMarket) lines.push(`Primary market: ${clip(settings.primaryMarket, 100)}`);
+  if (settings.targetAudience) lines.push(`Target audience: ${clip(settings.targetAudience, 300)}`);
+
+  const tone = BUILD_TONE_LABELS[settings.tone];
+  if (tone) lines.push(`Tone: ${tone}`);
+  if (!lines.length) return "";
+
+  return `\n\nUse only this minimal user-configured profile when relevant to the strategy. Do not infer additional personal context.\n<build_profile>\n${lines.join("\n")}\n</build_profile>`;
+}
+
 export async function getRelevantUserContext({
   ownerId,
   userMessage,
@@ -157,10 +183,10 @@ export async function buildPersonalizationContext({
   mode = "ask",
 }) {
   if (!user) return "";
+  if (mode === "strategy") return buildStrategyPersonalizationContext({ user });
+
   const settings = user.settings && typeof user.settings === "object" ? user.settings : {};
   if (settings.personalIntelligence !== true) return "";
-
-  if (mode === "strategy" && settings.strategyPersonalization === false) return "";
 
   const sections = [];
 

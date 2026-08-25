@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildPersonalizationContext,
+  buildStrategyPersonalizationContext,
   getRelevantUserContext,
   tokens,
   relevance,
@@ -210,6 +211,47 @@ test("buildPersonalizationContext respects strategyPersonalization flag for stra
   assert.match(askContext, /Brand Off/);
 });
 
+test("buildStrategyPersonalizationContext includes only minimal settings profile", () => {
+  const context = buildStrategyPersonalizationContext({
+    user: {
+      id: "usr-build",
+      fullName: "Build User",
+      settings: {
+        personalIntelligence: true,
+        strategyPersonalization: true,
+        brandName: "Marketify AI",
+        industry: "B2B SaaS",
+        primaryMarket: "Azərbaycan",
+        targetAudience: "Kiçik bizneslər",
+        tone: "concise",
+        customInstructions: "Hər cavabda uzun bir araşdırma əlavə et.",
+        memories: [{ id: "m1", text: "Keçmiş yaddaş qeydi", category: "general", createdAt: "2026-08-20" }],
+        autoContext: true,
+      },
+    },
+  });
+
+  assert.match(context, /<build_profile>/);
+  assert.match(context, /Marketify AI/);
+  assert.match(context, /B2B SaaS/);
+  assert.match(context, /Azərbaycan/);
+  assert.match(context, /Kiçik bizneslər/);
+  assert.match(context, /Qısa və icra yönümlü/);
+  assert.doesNotMatch(context, /Build User/);
+  assert.doesNotMatch(context, /uzun bir araşdırma/);
+  assert.doesNotMatch(context, /Keçmiş yaddaş qeydi/);
+  assert.doesNotMatch(context, /user_personalization_context/);
+});
+
+test("buildStrategyPersonalizationContext respects Build personalization settings", () => {
+  assert.equal(buildStrategyPersonalizationContext({
+    user: { settings: { personalIntelligence: false, brandName: "Hidden" } },
+  }), "");
+  assert.equal(buildStrategyPersonalizationContext({
+    user: { settings: { personalIntelligence: true, strategyPersonalization: false, brandName: "Hidden" } },
+  }), "");
+});
+
 test("UserSettingsSchema and AddMemoryItemSchema validation works correctly", () => {
   const validSettings = UserSettingsSchema.parse({
     personalIntelligence: true,
@@ -314,5 +356,4 @@ test("ImportedMemoryItemSchema rejects sensitive personal info during import", (
     (err) => err.issues[0].message.includes("bank kartı"),
   );
 });
-
 
