@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { zodTextFormat } from "openai/helpers/zod";
 import { getOpenAIClient } from "./client.js";
 import { aiConfig, hasOpenAIConfiguration } from "./config.js";
 
@@ -66,29 +67,70 @@ export async function streamOpenAIContent({ model = aiConfig.strategyModel, inst
 }
 
 export async function routeStructuredGeneration({ schema, name, instructions, input, maxOutputTokens, reasoning = "medium", ownerId, signal, onChunk }) {
-  const result = await streamOpenAIContent({
-    model: aiConfig.strategyModel,
-    instructions: `${instructions}\n\nYou MUST return valid JSON adhering to the ${name} schema.`,
-    input,
-    onChunk,
-    ownerId,
-    signal,
-    maxOutputTokens: maxOutputTokens || aiConfig.strategyMaxOutputTokens,
-    reasoning,
-  });
-  const rawText = result.text.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/, "");
-  try {
-    return { data: schema.parse(normalizeStructuredOutput(JSON.parse(rawText), name)), model: result.model, finishReason: result.finishReason, rawText: result.text };
-  } catch (error) {
-    const isTruncated = result.finishReason === "length" || result.finishReason === "MAX_TOKENS";
-    const providerError = new LLMProviderError(isTruncated ? "Strategiya generasiyası token limitinə görə yarımçıq qaldı." : `Model çıxışı JSON sxeminə uyğun deyil: ${error.message}`, {
-      code: isTruncated ? "AI_MAX_TOKENS" : "AI_INVALID_OUTPUT",
-      status: isTruncated ? 422 : 502,
-      model: result.model,
+  if (!hasOpenAIConfiguration()) {
+    throw new LLMProviderError("OpenAI xidməti hələ konfiqurasiya edilməyib. OPENAI_API_KEY əlavə et və yenidən yoxla.", {
+      code: "AI_NOT_CONFIGURED",
+      status: 503,
+      model: aiConfig.strategyModel,
       provider: "openai",
-      details: { rawText: result.text, parseError: error.message },
     });
-    if (isTruncated) providerError.partialText = result.text;
-    throw providerError;
+  }
+
+  try {
+    const response = await getOpenAIClient().responses.parse(
+      {
+        model: aiConfig.strategyModel,
+        instructions,
+        input,
+        text: { format: zodTextFormat(schema, name) },
+        reasoning: { effort: reasoning },
+        max_output_tokens: maxOutputTokens || aiConfig.strategyMaxOutputTokens,
+        safety_identifier: privacySafeIdentifier(ownerId),
+      },
+      signal ? { signal } : undefined,
+    );
+
+    if (!response.output_parsed) {
+      throw new LLMProviderError("OpenAI cavabı doğrulana bilmədi.", {
+        code: "AI_INVALID_OUTPUT",
+        status: 502,
+        model: aiConfig.strategyModel,
+        provider: "openai",
+        details: response,
+      });
+    }
+
+    const data = schema.parse(normalizeStructuredOutput(response.output_parsed, name));
+    const rawText = JSON.stringify(data);
+    onChunk?.({ chunk: rawText, finishReason: "STOP", model: aiConfig.strategyModel });
+
+    return {
+      data,
+      model: aiConfig.strategyModel,
+      finishReason: "STOP",
+      rawText,
+    };
+  } catch (error) {
+    if (error instanceof LLMProviderError) throw error;
+    if (error.name === "AbortError" || signal?.aborted) throw error;
+
+    const httpStatus = error.status || 500;
+    if (httpStatus === 429 || error.code === "rate_limit_exceeded") {
+      throw new LLMProviderError("GPT-5.6 Terra xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
+        code: "AI_RATE_LIMITED",
+        status: 429,
+        model: aiConfig.strategyModel,
+        provider: "openai",
+        details: error,
+      });
+    }
+
+    throw new LLMProviderError(`OpenAI generasiya xətası: ${error.message}`, {
+      code: error.code || "AI_PROVIDER_ERROR",
+      status: httpStatus >= 500 ? 503 : httpStatus,
+      model: aiConfig.strategyModel,
+      provider: "openai",
+      details: error,
+    });
   }
 }
