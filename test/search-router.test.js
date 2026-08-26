@@ -123,4 +123,20 @@ test("evaluateSearchRoute extracts prompt and returns appropriate route decision
   });
   assert.equal(route3.enableSearch, true);
   assert.equal(route3.intent, "grounded_search");
+
+  // When strategy context is attached, internal strategy queries shouldn't trigger external web search
+  const routeWithStrategyContext1 = evaluateSearchRoute({
+    prompt: "Bu strategiyadakı rəqib analizi və büdcə bölgüsünü izah et",
+    hasStrategyContext: true,
+  });
+  assert.equal(routeWithStrategyContext1.enableSearch, false);
+  assert.equal(routeWithStrategyContext1.intent, "standard");
+
+  // When strategy context is attached, explicit search requests SHOULD still trigger web search
+  const routeWithStrategyContext2 = evaluateSearchRoute({
+    prompt: "İnternetdə axtar və bu saytı yoxla: https://example.com",
+    hasStrategyContext: true,
+  });
+  assert.equal(routeWithStrategyContext2.enableSearch, true);
+  assert.equal(routeWithStrategyContext2.intent, "grounded_search");
 });

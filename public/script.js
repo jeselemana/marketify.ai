@@ -1417,8 +1417,10 @@ class LiveTypewriter {
   }
 
   finish(finalText) {
-    if (typeof finalText === "string" && finalText.length >= this.targetText.length) {
-      this.targetText = finalText;
+    if (typeof finalText === "string" && finalText.length > 0) {
+      if (finalText.length >= this.targetText.length || !this.targetText) {
+        this.targetText = finalText;
+      }
     }
     this.isDone = true;
     if (!this.rafId) {
@@ -2698,6 +2700,8 @@ function showLoadingAskModal(initialQuery) {
         body: JSON.stringify({
           messages: thread,
           model: state.askModel || "auto",
+          strategyId: state.askStrategyId || undefined,
+          taskId: state.askTaskId || undefined,
           chatId: state.askChatId || undefined,
           stream: true,
         }),

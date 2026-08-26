@@ -371,9 +371,11 @@ const ASK_MODEL = aiConfig.askModel;
 const ASK_COMPLEX_MODEL = aiConfig.askComplexModel;
 const ASK_GEMINI_MODEL = aiConfig.askGeminiModel;
 const ASK_INSTRUCTIONS = `You are Marketify Ask, a precise, fast, and helpful AI assistant inside the Marketify workspace.
-Answer the user's question directly, clearly, and concisely in the language they use.
-Avoid unnecessary preamble, boilerplate introductory phrases, or overly exhaustive breakdowns unless the user specifically asks for deep detail.
+Answer the user's question directly, clearly, and completely in the language they use.
+Avoid unnecessary preamble or boilerplate introductory phrases.
+Always complete your thoughts, explanations, and analyses fully without leaving sentences, bullet points, or sections truncated or cut off.
 Never claim to have performed actions, searches, or analysis that you did not perform.
+If reference context (such as a saved strategy or task) is provided, thoroughly analyze it to address the user's specific request while preserving depth and structural completeness.
 If the user wants to build a complete business or marketing strategy, explain that the Build mode is optimized for the structured strategy workflow, while still answering their immediate question.`;
 
 function askSafetyIdentifier(ownerId) {
@@ -677,11 +679,11 @@ async function generateOpenAIAskResponse({
 }
 
 const GEMINI_SAFETY_SETTINGS = [
-  { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-  { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-  { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-  { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-  { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+  { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+  { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+  { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+  { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
+  { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_ONLY_HIGH" },
 ];
 
 const askRequestWindows = new Map();
@@ -765,6 +767,20 @@ async function generateGeminiAskStreamResponse({
     }
   }
 
+  // Gemini API requires the first turn to be from role "user"
+  while (contents.length > 0 && contents[0].role === "model") {
+    contents.shift();
+  }
+
+  if (contents.length === 0) {
+    contents.push({ role: "user", parts: [{ text: "Salam" }] });
+  }
+
+  // Gemini API requires the last turn before generation to be from role "user"
+  if (contents.length > 0 && contents[contents.length - 1].role === "model") {
+    contents.push({ role: "user", parts: [{ text: "Davam et" }] });
+  }
+
   const searchGuidance = enableSearch
     ? "\n\nLive Google Search Grounding is active for this query. You have real-time internet search capability. Search the web and use the latest grounded search results to provide accurate, up-to-date facts, current prices, and real-time market data. Never say that you cannot browse the internet or that live search is disabled."
     : "";
@@ -779,7 +795,7 @@ async function generateGeminiAskStreamResponse({
   if (isThinkingEnabled) {
     const budget = typeof aiConfig.geminiThinkingBudget === "number" && !Number.isNaN(aiConfig.geminiThinkingBudget)
       ? aiConfig.geminiThinkingBudget
-      : 2048;
+      : -1;
     config.thinkingConfig = {
       thinkingBudget: budget,
     };
@@ -879,16 +895,8 @@ async function generateGeminiAskStreamResponse({
       groundingMetadata: groundingMetadata || null,
     };
   } catch (error) {
-    if (accumulated.trim()) {
-      return {
-        text: accumulated.trim(),
-        usage,
-        model,
-        provider: "google",
-        groundingMetadata: groundingMetadata || null,
-      };
-    }
     if (error instanceof LLMProviderError) throw error;
+    if (error.name === "AbortError" || signal?.aborted) throw error;
     const status = error?.status || 503;
     const cleanMsg = formatGeminiErrorMessage(error);
     throw new LLMProviderError(
@@ -926,6 +934,20 @@ async function generateGeminiAskResponse({
     }
   }
 
+  // Gemini API requires the first turn to be from role "user"
+  while (contents.length > 0 && contents[0].role === "model") {
+    contents.shift();
+  }
+
+  if (contents.length === 0) {
+    contents.push({ role: "user", parts: [{ text: "Salam" }] });
+  }
+
+  // Gemini API requires the last turn before generation to be from role "user"
+  if (contents.length > 0 && contents[contents.length - 1].role === "model") {
+    contents.push({ role: "user", parts: [{ text: "Davam et" }] });
+  }
+
   const searchGuidance = enableSearch
     ? "\n\nLive Google Search Grounding is active for this query. You have real-time internet search capability. Search the web and use the latest grounded search results to provide accurate, up-to-date facts, current prices, and real-time market data. Never say that you cannot browse the internet or that live search is disabled."
     : "";
@@ -940,7 +962,7 @@ async function generateGeminiAskResponse({
   if (isThinkingEnabled) {
     const budget = typeof aiConfig.geminiThinkingBudget === "number" && !Number.isNaN(aiConfig.geminiThinkingBudget)
       ? aiConfig.geminiThinkingBudget
-      : 2048;
+      : -1;
     config.thinkingConfig = {
       thinkingBudget: budget,
     };

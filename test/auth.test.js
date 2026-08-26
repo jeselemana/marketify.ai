@@ -43,6 +43,7 @@ test("user store migration and uniqueness are deterministic", async (t) => {
       memories: [],
       autoContext: true,
       strategyPersonalization: true,
+      defaultMode: "build",
     },
   );
   const repository = new FileUserRepository(path.join(directory, "users.json"));

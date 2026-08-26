@@ -69,7 +69,15 @@ export function evaluateSearchRoute({ prompt = "", messages = [], hasStrategyCon
     ? prompt.trim()
     : (Array.isArray(messages) ? messages.filter((m) => m && m.role === "user").at(-1)?.content || "" : "");
 
-  const enableSearch = shouldEnableSearch(lastUserMsg);
+  let enableSearch = false;
+  if (hasStrategyContext) {
+    // When a strategy or task is selected as context, internal terms (competitors, budget, pricing)
+    // belong to the strategy document. Only enable live web search if the user explicitly requests
+    // online lookup or provides an external URL.
+    enableSearch = URL_PATTERN.test(lastUserMsg) || SEARCH_INTENT_PATTERN.test(lastUserMsg);
+  } else {
+    enableSearch = shouldEnableSearch(lastUserMsg);
+  }
 
   return {
     enableSearch,
