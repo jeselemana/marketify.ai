@@ -19,6 +19,7 @@ function migrateUser(user) {
       memories: Array.isArray(currentSettings.memories) ? currentSettings.memories : [],
       autoContext: currentSettings.autoContext !== false,
       strategyPersonalization: currentSettings.strategyPersonalization !== false,
+      defaultMode: currentSettings.defaultMode === "ask" ? "ask" : "build",
     },
   };
 }

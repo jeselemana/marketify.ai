@@ -257,11 +257,16 @@ test("UserSettingsSchema and AddMemoryItemSchema validation works correctly", ()
     personalIntelligence: true,
     brandName: "Test Co",
     tone: "creative",
+    defaultMode: "ask",
     memories: [{ id: "m1", text: "Biz yalnız B2B şirkətlərlə işləyirik.", category: "preference", createdAt: "2026-08-20" }],
   });
   assert.equal(validSettings.brandName, "Test Co");
   assert.equal(validSettings.tone, "creative");
+  assert.equal(validSettings.defaultMode, "ask");
   assert.equal(validSettings.memories.length, 1);
+
+  const defaultModeDefault = UserSettingsSchema.parse({});
+  assert.equal(defaultModeDefault.defaultMode, "build");
 
   const memory = AddMemoryItemSchema.parse({ text: "Biz yalnız B2B şirkətlərlə işləyirik.", category: "business" });
   assert.equal(memory.text, "Biz yalnız B2B şirkətlərlə işləyirik.");

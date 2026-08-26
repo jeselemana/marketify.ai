@@ -210,6 +210,7 @@ export const UserSettingsSchema = z.object({
   memories: z.array(UserMemoryItemSchema).max(50, "Maksimum 50 yaddaş qeydi saxlanıla bilər.").optional(),
   autoContext: z.boolean().optional().default(true),
   strategyPersonalization: z.boolean().optional().default(true),
+  defaultMode: z.enum(["build", "ask"]).optional().default("build"),
 });
 
 export const ImportedMemoryItemSchema = z.object({

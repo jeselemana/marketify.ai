@@ -28,8 +28,9 @@ test("only Terra, Luna, and Gemini 3.7 Flash can be selected explicitly", () => 
 });
 
 test("Gemini configuration exposes default 3.7 flash and thinking budget", async () => {
-  const { aiConfig, hasGeminiConfiguration } = await import("../src/services/ai/config.js");
+  const { aiConfig, hasGeminiConfiguration, hasOpenAIConfiguration } = await import("../src/services/ai/config.js");
   assert.equal(aiConfig.askGeminiModel, "gemini-3.7-flash");
   assert.equal(typeof aiConfig.geminiThinkingBudget, "number");
   assert.equal(typeof hasGeminiConfiguration(), "boolean");
+  assert.equal(typeof hasOpenAIConfiguration(), "boolean");
 });

@@ -5304,6 +5304,56 @@ function renderSettings() {
     });
     form.appendChild(scopesAccordion);
 
+    // 6. Default Mode (Bottom Accordion before Save)
+    const modeGrid = element("div", "experience-tone-grid experience-mode-grid");
+    const modeOptions = [
+      {
+        id: "build",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+        name: "Build Rejimi",
+        desc: "Marketify açıldıqda və ya yeni sessiyada birbaşa strukturlaşdırılmış strategiya hazırlamaq rejimini aktiv edin.",
+      },
+      {
+        id: "ask",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        name: "Ask Rejimi",
+        desc: "Marketify açıldıqda və ya yeni sessiyada birbaşa AI ilə interaktiv söhbət və operativ sual-cavab rejimini aktiv edin.",
+      },
+    ];
+
+    let currentDefaultMode = userSettings.defaultMode || "build";
+    const currentModeObj = modeOptions.find((m) => m.id === currentDefaultMode) || modeOptions[0];
+    const modeBadge = element("span", "experience-summary-badge", currentModeObj.name);
+
+    modeOptions.forEach((opt) => {
+      const card = element("button", `experience-tone-card experience-mode-card${currentDefaultMode === opt.id ? " is-selected" : ""}`);
+      card.type = "button";
+      card.innerHTML = `
+        <div class="tone-card-top">
+          <span class="tone-card-icon-wrap">${opt.icon}</span>
+          <strong class="tone-card-title">${opt.name}</strong>
+          <span class="tone-card-check"></span>
+        </div>
+        <p class="tone-card-desc">${opt.desc}</p>
+      `;
+      card.addEventListener("click", () => {
+        currentDefaultMode = opt.id;
+        modeBadge.textContent = opt.name;
+        modeGrid.querySelectorAll(".experience-mode-card").forEach((c) => c.classList.remove("is-selected"));
+        card.classList.add("is-selected");
+      });
+      modeGrid.appendChild(card);
+    });
+
+    const defaultModeAccordion = createExperienceAccordion({
+      title: "Default rejim",
+      desc: "Platformanı açarkən Ask və ya Build rejiminin standart olaraq seçilməsini təyin edin.",
+      badgeNode: modeBadge,
+      isOpen: false,
+      contentNode: modeGrid,
+    });
+    form.appendChild(defaultModeAccordion);
+
     // Save bar
     const save = button("Dəyişiklikləri saxla", "primary-button experience-save-btn");
     save.type = "submit";
@@ -5325,6 +5375,7 @@ function renderSettings() {
         memories: memoriesList,
         autoContext: isAutoContext,
         strategyPersonalization: isStrategyPersonalization,
+        defaultMode: currentDefaultMode,
       };
       try {
         const data = await authRequest("/api/auth/settings", {
@@ -7830,6 +7881,9 @@ if (!new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/veri
 
 initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
+  if (user?.settings?.defaultMode && (user.settings.defaultMode === "ask" || user.settings.defaultMode === "build")) {
+    setMode(user.settings.defaultMode);
+  }
   resumeBackgroundJobs();
   render();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks(), loadUsageStats()]);
