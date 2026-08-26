@@ -36,7 +36,7 @@ function normalizeStructuredOutput(parsed, name) {
   return parsed;
 }
 
-export async function streamOpenAIContent({ model = aiConfig.strategyModel, instructions, input, onChunk, ownerId, signal, maxOutputTokens = aiConfig.strategyMaxOutputTokens, reasoning = "medium" }) {
+export async function streamOpenAIContent({ model = aiConfig.strategyModel, instructions, input, onChunk, onUsage, ownerId, signal, maxOutputTokens = aiConfig.strategyMaxOutputTokens, reasoning = "medium" }) {
   if (!hasOpenAIConfiguration()) {
     throw new LLMProviderError("OpenAI xidməti hələ konfiqurasiya edilməyib. OPENAI_API_KEY əlavə et və yenidən yoxla.", { code: "AI_NOT_CONFIGURED", status: 503, model, provider: "openai" });
   }
@@ -51,22 +51,25 @@ export async function streamOpenAIContent({ model = aiConfig.strategyModel, inst
     }, signal ? { signal } : undefined);
     let text = "";
     let finishReason = null;
+    let usage = null;
     for await (const chunk of stream) {
       const delta = chunk.choices?.[0]?.delta?.content || "";
       finishReason = chunk.choices?.[0]?.finish_reason || finishReason;
+      usage = chunk.usage || usage;
       if (delta) {
         text += delta;
         onChunk?.({ chunk: delta, finishReason, model });
       }
     }
-    return { text, finishReason: finishReason || "STOP", model, provider: "openai" };
+    onUsage?.({ usage, model, provider: "openai" });
+    return { text, finishReason: finishReason || "STOP", model, provider: "openai", usage };
   } catch (error) {
     if (error.name === "AbortError" || signal?.aborted) throw error;
     throw new LLMProviderError(`OpenAI xidməti ilə əlaqə qurmaq mümkün olmadı: ${error.message}`, { code: "AI_PROVIDER_ERROR", status: error.status || 503, model, provider: "openai", details: error });
   }
 }
 
-export async function routeStructuredGeneration({ schema, name, instructions, input, maxOutputTokens, reasoning = "medium", ownerId, signal, onChunk }) {
+export async function routeStructuredGeneration({ schema, name, instructions, input, maxOutputTokens, reasoning = "medium", ownerId, signal, onChunk, onUsage }) {
   if (!hasOpenAIConfiguration()) {
     throw new LLMProviderError("OpenAI xidməti hələ konfiqurasiya edilməyib. OPENAI_API_KEY əlavə et və yenidən yoxla.", {
       code: "AI_NOT_CONFIGURED",
@@ -103,10 +106,13 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
     const data = schema.parse(normalizeStructuredOutput(response.output_parsed, name));
     const rawText = JSON.stringify(data);
     onChunk?.({ chunk: rawText, finishReason: "STOP", model: aiConfig.strategyModel });
+    onUsage?.({ usage: response.usage || null, model: aiConfig.strategyModel, provider: "openai" });
 
     return {
       data,
       model: aiConfig.strategyModel,
+      provider: "openai",
+      usage: response.usage || null,
       finishReason: "STOP",
       rawText,
     };

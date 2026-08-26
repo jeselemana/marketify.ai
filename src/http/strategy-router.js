@@ -8,6 +8,8 @@ import {
 } from "../domain/strategy.js";
 import { assessBrief, generateStrategy, refineStrategy } from "../services/ai/strategy-service.js";
 import { buildStrategyPersonalizationContext } from "../services/ai/personal-context.js";
+import { aiConfig } from "../services/ai/config.js";
+import { logWithoutBlocking } from "../services/learning/learning-loop-service.js";
 
 const activeGenerations = new Map();
 const requestWindows = new Map();
@@ -49,7 +51,31 @@ function publicRecord(record) {
   return safe;
 }
 
-export function createStrategyRouter(repository) {
+async function runTrackedBuild({ learningLoop, ownerId, taskType, userPrompt, relevantContext, execute }) {
+  if (!learningLoop) return { result: await execute(() => {}), interactionId: null };
+  const interactionId = learningLoop.createInteractionId();
+  const startedAt = Date.now();
+  let providerMeta = { provider: "openai", model: aiConfig.strategyModel, usage: null };
+  try {
+    const result = await execute((meta) => { providerMeta = { ...providerMeta, ...meta }; });
+    logWithoutBlocking(learningLoop.recordInteraction({
+      id: interactionId, ownerId, mode: "build", taskType, userPrompt, relevantContext,
+      modelProvider: providerMeta.provider, modelName: providerMeta.model, modelResponse: result,
+      usage: providerMeta.usage, latencyMs: Date.now() - startedAt, requestStatus: "success",
+    }), `Build ${taskType} logging`);
+    return { result, interactionId, providerMeta };
+  } catch (error) {
+    logWithoutBlocking(learningLoop.recordInteraction({
+      id: interactionId, ownerId, mode: "build", taskType, userPrompt, relevantContext,
+      modelProvider: providerMeta.provider, modelName: providerMeta.model, modelResponse: "",
+      usage: providerMeta.usage, latencyMs: Date.now() - startedAt, requestStatus: "error",
+      errorType: error?.code || error?.name || "BUILD_ERROR",
+    }), `Build ${taskType} failure logging`);
+    throw error;
+  }
+}
+
+export function createStrategyRouter(repository, learningLoop = null) {
   const router = express.Router();
 
   router.use(rateLimit(30));
@@ -65,7 +91,12 @@ export function createStrategyRouter(repository) {
       const personalizationContext = buildStrategyPersonalizationContext({
         user: req.user,
       });
-      const assessment = await assessBrief({ ...payload, ownerId: req.ownerId, personalizationContext, signal: abortController.signal });
+      const tracked = await runTrackedBuild({
+        learningLoop, ownerId: req.ownerId, taskType: "build_assess", userPrompt: payload.brief,
+        relevantContext: { personalizationApplied: Boolean(personalizationContext) },
+        execute: (onUsage) => assessBrief({ ...payload, ownerId: req.ownerId, personalizationContext, signal: abortController.signal, onUsage }),
+      });
+      const assessment = tracked.result;
       if (!res.writableEnded) {
         res.json({ assessment });
       }
@@ -84,7 +115,12 @@ export function createStrategyRouter(repository) {
           const personalizationContext = buildStrategyPersonalizationContext({
             user: req.user,
           });
-          const strategy = await generateStrategy({ ...payload, ownerId: req.ownerId, personalizationContext });
+          const tracked = await runTrackedBuild({
+            learningLoop, ownerId: req.ownerId, taskType: "build_generate", userPrompt: payload.brief,
+            relevantContext: { personalizationApplied: Boolean(personalizationContext) },
+            execute: (onUsage) => generateStrategy({ ...payload, ownerId: req.ownerId, personalizationContext, onUsage }),
+          });
+          const strategy = tracked.result;
           // Automatically save completed strategy to server repository so it is never lost if user closes browser
           try {
             const now = new Date().toISOString();
@@ -102,13 +138,14 @@ export function createStrategyRouter(repository) {
                     createdAt: now,
                   },
                 ],
+                learningInteractionId: tracked.interactionId,
               },
               req.ownerId,
             );
           } catch (saveErr) {
             console.error("Auto-save on server failed:", saveErr);
           }
-          return strategy;
+          return tracked;
         })();
 
         activeGenerations.set(requestKey, generation);
@@ -118,7 +155,8 @@ export function createStrategyRouter(repository) {
         );
       }
 
-      const strategy = await generation;
+      const tracked = await generation;
+      const strategy = tracked.result;
       if (!res.writableEnded) {
         res.json({ strategy });
       }
@@ -150,15 +188,15 @@ export function createStrategyRouter(repository) {
           user: req.user,
         });
 
-        const strategy = await generateStrategy({
-          ...payload,
-          ownerId: req.ownerId,
-          personalizationContext,
-          signal: abortController.signal,
-          onChunk: ({ chunk, finishReason, model }) => {
-            sendEvent({ chunk, finishReason, model });
-          },
+        const tracked = await runTrackedBuild({
+          learningLoop, ownerId: req.ownerId, taskType: "build_generate", userPrompt: payload.brief,
+          relevantContext: { personalizationApplied: Boolean(personalizationContext) },
+          execute: (onUsage) => generateStrategy({
+            ...payload, ownerId: req.ownerId, personalizationContext, signal: abortController.signal, onUsage,
+            onChunk: ({ chunk, finishReason, model }) => sendEvent({ chunk, finishReason, model }),
+          }),
         });
+        const strategy = tracked.result;
 
         try {
           const now = new Date().toISOString();
@@ -176,6 +214,7 @@ export function createStrategyRouter(repository) {
                   createdAt: now,
                 },
               ],
+              learningInteractionId: tracked.interactionId,
             },
             req.ownerId,
           );
@@ -221,7 +260,12 @@ export function createStrategyRouter(repository) {
       const personalizationContext = buildStrategyPersonalizationContext({
         user: req.user,
       });
-      const strategy = await refineStrategy(payload, req.ownerId, abortController.signal, personalizationContext);
+      const tracked = await runTrackedBuild({
+        learningLoop, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
+        relevantContext: { personalizationApplied: Boolean(personalizationContext) },
+        execute: (onUsage) => refineStrategy(payload, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
+      });
+      const strategy = tracked.result;
       if (!res.writableEnded) {
         res.json({ strategy });
       }
@@ -233,6 +277,20 @@ export function createStrategyRouter(repository) {
     asyncRoute(async (req, res) => {
       const payload = parse(SaveStrategyRequestSchema, req.body);
       const record = await repository.create(payload, req.ownerId);
+      if (learningLoop && payload.acceptForLearning && record.learningInteractionId) {
+        const latestVersion = payload.versions.at(-1);
+        const learningUpdate = learningLoop.recordSignal(record.learningInteractionId, req.ownerId, { accepted: true })
+          .then(() => payload.versions.length > 1 ? learningLoop.recordIteration({
+            parentInteractionId: record.learningInteractionId,
+            ownerId: req.ownerId,
+            modificationRequest: latestVersion.changeRequest,
+            response: latestVersion.data,
+            modelProvider: "openai",
+            modelName: aiConfig.strategyModel,
+            finalAccepted: true,
+          }) : null);
+        logWithoutBlocking(learningUpdate, "Build acceptance logging");
+      }
       res.status(201).json({ strategy: publicRecord(record) });
     }),
   );
@@ -259,9 +317,24 @@ export function createStrategyRouter(repository) {
       const personalizationContext = buildStrategyPersonalizationContext({
         user: req.user,
       });
-      const strategy = await refineStrategy(payload, req.ownerId, undefined, personalizationContext);
+      const tracked = await runTrackedBuild({
+        learningLoop, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
+        relevantContext: { resourceId: existing.id, personalizationApplied: Boolean(personalizationContext) },
+        execute: (onUsage) => refineStrategy(payload, req.ownerId, undefined, personalizationContext, undefined, onUsage),
+      });
+      const strategy = tracked.result;
       const changeRequest = payload.action === "custom" ? payload.request : payload.action;
       const updated = await repository.appendVersion(req.params.id, req.ownerId, strategy, changeRequest);
+      if (learningLoop && existing.learningInteractionId) {
+        logWithoutBlocking(
+          learningLoop.recordIteration({
+            parentInteractionId: existing.learningInteractionId, interactionId: tracked.interactionId, ownerId: req.ownerId,
+            modificationRequest: changeRequest, response: strategy, modelProvider: tracked.providerMeta.provider,
+            modelName: tracked.providerMeta.model, finalAccepted: false,
+          }),
+          "Build iteration logging",
+        );
+      }
       res.json({ strategy: publicRecord(updated) });
     }),
   );

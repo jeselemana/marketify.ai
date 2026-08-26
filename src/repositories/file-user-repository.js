@@ -277,7 +277,7 @@ export class FileUserRepository {
     });
   }
 
-  async purgeExpiredAccounts({ strategyRepository = null, chatRepository = null, plannerRepository = null, authStore = null } = {}) {
+  async purgeExpiredAccounts({ strategyRepository = null, chatRepository = null, plannerRepository = null, aiLearningRepository = null, authStore = null } = {}) {
     return this.enqueue(async () => {
       const store = await this.readStore();
       const now = new Date();
@@ -304,6 +304,7 @@ export class FileUserRepository {
           if (strategyRepository?.deleteAllByOwner) await strategyRepository.deleteAllByOwner(userId);
           if (chatRepository?.deleteAllByOwner) await chatRepository.deleteAllByOwner(userId);
           if (plannerRepository?.deleteAllByOwner) await plannerRepository.deleteAllByOwner(userId);
+          if (aiLearningRepository?.deleteAllByOwner) await aiLearningRepository.deleteAllByOwner(userId);
         } catch (err) {
           console.error(`Error cascading data deletion for expired user ${userId}:`, err);
         }

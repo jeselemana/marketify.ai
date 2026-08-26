@@ -138,6 +138,7 @@ export class FileStrategyRepository {
       strategy: payload.strategy,
       status: "saved",
       currentVersionId: versions.at(-1).id,
+      learningInteractionId: payload.learningInteractionId || null,
       versions,
       createdAt: now,
       updatedAt: now,

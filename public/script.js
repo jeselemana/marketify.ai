@@ -820,6 +820,20 @@ async function copyAskResponse(content, successMessage = "Cavab kopyalandı.") {
   }
 }
 
+async function recordLearningSignal(interactionId, signal) {
+  if (!interactionId) return;
+  try {
+    await fetch(`/api/learning/signals/${encodeURIComponent(interactionId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(signal),
+      keepalive: true,
+    });
+  } catch (error) {
+    console.warn("Learning signal could not be recorded:", error?.message || error);
+  }
+}
+
 async function shareAskResponse(content) {
   if (navigator.share) {
     try {
@@ -890,6 +904,7 @@ function renderAsk() {
           const copy = button("", "ask-response-action ask-response-copy-btn", async () => {
             const ok = await copyAskResponse(message.content);
             if (ok) {
+              recordLearningSignal(message.interactionId, { copied: true });
               copy.classList.add("is-copied");
               copy.title = "Kopyalandı";
               copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
@@ -906,6 +921,26 @@ function renderAsk() {
           copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
 
           actions.append(copy);
+
+          const positive = button("", `ask-response-action${message.feedback === "positive" ? " is-selected" : ""}`, () => {
+            message.feedback = "positive";
+            recordLearningSignal(message.interactionId, { explicitRating: "positive", accepted: true });
+            render();
+          });
+          positive.type = "button";
+          positive.title = "Faydalı";
+          positive.setAttribute("aria-label", "Cavab faydalıdır");
+          positive.textContent = "↑";
+          const negative = button("", `ask-response-action${message.feedback === "negative" ? " is-selected" : ""}`, () => {
+            message.feedback = "negative";
+            recordLearningSignal(message.interactionId, { explicitRating: "negative" });
+            render();
+          });
+          negative.type = "button";
+          negative.title = "Faydalı deyil";
+          negative.setAttribute("aria-label", "Cavab faydalı deyil");
+          negative.textContent = "↓";
+          actions.append(positive, negative);
 
           const moreMenu = document.createElement("details");
           moreMenu.className = "ask-response-more-menu";
@@ -1257,6 +1292,8 @@ async function thinkDeeperWithTerra(messageIndex) {
   const historyMessages = state.askMessages.slice(0, messageIndex);
   if (!historyMessages.length) return;
 
+  recordLearningSignal(assistantMsg.interactionId, { regenerated: true });
+
   assistantMsg.content = "";
   assistantMsg.model = "terra";
   assistantMsg.isStreaming = true;
@@ -1330,6 +1367,7 @@ async function thinkDeeperWithTerra(messageIndex) {
             const finalReply = data.reply || accumulatedFullText;
             accumulatedFullText = finalReply;
             typewriter.finish(finalReply);
+            assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
             rememberSavedAskChat(data.chat);
           }
         } catch (parseErr) {
@@ -1373,6 +1411,7 @@ async function thinkDeeperWithTerra(messageIndex) {
       const data = await response.json();
       assistantMsg.content = data.reply;
       assistantMsg.model = data.model || "terra";
+      assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
       assistantMsg.isStreaming = false;
       rememberSavedAskChat(data.chat);
     }
@@ -1473,6 +1512,7 @@ async function submitAskMessage(message) {
             const finalReply = data.reply || accumulatedFullText;
             accumulatedFullText = finalReply;
             typewriter.finish(finalReply);
+            assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
             rememberSavedAskChat(data.chat);
           }
         } catch (parseErr) {
@@ -1516,6 +1556,7 @@ async function submitAskMessage(message) {
       const data = await response.json();
       assistantMsg.content = data.reply;
       assistantMsg.model = data.model || assistantMsg.model;
+      assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
       assistantMsg.isStreaming = false;
       rememberSavedAskChat(data.chat);
     }
@@ -4042,6 +4083,7 @@ async function saveStrategy() {
         answers: state.answers,
         strategy: state.strategy,
         versions: state.versions,
+        acceptForLearning: true,
       }),
     });
     state.savedId = data.strategy.id;
@@ -4781,8 +4823,8 @@ function renderSettings() {
     };
 
     scopesWrapper.append(
-      createScopeRow("Ask söhbətlərində keçmiş kontekstdən istifadə", "Cari sualınızla bağlı olduqda keçmiş söhbətlər və strategiyalardan faydalı məlumatlar avtomatik cəlb edilir.", isAutoContext, (v) => { isAutoContext = v; }),
-      createScopeRow("Build rejimində yeni strategiyalara tətbiq etmə", "Yeni strategiya yaradarkən və dəqiqləşdirərkən yuxarıdakı brend profili və ton nəzərə alınır.", isStrategyPersonalization, (v) => { isStrategyPersonalization = v; }),
+      createScopeRow("Ask", "Cari sualınızla bağlı olduqda keçmiş söhbətlər və strategiyalardan faydalı məlumatlar avtomatik cəlb edilir.", isAutoContext, (v) => { isAutoContext = v; }),
+      createScopeRow("Build", "Yeni strategiya yaradarkən və dəqiqləşdirərkən yuxarıdakı brend profili və ton nəzərə alınır.", isStrategyPersonalization, (v) => { isStrategyPersonalization = v; }),
     );
 
     const scopesAccordion = createExperienceAccordion({

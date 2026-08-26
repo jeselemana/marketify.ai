@@ -26,6 +26,7 @@ export async function assessBrief({
   signal,
   personalizationContext = "",
   onChunk,
+  onUsage,
 }) {
   const signals = analyzeBriefSignals(brief);
   const forceDecision = round >= aiConfig.maxClarificationRounds;
@@ -45,6 +46,7 @@ export async function assessBrief({
     ownerId,
     signal,
     onChunk,
+    onUsage,
   });
 
   const assessment = validateAssessment(result.data);
@@ -70,6 +72,7 @@ export async function generateStrategy({
   signal,
   personalizationContext = "",
   onChunk,
+  onUsage,
 }) {
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
     assumptions.length ? assumptions.join("\n- ") : "None supplied."
@@ -85,12 +88,13 @@ export async function generateStrategy({
     ownerId,
     signal,
     onChunk,
+    onUsage,
   });
 
   return result.data;
 }
 
-export async function refineStrategy(payload, ownerId, signal, personalizationContext = "", onChunk) {
+export async function refineStrategy(payload, ownerId, signal, personalizationContext = "", onChunk, onUsage) {
   const result = await routeStructuredGeneration({
     schema: StrategySchema,
     name: "marketify_refined_strategy",
@@ -101,6 +105,7 @@ export async function refineStrategy(payload, ownerId, signal, personalizationCo
     ownerId,
     signal,
     onChunk,
+    onUsage,
   });
 
   return result.data;

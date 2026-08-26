@@ -143,6 +143,7 @@ export const SaveStrategyRequestSchema = z.object({
   clientSaveId: z.string().trim().min(8).max(120),
   brief: z.string().trim().min(8).max(8000),
   answers: z.array(ClarificationAnswerSchema).max(10).default([]),
+  acceptForLearning: z.boolean().optional().default(false),
   strategy: StrategySchema,
   versions: z
     .array(

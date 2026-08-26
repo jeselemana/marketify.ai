@@ -92,7 +92,7 @@ async function startSession(req, res, authStore, userId) {
   return sessionId;
 }
 
-export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, appUrl }) {
+export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, aiLearningRepository, appUrl }) {
   // server.js loads dotenv after ESM imports have been evaluated. Resolve this
   // value when the router is created so the configured client ID is available.
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -121,6 +121,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     if (req.guestOwnerId && strategyRepository?.claimOwner) await strategyRepository.claimOwner(req.guestOwnerId, userId);
     if (req.guestOwnerId && chatRepository?.claimOwner) await chatRepository.claimOwner(req.guestOwnerId, userId);
     if (req.guestOwnerId && plannerRepository?.claimOwner) await plannerRepository.claimOwner(req.guestOwnerId, userId);
+    if (req.guestOwnerId && aiLearningRepository?.claimOwner) await aiLearningRepository.claimOwner(req.guestOwnerId, userId);
   }
 
   async function startEmailVerificationCooldown(req, email) {
@@ -196,7 +197,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       if (user.scheduledDeletionAt) {
         const scheduledTime = new Date(user.scheduledDeletionAt).getTime();
         if (!isNaN(scheduledTime) && scheduledTime <= Date.now()) {
-          await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore }).catch(() => {});
+          await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore }).catch(() => {});
           return res.status(401).json({
             error: "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
             code: "ACCOUNT_EXPIRED_DELETED",
@@ -287,7 +288,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
 
   router.post("/email-verification/confirm", limit(authStore, "email-verification-confirm", 10, 15 * 60, (req) => normalizeEmail(req.body?.email)), asyncRoute(async (req, res) => {
     const payload = parseBody(EmailVerificationConfirmSchema, req.body);
-    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore });
+    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore });
     const user = await userRepository.findByEmail(payload.email);
     const tokenId = user ? hashOpaqueToken(`${user.id}:${payload.code}`) : hashOpaqueToken(`missing:${payload.code}`);
     const token = await authStore.consumeEmailVerificationToken(tokenId);
@@ -303,7 +304,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   }));
 
   router.post("/login", limit(authStore, "login", 12, 15 * 60, (req) => String(req.body?.identifier || "").toLowerCase()), asyncRoute(async (req, res) => {
-    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore }).catch(() => {});
+    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore }).catch(() => {});
 
     const payload = parseBody(LoginSchema, req.body);
     const user = await userRepository.findByIdentifier(payload.identifier);
@@ -335,7 +336,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     if (user.scheduledDeletionAt) {
       const scheduledTime = new Date(user.scheduledDeletionAt).getTime();
       if (!isNaN(scheduledTime) && scheduledTime <= Date.now()) {
-        await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore }).catch(() => {});
+        await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore }).catch(() => {});
         return res.status(401).json({
           error: "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
           code: "ACCOUNT_EXPIRED_DELETED",

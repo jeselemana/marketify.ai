@@ -24,6 +24,10 @@ import { createPlannerRouter } from "./src/http/planner-router.js";
 import { aiConfig } from "./src/services/ai/config.js";
 import { resolveAskModelRoute } from "./src/services/ai/ask-routing.js";
 import { buildPersonalizationContext, getRelevantUserContext } from "./src/services/ai/personal-context.js";
+import { FileAiLearningRepository } from "./src/repositories/file-ai-learning-repository.js";
+import { LearningLoopService, logWithoutBlocking } from "./src/services/learning/learning-loop-service.js";
+import { createAiLearningAdminRouter, createAiLearningSignalRouter } from "./src/http/ai-learning-router.js";
+import { createRequireAdmin } from "./src/http/admin-authorization.js";
 
 dotenv.config();
 
@@ -154,11 +158,14 @@ const PLANNER_PATH = path.join(DATA_DIR, "planner.json");
 const USERS_PATH = path.join(DATA_DIR, "users.json");
 const AUTH_STORE_PATH = path.join(DATA_DIR, "auth-store.json");
 const LEGAL_REPORTS_PATH = path.join(DATA_DIR, "legal_reports.json");
+const AI_LEARNING_PATH = path.join(DATA_DIR, "ai-learning-v1.json");
 const strategyRepository = new FileStrategyRepository(STRATEGIES_PATH, redis);
 const chatRepository = new FileChatRepository(CHATS_PATH, redis);
 const plannerRepository = new FilePlannerRepository(PLANNER_PATH, redis);
 const userRepository = new FileUserRepository(USERS_PATH, redis);
 const authStore = redis?.isReady ? new RedisAuthStore(redis) : new FileAuthStore(AUTH_STORE_PATH);
+const aiLearningRepository = new FileAiLearningRepository(AI_LEARNING_PATH, redis);
+const learningLoop = new LearningLoopService(aiLearningRepository);
 const emailService = new PasswordResetEmailService({ dataDir: DATA_DIR });
 const adminUsernames = new Set(
   String(process.env.ADMIN_USERNAMES || "")
@@ -177,29 +184,15 @@ Promise.allSettled([
   chatRepository.readAll(),
   plannerRepository.readAll(),
 ]).then(() => {
-  userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore }).catch(() => {});
+  userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore }).catch(() => {});
 }).catch(() => {});
 
 // Periodic background check for expired account deletion (every 1 hour)
 setInterval(() => {
-  userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, authStore }).catch(() => {});
+  userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore }).catch(() => {});
 }, 60 * 60 * 1000).unref();
 
-function requireAdmin(req, res, next) {
-  const username = req.user?.username?.toLowerCase() || "";
-  const email = req.user?.email?.toLowerCase() || "";
-  if (
-    req.user &&
-    (adminUsernames.has(username) ||
-     adminUsernames.has(email))
-  ) {
-    return next();
-  }
-  if (req.accepts("html") && req.method === "GET") {
-    return res.redirect("/?auth=login&next=/admin");
-  }
-  return res.status(404).json({ error: "Yol tapılmadı.", code: "NOT_FOUND" });
-}
+const requireAdmin = createRequireAdmin(adminUsernames);
 
 app.use(guestSession);
 app.use(createIdentityMiddleware({ authStore, userRepository }));
@@ -210,11 +203,14 @@ app.use("/api/auth", createAuthRouter({
   strategyRepository,
   chatRepository,
   plannerRepository,
+  aiLearningRepository,
   appUrl: APP_URL,
 }));
 
-app.use("/api/strategy", createStrategyRouter(strategyRepository));
+app.use("/api/strategy", createStrategyRouter(strategyRepository, learningLoop));
 app.use("/api/planner", createPlannerRouter(plannerRepository));
+app.use("/api/learning/signals", createAiLearningSignalRouter(learningLoop));
+app.use("/admin/api/ai-learning", requireAuth, requireAdmin, createAiLearningAdminRouter(learningLoop));
 
 const legalReportRateMap = new Map();
 function isLegalReportRateLimited(key) {
@@ -569,6 +565,7 @@ async function generateOpenAIAskStreamResponse({
   signal,
 }) {
   let accumulated = "";
+  let usage = null;
 
   // Responses streaming is the primary path. It is compatible with the GPT-5.6
   // models and emits text deltas immediately instead of waiting for a full reply.
@@ -587,12 +584,13 @@ async function generateOpenAIAskStreamResponse({
 
     for await (const event of stream) {
       const chunk = event.type === "response.output_text.delta" ? event.delta : "";
+      if (event.type === "response.completed") usage = event.response?.usage || usage;
       if (chunk) {
         accumulated += chunk;
         onChunk(chunk);
       }
     }
-    if (accumulated.trim()) return accumulated.trim();
+    if (accumulated.trim()) return { text: accumulated.trim(), usage, model, provider: "openai" };
   } catch (responsesErr) {
     // Once a response has started, switching providers would duplicate text in
     // the user's live bubble. Surface the interrupted stream instead.
@@ -612,6 +610,7 @@ async function generateOpenAIAskStreamResponse({
       messages: formattedMessages,
       stream: true,
       max_tokens: aiConfig.askMaxOutputTokens,
+      stream_options: { include_usage: true },
     },
     signal ? { signal } : undefined,
   );
@@ -621,9 +620,10 @@ async function generateOpenAIAskStreamResponse({
       accumulated += chunk;
       onChunk(chunk);
     }
+    usage = part.usage || usage;
   }
   if (!accumulated.trim()) throw new Error("OpenAI boş cavab qaytardı.");
-  return accumulated.trim();
+  return { text: accumulated.trim(), usage, model, provider: "openai" };
 }
 
 async function generateOpenAIAskResponse({
@@ -648,7 +648,7 @@ async function generateOpenAIAskResponse({
       signal ? { signal } : undefined,
     );
     const text = response.output_text?.trim();
-    if (text) return text;
+    if (text) return { text, usage: response.usage || null, model, provider: "openai" };
   } catch (respErr) {
     console.warn("OpenAI responses.create failed, trying chat.completions:", respErr?.message);
   }
@@ -670,10 +670,16 @@ async function generateOpenAIAskResponse({
   if (!text) {
     throw new Error("OpenAI boş cavab qaytardı.");
   }
-  return text;
+  return { text, usage: completion.usage || null, model, provider: "openai" };
 }
 
 app.post("/api/ask", async (req, res) => {
+  const learningStartedAt = Date.now();
+  let learningInteractionId = null;
+  let learningPrompt = "";
+  let learningTaskType = "ask_general";
+  let learningModel = ASK_MODEL;
+  let learningContext = {};
   try {
     const openAiAvailable = Boolean(openai);
 
@@ -690,6 +696,7 @@ app.post("/api/ask", async (req, res) => {
             strategyTitle: typeof message.strategyTitle === "string" ? message.strategyTitle : undefined,
             taskTitle: typeof message.taskTitle === "string" ? message.taskTitle : undefined,
             model: typeof message.model === "string" ? message.model : undefined,
+            interactionId: typeof message.interactionId === "string" && /^[0-9a-f-]{36}$/i.test(message.interactionId) ? message.interactionId : undefined,
           }))
           .filter((message) => message.content)
       : [];
@@ -758,6 +765,18 @@ app.post("/api/ask", async (req, res) => {
     const lastUserMsg = messages.at(-1)?.content || "";
     const route = resolveAskModelRoute({ requestedModel, lastUserMsg, hasStrategyContext });
     const selectedAskModel = route === "terra" ? ASK_COMPLEX_MODEL : ASK_MODEL;
+    learningInteractionId = learningLoop.createInteractionId();
+    learningPrompt = messages.at(-1).content;
+    learningTaskType = selectedStrategy ? "ask_with_strategy" : selectedTask ? "ask_with_task" : "ask_general";
+    learningModel = selectedAskModel;
+    learningContext = {
+      strategyId: strategyId || undefined,
+      taskId: taskId || undefined,
+      chatId: chatId || undefined,
+      hasStrategyContext: Boolean(selectedStrategy),
+      hasTaskContext: Boolean(selectedTask),
+      personalizationApplied: Boolean(personalizationContext),
+    };
     activeModel = route;
 
     // Real-time SSE streaming for responsive GPT-5.6 output.
@@ -773,7 +792,7 @@ app.post("/api/ask", async (req, res) => {
 
       let accumulated = "";
       try {
-        accumulated = await generateOpenAIAskStreamResponse({
+        const generated = await generateOpenAIAskStreamResponse({
           openaiClient: openai,
           model: selectedAskModel,
           instructions: fullInstructions,
@@ -784,10 +803,11 @@ app.post("/api/ask", async (req, res) => {
             if (typeof res.flush === "function") res.flush();
           },
         });
+        accumulated = generated.text;
 
         const updatedMessages = [
           ...messages,
-          { role: "assistant", content: accumulated, model: activeModel, createdAt: new Date().toISOString() },
+          { role: "assistant", content: accumulated, model: activeModel, interactionId: learningInteractionId, createdAt: new Date().toISOString() },
         ];
         const savedChat = await chatRepository.saveChat({
           id: chatId || undefined,
@@ -797,29 +817,46 @@ app.post("/api/ask", async (req, res) => {
           taskId: taskId || null,
         });
 
-        res.write(`data: ${JSON.stringify({ done: true, reply: accumulated, model: activeModel, chat: savedChat })}\n\n`);
+        const hasPriorAssistant = messages.some((message) => message.role === "assistant");
+        const logging = learningLoop.recordInteraction({
+          id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
+          mode: "ask", taskType: learningTaskType, userPrompt: learningPrompt, relevantContext: learningContext,
+          modelProvider: generated.provider, modelName: generated.model, modelResponse: accumulated,
+          usage: generated.usage, latencyMs: Date.now() - learningStartedAt, requestStatus: "success",
+        }).then(() => hasPriorAssistant ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
+        logWithoutBlocking(logging, "Ask interaction logging");
+
+        res.write(`data: ${JSON.stringify({ done: true, reply: accumulated, model: activeModel, interactionId: learningInteractionId, chat: savedChat })}\n\n`);
         if (typeof res.flush === "function") res.flush();
         return res.end();
       } catch (streamErr) {
         console.error("Ask stream error:", streamErr?.message || streamErr);
+        logWithoutBlocking(learningLoop.recordInteraction({
+          id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
+          mode: "ask", taskType: learningTaskType, userPrompt: learningPrompt, relevantContext: learningContext,
+          modelProvider: "openai", modelName: learningModel, modelResponse: accumulated,
+          latencyMs: Date.now() - learningStartedAt, requestStatus: "error",
+          errorType: streamErr?.code || streamErr?.name || "ASK_STREAM_ERROR",
+        }), "Ask stream failure logging");
         res.write(`data: ${JSON.stringify({ error: streamErr?.message || "Xəta baş verdi" })}\n\n`);
         return res.end();
       }
     }
 
-    reply = await generateOpenAIAskResponse({
+    const generated = await generateOpenAIAskResponse({
       openaiClient: openai,
       model: selectedAskModel,
       instructions: fullInstructions,
       messages,
       ownerId: req.ownerId,
     });
+    reply = generated.text;
 
     if (!reply) throw new Error("Ask mode returned an empty response.");
 
     const updatedMessages = [
       ...messages,
-      { role: "assistant", content: reply, model: activeModel, createdAt: new Date().toISOString() },
+      { role: "assistant", content: reply, model: activeModel, interactionId: learningInteractionId, createdAt: new Date().toISOString() },
     ];
     const savedChat = await chatRepository.saveChat({
       id: chatId || undefined,
@@ -829,8 +866,25 @@ app.post("/api/ask", async (req, res) => {
       taskId: taskId || null,
     });
 
-    return res.json({ reply, model: activeModel, chat: savedChat });
+    const hasPriorAssistant = messages.some((message) => message.role === "assistant");
+    const logging = learningLoop.recordInteraction({
+      id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
+      mode: "ask", taskType: learningTaskType, userPrompt: learningPrompt, relevantContext: learningContext,
+      modelProvider: generated.provider, modelName: generated.model, modelResponse: reply,
+      usage: generated.usage, latencyMs: Date.now() - learningStartedAt, requestStatus: "success",
+    }).then(() => hasPriorAssistant ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
+    logWithoutBlocking(logging, "Ask interaction logging");
+
+    return res.json({ reply, model: activeModel, interactionId: learningInteractionId, chat: savedChat });
   } catch (error) {
+    if (learningInteractionId) {
+      logWithoutBlocking(learningLoop.recordInteraction({
+        id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
+        mode: "ask", taskType: learningTaskType, userPrompt: learningPrompt, relevantContext: learningContext,
+        modelProvider: "openai", modelName: learningModel, modelResponse: "", latencyMs: Date.now() - learningStartedAt,
+        requestStatus: "error", errorType: error?.code || error?.name || "ASK_ERROR",
+      }), "Ask failure logging");
+    }
     console.error("Ask mode error:", error?.message || error);
     const code = error?.code || (error?.status === 401 ? "AI_AUTH_ERROR" : "ASK_ERROR");
     return res.status(error?.status || 500).json({

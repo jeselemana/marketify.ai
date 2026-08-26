@@ -36,6 +36,11 @@
           <span class="tab-icon">📜</span>
           <span>GPT Cavab Logları</span>
         </button>
+        <button class="nav-tab" id="tabBtnLearning" data-tab="learning" type="button" role="tab">
+          <span class="tab-icon">✦</span>
+          <span>AI Learning</span>
+          <span class="tab-badge learning-badge" id="badgePendingLearning">0</span>
+        </button>
       </nav>
 
       <!-- TAB 1: LEGAL REPORTS -->
@@ -141,6 +146,76 @@
           <div id="logs-container"></div>
         </section>
       </main>
+
+      <main id="tabContentLearning" class="tab-content" style="display:none;">
+        <section class="card learning-hero">
+          <div class="section-top">
+            <div>
+              <div class="brand-badge">Learning Loop v1</div>
+              <h2>AI keyfiyyəti və dataset hazırlığı</h2>
+              <p class="hint">Raw istifadə sayı ilə təsdiqlənmiş training keyfiyyətini ayrı izləyin.</p>
+            </div>
+            <div class="action-buttons">
+              <a class="btn btn-ghost" href="/admin/api/ai-learning/export">Approved JSONL</a>
+              <button class="btn btn-refresh" id="learningRefresh" type="button">↻ Yenilə</button>
+            </div>
+          </div>
+          <div class="learning-filters" id="learningFilters">
+            <select id="learningRange"><option value="7d">Son 7 gün</option><option value="today">Bu gün</option><option value="30d">Son 30 gün</option><option value="all">Bütün tarix</option></select>
+            <select id="learningMode"><option value="all">Ask + Build</option><option value="ask">Ask</option><option value="build">Build</option></select>
+            <select id="learningProvider"><option value="all">Bütün provider-lər</option></select>
+            <select id="learningModel"><option value="all">Bütün modellər</option></select>
+            <select id="learningTask"><option value="all">Bütün task-lar</option></select>
+            <select id="learningCandidateStatus"><option value="all">Bütün candidate statusları</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+            <input id="learningMinQuality" type="number" min="0" max="1" step="0.05" placeholder="Min quality" aria-label="Minimum quality score" />
+            <input id="learningMaxQuality" type="number" min="0" max="1" step="0.05" placeholder="Max quality" aria-label="Maximum quality score" />
+          </div>
+        </section>
+
+        <section class="learning-kpis" id="learningKpis"></section>
+
+        <div class="learning-grid">
+          <section class="card">
+            <h2>Dataset growth</h2>
+            <p class="hint">Raw interaction → candidate → human-approved sample</p>
+            <div id="learningGrowth" class="growth-chart"></div>
+          </section>
+          <section class="card">
+            <h2>Cost intelligence</h2>
+            <div id="learningCost" class="cost-summary"></div>
+          </section>
+        </div>
+
+        <section class="card">
+          <h2>Model performance</h2>
+          <div class="table-scroll"><table class="learning-table"><thead><tr><th>Provider / Model</th><th>Requests</th><th>Avg latency</th><th>Tokens</th><th>Cost</th><th>Regenerate</th><th>+/− feedback</th><th>Quality</th><th>Candidate rate</th></tr></thead><tbody id="learningModels"></tbody></table></div>
+        </section>
+
+        <section class="card">
+          <h2>Task intelligence</h2>
+          <div class="table-scroll"><table class="learning-table"><thead><tr><th>Mode / Task</th><th>Usage</th><th>Avg quality</th><th>Regenerate</th><th>Corrections</th><th>Candidate rate</th></tr></thead><tbody id="learningTasks"></tbody></table></div>
+        </section>
+
+        <section class="card">
+          <div class="section-top"><div><h2>Recent interactions</h2><p class="hint">Prompt və cavab yalnız preview kimi göstərilir.</p></div></div>
+          <div class="table-scroll"><table class="learning-table"><thead><tr><th>Time</th><th>Mode / Task</th><th>Provider / Model</th><th>Prompt</th><th>Response</th><th>Latency</th><th>Tokens</th><th>Cost</th><th>Quality</th><th>Training</th></tr></thead><tbody id="learningInteractions"></tbody></table></div>
+          <div class="pagination" id="learningInteractionPagination"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-top"><div><h2>Training candidates</h2><p class="hint">Heç bir nümunə admin approval olmadan export edilmir.</p></div></div>
+          <div class="table-scroll"><table class="learning-table"><thead><tr><th>Task</th><th>Sanitized input</th><th>Preferred output</th><th>Quality</th><th>Reason</th><th>Privacy</th><th>Status</th><th>Created</th></tr></thead><tbody id="learningCandidates"></tbody></table></div>
+          <div class="pagination" id="learningCandidatePagination"></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="learning-modal" id="learningModal" hidden>
+      <div class="learning-modal-backdrop" data-close-learning-modal></div>
+      <article class="learning-modal-panel" role="dialog" aria-modal="true" aria-labelledby="learningModalTitle">
+        <button class="learning-modal-close" type="button" data-close-learning-modal aria-label="Bağla">×</button>
+        <div id="learningModalContent"></div>
+      </article>
     </div>
 
     <script src="admin.js" defer></script>

@@ -5361,6 +5361,12 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   color: #16a34a;
 }
 
+.ask-response-action.is-selected {
+  color: #2563eb;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
 .ask-response-action.is-copied svg {
   stroke: #16a34a;
 }
