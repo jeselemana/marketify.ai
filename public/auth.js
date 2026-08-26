@@ -1,8 +1,18 @@
 const authRoot = document.querySelector("#authRoot");
 const appShell = document.querySelector("#appShell");
 
-const GOOGLE_CLIENT_ID =
+const DEFAULT_GOOGLE_CLIENT_ID =
   "471975374819-mgn2g8auc7q9eko71air922aoo7h963p.apps.googleusercontent.com";
+let runtimeGoogleClientId = DEFAULT_GOOGLE_CLIENT_ID;
+
+async function loadAuthConfig() {
+  try {
+    const data = await request("/api/auth/config");
+    if (data?.googleClientId) {
+      runtimeGoogleClientId = data.googleClientId;
+    }
+  } catch {}
+}
 
 const AUTH_PATHS = new Set([
   "/login",
@@ -13,6 +23,42 @@ const AUTH_PATHS = new Set([
 ]);
 
 let pendingReturnPath = "/";
+
+function openLegalDoc(type) {
+  window.dispatchEvent(new CustomEvent("marketify:open-legal", { detail: { type } }));
+}
+
+function legalNoticeElement() {
+  const terms = document.createElement("p");
+  terms.className = "auth-terms";
+
+  const termsBtn = document.createElement("button");
+  termsBtn.type = "button";
+  termsBtn.className = "auth-legal-link";
+  termsBtn.textContent = "istifadə şərtlərini";
+  termsBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    openLegalDoc("terms");
+  });
+
+  const privacyBtn = document.createElement("button");
+  privacyBtn.type = "button";
+  privacyBtn.className = "auth-legal-link";
+  privacyBtn.textContent = "məxfilik siyasətini";
+  privacyBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    openLegalDoc("privacy");
+  });
+
+  terms.append(
+    "Davam etməklə Marketify-in ",
+    termsBtn,
+    " və ",
+    privacyBtn,
+    " qəbul edirsən."
+  );
+  return terms;
+}
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -244,26 +290,36 @@ function googleSignInButton() {
 
   wrapper.appendChild(target);
 
-  const renderGoogleButton = () => {
+  const renderGoogleButton = async () => {
     if (!window.google?.accounts?.id) {
       setTimeout(renderGoogleButton, 100);
       return;
     }
 
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleGoogleCredential,
-      ux_mode: "popup",
-    });
+    if (!runtimeGoogleClientId) {
+      await loadAuthConfig();
+    }
 
-    google.accounts.id.renderButton(target, {
-      type: "standard",
-      theme: "outline",
-      size: "large",
-      text: "continue_with",
-      shape: "rectangular",
-      width: 380,
-    });
+    if (!runtimeGoogleClientId) return;
+
+    try {
+      google.accounts.id.initialize({
+        client_id: runtimeGoogleClientId,
+        callback: handleGoogleCredential,
+        ux_mode: "popup",
+      });
+
+      google.accounts.id.renderButton(target, {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        text: "continue_with",
+        shape: "rectangular",
+        width: 380,
+      });
+    } catch (err) {
+      console.warn("Google Sign-In button render error:", err);
+    }
   };
 
   requestAnimationFrame(renderGoogleButton);
@@ -325,6 +381,7 @@ function renderLogin() {
   form.append(
     switcher,
     guestAccessButton("Hesabsız davam et"),
+    legalNoticeElement(),
   );
 
   form.addEventListener("submit", async (event) => {
@@ -424,11 +481,7 @@ function renderSignup() {
   switcher.className = "auth-switch";
   switcher.append("Artıq hesabın var? ", linkButton("Daxil ol", "/login"));
 
-  const terms = document.createElement("p");
-  terms.className = "auth-terms";
-  terms.textContent = "Davam etməklə Marketify-in istifadə və məxfilik şərtlərini qəbul edirsən.";
-
-  form.append(switcher, guestAccessButton("Hesabsız davam et"), terms);
+  form.append(switcher, guestAccessButton("Hesabsız davam et"), legalNoticeElement());
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -659,6 +712,7 @@ function renderRoute() {
 
 export async function initializeAuthentication(onAuthenticated) {
   authenticatedCallback = onAuthenticated;
+  loadAuthConfig().catch(() => {});
   const requestedReturn = new URLSearchParams(location.search).get("returnTo");
   pendingReturnPath = requestedReturn
     ? safeInternalPath(requestedReturn)

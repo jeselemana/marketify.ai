@@ -8143,6 +8143,23 @@ body {
   text-align: center;
 }
 
+.auth-legal-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: #6366f1;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  display: inline;
+}
+
+.auth-legal-link:hover {
+  color: #4f46e5;
+}
+
 .auth-error,
 .settings-form-message {
   padding: 10px 14px;

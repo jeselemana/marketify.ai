@@ -132,6 +132,12 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     );
   }
 
+  router.get("/config", (req, res) => {
+    return res.json({
+      googleClientId: googleClientId || "",
+    });
+  });
+
   router.get("/username-availability", limit(authStore, "username", 120, 60), asyncRoute(async (req, res) => {
     const raw = String(req.query.username || "").trim().replace(/^@+/, "");
     const parsed = UsernameSchema.safeParse(raw);
@@ -160,12 +166,21 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       });
     }
 
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: googleClientId,
-    });
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: googleClientId,
+      });
+    } catch (verifyError) {
+      console.warn("Google ID token verification failed:", verifyError?.message || verifyError);
+      return res.status(401).json({
+        error: "Google giriş məlumatı etibarsızdır və ya vaxtı bitib.",
+        code: "INVALID_GOOGLE_TOKEN",
+      });
+    }
 
-    const profile = ticket.getPayload();
+    const profile = ticket?.getPayload();
 
     if (!profile?.sub || !profile?.email || !profile.email_verified) {
       return res.status(401).json({

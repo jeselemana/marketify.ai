@@ -6600,6 +6600,10 @@ function closeLegalModal() {
   document.body.style.overflow = "";
 }
 
+window.addEventListener("marketify:open-legal", (event) => {
+  openLegalModal(event.detail?.type || "terms");
+});
+
 function openDeleteAccountModal() {
   const overlay = document.querySelector("#legalModalOverlay");
   if (!overlay) return;

@@ -305,4 +305,23 @@ test("signup, session, login, reset, and single-use reset token work end to end"
     body: JSON.stringify({ identifier: "LEAD@example.com", password: "newstrongpass2" }),
   });
   assert.equal(login.status, 200);
+
+  const configRes = await fetch(`${base}/api/auth/config`);
+  assert.equal(configRes.status, 200);
+  const configData = await configRes.json();
+  assert.ok("googleClientId" in configData);
+
+  const missingGoogleCred = await fetch(`${base}/api/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  assert.equal(missingGoogleCred.status, 400);
+
+  const invalidGoogleCred = await fetch(`${base}/api/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ credential: "invalid.jwt.token" }),
+  });
+  assert.ok([401, 503].includes(invalidGoogleCred.status));
 });

@@ -119,7 +119,7 @@ app.use((req, res, next) => {
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
    "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
-"Content-Security-Policy": "default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://accounts.google.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+"Content-Security-Policy": "default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*.googleusercontent.com https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://accounts.google.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
   });
   next();
 });
