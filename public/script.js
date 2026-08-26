@@ -942,16 +942,30 @@ function renderAsk() {
       const content = element("div", "ask-message-content");
       if (message.role === "assistant") {
         if (isStreamingMsg && !message.content) {
-          const thinking = element("div", "ask-thinking");
+          const isSearching = message.status === "searching";
+          const thinking = element("div", `ask-thinking${isSearching ? " is-searching" : ""}`);
           const iconWrap = element("span", "ask-thinking-icon");
-          iconWrap.innerHTML = `
-            <svg class="ask-thinking-sparkle" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
-            </svg>
-          `;
+          if (isSearching) {
+            iconWrap.innerHTML = `
+              <svg class="ask-searching-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+            `;
+          } else {
+            iconWrap.innerHTML = `
+              <svg class="ask-thinking-sparkle" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
+              </svg>
+            `;
+          }
           const modelInfo = getAskMessageModelInfo(message.model);
           const isThinkingActive = modelInfo.isGemini ? Boolean(state.askThinking) : modelInfo.isTerra;
-          const label = isThinkingActive ? (modelInfo.isGemini ? "Marketify düşünür" : "Dərin analiz") : "Cavab hazırlanır";
+          let label = isThinkingActive ? (modelInfo.isGemini ? "Marketify düşünür" : "Dərin analiz") : "Cavab hazırlanır";
+          if (isSearching || message.statusText) {
+            label = message.statusText || "Veb axtarışı...";
+          }
           const thinkingLabel = element("span", "ask-thinking-label", label);
           const dots = element("span", "ask-thinking-dots");
           dots.append(element("i"), element("i"), element("i"));
@@ -1035,6 +1049,25 @@ function renderAsk() {
 
           const divider = element("div", "ask-response-popover-divider");
           morePopover.appendChild(divider);
+
+          if (message.groundingMetadata) {
+            const sourcesBtn = button("", "ask-response-popover-item ask-sources-btn", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              moreMenu.open = false;
+              openGroundingSourcesModal(message.groundingMetadata);
+            });
+            sourcesBtn.type = "button";
+            sourcesBtn.innerHTML = `
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+              <span>Mənbələr</span>
+            `;
+            morePopover.appendChild(sourcesBtn);
+          }
 
           if (!msgModelInfo.isTerra && !msgModelInfo.isGemini) {
             const thinkDeeperBtn = button("", "ask-response-popover-item ask-think-deeper-btn", (event) => {
@@ -1443,6 +1476,171 @@ class LiveTypewriter {
   }
 }
 
+function openGroundingSourcesModal(groundingMetadata) {
+  if (!groundingMetadata || typeof groundingMetadata !== "object") return;
+  const chunks = Array.isArray(groundingMetadata.groundingChunks) ? groundingMetadata.groundingChunks : [];
+  const webChunks = chunks
+    .map((c) => c && c.web)
+    .filter((w) => w && typeof w.uri === "string" && w.uri.startsWith("http"));
+
+  const searchQueries = Array.isArray(groundingMetadata.webSearchQueries)
+    ? groundingMetadata.webSearchQueries.filter((q) => typeof q === "string" && q.trim())
+    : [];
+
+  const existing = document.querySelector(".ask-sources-drawer-overlay");
+  if (existing) existing.remove();
+
+  const overlay = element("div", "ask-sources-drawer-overlay");
+  const drawer = element("div", "ask-sources-drawer");
+
+  const dragHandle = element("div", "ask-sources-drag-handle");
+  dragHandle.setAttribute("aria-hidden", "true");
+
+  const header = element("div", "ask-sources-drawer-header");
+  const titleGroup = element("div", "ask-sources-drawer-title-group");
+  const titleRow = element("div", "ask-sources-drawer-title-row");
+
+  const icon = element("span", "ask-sources-drawer-icon");
+  icon.innerHTML = `
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="2" y1="12" x2="22" y2="12"></line>
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+    </svg>
+  `;
+  const title = element("h3", "", "İstifadə olunan mənbələr");
+  titleRow.append(icon, title);
+
+  const subtitle = element("p", "", "Canlı axtarış vasitəsilə əldə edilən veb mənbələri");
+  titleGroup.append(titleRow, subtitle);
+
+  const closeModal = () => {
+    document.body.style.overflow = "";
+    overlay.remove();
+    document.removeEventListener("keydown", handleKeydown);
+  };
+
+  const closeBtn = element("button", "ask-sources-drawer-close");
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  `;
+  closeBtn.addEventListener("click", closeModal);
+  header.append(titleGroup, closeBtn);
+
+  const body = element("div", "ask-sources-drawer-body");
+
+  if (searchQueries.length > 0) {
+    const queriesBox = element("div", "ask-sources-queries-box");
+    const queriesLabel = element("div", "ask-sources-queries-label", "Axtarış sorğuları:");
+    const queriesTags = element("div", "ask-sources-queries-tags");
+    searchQueries.forEach((query) => {
+      queriesTags.appendChild(element("span", "ask-sources-query-tag", query));
+    });
+    queriesBox.append(queriesLabel, queriesTags);
+    body.appendChild(queriesBox);
+  }
+
+  if (webChunks.length > 0) {
+    const list = element("div", "ask-sources-cards-list");
+    const seen = new Set();
+    webChunks.forEach((item, index) => {
+      if (seen.has(item.uri)) return;
+      seen.add(item.uri);
+
+      let hostname = "";
+      try {
+        hostname = new URL(item.uri).hostname.replace(/^www\./, "");
+      } catch {
+        hostname = item.uri;
+      }
+      const titleText = item.title || hostname;
+
+      const card = document.createElement("a");
+      card.className = "ask-source-card";
+      card.href = item.uri;
+      card.target = "_blank";
+      card.rel = "noopener noreferrer";
+
+      const cardIndex = element("span", "ask-source-card-index", `${index + 1}`);
+      const cardInfo = element("div", "ask-source-card-info");
+      const cardTitle = element("span", "ask-source-card-title", titleText);
+      const cardUrl = element("span", "ask-source-card-url", hostname || item.uri);
+      cardInfo.append(cardTitle, cardUrl);
+
+      const extIcon = element("span", "ask-source-card-icon");
+      extIcon.innerHTML = `
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+      `;
+
+      card.append(cardIndex, cardInfo, extIcon);
+      list.appendChild(card);
+    });
+    body.appendChild(list);
+  } else {
+    body.appendChild(element("p", "ask-sources-empty", "Bu cavab üçün əlavə veb keçidi tapılmadı."));
+  }
+
+  drawer.append(dragHandle, header, body);
+  overlay.appendChild(drawer);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  const handleKeydown = (e) => {
+    if (e.key === "Escape") closeModal();
+  };
+  document.addEventListener("keydown", handleKeydown);
+
+  document.body.style.overflow = "hidden";
+  document.body.appendChild(overlay);
+}
+
+function updateActiveAskThinkingStatus(message) {
+  const activeBubble = document.querySelector(".ask-message.is-streaming .ask-thinking");
+  if (activeBubble) {
+    const isSearching = message.status === "searching";
+    if (isSearching) {
+      activeBubble.classList.add("is-searching");
+    } else {
+      activeBubble.classList.remove("is-searching");
+    }
+
+    const labelEl = activeBubble.querySelector(".ask-thinking-label");
+    if (labelEl) {
+      labelEl.textContent = message.statusText || (isSearching ? "Veb axtarışı..." : "Cavab hazırlanır");
+    }
+
+    const iconEl = activeBubble.querySelector(".ask-thinking-icon");
+    if (iconEl) {
+      if (isSearching) {
+        iconEl.innerHTML = `
+          <svg class="ask-searching-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+        `;
+      } else {
+        iconEl.innerHTML = `
+          <svg class="ask-thinking-sparkle" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
+          </svg>
+        `;
+      }
+    }
+  }
+}
+
 function updateActiveAskMessageContent(message, showCaret = true) {
   const activeBubble = document.querySelector(".ask-message.is-streaming .ask-message-content");
   if (activeBubble) {
@@ -1545,9 +1743,17 @@ async function thinkDeeperWithTerra(messageIndex) {
           const data = JSON.parse(jsonStr);
           if (data.error) throw new Error(data.error);
 
+          if (data.status) {
+            assistantMsg.status = data.status;
+            assistantMsg.statusText = data.statusText || "";
+            updateActiveAskThinkingStatus(assistantMsg);
+          }
+
           if (data.model) assistantMsg.model = data.model;
 
           if (data.chunk) {
+            assistantMsg.status = "";
+            assistantMsg.statusText = "";
             accumulatedFullText += data.chunk;
             typewriter.append(data.chunk);
           }
@@ -1555,6 +1761,9 @@ async function thinkDeeperWithTerra(messageIndex) {
           if (data.done) {
             const finalReply = data.reply || accumulatedFullText;
             accumulatedFullText = finalReply;
+            if (data.groundingMetadata) {
+              assistantMsg.groundingMetadata = data.groundingMetadata;
+            }
             typewriter.finish(finalReply);
             assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
             rememberSavedAskChat(data.chat);
@@ -1691,9 +1900,17 @@ async function submitAskMessage(message) {
           const data = JSON.parse(jsonStr);
           if (data.error) throw new Error(data.error);
 
+          if (data.status) {
+            assistantMsg.status = data.status;
+            assistantMsg.statusText = data.statusText || "";
+            updateActiveAskThinkingStatus(assistantMsg);
+          }
+
           if (data.model) assistantMsg.model = data.model;
 
           if (data.chunk) {
+            assistantMsg.status = "";
+            assistantMsg.statusText = "";
             accumulatedFullText += data.chunk;
             typewriter.append(data.chunk);
           }
@@ -1701,6 +1918,9 @@ async function submitAskMessage(message) {
           if (data.done) {
             const finalReply = data.reply || accumulatedFullText;
             accumulatedFullText = finalReply;
+            if (data.groundingMetadata) {
+              assistantMsg.groundingMetadata = data.groundingMetadata;
+            }
             typewriter.finish(finalReply);
             assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
             rememberSavedAskChat(data.chat);
@@ -1747,6 +1967,9 @@ async function submitAskMessage(message) {
       assistantMsg.content = data.reply;
       assistantMsg.model = data.model || assistantMsg.model;
       assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
+      if (data.groundingMetadata) {
+        assistantMsg.groundingMetadata = data.groundingMetadata;
+      }
       assistantMsg.isStreaming = false;
       rememberSavedAskChat(data.chat);
     }
@@ -2500,13 +2723,28 @@ function showLoadingAskModal(initialQuery) {
         try {
           const data = JSON.parse(jsonStr);
           if (data.error) throw new Error(data.error);
+          if (data.status === "searching") {
+            const dots = loadingItem.querySelector(".loading-processing-dots");
+            if (dots && !loadingItem.querySelector(".ask-searching-badge")) {
+              const badge = element("div", "ask-searching-badge", "Veb axtarışı...");
+              loadingItem.querySelector(".ask-thread-msg-content")?.prepend(badge);
+            }
+          }
           if (data.chunk) {
+            loadingItem.querySelector(".ask-searching-badge")?.remove();
             reply += data.chunk;
             renderReply();
           }
           if (data.done) {
             reply = data.reply || reply;
             renderReply();
+            if (data.groundingMetadata) {
+              const sourcesBtn = button("🌐 Mənbələr", "ask-thread-sources-btn", () => {
+                openGroundingSourcesModal(data.groundingMetadata);
+              });
+              sourcesBtn.type = "button";
+              loadingItem.querySelector(".ask-thread-msg-content")?.appendChild(sourcesBtn);
+            }
             rememberSavedAskChat(data.chat);
           }
         } catch (parseErr) {
@@ -3787,10 +4025,23 @@ function buildStrategyAskMessage(message, messageIndex) {
   }
 
   if (isStreaming && !message.content) {
-    const thinking = element("div", "ask-thinking strategy-ask-thinking");
-    const sparkle = element("span", "strategy-ask-thinking-spark", "✦");
+    const isSearching = message.status === "searching";
+    const thinking = element("div", `ask-thinking strategy-ask-thinking${isSearching ? " is-searching" : ""}`);
+    const sparkle = isSearching
+      ? element("span", "ask-thinking-icon", `
+          <svg class="ask-searching-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+        `)
+      : element("span", "strategy-ask-thinking-spark", "✦");
     const modelInfo = getAskMessageModelInfo(message.model);
-    const label = element("span", "ask-thinking-label", modelInfo.isTerra ? "Dərin analiz" : "Cavab hazırlanır");
+    let labelText = modelInfo.isTerra ? "Dərin analiz" : "Cavab hazırlanır";
+    if (isSearching || message.statusText) {
+      labelText = message.statusText || "Veb axtarışı...";
+    }
+    const label = element("span", "ask-thinking-label", labelText);
     const dots = element("span", "ask-thinking-dots");
     dots.append(element("i"), element("i"), element("i"));
     thinking.append(sparkle, label, dots);
@@ -3814,6 +4065,15 @@ function buildStrategyAskMessage(message, messageIndex) {
     copy.setAttribute("aria-label", "Cavabı kopyala");
     copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     actions.appendChild(copy);
+
+    if (message.groundingMetadata) {
+      const sourcesBtn = button("🌐 Mənbələr", "strategy-ask-action strategy-ask-sources", () => {
+        openGroundingSourcesModal(message.groundingMetadata);
+      });
+      sourcesBtn.type = "button";
+      sourcesBtn.title = "Veb mənbələri";
+      actions.appendChild(sourcesBtn);
+    }
 
     if (!getAskMessageModelInfo(message.model).isTerra) {
       const deeper = button("✦ Dərin düşün", "strategy-ask-action strategy-ask-deeper", () => thinkDeeperWithTerra(messageIndex));

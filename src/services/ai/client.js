@@ -35,6 +35,8 @@ export function getGeminiClient() {
     geminiClient = new GoogleGenAI({
       apiKey,
       ...(isVertex ? { vertexai: true } : {}),
+      ...(process.env.GOOGLE_CLOUD_LOCATION ? { location: process.env.GOOGLE_CLOUD_LOCATION } : {}),
+      ...(process.env.GOOGLE_CLOUD_PROJECT ? { project: process.env.GOOGLE_CLOUD_PROJECT } : {}),
     });
   }
 

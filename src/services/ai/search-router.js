@@ -1,0 +1,79 @@
+/**
+ * Dynamic search router module for Gemini 3.7 Flash Google Search Grounding.
+ *
+ * Intelligently determines whether a user prompt requires real-time web search
+ * (market pricing, competitor analysis, current trends, recent dates, URLs, entity lookup)
+ * or should bypass search grounding (standard copywriting, general concepts, brainstorming).
+ */
+
+const URL_PATTERN = /https?:\/\/[^\s]+|www\.[^\s]+|\b[a-zA-Z0-9-]+\.(?:az|com|org|net|io|co|ai|edu|gov|tr|ru|tech|biz|info|me|app)\b/i;
+
+const REALTIME_TIME_PATTERN = /(?:202[4-9]|203[0-9]|bu\s+il|bu\s+ay|bu\s+h[əe]ft[əe]|bu\s+g[uü]n|cari\s+il|cari\s+ay|son\s+vaxtlar|son\s+aylar|son\s+g[uü]nl[əe]r|haz[ıi]r(?:da|k[ıi])|hal-haz[ıi]r(?:da|k[ıi])|bug[uü]nk[uü]|d[uü]n[əe]n|sabah|current|latest|today|this\s+year|recent|now)/i;
+
+const TRENDS_AND_NEWS_PATTERN = /(?:trend|trendl[əe]r|trendl[əe]ri|yenilik|yenilikl[əe]r|x[əe]b[əe]r|x[əe]b[əe]rl[əe]r|hadis[əe]|hadis[əe]l[əe]r|aktual|statistika|statistikas[ıi]|hesabat|hesabat[ıi]|news|updates|statistics|burax[ıi]l[ıi][sş]\s+tarixi|t[əe]qdimat)/i;
+
+const COMPETITOR_PATTERN = /(?:r[əe]qib|r[əe]qibl[əe]r|r[əe]qibl[əe]rin|r[əe]qibl[əe]ri|r[əe]qab[əe]t|r[əe]qab[əe]t[cç]il|competitor|competitors|competition|bazar\s+pay[ıi]|market\s+share)/i;
+
+const PRICE_AND_MARKET_PATTERN = /(?:qiym[əe]t|qiym[əe]ti|qiym[əe]tl[əe]r|qiym[əe]tl[əe]ri|qiym[əe]tl[əe]ndirm[əe]|bazar\s+qiym[əe]ti|bazar\s+qiym[əe]tl[əe]ri|bazar[ıi]nda|sat[ıi][sş]\s+qiym[əe]t|tarif|tarifl[əe]r|tarifl[əe]ri|m[əe]z[əe]nn[əe]|valyuta|inflyasiya|price|prices|pricing|cost|costs|rate|rates|n[əe]\s+q[əe]d[əe]rdir|ne[cç][əe]y[əe]dir)/i;
+
+const SEARCH_INTENT_PATTERN = /(?:google|axtar|axtar[ıi][sş]|web|internet|sayt|sayt[ıi]|sayt[ıi]ndan|sayt[ıi]nda|m[əe]nb[əe]|m[əe]nb[əe]l[əe]r|m[əe]nb[əe]yi|link|linki|url|onlayn|online|ara[sş]d[ıi]r|ara[sş]d[ıi]rma|tap|lookup|search|browse|find\s+online)/i;
+
+const SPECIFIC_ENTITY_LOOKUP_PATTERN = /(?:hans[ıi]\s+[sş]irk[əe]tl[əe]r|hans[ıi]\s+brendl[əe]r|hans[ıi]\s+ma[gğ]azalar|hans[ıi]\s+agentlikl[əe]r|harada\s+yerl[əe][sş]ir|haradan\s+almaq|[əe]laq[əe]\s+n[oö]mr[əe]si|[uü]nvan[ıi])/i;
+
+/**
+ * Evaluates whether a prompt or query should trigger real-time Google search grounding.
+ *
+ * @param {string} query The user message or prompt text.
+ * @param {object} [options] Optional context configuration.
+ * @returns {boolean} True if real-time web search should be enabled.
+ */
+export function shouldEnableSearch(query = "", options = {}) {
+  const text = String(query || "").trim();
+  if (!text) return false;
+
+  // 1. Explicit URLs or domain names
+  if (URL_PATTERN.test(text)) return true;
+
+  // 2. Explicit search or web retrieval intent
+  if (SEARCH_INTENT_PATTERN.test(text)) return true;
+
+  // 3. Competitor research & market share
+  if (COMPETITOR_PATTERN.test(text)) return true;
+
+  // 4. Pricing, rates, currency, inflation
+  if (PRICE_AND_MARKET_PATTERN.test(text)) return true;
+
+  // 5. Trends, market news, statistics
+  if (TRENDS_AND_NEWS_PATTERN.test(text)) return true;
+
+  // 6. Real-time time triggers (recent dates, current year/month/days)
+  if (REALTIME_TIME_PATTERN.test(text)) return true;
+
+  // 7. Specific local entity or business provider lookup
+  if (SPECIFIC_ENTITY_LOOKUP_PATTERN.test(text)) return true;
+
+  return false;
+}
+
+/**
+ * Evaluates the search route for an incoming request.
+ *
+ * @param {object} params
+ * @param {string} [params.prompt] Current user message prompt.
+ * @param {Array} [params.messages] Conversation history messages.
+ * @param {boolean} [params.hasStrategyContext] Whether a strategy context is attached.
+ * @returns {{ enableSearch: boolean, intent: string, prompt: string }}
+ */
+export function evaluateSearchRoute({ prompt = "", messages = [], hasStrategyContext = false } = {}) {
+  const lastUserMsg = typeof prompt === "string" && prompt.trim()
+    ? prompt.trim()
+    : (Array.isArray(messages) ? messages.filter((m) => m && m.role === "user").at(-1)?.content || "" : "");
+
+  const enableSearch = shouldEnableSearch(lastUserMsg);
+
+  return {
+    enableSearch,
+    intent: enableSearch ? "grounded_search" : "standard",
+    prompt: lastUserMsg,
+  };
+}

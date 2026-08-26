@@ -6,10 +6,15 @@ test("small Ask queries route to GPT-5.6 Luna", () => {
   assert.equal(resolveAskModelRoute({ lastUserMsg: "Instagram üçün 3 qısa başlıq yaz" }), "luna");
 });
 
-test("complex Ask queries and strategy context route to GPT-5.6 Terra", () => {
-  assert.equal(isComplexAskQuery("Rəqib analizi və SWOT matrisi qur"), true);
-  assert.equal(resolveAskModelRoute({ lastUserMsg: "Rəqib analizi və SWOT matrisi qur" }), "terra");
+test("complex Ask queries without search intent route to GPT-5.6 Terra", () => {
+  assert.equal(isComplexAskQuery("Hərtərəfli dərin analiz və SWOT matrisi qur"), true);
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "Hərtərəfli dərin analiz və SWOT matrisi qur" }), "terra");
   assert.equal(resolveAskModelRoute({ lastUserMsg: "Bunu necə tətbiq edim?", hasStrategyContext: true }), "terra");
+});
+
+test("real-time search and pricing Ask queries in auto mode route to Gemini 3.7 Flash", () => {
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "Bakı bazarında hazırkı qiymətlər nə qədərdir?" }), "gemini-3.7-flash");
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "Rəqib analizi və 2026 trendləri" }), "gemini-3.7-flash");
 });
 
 test("only Terra, Luna, and Gemini 3.7 Flash can be selected explicitly", () => {

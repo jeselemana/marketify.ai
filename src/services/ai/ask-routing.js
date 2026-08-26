@@ -1,3 +1,5 @@
+import { shouldEnableSearch } from "./search-router.js";
+
 export function isComplexAskQuery(lastUserMsg = "", hasStrategyContext = false) {
   if (hasStrategyContext) return true;
   const cleanMsg = String(lastUserMsg || "").trim();
@@ -15,5 +17,11 @@ export function resolveAskModelRoute({ requestedModel = "auto", lastUserMsg = ""
   }
   if (requested === "terra" || requested.includes("gpt-5.6-terra")) return "terra";
   if (requested === "luna" || requested === "mini" || requested.includes("gpt-5.6-luna")) return "luna";
+
+  // Auto routing: If the query requires live web search grounding (prices, competitors, trends, dates, etc.), route to Gemini 3.7 Flash
+  if (shouldEnableSearch(lastUserMsg)) {
+    return "gemini-3.7-flash";
+  }
+
   return isComplexAskQuery(lastUserMsg, hasStrategyContext) ? "terra" : "luna";
 }

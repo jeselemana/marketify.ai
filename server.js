@@ -25,6 +25,7 @@ import { aiConfig } from "./src/services/ai/config.js";
 import { getGeminiClient } from "./src/services/ai/client.js";
 import { LLMProviderError } from "./src/services/ai/llm-router.js";
 import { resolveAskModelRoute } from "./src/services/ai/ask-routing.js";
+import { evaluateSearchRoute } from "./src/services/ai/search-router.js";
 import { buildPersonalizationContext, getRelevantUserContext } from "./src/services/ai/personal-context.js";
 import { FileAiLearningRepository } from "./src/repositories/file-ai-learning-repository.js";
 import { LearningLoopService, logWithoutBlocking } from "./src/services/learning/learning-loop-service.js";
@@ -677,6 +678,7 @@ async function generateOpenAIAskResponse({
 
 function formatGeminiErrorMessage(error) {
   if (!error) return "Naməlum xəta baş verdi.";
+  console.error("❌ [Gemini Error Raw]:", error?.status || "", error?.message || error);
   let msg = error.message || String(error);
   try {
     const raw = typeof msg === "string" && (msg.startsWith("{") || msg.includes('{"error"')) ? JSON.parse(msg) : null;
@@ -696,12 +698,12 @@ function formatGeminiErrorMessage(error) {
 
   if (error.status === 403 || /PERMISSION_DENIED|SERVICE_DISABLED|API_KEY_INVALID/i.test(msg)) {
     if (/SERVICE_DISABLED/i.test(msg)) {
-      return "Gemini API bu layihədə aktivləşdirilməyib. Zəhmət olmasa Google AI Studio və ya Google Cloud Console-dan API-ni aktivləşdirin (və ya yeni açar əldə edin).";
+      return "Gemini API bu layihədə aktivləşdirilməyib. Zəhmət olmasa Google AI Studio (aistudio.google.com) və ya Google Cloud Console-dan API-ni aktivləşdirin.";
     }
     if (/API_KEY/i.test(msg)) {
-      return "Gemini API açarı etibarsızdır və ya icazəsi yoxdur. Zəhmət olmasa düzgün GEMINI_API_KEY təyin edin.";
+      return "Gemini API açarı etibarsızdır və ya icazəsi yoxdur. Zəhmət olmasa .env faylında düzgün GEMINI_API_KEY təyin edin.";
     }
-    return "Gemini xidmətinə daxil olmaq üçün icazə yoxdur (403 Forbidden).";
+    return "Gemini xidmətinə daxil olmaq üçün icazə yoxdur (403 Forbidden). Zəhmət olmasa .env faylındakı GEMINI_API_KEY açarının Google AI Studio-da (aistudio.google.com) aktiv olduğunu yoxlayın.";
   }
   if (error.status === 429 || /RESOURCE_EXHAUSTED|RATE_LIMIT/i.test(msg)) {
     return "Gemini sorğu limiti aşılıb (429 Rate Limit). Zəhmət olmasa bir az sonra yenidən cəhd edin.";
@@ -714,20 +716,30 @@ async function generateGeminiAskStreamResponse({
   instructions = "",
   messages = [],
   thinking = true,
+  enableSearch = false,
   onChunk = () => {},
   signal,
 }) {
   const gemini = getGeminiClient();
 
-  const contents = messages
-    .filter((m) => m && typeof m.content === "string" && m.content.trim())
-    .map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content.trim() }],
-    }));
+  const contents = [];
+  for (const m of messages) {
+    if (!m || typeof m.content !== "string" || !m.content.trim()) continue;
+    const role = m.role === "assistant" ? "model" : "user";
+    const text = m.content.trim();
+    if (contents.length > 0 && contents[contents.length - 1].role === role) {
+      contents[contents.length - 1].parts[0].text += `\n\n${text}`;
+    } else {
+      contents.push({ role, parts: [{ text }] });
+    }
+  }
+
+  const searchGuidance = enableSearch
+    ? "\n\nLive Google Search Grounding is active for this query. You have real-time internet search capability. Search the web and use the latest grounded search results to provide accurate, up-to-date facts, current prices, and real-time market data. Never say that you cannot browse the internet or that live search is disabled."
+    : "";
 
   const config = {
-    systemInstruction: instructions || undefined,
+    systemInstruction: (instructions ? instructions + searchGuidance : searchGuidance) || undefined,
     maxOutputTokens: aiConfig.geminiMaxOutputTokens || 65536,
   };
 
@@ -745,15 +757,20 @@ async function generateGeminiAskStreamResponse({
     };
   }
 
+  if (enableSearch) {
+    config.tools = [{ googleSearch: {} }];
+  }
+
   let accumulated = "";
   let usage = null;
+  let groundingMetadata = null;
 
-  try {
+  const runStream = async (streamConfig) => {
     const stream = await gemini.models.generateContentStream(
       {
         model,
         contents,
-        config,
+        config: streamConfig,
       },
       signal ? { signal } : undefined,
     );
@@ -768,9 +785,31 @@ async function generateGeminiAskStreamResponse({
           total_tokens: chunk.usageMetadata.totalTokenCount || null,
         };
       }
+      const chunkGrounding = chunk.candidates?.[0]?.groundingMetadata || chunk.groundingMetadata;
+      if (chunkGrounding) {
+        groundingMetadata = { ...(groundingMetadata || {}), ...chunkGrounding };
+        if (chunkGrounding.groundingChunks?.length) {
+          console.log(`   🌐 [Grounding] ${chunkGrounding.groundingChunks.length} veb mənbə tapıldı`);
+        }
+      }
       if (delta) {
         accumulated += delta;
         onChunk(delta);
+      }
+    }
+  };
+
+  try {
+    try {
+      await runStream(config);
+    } catch (searchOrStreamError) {
+      if (enableSearch && !accumulated.trim() && !signal?.aborted) {
+        console.warn("⚠️ [Gemini Search Grounding Xətası]:", searchOrStreamError?.message || searchOrStreamError);
+        const fallbackConfig = { ...config };
+        delete fallbackConfig.tools;
+        await runStream(fallbackConfig);
+      } else {
+        throw searchOrStreamError;
       }
     }
 
@@ -783,6 +822,7 @@ async function generateGeminiAskStreamResponse({
       usage,
       model,
       provider: "google",
+      groundingMetadata: groundingMetadata || null,
     };
   } catch (error) {
     if (accumulated.trim()) {
@@ -791,6 +831,7 @@ async function generateGeminiAskStreamResponse({
         usage,
         model,
         provider: "google",
+        groundingMetadata: groundingMetadata || null,
       };
     }
     const status = error?.status || 503;
@@ -813,19 +854,29 @@ async function generateGeminiAskResponse({
   instructions = "",
   messages = [],
   thinking = true,
+  enableSearch = false,
   signal,
 }) {
   const gemini = getGeminiClient();
 
-  const contents = messages
-    .filter((m) => m && typeof m.content === "string" && m.content.trim())
-    .map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content.trim() }],
-    }));
+  const contents = [];
+  for (const m of messages) {
+    if (!m || typeof m.content !== "string" || !m.content.trim()) continue;
+    const role = m.role === "assistant" ? "model" : "user";
+    const text = m.content.trim();
+    if (contents.length > 0 && contents[contents.length - 1].role === role) {
+      contents[contents.length - 1].parts[0].text += `\n\n${text}`;
+    } else {
+      contents.push({ role, parts: [{ text }] });
+    }
+  }
+
+  const searchGuidance = enableSearch
+    ? "\n\nLive Google Search Grounding is active for this query. You have real-time internet search capability. Search the web and use the latest grounded search results to provide accurate, up-to-date facts, current prices, and real-time market data. Never say that you cannot browse the internet or that live search is disabled."
+    : "";
 
   const config = {
-    systemInstruction: instructions || undefined,
+    systemInstruction: (instructions ? instructions + searchGuidance : searchGuidance) || undefined,
     maxOutputTokens: aiConfig.geminiMaxOutputTokens || 65536,
   };
 
@@ -843,15 +894,38 @@ async function generateGeminiAskResponse({
     };
   }
 
+  if (enableSearch) {
+    config.tools = [{ googleSearch: {} }];
+  }
+
   try {
-    const response = await gemini.models.generateContent(
-      {
-        model,
-        contents,
-        config,
-      },
-      signal ? { signal } : undefined,
-    );
+    let response;
+    try {
+      response = await gemini.models.generateContent(
+        {
+          model,
+          contents,
+          config,
+        },
+        signal ? { signal } : undefined,
+      );
+    } catch (searchError) {
+      if (enableSearch && !signal?.aborted) {
+        console.warn("Gemini Search Grounding error in generateGeminiAskResponse, falling back to standard generation:", searchError?.message || searchError);
+        const fallbackConfig = { ...config };
+        delete fallbackConfig.tools;
+        response = await gemini.models.generateContent(
+          {
+            model,
+            contents,
+            config: fallbackConfig,
+          },
+          signal ? { signal } : undefined,
+        );
+      } else {
+        throw searchError;
+      }
+    }
 
     const text = response.text?.trim();
     if (!text) {
@@ -867,11 +941,14 @@ async function generateGeminiAskResponse({
         }
       : null;
 
+    const groundingMetadata = response.candidates?.[0]?.groundingMetadata || response.groundingMetadata || null;
+
     return {
       text,
       usage,
       model,
       provider: "google",
+      groundingMetadata,
     };
   } catch (error) {
     if (error instanceof LLMProviderError) throw error;
@@ -985,6 +1062,15 @@ app.post("/api/ask", async (req, res) => {
     const isGemini = route === "gemini-3.7-flash";
     isGeminiRoute = isGemini;
     const selectedAskModel = isGemini ? ASK_GEMINI_MODEL : route === "terra" ? ASK_COMPLEX_MODEL : ASK_MODEL;
+    const searchDecision = isGemini
+      ? evaluateSearchRoute({ prompt: lastUserMsg, messages, hasStrategyContext })
+      : { enableSearch: false };
+    const enableSearch = searchDecision.enableSearch;
+
+    console.log(`\n🔍 [Ask] Sual: "${lastUserMsg.slice(0, 60)}..."`);
+    console.log(`   Model: ${requestedModel} -> ${route} (${selectedAskModel})`);
+    console.log(`   Google Search: ${enableSearch ? "Aktiv (Grounding)" : "Deaktiv"}`);
+
     learningInteractionId = learningLoop.createInteractionId();
     learningPrompt = messages.at(-1).content;
     learningTaskType = selectedStrategy ? "ask_with_strategy" : selectedTask ? "ask_with_task" : "ask_general";
@@ -996,6 +1082,7 @@ app.post("/api/ask", async (req, res) => {
       hasStrategyContext: Boolean(selectedStrategy),
       hasTaskContext: Boolean(selectedTask),
       personalizationApplied: Boolean(personalizationContext),
+      searchGrounded: Boolean(enableSearch),
     };
     activeModel = route;
 
@@ -1017,6 +1104,11 @@ app.post("/api/ask", async (req, res) => {
       const abortController = new AbortController();
       req.on("close", () => abortController.abort());
 
+      if (isGemini && enableSearch) {
+        res.write(`data: ${JSON.stringify({ status: "searching", statusText: "Veb axtarışı...", model: activeModel })}\n\n`);
+        if (typeof res.flush === "function") res.flush();
+      }
+
       let accumulated = "";
       try {
         const generated = isGemini
@@ -1025,6 +1117,7 @@ app.post("/api/ask", async (req, res) => {
               instructions: fullInstructions,
               messages,
               thinking: isThinking,
+              enableSearch,
               signal: abortController.signal,
               onChunk: (chunk) => {
                 res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
@@ -1047,7 +1140,14 @@ app.post("/api/ask", async (req, res) => {
 
         const updatedMessages = [
           ...messages,
-          { role: "assistant", content: accumulated, model: activeModel, interactionId: learningInteractionId, createdAt: new Date().toISOString() },
+          {
+            role: "assistant",
+            content: accumulated,
+            model: activeModel,
+            interactionId: learningInteractionId,
+            groundingMetadata: generated.groundingMetadata || undefined,
+            createdAt: new Date().toISOString(),
+          },
         ];
         const savedChat = await chatRepository.saveChat({
           id: chatId || undefined,
@@ -1066,7 +1166,14 @@ app.post("/api/ask", async (req, res) => {
         }).then(() => hasPriorAssistant ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
         logWithoutBlocking(logging, "Ask interaction logging");
 
-        res.write(`data: ${JSON.stringify({ done: true, reply: accumulated, model: activeModel, interactionId: learningInteractionId, chat: savedChat })}\n\n`);
+        res.write(`data: ${JSON.stringify({
+          done: true,
+          reply: accumulated,
+          model: activeModel,
+          interactionId: learningInteractionId,
+          chat: savedChat,
+          groundingMetadata: generated.groundingMetadata || undefined,
+        })}\n\n`);
         if (typeof res.flush === "function") res.flush();
         return res.end();
       } catch (streamErr) {
@@ -1089,6 +1196,7 @@ app.post("/api/ask", async (req, res) => {
           instructions: fullInstructions,
           messages,
           thinking: isThinking,
+          enableSearch,
         })
       : await generateOpenAIAskResponse({
           openaiClient: openai,
@@ -1103,7 +1211,14 @@ app.post("/api/ask", async (req, res) => {
 
     const updatedMessages = [
       ...messages,
-      { role: "assistant", content: reply, model: activeModel, interactionId: learningInteractionId, createdAt: new Date().toISOString() },
+      {
+        role: "assistant",
+        content: reply,
+        model: activeModel,
+        interactionId: learningInteractionId,
+        groundingMetadata: generated.groundingMetadata || undefined,
+        createdAt: new Date().toISOString(),
+      },
     ];
     const savedChat = await chatRepository.saveChat({
       id: chatId || undefined,
@@ -1122,7 +1237,13 @@ app.post("/api/ask", async (req, res) => {
     }).then(() => hasPriorAssistant ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
     logWithoutBlocking(logging, "Ask interaction logging");
 
-    return res.json({ reply, model: activeModel, interactionId: learningInteractionId, chat: savedChat });
+    return res.json({
+      reply,
+      model: activeModel,
+      interactionId: learningInteractionId,
+      chat: savedChat,
+      groundingMetadata: generated.groundingMetadata || undefined,
+    });
   } catch (error) {
     if (learningInteractionId) {
       logWithoutBlocking(learningLoop.recordInteraction({
