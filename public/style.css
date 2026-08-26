@@ -10656,6 +10656,39 @@ body {
   margin-bottom: 6px;
 }
 
+.personalization-consent-card {
+  max-width: 540px;
+}
+
+.personalization-consent-body {
+  padding-bottom: 20px;
+}
+
+.personalization-consent-body p {
+  margin-bottom: 12px;
+}
+
+.personalization-consent-privacy-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent, #1d4ed8);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.personalization-consent-privacy-link:hover {
+  text-decoration: underline;
+}
+
+.personalization-consent-footer {
+  gap: 10px;
+}
+
 .legal-highlight-box {
   padding: 14px 16px;
   margin: 16px 0;

@@ -4457,8 +4457,16 @@ function renderSettings() {
     masterToggle.appendChild(element("span", "settings-toggle-thumb"));
     syncMasterToggle();
     masterToggle.addEventListener("click", () => {
-      isMasterEnabled = !isMasterEnabled;
-      syncMasterToggle();
+      if (isMasterEnabled) {
+        isMasterEnabled = false;
+        syncMasterToggle();
+        return;
+      }
+
+      openPersonalizationConsentModal(() => {
+        isMasterEnabled = true;
+        syncMasterToggle();
+      });
     });
     masterCard.append(masterLeft, masterToggle);
     panel.appendChild(masterCard);
@@ -5973,6 +5981,71 @@ const LEGAL_DOCS = {
   },
 };
 
+function openPersonalizationConsentModal(onAccept) {
+  const overlay = document.querySelector("#legalModalOverlay");
+  if (!overlay) return;
+
+  overlay.replaceChildren();
+
+  const card = element("div", "legal-modal-card personalization-consent-card");
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-modal", "true");
+  card.setAttribute("aria-labelledby", "personalizationConsentTitle");
+
+  const header = element("header", "legal-modal-header");
+  const titleGroup = element("div", "legal-modal-title-group");
+  const title = element("h2", "", "Fərdiləşdirilmiş təcrübəni aktivləşdir?");
+  title.id = "personalizationConsentTitle";
+  titleGroup.append(
+    title,
+    element("p", "", "Daha uyğun cavablar üçün brend məlumatlarından istifadə et.")
+  );
+
+  const closeBtn = button("✕", "legal-modal-close", closeLegalModal);
+  closeBtn.setAttribute("aria-label", "Bağla");
+  header.append(titleGroup, closeBtn);
+
+  const body = element("div", "legal-modal-body personalization-consent-body");
+  body.append(
+    element(
+      "p",
+      "",
+      "Aktiv olduqda Marketify cavabları və strategiyaları brend profilin, seçdiyin üslub və yaddaş qeydlərin əsasında fərdiləşdirəcək."
+    ),
+    element(
+      "p",
+      "",
+      "Bu funksiya könüllüdür və istənilən vaxt Parametrlər bölməsindən söndürülə bilər."
+    )
+  );
+
+  const privacyLink = element(
+    "a",
+    "personalization-consent-privacy-link",
+    "Məxfilik Siyasətini oxu →"
+  );
+  privacyLink.href = "#privacy";
+  privacyLink.addEventListener("click", (event) => {
+    event.preventDefault();
+    openLegalModal("privacy");
+  });
+  body.appendChild(privacyLink);
+
+  const footer = element("div", "legal-modal-footer personalization-consent-footer");
+  const cancelBtn = button("İndi yox", "secondary-button", closeLegalModal);
+  const acceptBtn = button("Razıyam, aktiv et", "primary-button", () => {
+    closeLegalModal();
+    if (typeof onAccept === "function") onAccept();
+  });
+  footer.append(cancelBtn, acceptBtn);
+
+  card.append(header, body, footer);
+  overlay.appendChild(card);
+  overlay.hidden = false;
+  document.body.style.overflow = "hidden";
+  acceptBtn.focus();
+}
+
 function openLegalModal(type) {
   const overlay = document.querySelector("#legalModalOverlay");
   if (!overlay) return;
@@ -7015,9 +7088,6 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
         return;
       }
 
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = "İdxal edilir…";
-
       const payload = {
         brandName: currentParsedData.brandName || "",
         industry: currentParsedData.industry || "",
@@ -7034,37 +7104,49 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
         enablePersonalIntelligence,
       };
 
-      try {
-        const res = await authRequest(
-          "/api/auth/settings/import-memory",
-          {
-            method: "POST",
-            body: JSON.stringify(payload),
+      const importMemory = async () => {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "İdxal edilir…";
+
+        try {
+          const res = await authRequest(
+            "/api/auth/settings/import-memory",
+            {
+              method: "POST",
+              body: JSON.stringify(payload),
+            }
+          );
+
+          closeLegalModal();
+
+          if (typeof onImportSuccess === "function") {
+            onImportSuccess(res.user);
+          } else {
+            updateWorkspaceIdentity(res.user);
           }
-        );
 
-        closeLegalModal();
+          showToast(
+            `Yaddaş idxal edildi · ${
+              res.importedCount || selectedMemories.length
+            } fakt`
+          );
+        } catch (err) {
+          showToast(
+            err.message || "İdxal zamanı xəta baş verdi.",
+            "error"
+          );
 
-        if (typeof onImportSuccess === "function") {
-          onImportSuccess(res.user);
-        } else {
-          updateWorkspaceIdentity(res.user);
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = "Yaddaşı köçür";
         }
+      };
 
-        showToast(
-          `Yaddaş idxal edildi · ${
-            res.importedCount || selectedMemories.length
-          } fakt`
-        );
-      } catch (err) {
-        showToast(
-          err.message || "İdxal zamanı xəta baş verdi.",
-          "error"
-        );
-
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = "Yaddaşı köçür";
+      if (enablePersonalIntelligence && userSettings.personalIntelligence !== true) {
+        openPersonalizationConsentModal(importMemory);
+        return;
       }
+
+      await importMemory();
     }
   );
 
