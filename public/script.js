@@ -1,5 +1,6 @@
 import { createDocumentExport, createExcelExport, createSpreadsheetExport, exportStrategyToPDF } from "./exporters.js";
 import { authRequest, initializeAuthentication, logout } from "./auth.js";
+import { PRESET_PROMPTS } from "./preset-prompts.js";
 
 const workspace = document.querySelector("#workspace");
 const sidebar = document.querySelector("#sidebar");
@@ -119,10 +120,18 @@ function escapeHtml(value) {
 
 function getAskMessageModelInfo(model) {
   const normalized = typeof model === "string" ? model.trim().toLowerCase() : "";
+  if (normalized.includes("gemini") || normalized === "flash") {
+    return {
+      isGemini: true,
+      isTerra: false,
+      displayName: "Flash",
+    };
+  }
   // Support existing saved messages while only rendering product-friendly labels.
   const isTerra = normalized === "terra" || /gpt[-\s]?5\.6[-\s]?terra/.test(normalized);
-  const displayName = isTerra ? "Dərin Analiz" : "Sürət";
+  const displayName = isTerra ? "Dərin Analiz" : "Auto";
   return {
+    isGemini: false,
     isTerra,
     displayName,
   };
@@ -197,7 +206,14 @@ const state = {
   askError: "",
   askStrategyId: "",
   askTaskId: "",
-  askModel: "auto",
+  askPromptHintStrategyId: "",
+  askModel: (() => {
+    try {
+      const saved = localStorage.getItem("marketify_ask_model");
+      if (saved === "gemini-3.7-flash" || saved === "auto") return saved;
+    } catch {}
+    return "auto";
+  })(),
   strategyAskOpen: false,
   refinementOpen: false,
   currentUser: null,
@@ -505,6 +521,7 @@ function startNewChat() {
   state.askMessages = [];
   state.askStrategyId = "";
   state.askTaskId = "";
+  state.askPromptHintStrategyId = "";
   state.askError = "";
   render();
   closeSidebar();
@@ -586,6 +603,29 @@ const ASK_CTA_LIST = [
 const selectedBuildCta = BUILD_CTA_LIST[Math.floor(Math.random() * BUILD_CTA_LIST.length)];
 const selectedAskCta = ASK_CTA_LIST[Math.floor(Math.random() * ASK_CTA_LIST.length)];
 
+function appendPresetPrompt(input, prompt, onChange) {
+  const current = input.value.trim();
+  input.value = current ? `${current}\n\n${prompt}` : prompt;
+  onChange();
+  input.focus();
+}
+
+function addPresetPromptPane(popover, mode, onSelect, onBack) {
+  const header = element("div", "ask-context-menu-subheader");
+  const back = button("‹", "ask-context-menu-back", onBack);
+  back.setAttribute("aria-label", "Kontekst menyusuna qayıt");
+  header.append(back, element("strong", "ask-context-menu-heading", "Hazır sual"));
+  popover.appendChild(header);
+
+  const list = element("div", "preset-prompt-list");
+  PRESET_PROMPTS[mode].forEach((prompt) => {
+    const item = button("", "preset-prompt-item", () => onSelect(prompt.text));
+    item.append(element("strong", "", prompt.title), element("span", "", prompt.text));
+    list.appendChild(item);
+  });
+  popover.appendChild(list);
+}
+
 function renderIntake() {
   workspace.classList.add("workspace-ask", "workspace-intake", "is-empty");
 
@@ -604,35 +644,6 @@ function renderIntake() {
   const label = element("label", "sr-only", "Strategiya brifi");
   label.htmlFor = "briefInput";
 
-  const fileInput = document.createElement("input");
-  fileInput.type = "file";
-  fileInput.accept = ".txt,.md,.csv,.json,text/plain,text/csv,application/json";
-  fileInput.hidden = true;
-
-  const attach = button("", "ask-context-trigger");
-  attach.type = "button";
-  attach.setAttribute("aria-label", "Fayl əlavə et");
-  attach.title = "Fayl əlavə et";
-  attach.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14" /></svg>';
-  attach.addEventListener("click", () => fileInput.click());
-  fileInput.addEventListener("change", async () => {
-    const file = fileInput.files?.[0];
-    if (!file) return;
-    try {
-      const content = (await file.text()).trim();
-      const addition = `\n\nƏlavə fayl — ${file.name}:\n${content}`;
-      textarea.value = `${textarea.value.trim()}${addition}`.trim().slice(0, textarea.maxLength);
-      state.brief = textarea.value;
-      submit.disabled = state.brief.length < 8;
-      textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 280)}px`;
-      showToast(`${file.name} brifə əlavə edildi.`);
-    } catch {
-      showToast("Faylı oxumaq mümkün olmadı.", "error");
-    }
-    fileInput.value = "";
-  });
-
   const textarea = element("textarea", "ask-input");
   textarea.id = "briefInput";
   textarea.name = "brief";
@@ -640,6 +651,11 @@ function renderIntake() {
   textarea.maxLength = 8000;
   textarea.placeholder = "Marketify ilə strategiya qur";
   textarea.value = state.brief;
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = ".txt,.md,.csv,.json,text/plain,text/csv,application/json";
+  fileInput.hidden = true;
 
   const submit = button("", "ask-submit");
   submit.type = "submit";
@@ -650,7 +666,78 @@ function renderIntake() {
   const composerActions = element("div", "ask-composer-actions");
   composerActions.append(submit);
 
-  form.append(attach, label, textarea, fileInput, composerActions);
+  const contextMenu = document.createElement("details");
+  contextMenu.className = "ask-context-menu";
+  const contextTrigger = element("summary", "ask-context-trigger");
+  contextTrigger.setAttribute("aria-label", "Əlavə seçimlər");
+  contextTrigger.title = "Əlavə seçimlər";
+  contextTrigger.appendChild(element("span", "ask-context-plus", "+"));
+  const contextPopover = element("div", "ask-context-popover");
+  let contextPane = "main";
+  const drawBuildMenu = () => {
+    contextPopover.replaceChildren();
+    if (contextPane === "prompts") {
+      addPresetPromptPane(contextPopover, "build", (prompt) => {
+        contextMenu.open = false;
+        appendPresetPrompt(textarea, prompt, resizeInput);
+      }, () => { contextPane = "main"; drawBuildMenu(); });
+      return;
+    }
+    if (contextPane === "strategies" || contextPane === "tasks") {
+      const isStrategy = contextPane === "strategies";
+      const entries = isStrategy ? state.savedStrategies : state.plannerTasks.filter((task) => !task.completed);
+      const header = element("div", "ask-context-menu-subheader");
+      header.append(button("‹", "ask-context-menu-back", () => { contextPane = "main"; drawBuildMenu(); }), element("strong", "ask-context-menu-heading", isStrategy ? "Strategiyalarım" : "Planlaşdırılanlar"));
+      contextPopover.appendChild(header);
+      const list = element("div", "ask-context-list");
+      if (!entries.length) list.appendChild(element("div", "ask-context-empty", isStrategy ? "Arxiv hələ boşdur." : "Aktiv planlaşdırılan tapşırıq yoxdur."));
+      entries.forEach((entry) => {
+        const item = button("", "ask-context-item", () => {
+          contextMenu.open = false;
+          appendPresetPrompt(textarea, isStrategy ? `Bu strategiyanın kontekstini nəzərə al: ${entry.title}` : `Bu tapşırığın kontekstini nəzərə al: ${entry.text}`, resizeInput);
+        });
+        item.append(element("span", "", isStrategy ? entry.title : entry.text), element("small", "", isStrategy ? formatDate(entry.updatedAt) : entry.groupLabel || "Ümumi"));
+        list.appendChild(item);
+      });
+      contextPopover.appendChild(list);
+      return;
+    }
+    contextPopover.appendChild(element("strong", "ask-context-menu-heading", "Əlavə et"));
+    [
+      ["Strategiyalarım", "Yadda saxlanılan strategiyanı əlavə et", "strategies"],
+      ["Planlaşdırılanlar", "Aktiv tapşırığı əlavə et", "tasks"],
+      ["Hazır sual", "Başlamaq üçün hazır prompt seç", "prompts"],
+      ["Fayl əlavə et", "Mətn faylından brif əlavə et", "file"],
+    ].forEach(([title, description, pane]) => {
+      const option = button("", "ask-context-menu-option", () => {
+        if (pane === "file") { contextMenu.open = false; fileInput.click(); return; }
+        contextPane = pane; drawBuildMenu();
+      });
+      const copy = element("span", "ask-context-menu-option-copy");
+      copy.append(element("strong", "", title), element("small", "", description));
+      option.append(copy, element("span", "ask-context-menu-chevron", "›"));
+      contextPopover.appendChild(option);
+    });
+  };
+  drawBuildMenu();
+  contextMenu.append(contextTrigger, contextPopover);
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    try {
+      const content = (await file.text()).trim();
+      const addition = `\n\nƏlavə fayl — ${file.name}:\n${content}`;
+      textarea.value = `${textarea.value.trim()}${addition}`.trim().slice(0, textarea.maxLength);
+      resizeInput();
+      showToast(`${file.name} brifə əlavə edildi.`);
+    } catch {
+      showToast("Faylı oxumaq mümkün olmadı.", "error");
+    }
+    fileInput.value = "";
+  });
+
+  form.append(contextMenu, label, textarea, fileInput, composerActions);
 
   const helper = element("div", "ask-composer-meta");
   const disclaimer = element("p", "ask-disclaimer", "Marketify süni intellekt funksiyası yerinə yetirir və səhvlər edə bilər.");
@@ -658,12 +745,13 @@ function renderIntake() {
 
   composerArea.append(form, helper);
 
-  textarea.addEventListener("input", () => {
+  const resizeInput = () => {
     state.brief = textarea.value;
     submit.disabled = textarea.value.trim().length < 8;
     textarea.style.height = "auto";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
-  });
+  };
+  textarea.addEventListener("input", resizeInput);
   textarea.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing && window.innerWidth > 700) {
       event.preventDefault();
@@ -885,7 +973,7 @@ function renderAsk() {
             </svg>
           `;
           const modelInfo = getAskMessageModelInfo(message.model);
-          const label = modelInfo.isTerra ? "Dərin analiz" : "Cavab hazırlanır";
+          const label = modelInfo.isGemini ? "Marketify düşünür" : modelInfo.isTerra ? "Dərin analiz" : "Cavab hazırlanır";
           const thinkingLabel = element("span", "ask-thinking-label", label);
           const dots = element("span", "ask-thinking-dots");
           dots.append(element("i"), element("i"), element("i"));
@@ -970,7 +1058,7 @@ function renderAsk() {
           const divider = element("div", "ask-response-popover-divider");
           morePopover.appendChild(divider);
 
-          if (!msgModelInfo.isTerra) {
+          if (!msgModelInfo.isTerra && !msgModelInfo.isGemini) {
             const thinkDeeperBtn = button("", "ask-response-popover-item ask-think-deeper-btn", (event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -1059,6 +1147,8 @@ function renderAsk() {
   const contextPopover = element("div", "ask-context-popover");
   const activeTasks = state.plannerTasks.filter((task) => !task.completed);
   let contextPane = "main";
+  let input;
+  let resizeInput = () => {};
   const drawContextMenu = () => {
     contextPopover.replaceChildren();
     if (contextPane === "main") {
@@ -1073,14 +1163,23 @@ function renderAsk() {
         btn.append(text, element("span", "ask-context-menu-chevron", "›"));
         contextPopover.appendChild(btn);
       };
-      option("Strategiyalar", "Yadda saxlanılan strategiyanı müzakirə et", "strategies");
+      if (selectedStrategy) option("Hazır sual seç", "Strategiyaya uyğun hazır prompt seç", "prompts");
+      option("Strategiyalarım", "Yadda saxlanılan strategiyanı müzakirə et", "strategies");
       option("Planlaşdırılanlar", "Aktiv taskı kontekst kimi seç", "tasks");
+      if (!selectedStrategy) option("Hazır sual", "Başlamaq üçün hazır prompt seç", "prompts");
       if (selectedStrategy || selectedTask) {
         contextPopover.appendChild(element("div", "ask-context-menu-divider"));
         contextPopover.appendChild(button("Konteksti sil", "ask-context-clear", () => {
-          state.askStrategyId = ""; state.askTaskId = ""; contextMenu.open = false; render();
+          state.askStrategyId = ""; state.askTaskId = ""; state.askPromptHintStrategyId = ""; contextMenu.open = false; render();
         }));
       }
+      return;
+    }
+    if (contextPane === "prompts") {
+      addPresetPromptPane(contextPopover, "ask", (prompt) => {
+        contextMenu.open = false;
+        appendPresetPrompt(input, prompt, resizeInput);
+      }, () => { contextPane = "main"; drawContextMenu(); });
       return;
     }
     const isStrategy = contextPane === "strategies";
@@ -1101,7 +1200,10 @@ function renderAsk() {
       const item = button("", `ask-context-item${selected ? " is-selected" : ""}`);
       item.append(element("span", "", isStrategy ? entry.title : entry.text), element("small", "", selected ? "Seçilib" : (isStrategy ? formatDate(entry.updatedAt) : entry.groupLabel || "Ümumi")));
       item.addEventListener("click", () => {
-        if (isStrategy) state.askStrategyId = entry.id; else state.askTaskId = entry.id;
+        if (isStrategy) {
+          state.askStrategyId = entry.id;
+          state.askPromptHintStrategyId = entry.id;
+        } else state.askTaskId = entry.id;
         contextMenu.open = false; render();
       });
       list.appendChild(item);
@@ -1109,7 +1211,28 @@ function renderAsk() {
     contextPopover.appendChild(list);
   };
   drawContextMenu();
-  contextMenu.append(contextTrigger, contextPopover);
+  const contextSlot = element("div", "ask-context-slot");
+  const showPromptHint = selectedStrategy && state.askPromptHintStrategyId === selectedStrategy.id;
+  if (showPromptHint) {
+    const promptCta = button("Hazır prompt seç", "ask-preset-prompt-cta", () => {
+      promptCta.classList.add("is-hidden");
+      state.askPromptHintStrategyId = "";
+      contextPane = "prompts";
+      drawContextMenu();
+      contextMenu.open = true;
+    });
+    promptCta.setAttribute("aria-label", "Hazır sual seç");
+    promptCta.insertAdjacentHTML("afterbegin", '<svg class="ask-preset-prompt-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 13V3M4 7l4-4 4 4" /></svg>');
+    contextMenu.append(contextTrigger, contextPopover);
+    contextSlot.append(contextMenu, promptCta);
+    setTimeout(() => {
+      promptCta.classList.add("is-hidden");
+      state.askPromptHintStrategyId = "";
+    }, 3000);
+  } else {
+    contextMenu.append(contextTrigger, contextPopover);
+    contextSlot.appendChild(contextMenu);
+  }
   contextMenu.addEventListener("keydown", (event) => {
     if (event.key === "Escape") contextMenu.open = false;
   });
@@ -1124,12 +1247,12 @@ function renderAsk() {
   const form = element("form", "ask-composer");
   const label = element("label", "sr-only", "Ask sualı");
   label.htmlFor = "askInput";
-  const input = element("textarea", "ask-input");
+  input = element("textarea", "ask-input");
   input.id = "askInput";
   input.name = "message";
   input.rows = 1;
   input.maxLength = 8000;
-  input.placeholder = "Marketify-dən soruş…";
+  input.placeholder = selectedStrategy?.title || selectedTask?.text || "Marketify-dən soruş…";
   input.disabled = state.askLoading;
 
   const submit = button("", "ask-submit");
@@ -1138,25 +1261,79 @@ function renderAsk() {
   submit.setAttribute("aria-label", "Sualı göndər");
   submit.appendChild(element("span", "", "↑"));
 
-  const composerActions = element("div", "ask-composer-actions");
-  composerActions.append(submit);
+  const isFlashSelected = state.askModel === "gemini-3.7-flash";
+  const modelSelectorMenu = document.createElement("details");
+  modelSelectorMenu.className = "ask-model-selector-menu";
+  const modelTrigger = element("summary", "ask-model-selector-trigger");
+  modelTrigger.setAttribute("aria-label", "Model rejimi");
+  modelTrigger.title = isFlashSelected ? "Rejim: Flash" : "Rejim: Auto";
 
-  form.append(contextMenu, label, input, composerActions);
+  modelTrigger.innerHTML = `
+    <span class="ask-model-name">${isFlashSelected ? "Flash" : "Auto"}</span>
+    <svg class="ask-model-chevron-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+  `;
+
+  const modelPopover = element("div", "ask-model-selector-popover");
+
+  const autoOption = button("", `ask-model-option${!isFlashSelected ? " is-active" : ""}`, (e) => {
+    e.preventDefault();
+    state.askModel = "auto";
+    try { localStorage.setItem("marketify_ask_model", "auto"); } catch {}
+    modelSelectorMenu.open = false;
+    render();
+  });
+  autoOption.type = "button";
+  autoOption.innerHTML = `
+    <div class="ask-model-option-info">
+      <strong>Auto</strong>
+      <small>Avtomatik rejim</small>
+    </div>
+    ${!isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
+  `;
+
+  const flashOption = button("", `ask-model-option${isFlashSelected ? " is-active" : ""}`, (e) => {
+    e.preventDefault();
+    state.askModel = "gemini-3.7-flash";
+    try { localStorage.setItem("marketify_ask_model", "gemini-3.7-flash"); } catch {}
+    modelSelectorMenu.open = false;
+    render();
+  });
+  flashOption.type = "button";
+  flashOption.innerHTML = `
+    <div class="ask-model-option-info">
+      <strong>Flash</strong>
+      <small>Sürətli və dərin düşünmə</small>
+    </div>
+    ${isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
+  `;
+
+  modelPopover.append(autoOption, flashOption);
+  modelSelectorMenu.append(modelTrigger, modelPopover);
+
+  modelSelectorMenu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") modelSelectorMenu.open = false;
+  });
+  const closeModelMenu = (event) => {
+    if (!modelSelectorMenu.contains(event.target)) modelSelectorMenu.open = false;
+  };
+  modelSelectorMenu.addEventListener("toggle", () => {
+    if (modelSelectorMenu.open) setTimeout(() => document.addEventListener("click", closeModelMenu), 0);
+    else document.removeEventListener("click", closeModelMenu);
+  });
+
+  const composerActions = element("div", "ask-composer-actions");
+  composerActions.append(modelSelectorMenu, submit);
+
+  form.append(contextSlot, label, input, composerActions);
 
   const helper = element("div", "ask-composer-meta");
-  if (selectedStrategy || selectedTask) {
-    const contextPills = element("div", "ask-context-pills");
-    if (selectedStrategy) contextPills.appendChild(element("span", "ask-context-pill", `Strategiya: ${selectedStrategy.title}`));
-    if (selectedTask) contextPills.appendChild(element("span", "ask-context-pill", `Tapşırıq: ${selectedTask.text}`));
-    helper.appendChild(contextPills);
-  }
   const disclaimer = element("p", "ask-disclaimer", "Marketify süni intellekt funksiyası yerinə yetirir və səhvlər edə bilər.");
   helper.appendChild(disclaimer);
   composerArea.append(form, helper);
   shell.append(thread, composerArea);
   workspace.appendChild(shell);
 
-  const resizeInput = () => {
+  resizeInput = () => {
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
     submit.disabled = input.value.trim().length < 2 || state.askLoading;
@@ -1234,18 +1411,21 @@ class LiveTypewriter {
     const remaining = this.targetText.length - this.currentText.length;
 
     if (remaining > 0) {
-      // Keep the stream calm and readable even when the network sends a large chunk.
+      const isFinishing = this.isDone;
       const charsToType = Math.min(
         remaining,
-        remaining > 260 ? 5 :
-        remaining > 90 ? 3 :
+        isFinishing && remaining > 500 ? 120 :
+        remaining > 2000 ? 50 :
+        remaining > 800 ? 25 :
+        remaining > 260 ? 10 :
+        remaining > 90 ? 4 :
         remaining > 24 ? 2 : 1
       );
       this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
       this.onUpdate(this.currentText, false);
       const typedTail = this.currentText.slice(-charsToType);
       const hasNaturalPause = /[.!?,;:\n]$/.test(typedTail);
-      const delay = (remaining > 260 ? 26 : remaining > 90 ? 32 : remaining > 24 ? 38 : 46) + (hasNaturalPause ? 28 : 0);
+      const delay = (isFinishing ? 12 : remaining > 260 ? 20 : remaining > 90 ? 28 : remaining > 24 ? 34 : 42) + (hasNaturalPause && !isFinishing ? 24 : 0);
       this.rafId = setTimeout(() => this.tick(), delay);
     } else if (this.isDone) {
       this.currentText = this.targetText;
@@ -1435,7 +1615,7 @@ async function submitAskMessage(message) {
   state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "", taskTitle: selectedTask?.text || "" });
 
   const chosenModel = state.askModel || "auto";
-  const initialPlaceholderModel = chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : "auto");
+  const initialPlaceholderModel = chosenModel === "gemini-3.7-flash" ? "gemini-3.7-flash" : (chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : "auto"));
   const assistantMsg = {
     role: "assistant",
     content: "",
@@ -2794,7 +2974,7 @@ function buildStrategyHeader(strategy) {
   status.append(element("span", "status-dot"), document.createTextNode(STATUS_LABELS[state.status]));
 
   const meta = element("div", "strategy-meta");
-  const readingTime = element("span", "reading-time-badge", `⏱ ~${calcReadingTime(strategy)} dəqiqəlik oxu`);
+  const readingTime = element("span", "reading-time-badge", `~${calcReadingTime(strategy)} dəqiqəlik oxu`);
   meta.append(
     status,
     element("span", "meta-divider", "·"),
@@ -2808,35 +2988,26 @@ function buildStrategyHeader(strategy) {
 
   const title = element("h1", "strategy-title", strategy.title);
 
-  // Context Chips Strip (Auditoriya, Bazar, Büdcə, Biznes)
-  const contextChips = element("div", "context-chips-strip");
-  if (strategy.context?.targetAudience) {
-    const chip = element("div", "context-chip");
-    chip.append(element("span", "chip-icon", "🎯"), element("strong", "", "Auditoriya: "), element("span", "", shortValue(strategy.context.targetAudience, 45)));
-    contextChips.appendChild(chip);
-  }
-  if (strategy.context?.market) {
-    const chip = element("div", "context-chip");
-    chip.append(element("span", "chip-icon", "📍"), element("strong", "", "Bazar: "), element("span", "", shortValue(strategy.context.market, 40)));
-    contextChips.appendChild(chip);
-  }
+  // Fully readable strategy context. Values intentionally wrap instead of
+  // relying on truncation or tooltips.
+  const contextChips = element("dl", "context-chips-strip strategy-context-grid");
+  const appendContextItem = (label, value) => {
+    if (!value) return;
+    const item = element("div", "context-chip strategy-context-item");
+    item.append(element("dt", "strategy-context-label", label), element("dd", "strategy-context-value", String(value)));
+    contextChips.appendChild(item);
+  };
+  appendContextItem("Auditoriya", strategy.context?.targetAudience);
+  appendContextItem("Bazar", strategy.context?.market);
   const budget = budgetSignal(state.brief);
-  if (budget) {
-    const chip = element("div", "context-chip");
-    chip.append(element("span", "chip-icon", "💰"), element("strong", "", "Büdcə: "), element("span", "", budget));
-    contextChips.appendChild(chip);
-  }
-  if (strategy.context?.business) {
-    const chip = element("div", "context-chip");
-    chip.append(element("span", "chip-icon", "🏢"), element("strong", "", "Biznes: "), element("span", "", shortValue(strategy.context.business, 40)));
-    contextChips.appendChild(chip);
-  }
+  appendContextItem("Büdcə", budget);
+  appendContextItem("Biznes", strategy.context?.business);
 
   // Strateji Xülasə / Executive Brief Box (Clean, single presentation, no duplicate essence text below!)
   const execCard = element("div", "strategy-executive-card");
   const execKicker = element("div", "exec-card-header");
   execKicker.append(
-    element("span", "exec-badge", "✦ STRATEJİ XÜLASƏ VƏ ƏSAS İSTİQAMƏT"),
+    element("span", "exec-badge", "STRATEJİ XÜLASƏ VƏ ƏSAS İSTİQAMƏT"),
   );
   const execText = element("p", "exec-summary-text", strategy.summary);
   execCard.append(execKicker, execText);
@@ -2855,7 +3026,7 @@ function buildStrategyHeader(strategy) {
 function buildKpiCard(kpi) {
   const card = element("article", "kpi-card");
   const header = element("div", "kpi-card-header");
-  const kicker = element("span", "kpi-card-kicker", "📊 KPI Metriki");
+  const kicker = element("span", "kpi-card-kicker", "KPI METRİKİ");
   const name = element("h3", "kpi-name", kpi.name);
   header.append(kicker, name);
 
@@ -2967,7 +3138,6 @@ function buildBlogView(strategy) {
     if (phase.expectedOutcome) {
       const outcome = element("div", "phase-outcome");
       outcome.append(
-        element("span", "outcome-icon", "🎯"),
         element("strong", "", "Gözlənilən nəticə: "),
         document.createTextNode(phase.expectedOutcome),
       );
@@ -3663,25 +3833,6 @@ function buildStrategyAskAssistant() {
     "div",
     `strategy-ask-root${state.strategyAskOpen ? " is-open" : ""}${state.refinementOpen ? " is-refinement-open" : ""}`,
   );
-  const launcher = button("", "strategy-ask-launcher", () => {
-    state.askModel = "auto";
-    if (state.savedId) resetAskForStrategy(state.savedId);
-    else resetAskForStrategy("", true);
-    state.strategyAskOpen = true;
-    render();
-  });
-  launcher.type = "button";
-  launcher.setAttribute("aria-label", "Bu strategiya haqqında Marketify-dan soruş");
-  launcher.setAttribute("aria-expanded", String(state.strategyAskOpen));
-  launcher.innerHTML = `
-    <span class="strategy-ask-launcher-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h8M8 13h5"/></svg>
-      <span>✦</span>
-    </span>
-    <span>Strategiya barədə soruş</span>
-  `;
-  root.appendChild(launcher);
-
   if (!state.strategyAskOpen) return root;
 
   const backdrop = button("", "strategy-ask-backdrop", () => {
@@ -3789,7 +3940,7 @@ function buildStrategyAskAssistant() {
 function renderStrategyWorkspace() {
   workspace.classList.add("workspace-document");
   const strategy = state.strategy;
-  const view = element("div", `strategy-view${state.status === "refining" ? " is-refining" : ""}`);
+  const view = element("div", `strategy-view${state.status === "refining" ? " is-refining" : ""}${state.strategyAskOpen ? " is-ask-open" : ""}`);
 
   // Toolbar - Clean Top Navigation with Breadcrumb and Format Switcher
   const toolbar = element("div", "strategy-toolbar");
@@ -3959,7 +4110,26 @@ function buildRefinementPanel() {
     <span>${state.savedId ? "Yadda saxlanıldı" : "Yadda saxla"}</span>
   `;
 
-  actionsStrip.append(refineToggle, exportWrap, toolbarSeparator, saveBtn);
+  const askSeparator = element("span", "dock-toolbar-separator dock-ask-separator");
+  askSeparator.setAttribute("aria-hidden", "true");
+
+  const askBtn = button("", "dock-action-btn dock-ask-btn", () => {
+    state.askModel = "auto";
+    if (state.savedId) resetAskForStrategy(state.savedId);
+    else resetAskForStrategy("", true);
+    state.refinementOpen = false;
+    state.strategyAskOpen = true;
+    render();
+  });
+  askBtn.type = "button";
+  askBtn.setAttribute("aria-label", "Bu strategiya haqqında Marketify-dan soruş");
+  askBtn.setAttribute("aria-expanded", String(state.strategyAskOpen));
+  askBtn.innerHTML = `
+    <svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h8M8 13h5"/></svg>
+    <span>Strategiya barədə soruş</span>
+  `;
+
+  actionsStrip.append(refineToggle, exportWrap, toolbarSeparator, saveBtn, askSeparator, askBtn);
 
   // Suggestions are presented as an animated placeholder instead of controls.
   const form = element("form", "refinement-form");

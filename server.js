@@ -22,6 +22,8 @@ import { FileChatRepository } from "./src/repositories/file-chat-repository.js";
 import { FilePlannerRepository } from "./src/repositories/file-planner-repository.js";
 import { createPlannerRouter } from "./src/http/planner-router.js";
 import { aiConfig } from "./src/services/ai/config.js";
+import { getGeminiClient } from "./src/services/ai/client.js";
+import { LLMProviderError } from "./src/services/ai/llm-router.js";
 import { resolveAskModelRoute } from "./src/services/ai/ask-routing.js";
 import { buildPersonalizationContext, getRelevantUserContext } from "./src/services/ai/personal-context.js";
 import { FileAiLearningRepository } from "./src/repositories/file-ai-learning-repository.js";
@@ -366,6 +368,7 @@ app.post("/api/legal-report", async (req, res) => {
 
 const ASK_MODEL = aiConfig.askModel;
 const ASK_COMPLEX_MODEL = aiConfig.askComplexModel;
+const ASK_GEMINI_MODEL = aiConfig.askGeminiModel;
 const ASK_INSTRUCTIONS = `You are Marketify Ask, a precise, fast, and helpful AI assistant inside the Marketify workspace.
 Answer the user's question directly, clearly, and concisely in the language they use.
 Avoid unnecessary preamble, boilerplate introductory phrases, or overly exhaustive breakdowns unless the user specifically asks for deep detail.
@@ -652,7 +655,6 @@ async function generateOpenAIAskResponse({
   } catch (respErr) {
     console.warn("OpenAI responses.create failed, trying chat.completions:", respErr?.message);
   }
-
   // 2. Fallback to Chat Completions
   const completion = await openaiClient.chat.completions.create(
     {
@@ -673,6 +675,203 @@ async function generateOpenAIAskResponse({
   return { text, usage: completion.usage || null, model, provider: "openai" };
 }
 
+function formatGeminiErrorMessage(error) {
+  if (!error) return "Naməlum xəta baş verdi.";
+  let msg = error.message || String(error);
+  try {
+    const raw = typeof msg === "string" && (msg.startsWith("{") || msg.includes('{"error"')) ? JSON.parse(msg) : null;
+    if (raw) {
+      if (typeof raw.error?.message === "string") {
+        try {
+          const inner = JSON.parse(raw.error.message);
+          if (inner?.error?.message) msg = inner.error.message;
+        } catch {
+          msg = raw.error.message;
+        }
+      } else if (typeof raw.message === "string") {
+        msg = raw.message;
+      }
+    }
+  } catch {}
+
+  if (error.status === 403 || /PERMISSION_DENIED|SERVICE_DISABLED|API_KEY_INVALID/i.test(msg)) {
+    if (/SERVICE_DISABLED/i.test(msg)) {
+      return "Gemini API bu layihədə aktivləşdirilməyib. Zəhmət olmasa Google AI Studio və ya Google Cloud Console-dan API-ni aktivləşdirin (və ya yeni açar əldə edin).";
+    }
+    if (/API_KEY/i.test(msg)) {
+      return "Gemini API açarı etibarsızdır və ya icazəsi yoxdur. Zəhmət olmasa düzgün GEMINI_API_KEY təyin edin.";
+    }
+    return "Gemini xidmətinə daxil olmaq üçün icazə yoxdur (403 Forbidden).";
+  }
+  if (error.status === 429 || /RESOURCE_EXHAUSTED|RATE_LIMIT/i.test(msg)) {
+    return "Gemini sorğu limiti aşılıb (429 Rate Limit). Zəhmət olmasa bir az sonra yenidən cəhd edin.";
+  }
+  return msg;
+}
+
+async function generateGeminiAskStreamResponse({
+  model = ASK_GEMINI_MODEL,
+  instructions = "",
+  messages = [],
+  onChunk = () => {},
+  signal,
+}) {
+  const gemini = getGeminiClient();
+
+  const contents = messages
+    .filter((m) => m && typeof m.content === "string" && m.content.trim())
+    .map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content.trim() }],
+    }));
+
+  const config = {
+    systemInstruction: instructions || undefined,
+    maxOutputTokens: aiConfig.geminiMaxOutputTokens || 65536,
+  };
+
+  if (typeof aiConfig.geminiThinkingBudget === "number" && !Number.isNaN(aiConfig.geminiThinkingBudget)) {
+    config.thinkingConfig = {
+      thinkingBudget: aiConfig.geminiThinkingBudget,
+    };
+  }
+
+  let accumulated = "";
+  let usage = null;
+
+  try {
+    const stream = await gemini.models.generateContentStream(
+      {
+        model,
+        contents,
+        config,
+      },
+      signal ? { signal } : undefined,
+    );
+
+    for await (const chunk of stream) {
+      if (signal?.aborted) throw new Error("AbortError");
+      const delta = chunk.text || "";
+      if (chunk.usageMetadata) {
+        usage = {
+          prompt_tokens: chunk.usageMetadata.promptTokenCount || null,
+          completion_tokens: chunk.usageMetadata.candidatesTokenCount || null,
+          total_tokens: chunk.usageMetadata.totalTokenCount || null,
+        };
+      }
+      if (delta) {
+        accumulated += delta;
+        onChunk(delta);
+      }
+    }
+
+    if (!accumulated.trim()) {
+      throw new Error("Gemini boş cavab qaytardı.");
+    }
+
+    return {
+      text: accumulated.trim(),
+      usage,
+      model,
+      provider: "google",
+    };
+  } catch (error) {
+    if (accumulated.trim()) {
+      return {
+        text: accumulated.trim(),
+        usage,
+        model,
+        provider: "google",
+      };
+    }
+    const status = error?.status || 503;
+    const cleanMsg = formatGeminiErrorMessage(error);
+    throw new LLMProviderError(
+      `Gemini xidməti ilə əlaqə qurmaq mümkün olmadı: ${cleanMsg}`,
+      {
+        code: error?.code || "GEMINI_PROVIDER_ERROR",
+        status: status >= 400 && status < 600 ? status : 503,
+        model,
+        provider: "google",
+        details: error,
+      },
+    );
+  }
+}
+
+async function generateGeminiAskResponse({
+  model = ASK_GEMINI_MODEL,
+  instructions = "",
+  messages = [],
+  signal,
+}) {
+  const gemini = getGeminiClient();
+
+  const contents = messages
+    .filter((m) => m && typeof m.content === "string" && m.content.trim())
+    .map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content.trim() }],
+    }));
+
+  const config = {
+    systemInstruction: instructions || undefined,
+    maxOutputTokens: aiConfig.geminiMaxOutputTokens || 65536,
+  };
+
+  if (typeof aiConfig.geminiThinkingBudget === "number" && !Number.isNaN(aiConfig.geminiThinkingBudget)) {
+    config.thinkingConfig = {
+      thinkingBudget: aiConfig.geminiThinkingBudget,
+    };
+  }
+
+  try {
+    const response = await gemini.models.generateContent(
+      {
+        model,
+        contents,
+        config,
+      },
+      signal ? { signal } : undefined,
+    );
+
+    const text = response.text?.trim();
+    if (!text) {
+      throw new Error("Gemini boş cavab qaytardı.");
+    }
+
+    const usageMetadata = response.usageMetadata;
+    const usage = usageMetadata
+      ? {
+          prompt_tokens: usageMetadata.promptTokenCount || null,
+          completion_tokens: usageMetadata.candidatesTokenCount || null,
+          total_tokens: usageMetadata.totalTokenCount || null,
+        }
+      : null;
+
+    return {
+      text,
+      usage,
+      model,
+      provider: "google",
+    };
+  } catch (error) {
+    if (error instanceof LLMProviderError) throw error;
+    const status = error?.status || 503;
+    const cleanMsg = formatGeminiErrorMessage(error);
+    throw new LLMProviderError(
+      `Gemini xidməti ilə əlaqə qurmaq mümkün olmadı: ${cleanMsg}`,
+      {
+        code: error?.code || "GEMINI_PROVIDER_ERROR",
+        status: status >= 400 && status < 600 ? status : 503,
+        model,
+        provider: "google",
+        details: error,
+      },
+    );
+  }
+}
+
 app.post("/api/ask", async (req, res) => {
   const learningStartedAt = Date.now();
   let learningInteractionId = null;
@@ -680,6 +879,7 @@ app.post("/api/ask", async (req, res) => {
   let learningTaskType = "ask_general";
   let learningModel = ASK_MODEL;
   let learningContext = {};
+  let isGeminiRoute = false;
   try {
     const openAiAvailable = Boolean(openai);
 
@@ -764,7 +964,9 @@ app.post("/api/ask", async (req, res) => {
     const hasStrategyContext = Boolean(selectedStrategy || selectedTask);
     const lastUserMsg = messages.at(-1)?.content || "";
     const route = resolveAskModelRoute({ requestedModel, lastUserMsg, hasStrategyContext });
-    const selectedAskModel = route === "terra" ? ASK_COMPLEX_MODEL : ASK_MODEL;
+    const isGemini = route === "gemini-3.7-flash";
+    isGeminiRoute = isGemini;
+    const selectedAskModel = isGemini ? ASK_GEMINI_MODEL : route === "terra" ? ASK_COMPLEX_MODEL : ASK_MODEL;
     learningInteractionId = learningLoop.createInteractionId();
     learningPrompt = messages.at(-1).content;
     learningTaskType = selectedStrategy ? "ask_with_strategy" : selectedTask ? "ask_with_task" : "ask_general";
@@ -779,8 +981,9 @@ app.post("/api/ask", async (req, res) => {
     };
     activeModel = route;
 
-    // Real-time SSE streaming for responsive GPT-5.6 output.
+    // Real-time SSE streaming for responsive output.
     if (req.body.stream === true || req.headers.accept?.includes("text/event-stream")) {
+      req.socket?.setTimeout?.(0);
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-transform");
       res.setHeader("Connection", "keep-alive");
@@ -790,19 +993,34 @@ app.post("/api/ask", async (req, res) => {
       res.setHeader("Content-Encoding", "identity");
       if (typeof res.flushHeaders === "function") res.flushHeaders();
 
+      const abortController = new AbortController();
+      req.on("close", () => abortController.abort());
+
       let accumulated = "";
       try {
-        const generated = await generateOpenAIAskStreamResponse({
-          openaiClient: openai,
-          model: selectedAskModel,
-          instructions: fullInstructions,
-          messages,
-          ownerId: req.ownerId,
-          onChunk: (chunk) => {
-            res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
-            if (typeof res.flush === "function") res.flush();
-          },
-        });
+        const generated = isGemini
+          ? await generateGeminiAskStreamResponse({
+              model: selectedAskModel,
+              instructions: fullInstructions,
+              messages,
+              signal: abortController.signal,
+              onChunk: (chunk) => {
+                res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
+                if (typeof res.flush === "function") res.flush();
+              },
+            })
+          : await generateOpenAIAskStreamResponse({
+              openaiClient: openai,
+              model: selectedAskModel,
+              instructions: fullInstructions,
+              messages,
+              ownerId: req.ownerId,
+              signal: abortController.signal,
+              onChunk: (chunk) => {
+                res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
+                if (typeof res.flush === "function") res.flush();
+              },
+            });
         accumulated = generated.text;
 
         const updatedMessages = [
@@ -834,7 +1052,7 @@ app.post("/api/ask", async (req, res) => {
         logWithoutBlocking(learningLoop.recordInteraction({
           id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
           mode: "ask", taskType: learningTaskType, userPrompt: learningPrompt, relevantContext: learningContext,
-          modelProvider: "openai", modelName: learningModel, modelResponse: accumulated,
+          modelProvider: isGemini ? "google" : "openai", modelName: learningModel, modelResponse: accumulated,
           latencyMs: Date.now() - learningStartedAt, requestStatus: "error",
           errorType: streamErr?.code || streamErr?.name || "ASK_STREAM_ERROR",
         }), "Ask stream failure logging");
@@ -843,13 +1061,19 @@ app.post("/api/ask", async (req, res) => {
       }
     }
 
-    const generated = await generateOpenAIAskResponse({
-      openaiClient: openai,
-      model: selectedAskModel,
-      instructions: fullInstructions,
-      messages,
-      ownerId: req.ownerId,
-    });
+    const generated = isGemini
+      ? await generateGeminiAskResponse({
+          model: selectedAskModel,
+          instructions: fullInstructions,
+          messages,
+        })
+      : await generateOpenAIAskResponse({
+          openaiClient: openai,
+          model: selectedAskModel,
+          instructions: fullInstructions,
+          messages,
+          ownerId: req.ownerId,
+        });
     reply = generated.text;
 
     if (!reply) throw new Error("Ask mode returned an empty response.");
@@ -881,12 +1105,12 @@ app.post("/api/ask", async (req, res) => {
       logWithoutBlocking(learningLoop.recordInteraction({
         id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
         mode: "ask", taskType: learningTaskType, userPrompt: learningPrompt, relevantContext: learningContext,
-        modelProvider: "openai", modelName: learningModel, modelResponse: "", latencyMs: Date.now() - learningStartedAt,
+        modelProvider: isGeminiRoute ? "google" : "openai", modelName: learningModel, modelResponse: "", latencyMs: Date.now() - learningStartedAt,
         requestStatus: "error", errorType: error?.code || error?.name || "ASK_ERROR",
       }), "Ask failure logging");
     }
     console.error("Ask mode error:", error?.message || error);
-    const code = error?.code || (error?.status === 401 ? "AI_AUTH_ERROR" : "ASK_ERROR");
+    const code = error?.code || (error?.status === 401 ? "AI_AUTH_ERROR" : isGeminiRoute ? "GEMINI_ERROR" : "ASK_ERROR");
     return res.status(error?.status || 500).json({
       code,
       error: error?.message || "Cavabı hazırlamaq mümkün olmadı.",
