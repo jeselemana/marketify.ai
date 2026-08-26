@@ -217,10 +217,10 @@ const state = {
   askThinking: (() => {
     try {
       const saved = localStorage.getItem("marketify_ask_thinking");
-      if (saved === "false") return false;
       if (saved === "true") return true;
+      if (saved === "false") return false;
     } catch {}
-    return true;
+    return false;
   })(),
   strategyAskOpen: false,
   refinementOpen: false,
@@ -660,11 +660,6 @@ function renderIntake() {
   textarea.placeholder = "Marketify ilə strategiya qur";
   textarea.value = state.brief;
 
-  const fileInput = document.createElement("input");
-  fileInput.type = "file";
-  fileInput.accept = ".txt,.md,.csv,.json,text/plain,text/csv,application/json";
-  fileInput.hidden = true;
-
   const submit = button("", "ask-submit");
   submit.type = "submit";
   submit.disabled = state.brief.trim().length < 8;
@@ -677,75 +672,21 @@ function renderIntake() {
   const contextMenu = document.createElement("details");
   contextMenu.className = "ask-context-menu";
   const contextTrigger = element("summary", "ask-context-trigger");
-  contextTrigger.setAttribute("aria-label", "Əlavə seçimlər");
-  contextTrigger.title = "Əlavə seçimlər";
+  contextTrigger.setAttribute("aria-label", "Hazır promptlar");
+  contextTrigger.title = "Hazır promptlar";
   contextTrigger.appendChild(element("span", "ask-context-plus", "+"));
   const contextPopover = element("div", "ask-context-popover");
-  let contextPane = "main";
   const drawBuildMenu = () => {
     contextPopover.replaceChildren();
-    if (contextPane === "prompts") {
-      addPresetPromptPane(contextPopover, "build", (prompt) => {
-        contextMenu.open = false;
-        appendPresetPrompt(textarea, prompt, resizeInput);
-      }, () => { contextPane = "main"; drawBuildMenu(); });
-      return;
-    }
-    if (contextPane === "strategies" || contextPane === "tasks") {
-      const isStrategy = contextPane === "strategies";
-      const entries = isStrategy ? state.savedStrategies : state.plannerTasks.filter((task) => !task.completed);
-      const header = element("div", "ask-context-menu-subheader");
-      header.append(button("‹", "ask-context-menu-back", () => { contextPane = "main"; drawBuildMenu(); }), element("strong", "ask-context-menu-heading", isStrategy ? "Strategiyalarım" : "Planlaşdırılanlar"));
-      contextPopover.appendChild(header);
-      const list = element("div", "ask-context-list");
-      if (!entries.length) list.appendChild(element("div", "ask-context-empty", isStrategy ? "Arxiv hələ boşdur." : "Aktiv planlaşdırılan tapşırıq yoxdur."));
-      entries.forEach((entry) => {
-        const item = button("", "ask-context-item", () => {
-          contextMenu.open = false;
-          appendPresetPrompt(textarea, isStrategy ? `Bu strategiyanın kontekstini nəzərə al: ${entry.title}` : `Bu tapşırığın kontekstini nəzərə al: ${entry.text}`, resizeInput);
-        });
-        item.append(element("span", "", isStrategy ? entry.title : entry.text), element("small", "", isStrategy ? formatDate(entry.updatedAt) : entry.groupLabel || "Ümumi"));
-        list.appendChild(item);
-      });
-      contextPopover.appendChild(list);
-      return;
-    }
-    contextPopover.appendChild(element("strong", "ask-context-menu-heading", "Əlavə et"));
-    [
-      ["Strategiyalarım", "Yadda saxlanılan strategiyanı əlavə et", "strategies"],
-      ["Planlaşdırılanlar", "Aktiv tapşırığı əlavə et", "tasks"],
-      ["Hazır sual", "Başlamaq üçün hazır prompt seç", "prompts"],
-      ["Fayl əlavə et", "Mətn faylından brif əlavə et", "file"],
-    ].forEach(([title, description, pane]) => {
-      const option = button("", "ask-context-menu-option", () => {
-        if (pane === "file") { contextMenu.open = false; fileInput.click(); return; }
-        contextPane = pane; drawBuildMenu();
-      });
-      const copy = element("span", "ask-context-menu-option-copy");
-      copy.append(element("strong", "", title), element("small", "", description));
-      option.append(copy, element("span", "ask-context-menu-chevron", "›"));
-      contextPopover.appendChild(option);
+    addPresetPromptPane(contextPopover, "build", (prompt) => {
+      contextMenu.open = false;
+      appendPresetPrompt(textarea, prompt, resizeInput);
     });
   };
   drawBuildMenu();
   contextMenu.append(contextTrigger, contextPopover);
 
-  fileInput.addEventListener("change", async () => {
-    const file = fileInput.files?.[0];
-    if (!file) return;
-    try {
-      const content = (await file.text()).trim();
-      const addition = `\n\nƏlavə fayl — ${file.name}:\n${content}`;
-      textarea.value = `${textarea.value.trim()}${addition}`.trim().slice(0, textarea.maxLength);
-      resizeInput();
-      showToast(`${file.name} brifə əlavə edildi.`);
-    } catch {
-      showToast("Faylı oxumaq mümkün olmadı.", "error");
-    }
-    fileInput.value = "";
-  });
-
-  form.append(contextMenu, label, textarea, fileInput, composerActions);
+  form.append(contextMenu, label, textarea, composerActions);
 
   const helper = element("div", "ask-composer-meta");
   const disclaimer = element("p", "ask-disclaimer", "Marketify süni intellekt funksiyası yerinə yetirir və səhvlər edə bilər.");
