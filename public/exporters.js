@@ -11,6 +11,10 @@ function csvCell(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
+function xmlCell(value) {
+  return escapeDocument(value).replaceAll("\n", "&#10;");
+}
+
 export function createPdfPrintDocument(strategy) {
   const dateStr = new Date().toLocaleDateString("az-AZ", {
     year: "numeric",
@@ -126,8 +130,8 @@ export function createPdfPrintDocument(strategy) {
       color: #0f172a;
       background: #ffffff;
       margin: 0;
-      padding: 24px;
-      font-size: 13px;
+      padding: 0;
+      font-size: 11.5pt;
       line-height: 1.55;
     }
     .pdf-header {
@@ -194,21 +198,12 @@ export function createPdfPrintDocument(strategy) {
       padding-bottom: 6px;
       text-transform: uppercase;
     }
-    .pdf-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-    }
-    .pdf-grid-3 {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-    }
     .pdf-card {
-      padding: 12px 14px;
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
-      background: #ffffff;
+      padding: 0 0 13px;
+      margin: 0 0 13px;
+      border: 0;
+      border-bottom: 1px solid #e2e8f0;
+      background: transparent;
     }
     .pdf-card-top {
       display: flex;
@@ -293,10 +288,9 @@ export function createPdfPrintDocument(strategy) {
       margin-bottom: 6px;
     }
     .pdf-next-col {
-      padding: 12px 14px;
-      border-radius: 8px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      padding: 0 0 12px;
+      margin: 0 0 13px;
+      border-bottom: 1px solid #e2e8f0;
     }
     .pdf-next-heading {
       margin: 0 0 8px;
@@ -362,7 +356,7 @@ export function createPdfPrintDocument(strategy) {
     prioritiesHtml
       ? `<section class="pdf-section">
           <h3 class="pdf-section-title">01. Strateji Prioritetlər</h3>
-          <div class="pdf-grid">${prioritiesHtml}</div>
+          <div>${prioritiesHtml}</div>
         </section>`
       : ""
   }
@@ -371,7 +365,7 @@ export function createPdfPrintDocument(strategy) {
     sectionsHtml
       ? `<section class="pdf-section">
           <h3 class="pdf-section-title">02. Strateji Qərarlar və İstiqamət</h3>
-          <div class="pdf-grid">${sectionsHtml}</div>
+          <div>${sectionsHtml}</div>
         </section>`
       : ""
   }
@@ -380,7 +374,7 @@ export function createPdfPrintDocument(strategy) {
     actionPlanHtml
       ? `<section class="pdf-section">
           <h3 class="pdf-section-title">03. İcra Mərhələləri</h3>
-          <div class="pdf-grid">${actionPlanHtml}</div>
+          <div>${actionPlanHtml}</div>
         </section>`
       : ""
   }
@@ -389,7 +383,7 @@ export function createPdfPrintDocument(strategy) {
     kpisHtml
       ? `<section class="pdf-section">
           <h3 class="pdf-section-title">04. Uğur və KPI Hədəfləri</h3>
-          <div class="pdf-grid">${kpisHtml}</div>
+          <div>${kpisHtml}</div>
         </section>`
       : ""
   }
@@ -398,7 +392,7 @@ export function createPdfPrintDocument(strategy) {
     risksHtml
       ? `<section class="pdf-section">
           <h3 class="pdf-section-title">05. Risklər və Həll Yolları</h3>
-          <div class="pdf-grid">${risksHtml}</div>
+          <div>${risksHtml}</div>
         </section>`
       : ""
   }
@@ -407,14 +401,14 @@ export function createPdfPrintDocument(strategy) {
     nextStepsHtml
       ? `<section class="pdf-section">
           <h3 class="pdf-section-title">06. Növbəti Addımlar</h3>
-          <div class="pdf-grid-3">${nextStepsHtml}</div>
+          <div>${nextStepsHtml}</div>
         </section>`
       : ""
   }
 
   <footer class="pdf-footer">
     <span>Marketify AI platformasında generasiya olunub • marketify-ai.com</span>
-    <span>Səhifə 1</span>
+    <span>Strateji hesabat</span>
   </footer>
 </body>
 </html>`;
@@ -494,4 +488,25 @@ export function createSpreadsheetExport(strategy) {
   const content = `\ufeff${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
 
   return { content, type: "text/csv;charset=utf-8", extension: "csv" };
+}
+
+export function createExcelExport(strategy) {
+  const row = (cells) => `<Row>${cells.map((value) => `<Cell><Data ss:Type="String">${xmlCell(value)}</Data></Cell>`).join("")}</Row>`;
+  const worksheet = (name, rows) => `<Worksheet ss:Name="${xmlCell(name)}"><Table>${rows.map(row).join("")}</Table></Worksheet>`;
+  const overview = [
+    ["Strategiya", strategy.title], ["Xülasə", strategy.summary], [],
+    ["Prioritet", "Təsvir", "Səviyyə"],
+    ...(strategy.priorities || []).map((item) => [item.title, item.description, item.priority]), [],
+    ["Bölmə", "Məzmun", "Əsas məqamlar"],
+    ...(strategy.sections || []).map((section) => [section.title, section.content, (section.bullets || []).join(" • ")]),
+  ];
+  const actionPlan = [["Mərhələ", "Fəaliyyət", "Gözlənilən nəticə"], ...(strategy.actionPlan || []).flatMap((phase) => (phase.actions || []).map((action) => [phase.phase, action, phase.expectedOutcome]))];
+  const metricsAndRisks = [
+    ["Növ", "Ad / Risk", "Hədəf / Həll yolu", "Əsaslandırma"],
+    ...(strategy.kpis || []).map((kpi) => ["KPI", kpi.name, kpi.target, kpi.reason]),
+    ...(strategy.risks || []).map((risk) => ["Risk", risk.risk, risk.mitigation, ""]),
+    ...(strategy.nextSteps || []).map((step) => ["Növbəti addım", step, "", ""]),
+  ];
+  const content = `<?xml version="1.0" encoding="UTF-8"?>\n<?mso-application progid="Excel.Sheet"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">${worksheet("Strategiya", overview)}${worksheet("İcra planı", actionPlan)}${worksheet("KPI və risklər", metricsAndRisks)}</Workbook>`;
+  return { content, type: "application/vnd.ms-excel;charset=utf-8", extension: "xls" };
 }

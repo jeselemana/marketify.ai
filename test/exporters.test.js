@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createDocumentExport, createSpreadsheetExport, createPdfPrintDocument } from "../public/exporters.js";
+import { createDocumentExport, createExcelExport, createSpreadsheetExport, createPdfPrintDocument } from "../public/exporters.js";
 
 const strategy = {
   title: "Launch <script>alert(1)</script>",
@@ -28,6 +28,15 @@ test("spreadsheet export keeps action-plan, priority, KPI, and risk rows separat
   assert.match(file.content, /"Fəaliyyət planı"/);
   assert.match(file.content, /"KPI"/);
   assert.match(file.content, /"Risk"/);
+});
+
+test("Excel export creates separate worksheets for strategy, execution, and metrics", () => {
+  const file = createExcelExport(strategy);
+  assert.equal(file.extension, "xls");
+  assert.match(file.content, /Worksheet ss:Name="Strategiya"/);
+  assert.match(file.content, /Worksheet ss:Name="İcra planı"/);
+  assert.match(file.content, /Worksheet ss:Name="KPI və risklər"/);
+  assert.doesNotMatch(file.content, /<script>alert/);
 });
 
 test("pdf printable document escapes untrusted content and renders all key sections", () => {

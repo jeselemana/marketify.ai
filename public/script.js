@@ -1,4 +1,4 @@
-import { createDocumentExport, createSpreadsheetExport, exportStrategyToPDF } from "./exporters.js";
+import { createDocumentExport, createExcelExport, createSpreadsheetExport, exportStrategyToPDF } from "./exporters.js";
 import { authRequest, initializeAuthentication, logout } from "./auth.js";
 
 const workspace = document.querySelector("#workspace");
@@ -163,6 +163,7 @@ const LOADING_ASK_PLACEHOLDERS = [
 ];
 
 let loadingAskPlaceholderTimer = null;
+let refinementPlaceholderTimer = null;
 
 const state = {
   mode: "build",
@@ -544,6 +545,7 @@ function resetStrategy() {
 function render() {
   clearInterval(progressTimer);
   clearInterval(loadingAskPlaceholderTimer);
+  clearTimeout(refinementPlaceholderTimer);
   syncMode();
   syncNav();
   document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay").forEach((btn) => btn.remove());
@@ -3697,7 +3699,7 @@ function buildStrategyAskAssistant() {
 
   const header = element("header", "strategy-ask-header");
   const heading = element("div", "strategy-ask-heading");
-  const title = element("strong", "", "Marketify Ask");
+  const title = element("strong", "", "Ask Marketify");
   const context = element("span", "strategy-ask-context", state.strategy?.title || "Aktiv strategiya");
   heading.append(title, context);
   const close = button("", "strategy-ask-close", () => {
@@ -3923,7 +3925,7 @@ function buildRefinementPanel() {
       <polyline points="7 10 12 15 17 10"/>
       <line x1="12" y1="15" x2="12" y2="3"/>
     </svg>
-    <span>İxrac</span>
+    <span>Yüklə</span>
     <svg class="dock-chevron-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
   `;
   const menu = buildExportMenu(exportBtn);
@@ -3943,37 +3945,23 @@ function buildRefinementPanel() {
     }
   });
 
+  const toolbarSeparator = element("span", "dock-toolbar-separator");
+  toolbarSeparator.setAttribute("aria-hidden", "true");
+
   // 3. Save button with minimalist bookmark/check icon
   const saveBtn = button("", `dock-action-btn dock-save-btn${state.savedId ? " is-saved" : ""}`, saveStrategy);
   saveBtn.disabled = Boolean(state.savedId) || state.status === "refining";
   const saveIconSvg = state.savedId
-    ? `<svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`
+    ? `<svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="8 12 10.7 14.7 16.5 9"/></svg>`
     : `<svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`;
   saveBtn.innerHTML = `
     ${saveIconSvg}
-    <span>${state.savedId ? "Yadda saxlanıb" : "Yadda saxla"}</span>
+    <span>${state.savedId ? "Yadda saxlanıldı" : "Yadda saxla"}</span>
   `;
 
-  actionsStrip.append(refineToggle, exportWrap, saveBtn);
+  actionsStrip.append(refineToggle, exportWrap, toolbarSeparator, saveBtn);
 
-  // Middle: Quick suggestions with modern icons
-  const quick = element("div", "quick-actions");
-  const quickIcons = {
-    shorten: "⚡",
-    localize_azerbaijan: "📍",
-    think_deeper: "✦",
-    make_practical: "💼",
-    budget_optimize: "💰",
-  };
-  QUICK_ACTIONS.forEach(([action, label]) => {
-    const icon = quickIcons[action] || "✦";
-    const actionButton = button("", "quick-action", () => requestRefinement(action, ""));
-    actionButton.innerHTML = `<span class="quick-action-icon">${icon}</span><span>${label}</span>`;
-    actionButton.disabled = state.status === "refining";
-    quick.appendChild(actionButton);
-  });
-
-  // Bottom: Refinement input form
+  // Suggestions are presented as an animated placeholder instead of controls.
   const form = element("form", "refinement-form");
   const label = element("label", "sr-only", "Dəyişiklik istəyi");
   label.htmlFor = "refinementInput";
@@ -3985,7 +3973,7 @@ function buildRefinementPanel() {
   input.id = "refinementInput";
   input.rows = 1;
   input.maxLength = 2000;
-  input.placeholder = "Strategiyada nəyi dəyişək?";
+  input.placeholder = "Qısalt";
   input.disabled = state.status === "refining";
 
   const submit = button("", "refine-submit");
@@ -4018,13 +4006,46 @@ function buildRefinementPanel() {
   panel.append(actionsStrip);
   if (state.refinementOpen) {
     const popover = element("div", "refinement-popover");
-    popover.append(quick, form);
+    popover.append(form);
     panel.appendChild(popover);
     requestAnimationFrame(() => {
-      if (!input.disabled) input.focus();
+      if (!input.disabled) {
+        input.focus();
+        startRefinementPlaceholderTyping(input);
+      }
     });
   }
   return panel;
+}
+
+function startRefinementPlaceholderTyping(input) {
+  const suggestions = ["Qısalt", "Lokallaşdır", "Daha dərindən düşün", "Praktik et"];
+  let suggestionIndex = 0;
+  let characterIndex = 0;
+  let deleting = false;
+
+  const tick = () => {
+    if (!input.isConnected) return;
+    const suggestion = suggestions[suggestionIndex];
+    input.placeholder = suggestion.slice(0, characterIndex);
+
+    if (!deleting && characterIndex < suggestion.length) {
+      characterIndex += 1;
+      refinementPlaceholderTimer = setTimeout(tick, 58);
+    } else if (!deleting) {
+      deleting = true;
+      refinementPlaceholderTimer = setTimeout(tick, 2200);
+    } else if (characterIndex > 0) {
+      characterIndex -= 1;
+      refinementPlaceholderTimer = setTimeout(tick, 32);
+    } else {
+      deleting = false;
+      suggestionIndex = (suggestionIndex + 1) % suggestions.length;
+      refinementPlaceholderTimer = setTimeout(tick, 220);
+    }
+  };
+
+  tick();
 }
 
 async function requestRefinement(action, request) {
@@ -4127,12 +4148,14 @@ function buildExportMenu(trigger) {
     trigger.setAttribute("aria-expanded", "false");
   });
 
-  menu.append(pdf, doc, csv, element("div", "export-separator"), element("span", "export-label", "İnteqrasiyalar"));
-  ["Google Docs", "Google Sheets"].forEach((label) => {
-    const option = element("div", "export-integration");
-    option.append(element("span", "", label), element("small", "", "Coming soon"));
-    menu.appendChild(option);
+  const excel = button("Excel cədvəli (.xls)", "export-option", () => {
+    trackEvent("export_requested", { format: "excel" });
+    downloadExport(createExcelExport(state.strategy));
+    menu.classList.remove("is-open");
+    trigger.setAttribute("aria-expanded", "false");
   });
+
+  menu.append(pdf, doc, excel, csv);
   return menu;
 }
 
