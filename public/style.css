@@ -5742,15 +5742,21 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   position: absolute;
   z-index: 35;
   bottom: calc(100% + 12px);
+  top: auto;
   left: -8px;
   display: grid;
   width: min(340px, calc(100vw - 40px));
   padding: 8px;
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
-  background: #18181a;
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.48);
+  background: var(--bg-elevated);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.05);
   animation: menu-in 150ms ease both;
+}
+
+.ask-context-popover.is-downwards {
+  top: calc(100% + 10px);
+  bottom: auto;
 }
 
 .ask-context-menu:not([open]) .ask-context-popover {

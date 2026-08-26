@@ -672,19 +672,47 @@ function renderIntake() {
   const contextMenu = document.createElement("details");
   contextMenu.className = "ask-context-menu";
   const contextTrigger = element("summary", "ask-context-trigger");
-  contextTrigger.setAttribute("aria-label", "Hazır promptlar");
-  contextTrigger.title = "Hazır promptlar";
+  contextTrigger.setAttribute("aria-label", "Əlavə seçimlər");
+  contextTrigger.title = "Əlavə seçimlər";
   contextTrigger.appendChild(element("span", "ask-context-plus", "+"));
   const contextPopover = element("div", "ask-context-popover");
+  let contextPane = "main";
   const drawBuildMenu = () => {
     contextPopover.replaceChildren();
-    addPresetPromptPane(contextPopover, "build", (prompt) => {
-      contextMenu.open = false;
-      appendPresetPrompt(textarea, prompt, resizeInput);
+    if (contextPane === "prompts") {
+      contextPopover.classList.add("is-downwards");
+      addPresetPromptPane(contextPopover, "build", (prompt) => {
+        contextMenu.open = false;
+        contextPane = "main";
+        contextPopover.classList.remove("is-downwards");
+        appendPresetPrompt(textarea, prompt, resizeInput);
+      }, () => {
+        contextPane = "main";
+        contextPopover.classList.remove("is-downwards");
+        drawBuildMenu();
+      });
+      return;
+    }
+    contextPopover.classList.remove("is-downwards");
+    contextPopover.appendChild(element("strong", "ask-context-menu-heading", "Əlavə et"));
+    const option = button("", "ask-context-menu-option", () => {
+      contextPane = "prompts";
+      drawBuildMenu();
     });
+    const copy = element("span", "ask-context-menu-option-copy");
+    copy.append(element("strong", "", "Hazır sual"), element("small", "", "Başlamaq üçün hazır prompt seç"));
+    option.append(copy, element("span", "ask-context-menu-chevron", "›"));
+    contextPopover.appendChild(option);
   };
   drawBuildMenu();
   contextMenu.append(contextTrigger, contextPopover);
+  contextMenu.addEventListener("toggle", () => {
+    if (!contextMenu.open) {
+      contextPane = "main";
+      contextPopover.classList.remove("is-downwards");
+      drawBuildMenu();
+    }
+  });
 
   form.append(contextMenu, label, textarea, composerActions);
 
