@@ -214,6 +214,14 @@ const state = {
     } catch {}
     return "auto";
   })(),
+  askThinking: (() => {
+    try {
+      const saved = localStorage.getItem("marketify_ask_thinking");
+      if (saved === "false") return false;
+      if (saved === "true") return true;
+    } catch {}
+    return true;
+  })(),
   strategyAskOpen: false,
   refinementOpen: false,
   currentUser: null,
@@ -973,7 +981,8 @@ function renderAsk() {
             </svg>
           `;
           const modelInfo = getAskMessageModelInfo(message.model);
-          const label = modelInfo.isGemini ? "Marketify düşünür" : modelInfo.isTerra ? "Dərin analiz" : "Cavab hazırlanır";
+          const isThinkingActive = modelInfo.isGemini ? Boolean(state.askThinking) : modelInfo.isTerra;
+          const label = isThinkingActive ? (modelInfo.isGemini ? "Marketify düşünür" : "Dərin analiz") : "Cavab hazırlanır";
           const thinkingLabel = element("span", "ask-thinking-label", label);
           const dots = element("span", "ask-thinking-dots");
           dots.append(element("i"), element("i"), element("i"));
@@ -1308,6 +1317,35 @@ function renderAsk() {
   `;
 
   modelPopover.append(autoOption, flashOption);
+
+  if (isFlashSelected) {
+    const divider = element("div", "ask-model-popover-divider");
+    const thinkingRow = element("div", "ask-model-toggle-row");
+    const thinkingInfo = element("div", "ask-model-toggle-info");
+    const thinkingTitle = element("strong", "", "Düşünmə");
+    const thinkingSub = element("small", "", state.askThinking ? "Dərin analiz aktivdir" : "Sürətli birbaşa cavab");
+    thinkingInfo.append(thinkingTitle, thinkingSub);
+
+    const switchLabel = element("label", "ask-toggle-switch");
+    const switchInput = document.createElement("input");
+    switchInput.type = "checkbox";
+    switchInput.checked = Boolean(state.askThinking);
+    switchInput.setAttribute("aria-label", "Düşünmə rejimini dəyiş");
+    switchInput.addEventListener("change", (e) => {
+      e.stopPropagation();
+      state.askThinking = switchInput.checked;
+      try { localStorage.setItem("marketify_ask_thinking", String(state.askThinking)); } catch {}
+      thinkingSub.textContent = state.askThinking ? "Dərin analiz aktivdir" : "Sürətli birbaşa cavab";
+      trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
+    });
+
+    const switchSlider = element("span", "ask-toggle-slider");
+    switchLabel.append(switchInput, switchSlider);
+    thinkingRow.append(thinkingInfo, switchLabel);
+
+    modelPopover.append(divider, thinkingRow);
+  }
+
   modelSelectorMenu.append(modelTrigger, modelPopover);
 
   modelSelectorMenu.addEventListener("keydown", (event) => {
@@ -1642,6 +1680,7 @@ async function submitAskMessage(message) {
       body: JSON.stringify({
         messages: state.askMessages.slice(0, -1),
         model: chosenModel,
+        thinking: chosenModel === "gemini-3.7-flash" ? Boolean(state.askThinking) : undefined,
         strategyId: state.askStrategyId || undefined,
         taskId: state.askTaskId || undefined,
         chatId: state.askChatId || undefined,

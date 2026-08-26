@@ -713,6 +713,7 @@ async function generateGeminiAskStreamResponse({
   model = ASK_GEMINI_MODEL,
   instructions = "",
   messages = [],
+  thinking = true,
   onChunk = () => {},
   signal,
 }) {
@@ -730,9 +731,17 @@ async function generateGeminiAskStreamResponse({
     maxOutputTokens: aiConfig.geminiMaxOutputTokens || 65536,
   };
 
-  if (typeof aiConfig.geminiThinkingBudget === "number" && !Number.isNaN(aiConfig.geminiThinkingBudget)) {
+  const isThinkingEnabled = thinking !== false && thinking !== "false" && thinking !== 0;
+  if (isThinkingEnabled) {
+    const budget = typeof aiConfig.geminiThinkingBudget === "number" && !Number.isNaN(aiConfig.geminiThinkingBudget)
+      ? aiConfig.geminiThinkingBudget
+      : 2048;
     config.thinkingConfig = {
-      thinkingBudget: aiConfig.geminiThinkingBudget,
+      thinkingBudget: budget,
+    };
+  } else {
+    config.thinkingConfig = {
+      thinkingBudget: 0,
     };
   }
 
@@ -803,6 +812,7 @@ async function generateGeminiAskResponse({
   model = ASK_GEMINI_MODEL,
   instructions = "",
   messages = [],
+  thinking = true,
   signal,
 }) {
   const gemini = getGeminiClient();
@@ -819,9 +829,17 @@ async function generateGeminiAskResponse({
     maxOutputTokens: aiConfig.geminiMaxOutputTokens || 65536,
   };
 
-  if (typeof aiConfig.geminiThinkingBudget === "number" && !Number.isNaN(aiConfig.geminiThinkingBudget)) {
+  const isThinkingEnabled = thinking !== false && thinking !== "false" && thinking !== 0;
+  if (isThinkingEnabled) {
+    const budget = typeof aiConfig.geminiThinkingBudget === "number" && !Number.isNaN(aiConfig.geminiThinkingBudget)
+      ? aiConfig.geminiThinkingBudget
+      : 2048;
     config.thinkingConfig = {
-      thinkingBudget: aiConfig.geminiThinkingBudget,
+      thinkingBudget: budget,
+    };
+  } else {
+    config.thinkingConfig = {
+      thinkingBudget: 0,
     };
   }
 
@@ -981,6 +999,9 @@ app.post("/api/ask", async (req, res) => {
     };
     activeModel = route;
 
+    const requestedThinking = req.body.thinking;
+    const isThinking = requestedThinking !== undefined ? (requestedThinking === true || requestedThinking === "true") : true;
+
     // Real-time SSE streaming for responsive output.
     if (req.body.stream === true || req.headers.accept?.includes("text/event-stream")) {
       req.socket?.setTimeout?.(0);
@@ -1003,6 +1024,7 @@ app.post("/api/ask", async (req, res) => {
               model: selectedAskModel,
               instructions: fullInstructions,
               messages,
+              thinking: isThinking,
               signal: abortController.signal,
               onChunk: (chunk) => {
                 res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
@@ -1066,6 +1088,7 @@ app.post("/api/ask", async (req, res) => {
           model: selectedAskModel,
           instructions: fullInstructions,
           messages,
+          thinking: isThinking,
         })
       : await generateOpenAIAskResponse({
           openaiClient: openai,
