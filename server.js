@@ -2453,7 +2453,7 @@ app.use("/api", (req, res) => res.status(404).json({ error: "API yolu tapılmad�
 // 🌐 Frontend üçün fallback
 app.get("*", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.sendFile(path.join(__dirname, "public", req.path === "/" ? "home.html" : "index.html"));
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 const PORT = APP_PORT;
