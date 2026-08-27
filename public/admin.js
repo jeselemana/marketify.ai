@@ -590,6 +590,16 @@ document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
   loadLegalReports();
 
+  // Load AI Learning pending count badge on init
+  fetchJSON("/admin/api/ai-learning/overview")
+    .then((overview) => {
+      const badge = document.getElementById("badgePendingLearning");
+      if (badge && overview?.pendingCandidates !== undefined) {
+        badge.textContent = overview.pendingCandidates || 0;
+      }
+    })
+    .catch(() => {});
+
   // Search & Filter event listeners
   document.getElementById("legalSearchInput")?.addEventListener("input", renderLegalReports);
   document.getElementById("legalStatusFilter")?.addEventListener("change", renderLegalReports);
@@ -601,6 +611,18 @@ document.addEventListener("DOMContentLoaded", () => {
     learningState.candidatePage = 1;
     loadAiLearning();
   });
+
+  let qualityFilterTimer;
+  const onQualityInput = () => {
+    clearTimeout(qualityFilterTimer);
+    qualityFilterTimer = setTimeout(() => {
+      learningState.interactionPage = 1;
+      learningState.candidatePage = 1;
+      loadAiLearning();
+    }, 300);
+  };
+  document.getElementById("learningMinQuality")?.addEventListener("input", onQualityInput);
+  document.getElementById("learningMaxQuality")?.addEventListener("input", onQualityInput);
   document.getElementById("tabContentLearning")?.addEventListener("click", (event) => {
     const interaction = event.target.closest("[data-interaction-id]");
     const candidate = event.target.closest("[data-candidate-id]");

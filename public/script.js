@@ -1,3 +1,5 @@
+import { bindPromptComposer } from "./prompt-composer.js";
+import { INTENT_KEY, readWorkspaceIntent, takeWorkspaceIntent } from "./workspace-intent.js";
 import { createDocumentExport, createExcelExport, createSpreadsheetExport, exportStrategyToPDF } from "./exporters.js";
 import { authRequest, initializeAuthentication, logout } from "./auth.js";
 import { PRESET_PROMPTS } from "./preset-prompts.js";
@@ -777,8 +779,21 @@ function renderIntake() {
   };
   drawBuildMenu();
   contextMenu.append(contextTrigger, contextPopover);
+  contextMenu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") contextMenu.open = false;
+  });
+  const closeContextMenu = (event) => {
+    if (!contextMenu.contains(event.target)) contextMenu.open = false;
+  };
   contextMenu.addEventListener("toggle", () => {
-    if (!contextMenu.open) {
+    if (contextMenu.open) {
+      setTimeout(() => {
+        document.addEventListener("pointerdown", closeContextMenu, { passive: true });
+        document.addEventListener("click", closeContextMenu);
+      }, 10);
+    } else {
+      document.removeEventListener("pointerdown", closeContextMenu);
+      document.removeEventListener("click", closeContextMenu);
       contextPane = "main";
       contextPopover.classList.remove("is-downwards");
       drawBuildMenu();
@@ -793,23 +808,10 @@ function renderIntake() {
 
   composerArea.append(form, helper);
 
-  const resizeInput = () => {
-    state.brief = textarea.value;
-    submit.disabled = textarea.value.trim().length < 8;
-    textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
-  };
-  textarea.addEventListener("input", resizeInput);
-  textarea.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing && window.innerWidth > 700) {
-      event.preventDefault();
-      if (!submit.disabled) form.requestSubmit();
-    }
-  });
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    state.brief = textarea.value.trim();
-    if (state.brief.length >= 8) startAssessment();
+  const { refresh: resizeInput } = bindPromptComposer({
+    form, textarea, submit,
+    onChange: (value) => { state.brief = value; },
+    onSubmit: (value) => { state.brief = value.trim(); return startAssessment(); },
   });
 
   const banner = errorBanner();
@@ -1463,7 +1465,7 @@ function renderAsk() {
   flashOption.innerHTML = `
     <div class="ask-model-option-info">
       <strong>Flash</strong>
-      <small>Gündəlik işlər üçün universal və sürətli model</small>
+      <small>Gündəlik işlər üçün</small>
     </div>
     ${isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
   `;
@@ -1863,6 +1865,8 @@ function updateActiveAskThinkingStatus(message) {
         `;
       }
     }
+    const strategyAskBody = document.querySelector(".strategy-ask-body");
+    if (strategyAskBody) strategyAskBody.scrollTop = strategyAskBody.scrollHeight;
   }
 }
 
@@ -1879,6 +1883,8 @@ function updateActiveAskMessageContent(message, showCaret = true) {
     }
     const composerArea = document.querySelector(".ask-composer-area");
     if (composerArea) composerArea.scrollIntoView({ behavior: "instant", block: "end" });
+    const strategyAskBody = document.querySelector(".strategy-ask-body");
+    if (strategyAskBody) strategyAskBody.scrollTop = strategyAskBody.scrollHeight;
   }
 }
 
@@ -2050,13 +2056,13 @@ async function thinkDeeperWithTerra(messageIndex) {
   }
 }
 
-async function submitAskMessage(message, attachedFile = null) {
+async function submitAskMessage(message, attachedFile = null, { preserveWhitespace = false } = {}) {
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
   const selectedTask = state.plannerTasks.find((task) => task.id === state.askTaskId) || null;
   const fileToAttach = attachedFile || state.askPendingFile || null;
   state.askPendingFile = null;
 
-  const contentText = message ? String(message).trim() : (fileToAttach ? `Bu faylı analiz et: ${fileToAttach.name}` : "");
+  const contentText = message ? (preserveWhitespace ? String(message) : String(message).trim()) : (fileToAttach ? `Bu faylı analiz et: ${fileToAttach.name}` : "");
 
   state.askMessages.push({
     role: "user",
@@ -2103,6 +2109,9 @@ async function submitAskMessage(message, attachedFile = null) {
     });
 
     if (!response.ok) {
+      if (response.status === 401 && activeHomepageIntent) {
+        window.dispatchEvent(new CustomEvent("marketify:auth-required"));
+      }
       const errData = await response.json().catch(() => ({}));
       throw new Error(errData.error || "Cavabı hazırlamaq mümkün olmadı.");
     }
@@ -2954,6 +2963,11 @@ function showLoadingAskModal(initialQuery) {
       loadingItem.classList.remove("is-thinking");
       const contentWrap = loadingItem.querySelector(".ask-thread-msg-content");
       let reply = "";
+      const renderReply = () => {
+        if (!contentWrap) return;
+        contentWrap.innerHTML = "";
+        contentWrap.appendChild(renderAskRichText(reply));
+      };
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let rawBuffer = "";
@@ -4359,11 +4373,14 @@ function buildStrategyAskAssistant() {
     "div",
     `strategy-ask-root${state.strategyAskOpen ? " is-open" : ""}${state.refinementOpen ? " is-refinement-open" : ""}`,
   );
-  if (!state.strategyAskOpen) return root;
 
-  const backdrop = button("", "strategy-ask-backdrop", () => {
+  const backdrop = button("", "strategy-ask-backdrop", (e) => {
+    e.preventDefault();
     state.strategyAskOpen = false;
-    render();
+    root.classList.remove("is-open");
+    document.querySelector(".strategy-view")?.classList.remove("is-ask-open");
+    const askBtn = document.querySelector(".dock-ask-btn");
+    if (askBtn) askBtn.setAttribute("aria-expanded", "false");
   });
   backdrop.type = "button";
   backdrop.setAttribute("aria-label", "Strategiya söhbətini bağla");
@@ -4379,9 +4396,13 @@ function buildStrategyAskAssistant() {
   const title = element("strong", "", "Ask Marketify");
   const context = element("span", "strategy-ask-context", state.strategy?.title || "Aktiv strategiya");
   heading.append(title, context);
-  const close = button("", "strategy-ask-close", () => {
+  const close = button("", "strategy-ask-close", (e) => {
+    e.preventDefault();
     state.strategyAskOpen = false;
-    render();
+    root.classList.remove("is-open");
+    document.querySelector(".strategy-view")?.classList.remove("is-ask-open");
+    const askBtn = document.querySelector(".dock-ask-btn");
+    if (askBtn) askBtn.setAttribute("aria-expanded", "false");
   });
   close.type = "button";
   close.setAttribute("aria-label", "Söhbəti kiçilt");
@@ -4399,7 +4420,8 @@ function buildStrategyAskAssistant() {
       "İlk 30 gündə nəyə fokuslanmalıyam?",
       "Bu planın zəif nöqtələrini göstər.",
     ].forEach((question) => {
-      const suggestion = button(question, "strategy-ask-suggestion", async () => {
+      const suggestion = button(question, "strategy-ask-suggestion", async (e) => {
+        e.preventDefault();
         if (state.askLoading) return;
         const ready = await ensureStrategyAskContext();
         if (ready) submitAskMessage(question);
@@ -4456,10 +4478,12 @@ function buildStrategyAskAssistant() {
   panel.append(header, body, footer);
   root.appendChild(panel);
 
-  requestAnimationFrame(() => {
-    body.scrollTop = body.scrollHeight;
-    if (!state.askLoading && window.innerWidth > 767) input.focus();
-  });
+  if (state.strategyAskOpen) {
+    requestAnimationFrame(() => {
+      body.scrollTop = body.scrollHeight;
+      if (!state.askLoading && window.innerWidth > 767) input.focus();
+    });
+  }
   return root;
 }
 
@@ -4526,6 +4550,14 @@ function renderStrategyWorkspace() {
   tocItems.forEach(([id, label], index) => {
     const link = element("a", index === 0 ? "is-active" : "", label);
     link.href = `#${id}`;
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const target = document.getElementById(id);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        history.replaceState(null, "", `#${id}`);
+      }
+    });
     toc.appendChild(link);
   });
 
@@ -4576,9 +4608,31 @@ function buildRefinementPanel() {
   // Compact document actions live in the same surface as the refinement composer.
   const actionsStrip = element("div", "dock-actions-strip");
 
-  const refineToggle = button("", "dock-action-btn dock-refine-toggle", () => {
+  const refineToggle = button("", "dock-action-btn dock-refine-toggle", (e) => {
+    e.preventDefault();
     state.refinementOpen = !state.refinementOpen;
-    render();
+    refineToggle.setAttribute("aria-expanded", String(state.refinementOpen));
+    refineToggle.title = state.refinementOpen ? "Bağla" : "Düzəliş istə";
+    panel.classList.toggle("is-expanded", state.refinementOpen);
+
+    let popover = panel.querySelector(".refinement-popover");
+    if (state.refinementOpen) {
+      if (!popover) {
+        popover = element("div", "refinement-popover");
+        popover.append(form);
+        panel.appendChild(popover);
+      }
+      popover.hidden = false;
+      requestAnimationFrame(() => {
+        if (!input.disabled) {
+          input.focus();
+          startRefinementPlaceholderTyping(input);
+        }
+      });
+    } else {
+      if (popover) popover.remove();
+      clearTimeout(refinementPlaceholderTimer);
+    }
   });
   refineToggle.type = "button";
   refineToggle.setAttribute("aria-label", state.refinementOpen ? "Düzəliş pəncərəsini bağla" : "Strategiyada düzəliş istə");
@@ -4606,21 +4660,21 @@ function buildRefinementPanel() {
     <svg class="dock-chevron-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
   `;
   const menu = buildExportMenu(exportBtn);
-  exportBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const open = menu.classList.toggle("is-open");
-    exportBtn.setAttribute("aria-expanded", String(open));
-  });
-  exportWrap.append(exportBtn, menu);
-
-  // Close only the export menu when clicking outside. The refinement flyout
-  // itself is explicitly controlled by its edit icon.
-  document.addEventListener("click", (e) => {
+  const onExportDocClick = (e) => {
     if (!exportWrap.contains(e.target)) {
       menu.classList.remove("is-open");
       exportBtn.setAttribute("aria-expanded", "false");
     }
+  };
+  exportBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = menu.classList.toggle("is-open");
+    exportBtn.setAttribute("aria-expanded", String(open));
+    if (open) {
+      setTimeout(() => document.addEventListener("click", onExportDocClick, { once: true }), 0);
+    }
   });
+  exportWrap.append(exportBtn, menu);
 
   const toolbarSeparator = element("span", "dock-toolbar-separator");
   toolbarSeparator.setAttribute("aria-hidden", "true");
@@ -4639,13 +4693,25 @@ function buildRefinementPanel() {
   const askSeparator = element("span", "dock-toolbar-separator dock-ask-separator");
   askSeparator.setAttribute("aria-hidden", "true");
 
-  const askBtn = button("", "dock-action-btn dock-ask-btn", () => {
+  const askBtn = button("", "dock-action-btn dock-ask-btn", (e) => {
+    e.preventDefault();
     state.askModel = "auto";
     if (state.savedId) resetAskForStrategy(state.savedId);
     else resetAskForStrategy("", true);
-    state.refinementOpen = false;
     state.strategyAskOpen = true;
-    render();
+    const root = document.querySelector(".strategy-ask-root");
+    const strategyView = document.querySelector(".strategy-view");
+    if (root) {
+      root.classList.add("is-open");
+      strategyView?.classList.add("is-ask-open");
+      askBtn.setAttribute("aria-expanded", "true");
+      const askInput = root.querySelector(".strategy-ask-input");
+      const askBody = root.querySelector(".strategy-ask-body");
+      if (askBody) askBody.scrollTop = askBody.scrollHeight;
+      if (askInput && window.innerWidth > 767) askInput.focus();
+    } else {
+      render();
+    }
   });
   askBtn.type = "button";
   askBtn.setAttribute("aria-label", "Bu strategiya haqqında Marketify-dan soruş");
@@ -4856,7 +4922,10 @@ function buildExportMenu(trigger) {
 }
 
 function downloadExport(file) {
-  const url = URL.createObjectURL(new Blob([file.content], { type: file.type }));
+  const content = file.extension === "xls" && !String(file.content).startsWith("\ufeff")
+    ? `\ufeff${file.content}`
+    : file.content;
+  const url = URL.createObjectURL(new Blob([content], { type: file.type }));
   const link = document.createElement("a");
   link.href = url;
   link.download = `${slugify(state.strategy.title)}.${file.extension}`;
@@ -5052,8 +5121,8 @@ function renderSettings() {
     );
     const actions = element("div", "guest-account-actions");
     actions.append(
-      button("Hesab yarat", "primary-button", () => { window.location.href = "/signup?returnTo=/"; }),
-      button("Daxil ol", "secondary-button", () => { window.location.href = "/login?returnTo=/"; }),
+      button("Hesab yarat", "primary-button", () => { window.location.href = "/signup?returnTo=/workspace"; }),
+      button("Daxil ol", "secondary-button", () => { window.location.href = "/login?returnTo=/workspace"; }),
     );
     panel.appendChild(actions);
     view.append(header, panel);
@@ -5802,7 +5871,15 @@ function renderStrategyList() {
     search.placeholder = "Arxivdə axtar";
     search.setAttribute("aria-label", "Arxivdə axtar");
     const filters = element("div", "library-filters");
-    ["Hamısı", "Son", "Yadda saxlanmış"].forEach((label, index) => filters.appendChild(button(label, `library-filter${index === 0 ? " is-active" : ""}`)));
+    let currentFilter = "Hamısı";
+    ["Hamısı", "Son", "Yadda saxlanmış"].forEach((label, index) => {
+      const filterBtn = button(label, `library-filter${index === 0 ? " is-active" : ""}`, () => {
+        currentFilter = label;
+        [...filters.children].forEach((item) => item.classList.toggle("is-active", item === filterBtn));
+        drawRows();
+      });
+      filters.appendChild(filterBtn);
+    });
     const sort = element("span", "library-sort", "Son yenilənən ↓");
     controls.append(search, filters, sort);
     view.appendChild(controls);
@@ -5815,60 +5892,69 @@ function renderStrategyList() {
 
       // Render active background jobs seamlessly at the top of the archive list
       const matchingBgJobs = activeBgJobs.filter((job) => !query || `${job.brief || ""} ${job.strategy?.summary || ""}`.toLocaleLowerCase("az").includes(query));
-      matchingBgJobs.forEach((job) => {
-        const isGenerating = job.status === "generating";
-        const isError = job.status === "error";
-        const row = element("article", `strategy-library-row ${isGenerating ? "library-row-progress" : isError ? "library-row-error" : ""}`);
+      if (currentFilter !== "Yadda saxlanmış") {
+        matchingBgJobs.forEach((job) => {
+          const isGenerating = job.status === "generating";
+          const isError = job.status === "error";
+          const row = element("article", `strategy-library-row ${isGenerating ? "library-row-progress" : isError ? "library-row-error" : ""}`);
 
-        const main = element("div", "library-row-main");
-        const briefTitle = job.brief ? (job.brief.length > 70 ? job.brief.slice(0, 70) + "…" : job.brief) : "Yeni Strategiya";
-        const subtitle = isGenerating
-          ? "Məlumatlar analiz olunur və strateji plan formalaşdırılır…"
-          : isError
-          ? (job.error || "Generasiya zamanı xəta baş verdi.")
-          : (firstSentences(job.strategy?.summary || job.brief, 1));
-        main.append(element("h2", "", isGenerating ? briefTitle : (job.strategy?.title || briefTitle)), element("p", "", subtitle));
+          const main = element("div", "library-row-main");
+          const briefTitle = job.brief ? (job.brief.length > 70 ? job.brief.slice(0, 70) + "…" : job.brief) : "Yeni Strategiya";
+          const subtitle = isGenerating
+            ? "Məlumatlar analiz olunur və strateji plan formalaşdırılır…"
+            : isError
+            ? (job.error || "Generasiya zamanı xəta baş verdi.")
+            : (firstSentences(job.strategy?.summary || job.brief, 1));
+          main.append(element("h2", "", isGenerating ? briefTitle : (job.strategy?.title || briefTitle)), element("p", "", subtitle));
 
-        const meta = element("div", "library-row-meta");
-        meta.append(
-          element("span", "", `Başladı ${formatDate(job.startedAt)}`),
-          element("span", "", isGenerating ? "Arxa planda icra" : isError ? "Uğursuz oldu" : "Versiya 1")
-        );
+          const meta = element("div", "library-row-meta");
+          meta.append(
+            element("span", "", `Başladı ${formatDate(job.startedAt)}`),
+            element("span", "", isGenerating ? "Arxa planda icra" : isError ? "Uğursuz oldu" : "Versiya 1")
+          );
 
-        if (isGenerating) {
-          const statusEl = element("span", "saved-status is-generating");
-          const pulse = element("span", "bg-job-pulse");
-          statusEl.append(pulse, document.createTextNode("Hazırlanır"));
-          const openBtn = button("Bax →", "text-button", () => openBackgroundJob(job.id));
-          row.append(main, meta, statusEl, openBtn);
-        } else if (job.status === "ready") {
-          const statusEl = element("span", "saved-status", "Hazırdır");
-          const openBtn = button("Aç →", "text-button", () => openBackgroundJob(job.id));
-          row.append(main, meta, statusEl, openBtn);
-        } else if (isError) {
-          const statusEl = element("span", "saved-status is-error", "Xəta");
-          const actionsWrap = element("div", "bg-job-error-actions");
-          const retryBtn = button("Yoxla", "bg-job-retry-btn", () => {
-            job.status = "generating";
-            job.error = null;
-            persistBackgroundJobs();
-            resumeBackgroundJobs();
-            render();
-          });
-          const deleteBtn = button("Sil", "bg-job-delete-btn", () => {
-            removeBackgroundJob(job.id);
-            render();
-          });
-          actionsWrap.append(retryBtn, deleteBtn);
-          row.append(main, meta, statusEl, actionsWrap);
-        }
+          if (isGenerating) {
+            const statusEl = element("span", "saved-status is-generating");
+            const pulse = element("span", "bg-job-pulse");
+            statusEl.append(pulse, document.createTextNode("Hazırlanır"));
+            const openBtn = button("Bax →", "text-button", () => openBackgroundJob(job.id));
+            row.append(main, meta, statusEl, openBtn);
+          } else if (job.status === "ready") {
+            const statusEl = element("span", "saved-status", "Hazırdır");
+            const openBtn = button("Aç →", "text-button", () => openBackgroundJob(job.id));
+            row.append(main, meta, statusEl, openBtn);
+          } else if (isError) {
+            const statusEl = element("span", "saved-status is-error", "Xəta");
+            const actionsWrap = element("div", "bg-job-error-actions");
+            const retryBtn = button("Yoxla", "bg-job-retry-btn", () => {
+              job.status = "generating";
+              job.error = null;
+              persistBackgroundJobs();
+              resumeBackgroundJobs();
+              render();
+            });
+            const deleteBtn = button("Sil", "bg-job-delete-btn", () => {
+              removeBackgroundJob(job.id);
+              render();
+            });
+            actionsWrap.append(retryBtn, deleteBtn);
+            row.append(main, meta, statusEl, actionsWrap);
+          }
 
-        list.appendChild(row);
-      });
+          list.appendChild(row);
+        });
+      }
 
-      const records = state.savedStrategies.filter((record) => !query || `${record.title} ${record.strategy?.summary || record.brief}`.toLocaleLowerCase("az").includes(query));
+      let records = state.savedStrategies.filter((record) => !query || `${record.title} ${record.strategy?.summary || record.brief}`.toLocaleLowerCase("az").includes(query));
 
-      if (!records.length && !matchingBgJobs.length) {
+      if (currentFilter === "Son") {
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        records = records.filter((r) => new Date(r.updatedAt || r.createdAt || 0).getTime() >= sevenDaysAgo);
+      } else if (currentFilter === "Yadda saxlanmış") {
+        records = records.filter((r) => Boolean(r.id));
+      }
+
+      if (!records.length && (!matchingBgJobs.length || currentFilter === "Yadda saxlanmış")) {
         list.appendChild(element("p", "library-no-results", "Bu axtarışa uyğun strategiya tapılmadı."));
         return;
       }
@@ -5887,9 +5973,6 @@ function renderStrategyList() {
     };
 
     search.addEventListener("input", drawRows);
-    [...filters.children].forEach((filter) => filter.addEventListener("click", () => {
-      [...filters.children].forEach((item) => item.classList.toggle("is-active", item === filter));
-    }));
     drawRows();
     view.appendChild(list);
   }
@@ -6261,7 +6344,11 @@ function renderPlannerView() {
       document.querySelectorAll(".planner-dropdown-menu").forEach((m) => m.remove());
     }
   };
-  document.addEventListener("click", onDocClick, { once: false });
+  if (window._marketifyPlannerDocClick) {
+    document.removeEventListener("click", window._marketifyPlannerDocClick);
+  }
+  window._marketifyPlannerDocClick = onDocClick;
+  document.addEventListener("click", onDocClick);
 
   searchInput.addEventListener("input", drawPlannerList);
   drawPlannerList();
@@ -7973,6 +8060,13 @@ railLimitsButton?.addEventListener("click", () => {
 });
 sidebarClose.addEventListener("click", closeSidebar);
 mobileOverlay.addEventListener("click", closeSidebar);
+document.querySelectorAll(".brand").forEach((brandEl) => {
+  brandEl.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (state.mode === "ask") startNewChat();
+    else resetStrategy();
+  });
+});
 homeNav.addEventListener("click", () => {
   if (state.mode === "ask") startNewChat();
   else resetStrategy();
@@ -8085,6 +8179,18 @@ function handleKeyboardShortcut(event) {
 // Some browsers reserve Meta+N for a new window and may not dispatch it to the page.
 window.addEventListener("keydown", handleKeyboardShortcut, true);
 
+// Prevent accidental file drop outside dropzone from navigating away from the app
+window.addEventListener("dragover", (e) => {
+  if (e.dataTransfer?.types?.includes("Files")) {
+    e.preventDefault();
+  }
+});
+window.addEventListener("drop", (e) => {
+  if (e.dataTransfer?.types?.includes("Files")) {
+    e.preventDefault();
+  }
+});
+
 function checkPrivacyPolicyBanner() {
   const STORAGE_KEY = "marketify_privacy_notice_2026_08";
   if (localStorage.getItem(STORAGE_KEY) === "acknowledged") return;
@@ -8136,6 +8242,50 @@ function checkPrivacyPolicyBanner() {
   });
 }
 
+// A homepage request enters the existing workflows only after auth and context loading.
+// Keep the exact text, and consume before dispatch so refresh cannot submit it twice.
+let activeHomepageIntent = null;
+window.addEventListener("marketify:auth-required", () => {
+  if (activeHomepageIntent) {
+    try { sessionStorage.setItem(INTENT_KEY, JSON.stringify(activeHomepageIntent)); } catch {}
+  }
+});
+
+async function resumeHomepageIntent(user, id) {
+  const intent = readWorkspaceIntent(sessionStorage, id);
+  if (!intent) return;
+  if (!user) {
+    // Explicit guest access must not silently execute an authenticated handoff.
+    if (intent.mode === "build") {
+      resetStrategy();
+      state.brief = intent.prompt;
+      render();
+    } else {
+      startNewChat();
+      const input = workspace.querySelector(".ask-input");
+      if (input) { input.value = intent.prompt; input.dispatchEvent(new Event("input")); }
+    }
+    showToast("Mətnin saxlanılıb. Sorğunu davam etdirmək üçün hesabına daxil ol.", "default");
+    return;
+  }
+  activeHomepageIntent = takeWorkspaceIntent(sessionStorage, id);
+  if (!activeHomepageIntent) return;
+  if (intent.mode === "build") {
+    resetStrategy();
+    state.brief = intent.prompt;
+    await startAssessment();
+  } else {
+    startNewChat();
+    await submitAskMessage(intent.prompt, null, { preserveWhitespace: true });
+  }
+  if (window.location.pathname === "/workspace") {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("start");
+    history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+  activeHomepageIntent = null;
+}
+
 // Render the workspace immediately while authentication and saved data load in the background.
 if (!new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/verify-email"]).has(window.location.pathname)) {
   render();
@@ -8146,9 +8296,14 @@ initializeAuthentication(async (user) => {
   if (user?.settings?.defaultMode && (user.settings.defaultMode === "ask" || user.settings.defaultMode === "build")) {
     setMode(user.settings.defaultMode);
   }
+  const params = new URLSearchParams(window.location.search);
+  const requestedMode = params.get("mode");
+  if (["ask", "build"].includes(requestedMode)) state.mode = requestedMode;
+  if (params.get("view") === "limits") state.view = "limits";
   resumeBackgroundJobs();
   render();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks(), loadUsageStats()]);
+  await resumeHomepageIntent(user, params.get("start"));
   if (window.location.hash === "#terms" || window.location.pathname === "/terms") {
     openLegalModal("terms");
   } else if (window.location.hash === "#privacy" || window.location.pathname === "/privacy") {

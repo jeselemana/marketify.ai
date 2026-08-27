@@ -22,7 +22,7 @@ const AUTH_PATHS = new Set([
   "/verify-email",
 ]);
 
-let pendingReturnPath = "/";
+let pendingReturnPath = "/workspace";
 
 function openLegalDoc(type) {
   window.dispatchEvent(new CustomEvent("marketify:open-legal", { detail: { type } }));
@@ -697,11 +697,20 @@ function renderOnboarding(user) {
 }
 
 function renderRoute() {
+  const path = location.pathname;
+  if (!AUTH_PATHS.has(path)) {
+    if (appShell.hidden) {
+      appShell.hidden = false;
+      authRoot.hidden = true;
+      document.body.classList.remove("auth-loading");
+      document.body.classList.remove("auth-active");
+    }
+    return;
+  }
   appShell.hidden = true;
   authRoot.hidden = false;
   document.body.classList.remove("auth-loading");
   document.body.classList.add("auth-active");
-  const path = location.pathname;
   if (path === "/signup") return renderSignup();
   if (path === "/forgot-password") return renderForgot();
   if (path === "/reset-password") return renderReset();
@@ -715,9 +724,9 @@ export async function initializeAuthentication(onAuthenticated) {
   loadAuthConfig().catch(() => {});
   const requestedReturn = new URLSearchParams(location.search).get("returnTo");
   pendingReturnPath = requestedReturn
-    ? safeInternalPath(requestedReturn)
+    ? safeInternalPath(requestedReturn === "/" ? "/workspace" : requestedReturn)
     : AUTH_PATHS.has(location.pathname)
-      ? "/"
+      ? "/workspace"
       : safeInternalPath(`${location.pathname}${location.search}${location.hash}`);
   window.addEventListener("popstate", renderRoute);
   window.addEventListener("marketify:auth-required", () => {

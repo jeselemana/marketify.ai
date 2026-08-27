@@ -7,7 +7,9 @@ Marketify AI is an AI strategy workspace built on the project's existing Express
 1. Copy `.env.example` to `.env` and add `OPENAI_API_KEY`.
 2. Install dependencies with `npm install`.
 3. Start with `npm start`.
-4. Open `http://localhost:5050`.
+4. Open `http://localhost:5050` for the public homepage, or `/workspace` for the application.
+
+See [Homepage implementation and verification](docs/homepage.md) for the v3.0 homepage, prompt handoff and preview fixtures.
 
 ## Configuration
 
