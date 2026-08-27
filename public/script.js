@@ -1,5 +1,3 @@
-import { bindPromptComposer } from "./prompt-composer.js";
-import { INTENT_KEY, readWorkspaceIntent, takeWorkspaceIntent } from "./workspace-intent.js";
 import { createDocumentExport, createExcelExport, createSpreadsheetExport, exportStrategyToPDF } from "./exporters.js";
 import { authRequest, initializeAuthentication, logout } from "./auth.js";
 import { PRESET_PROMPTS } from "./preset-prompts.js";
@@ -808,10 +806,23 @@ function renderIntake() {
 
   composerArea.append(form, helper);
 
-  const { refresh: resizeInput } = bindPromptComposer({
-    form, textarea, submit,
-    onChange: (value) => { state.brief = value; },
-    onSubmit: (value) => { state.brief = value.trim(); return startAssessment(); },
+  const resizeInput = () => {
+    state.brief = textarea.value;
+    submit.disabled = textarea.value.trim().length < 8;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+  };
+  textarea.addEventListener("input", resizeInput);
+  textarea.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing && window.innerWidth > 700) {
+      event.preventDefault();
+      if (!submit.disabled) form.requestSubmit();
+    }
+  });
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    state.brief = textarea.value.trim();
+    if (state.brief.length >= 8) startAssessment();
   });
 
   const banner = errorBanner();
@@ -8242,50 +8253,6 @@ function checkPrivacyPolicyBanner() {
   });
 }
 
-// A homepage request enters the existing workflows only after auth and context loading.
-// Keep the exact text, and consume before dispatch so refresh cannot submit it twice.
-let activeHomepageIntent = null;
-window.addEventListener("marketify:auth-required", () => {
-  if (activeHomepageIntent) {
-    try { sessionStorage.setItem(INTENT_KEY, JSON.stringify(activeHomepageIntent)); } catch {}
-  }
-});
-
-async function resumeHomepageIntent(user, id) {
-  const intent = readWorkspaceIntent(sessionStorage, id);
-  if (!intent) return;
-  if (!user) {
-    // Explicit guest access must not silently execute an authenticated handoff.
-    if (intent.mode === "build") {
-      resetStrategy();
-      state.brief = intent.prompt;
-      render();
-    } else {
-      startNewChat();
-      const input = workspace.querySelector(".ask-input");
-      if (input) { input.value = intent.prompt; input.dispatchEvent(new Event("input")); }
-    }
-    showToast("Mətnin saxlanılıb. Sorğunu davam etdirmək üçün hesabına daxil ol.", "default");
-    return;
-  }
-  activeHomepageIntent = takeWorkspaceIntent(sessionStorage, id);
-  if (!activeHomepageIntent) return;
-  if (intent.mode === "build") {
-    resetStrategy();
-    state.brief = intent.prompt;
-    await startAssessment();
-  } else {
-    startNewChat();
-    await submitAskMessage(intent.prompt, null, { preserveWhitespace: true });
-  }
-  if (window.location.pathname === "/workspace") {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("start");
-    history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }
-  activeHomepageIntent = null;
-}
-
 // Render the workspace immediately while authentication and saved data load in the background.
 if (!new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/verify-email"]).has(window.location.pathname)) {
   render();
@@ -8303,7 +8270,6 @@ initializeAuthentication(async (user) => {
   resumeBackgroundJobs();
   render();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks(), loadUsageStats()]);
-  await resumeHomepageIntent(user, params.get("start"));
   if (window.location.hash === "#terms" || window.location.pathname === "/terms") {
     openLegalModal("terms");
   } else if (window.location.hash === "#privacy" || window.location.pathname === "/privacy") {
