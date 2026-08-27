@@ -6617,7 +6617,7 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
   background: var(--bg-elevated);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
   animation: menu-in 150ms ease both;
 }
 
@@ -8375,10 +8375,14 @@ body {
   border-color: #ffffff;
 }
 
-.ask-context-popover,
 .export-menu {
   background: #ffffff;
-  box-shadow: 0 20px 54px rgba(31, 41, 55, 0.16);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1);
+}
+
+.ask-context-popover {
+  background: #ffffff;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .ask-context-item.is-selected small {
@@ -11267,6 +11271,7 @@ body {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
     z-index: 120;
   }
 
