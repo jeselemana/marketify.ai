@@ -6,6 +6,7 @@ const workspace = document.querySelector("#workspace");
 const sidebar = document.querySelector("#sidebar");
 const mobileOverlay = document.querySelector("#mobileOverlay");
 const mobileMenuButton = document.querySelector("#mobileMenuButton");
+const mobileNewButton = document.querySelector("#mobileNewButton");
 const railMenuButton = document.querySelector("#railMenuButton");
 const railHomeButton = document.querySelector("#railHomeButton");
 const railStrategiesButton = document.querySelector("#railStrategiesButton");
@@ -30,6 +31,7 @@ const workspaceName = document.querySelector("#workspaceName");
 const workspaceMeta = document.querySelector("#workspaceMeta");
 const buildModeButton = document.querySelector("#buildModeButton");
 const askModeButton = document.querySelector("#askModeButton");
+const mobileModeSwitch = document.querySelector(".mobile-mode-switch");
 const sidebarBuildModeButton = document.querySelector("#sidebarBuildModeButton");
 const sidebarAskModeButton = document.querySelector("#sidebarAskModeButton");
 const keyboardShortcutsButton = document.querySelector("#keyboardShortcutsBtn");
@@ -245,7 +247,16 @@ let loadingAskPlaceholderTimer = null;
 let refinementPlaceholderTimer = null;
 
 const state = {
-  mode: "build",
+  mode: (() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const requested = params.get("mode");
+      if (requested === "ask" || requested === "build") return requested;
+      const saved = localStorage.getItem("marketify_default_mode");
+      if (saved === "ask" || saved === "build") return saved;
+    } catch {}
+    return "build";
+  })(),
   view: "home",
   status: "draft",
   brief: "",
@@ -271,6 +282,7 @@ const state = {
   savedChats: [],
   plannerTasks: [],
   plannerFilter: "all",
+  plannerCollapsedGroups: new Set(["Ümumi"]),
   askMessages: [],
   askLoading: false,
   askError: "",
@@ -511,14 +523,14 @@ function closeSidebar() {
 function syncNav() {
   const isBuild = state.mode === "build";
   const nonHomeViews = ["list", "settings", "planner", "limits"];
-  homeNav.classList.toggle("is-active", isBuild ? !nonHomeViews.includes(state.view) : !["settings", "limits"].includes(state.view));
-  strategiesNav.classList.toggle("is-active", isBuild && state.view === "list");
-  plannerNav?.classList.toggle("is-active", isBuild && state.view === "planner");
+  homeNav.classList.toggle("is-active", !nonHomeViews.includes(state.view));
+  strategiesNav.classList.toggle("is-active", state.view === "list");
+  plannerNav?.classList.toggle("is-active", state.view === "planner");
   limitsNav?.classList.toggle("is-active", state.view === "limits");
   settingsNav.classList.toggle("is-active", state.view === "settings");
-  railHomeButton.classList.toggle("is-active", isBuild ? !nonHomeViews.includes(state.view) : !["settings", "limits"].includes(state.view));
-  railStrategiesButton.classList.toggle("is-active", isBuild && state.view === "list");
-  railPlannerButton?.classList.toggle("is-active", isBuild && state.view === "planner");
+  railHomeButton.classList.toggle("is-active", !nonHomeViews.includes(state.view));
+  railStrategiesButton.classList.toggle("is-active", state.view === "list");
+  railPlannerButton?.classList.toggle("is-active", state.view === "planner");
   railLimitsButton?.classList.toggle("is-active", state.view === "limits");
 
   railHomeButton.setAttribute("data-tooltip", `Başlanğıc${shortcutSuffix("⌘ 1", "Ctrl 1")}`);
@@ -546,12 +558,24 @@ function isHomePage() {
   if (state.mode === "build") {
     return state.status === "draft" && !state.strategy;
   }
-  return true;
+  if (state.mode === "ask") {
+    return !state.askMessages.length && !state.askLoading;
+  }
+  return false;
 }
 
 function syncMode() {
   const isBuild = state.mode === "build";
   const isHome = isHomePage();
+  const isAskChatActive = state.mode === "ask" && state.view === "home" && Boolean(state.askMessages?.length || state.askLoading);
+
+  if (mobileModeSwitch) {
+    mobileModeSwitch.hidden = !isHome;
+  }
+
+  if (mobileNewButton) {
+    mobileNewButton.hidden = !isAskChatActive;
+  }
 
   buildModeButton?.classList.toggle("is-active", isBuild);
   askModeButton?.classList.toggle("is-active", !isBuild);
@@ -579,7 +603,11 @@ function syncMode() {
 }
 
 function setMode(mode) {
-  if (!['build', 'ask'].includes(mode) || state.mode === mode) return;
+  if (!['build', 'ask'].includes(mode)) return;
+  try {
+    localStorage.setItem("marketify_default_mode", mode);
+  } catch {}
+  if (state.mode === mode && state.view === "home") return;
   state.mode = mode;
   state.view = "home";
   syncMode();
@@ -651,8 +679,8 @@ function render() {
   if (state.view === "settings") return renderSettings();
   if (state.view === "planner") return renderPlannerView();
   if (state.view === "limits") return renderLimitsView();
-  if (state.mode === "ask") return renderAsk();
   if (state.view === "list") return renderStrategyList();
+  if (state.mode === "ask") return renderAsk();
   if (["analyzing", "generating"].includes(state.status)) return renderLoading();
   if (state.status === "needs_clarification") return renderClarification();
   if (state.strategy) return renderStrategyWorkspace();
@@ -777,21 +805,18 @@ function renderIntake() {
   };
   drawBuildMenu();
   contextMenu.append(contextTrigger, contextPopover);
-  contextMenu.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") contextMenu.open = false;
-  });
   const closeContextMenu = (event) => {
-    if (!contextMenu.contains(event.target)) contextMenu.open = false;
+    const path = event.composedPath ? event.composedPath() : [];
+    if (path.includes(contextMenu) || contextMenu.contains(event.target)) return;
+    contextMenu.open = false;
   };
   contextMenu.addEventListener("toggle", () => {
     if (contextMenu.open) {
       setTimeout(() => {
-        document.addEventListener("pointerdown", closeContextMenu, { passive: true });
-        document.addEventListener("click", closeContextMenu);
-      }, 10);
+        document.addEventListener("pointerdown", closeContextMenu);
+      }, 0);
     } else {
       document.removeEventListener("pointerdown", closeContextMenu);
-      document.removeEventListener("click", closeContextMenu);
       contextPane = "main";
       contextPopover.classList.remove("is-downwards");
       drawBuildMenu();
@@ -1189,21 +1214,18 @@ function renderAsk() {
 
           moreMenu.append(moreTrigger, morePopover);
 
-          moreMenu.addEventListener("keydown", (event) => {
-            if (event.key === "Escape") moreMenu.open = false;
-          });
           const closeMoreMenu = (event) => {
-            if (!moreMenu.contains(event.target)) moreMenu.open = false;
+            const path = event.composedPath ? event.composedPath() : [];
+            if (path.includes(moreMenu) || moreMenu.contains(event.target)) return;
+            moreMenu.open = false;
           };
           moreMenu.addEventListener("toggle", () => {
             if (moreMenu.open) {
               setTimeout(() => {
-                document.addEventListener("pointerdown", closeMoreMenu, { passive: true });
-                document.addEventListener("click", closeMoreMenu);
-              }, 10);
+                document.addEventListener("pointerdown", closeMoreMenu);
+              }, 0);
             } else {
               document.removeEventListener("pointerdown", closeMoreMenu);
-              document.removeEventListener("click", closeMoreMenu);
             }
           });
 
@@ -1400,21 +1422,20 @@ function renderAsk() {
     contextMenu.append(contextTrigger, contextPopover);
     contextSlot.appendChild(contextMenu);
   }
-  contextMenu.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") contextMenu.open = false;
-  });
   const closeContextMenu = (event) => {
-    if (!contextMenu.contains(event.target)) contextMenu.open = false;
+    const path = event.composedPath ? event.composedPath() : [];
+    if (path.includes(contextMenu) || contextMenu.contains(event.target)) return;
+    contextMenu.open = false;
   };
   contextMenu.addEventListener("toggle", () => {
     if (contextMenu.open) {
       setTimeout(() => {
-        document.addEventListener("pointerdown", closeContextMenu, { passive: true });
-        document.addEventListener("click", closeContextMenu);
-      }, 10);
+        document.addEventListener("pointerdown", closeContextMenu);
+      }, 0);
     } else {
       document.removeEventListener("pointerdown", closeContextMenu);
-      document.removeEventListener("click", closeContextMenu);
+      contextPane = "main";
+      drawContextMenu();
     }
   });
 
@@ -1513,21 +1534,18 @@ function renderAsk() {
 
   modelSelectorMenu.append(modelTrigger, modelPopover);
 
-  modelSelectorMenu.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") modelSelectorMenu.open = false;
-  });
   const closeModelMenu = (event) => {
-    if (!modelSelectorMenu.contains(event.target)) modelSelectorMenu.open = false;
+    const path = event.composedPath ? event.composedPath() : [];
+    if (path.includes(modelSelectorMenu) || modelSelectorMenu.contains(event.target)) return;
+    modelSelectorMenu.open = false;
   };
   modelSelectorMenu.addEventListener("toggle", () => {
     if (modelSelectorMenu.open) {
       setTimeout(() => {
-        document.addEventListener("pointerdown", closeModelMenu, { passive: true });
-        document.addEventListener("click", closeModelMenu);
-      }, 10);
+        document.addEventListener("pointerdown", closeModelMenu);
+      }, 0);
     } else {
       document.removeEventListener("pointerdown", closeModelMenu);
-      document.removeEventListener("click", closeModelMenu);
     }
   });
 
@@ -4953,8 +4971,7 @@ async function loadSavedStrategies() {
     state.savedStrategies = data.strategies;
     strategyCount.textContent = String(data.strategies.length);
     renderRecentList();
-    if (state.mode === "ask") render();
-    else if (state.view === "list") renderStrategyList();
+    if (state.view === "list") renderStrategyList();
   } catch {
     recentList.replaceChildren(element("p", "recent-empty", "Strategiyaları yükləmək mümkün olmadı."));
   }
@@ -5721,6 +5738,12 @@ function renderSettings() {
           body: JSON.stringify(payload),
         });
         updateWorkspaceIdentity(data.user);
+        try {
+          localStorage.setItem("marketify_default_mode", currentDefaultMode);
+        } catch {}
+        state.mode = currentDefaultMode;
+        syncMode();
+        syncNav();
         settingsMessage(form, "Fərdiləşdirilmiş təcrübə parametrləri uğurla yeniləndi.", "success");
         showToast("Parametrlər yadda saxlanıldı.");
       } catch (error) {
@@ -5850,50 +5873,309 @@ function renderSettings() {
   workspace.appendChild(view);
 }
 
+function formatArchiveDate(value) {
+  if (!value) return "İndi";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "İndi";
+
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  if (isToday) return "Bu gün";
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+  if (isYesterday) return "Dünən";
+
+  const months = ["Yan", "Fev", "Mar", "Apr", "May", "İyn", "İyl", "Avq", "Sen", "Okt", "Noy", "Dek"];
+  const day = date.getDate();
+  const month = months[date.getMonth()] || "";
+
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${day} ${month}`;
+  }
+  return `${day} ${month} ${date.getFullYear()}`;
+}
+
+function closeAllArchiveMenus() {
+  document.querySelectorAll(".archive-context-menu, .archive-sort-menu").forEach((m) => {
+    m.hidden = true;
+  });
+  document.querySelectorAll(".archive-more-btn.is-active").forEach((b) => {
+    b.classList.remove("is-active");
+  });
+}
+
+document.addEventListener("click", () => {
+  closeAllArchiveMenus();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeAllArchiveMenus();
+  }
+});
+
+function openArchivePromptModal({ title, label, initialValue, confirmText = "Yadda saxla", onConfirm }) {
+  document.querySelectorAll(".archive-modal-overlay").forEach((el) => el.remove());
+  const overlay = element("div", "archive-modal-overlay");
+  const card = element("div", "archive-modal-card");
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-modal", "true");
+
+  const titleEl = element("h2", "archive-modal-title", title);
+  const input = element("input", "archive-modal-input");
+  input.type = "text";
+  input.value = initialValue || "";
+  input.placeholder = label || "Strategiya adı";
+
+  const actions = element("div", "archive-modal-actions");
+  const cancelBtn = button("Ləğv et", "archive-modal-cancel", () => overlay.remove());
+  const confirmBtn = button(confirmText, "archive-modal-confirm", async () => {
+    const val = input.value.trim();
+    if (!val) return;
+    overlay.remove();
+    await onConfirm(val);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      confirmBtn.click();
+    } else if (e.key === "Escape") {
+      overlay.remove();
+    }
+  });
+
+  actions.append(cancelBtn, confirmBtn);
+  card.append(titleEl, input, actions);
+  overlay.appendChild(card);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  document.body.appendChild(overlay);
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 40);
+}
+
+function openArchiveConfirmModal({ title, message, confirmText = "Təsdiq et", isDestructive = false, onConfirm }) {
+  document.querySelectorAll(".archive-modal-overlay").forEach((el) => el.remove());
+  const overlay = element("div", "archive-modal-overlay");
+  const card = element("div", "archive-modal-card");
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-modal", "true");
+
+  const titleEl = element("h2", "archive-modal-title", title);
+  const descEl = element("p", "archive-modal-desc", message);
+
+  const actions = element("div", "archive-modal-actions");
+  const cancelBtn = button("Ləğv et", "archive-modal-cancel", () => overlay.remove());
+  const confirmBtn = button(confirmText, `archive-modal-confirm${isDestructive ? " is-destructive" : ""}`, async () => {
+    overlay.remove();
+    await onConfirm();
+  });
+
+  actions.append(cancelBtn, confirmBtn);
+  card.append(titleEl, descEl, actions);
+  overlay.appendChild(card);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  document.body.appendChild(overlay);
+}
+
+function createStrategyRowContextMenu(record) {
+  const menu = element("div", "archive-context-menu");
+  menu.hidden = true;
+
+  const openItem = button("", "archive-menu-item", (e) => {
+    e.stopPropagation();
+    menu.hidden = true;
+    openSavedStrategy(record.id);
+  });
+  openItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg><span>Aç</span>`;
+
+  const renameItem = button("", "archive-menu-item", (e) => {
+    e.stopPropagation();
+    menu.hidden = true;
+    openArchivePromptModal({
+      title: "Adını dəyiş",
+      label: "Strategiya adı",
+      initialValue: record.title,
+      confirmText: "Yadda saxla",
+      onConfirm: async (newTitle) => {
+        try {
+          await api(`/api/strategy/${record.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ title: newTitle }),
+          });
+          if (state.savedId === record.id && state.strategy) {
+            state.strategy.title = newTitle;
+          }
+          await loadSavedStrategies();
+          showToast("Strategiyanın adı dəyişdirildi ✓");
+        } catch (error) {
+          showToast(error.message || "Adı dəyişmək mümkün olmadı.", "error");
+        }
+      },
+    });
+  });
+  renameItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg><span>Adını dəyiş</span>`;
+
+  const duplicateItem = button("", "archive-menu-item", async (e) => {
+    e.stopPropagation();
+    menu.hidden = true;
+    try {
+      await api(`/api/strategy/${record.id}/duplicate`, { method: "POST" });
+      await loadSavedStrategies();
+      showToast("Strategiyanın dublikatı yaradıldı ✓");
+    } catch (error) {
+      showToast(error.message || "Dublikat yaratmaq mümkün olmadı.", "error");
+    }
+  });
+  duplicateItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Dublikat yarat</span>`;
+
+  const saveItem = button("", "archive-menu-item", (e) => {
+    e.stopPropagation();
+    menu.hidden = true;
+    showToast("Strategiya artıq arxivdə saxlanılıb ✓");
+  });
+  saveItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span>Arxivlə / Yadda saxla</span>`;
+
+  const divider = element("div", "archive-menu-divider");
+
+  const deleteItem = button("", "archive-menu-item is-destructive", (e) => {
+    e.stopPropagation();
+    menu.hidden = true;
+    openArchiveConfirmModal({
+      title: "Strategiyanı sil",
+      message: `"${record.title || "Bu strategiya"}" arxivdən birdəfəlik silinəcək. Bu əməliyyat geri qaytarılmır.`,
+      confirmText: "Sil",
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await api(`/api/strategy/${record.id}`, { method: "DELETE" });
+          if (state.savedId === record.id) {
+            resetStrategy();
+          }
+          await loadSavedStrategies();
+          showToast("Strategiya arxivdən silindi.");
+        } catch (error) {
+          showToast(error.message || "Strategiyanı silmək mümkün olmadı.", "error");
+        }
+      },
+    });
+  });
+  deleteItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Sil</span>`;
+
+  menu.append(openItem, renameItem, duplicateItem, saveItem, divider, deleteItem);
+  return menu;
+}
+
 function renderStrategyList() {
   workspace.classList.add("workspace-list");
   workspace.replaceChildren();
+
   const view = element("section", "strategies-view");
-  const heading = element("div", "list-heading");
-  const copy = element("div");
+  const heading = element("div", "archive-header");
+  const copy = element("div", "archive-header-copy");
   copy.append(
-    element("span", "section-kicker", "WORKSPACE"),
-    element("h1", "", "Arxiv"),
-    element("p", "", "Yadda saxladığın bütün strategiyalar və işlər.")
+    element("h1", "archive-title", "Arxiv"),
+    element("p", "archive-subtitle", "Strategiyalarını və saxladığın işləri idarə et")
   );
-  heading.append(copy, button("＋ Yeni strategiya", "primary-button", resetStrategy));
+  const newBtn = button("", "archive-new-btn", resetStrategy);
+  newBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Yeni</span>`;
+  heading.append(copy, newBtn);
   view.appendChild(heading);
 
   const activeBgJobs = backgroundJobs.filter((j) => j.status === "generating" || j.status === "ready" || j.status === "error");
 
   if (!state.savedStrategies.length && !activeBgJobs.length) {
-    const empty = element("div", "empty-state");
+    const empty = element("div", "archive-empty-state");
+    const emptyNewBtn = button("", "archive-new-btn", resetStrategy);
+    emptyNewBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Yeni</span>`;
     empty.append(
-      element("span", "empty-icon", "✦"),
-      element("h2", "", "Arxivdə hələ heç nə yoxdur"),
-      element("p", "", "İlk strategiyanı qur və yadda saxla."),
-      button("Yeni strategiya", "primary-button", resetStrategy),
+      element("h2", "archive-empty-title", "Hələ strategiya yoxdur"),
+      element("p", "archive-empty-desc", "İlk strategiyanı yaradaraq işə başla."),
+      emptyNewBtn,
     );
     view.appendChild(empty);
   } else {
-    const controls = element("div", "library-controls");
-    const search = element("input", "library-search");
+    // 2-level editorial controls layout
+    const controlsSection = element("div", "archive-controls-section");
+
+    // Search wrap (compact 320-360px)
+    const searchWrap = element("div", "archive-search-wrap");
+    searchWrap.innerHTML = `<svg class="archive-search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+    const search = element("input", "archive-search-input");
     search.type = "search";
-    search.placeholder = "Arxivdə axtar";
-    search.setAttribute("aria-label", "Arxivdə axtar");
-    const filters = element("div", "library-filters");
+    search.placeholder = "Strategiyalarda axtar";
+    search.setAttribute("aria-label", "Strategiyalarda axtar");
+    searchWrap.appendChild(search);
+
+    // Toolbar with simple editorial tabs on left and Sort on right
+    const toolbar = element("div", "archive-toolbar");
+
+    const tabs = element("div", "archive-tabs");
     let currentFilter = "Hamısı";
     ["Hamısı", "Son", "Yadda saxlanmış"].forEach((label, index) => {
-      const filterBtn = button(label, `library-filter${index === 0 ? " is-active" : ""}`, () => {
+      const tabBtn = button(label, `archive-tab${index === 0 ? " is-active" : ""}`, () => {
         currentFilter = label;
-        [...filters.children].forEach((item) => item.classList.toggle("is-active", item === filterBtn));
+        [...tabs.children].forEach((item) => item.classList.toggle("is-active", item === tabBtn));
         drawRows();
       });
-      filters.appendChild(filterBtn);
+      tabs.appendChild(tabBtn);
     });
-    const sort = element("span", "library-sort", "Son yenilənən ↓");
-    controls.append(search, filters, sort);
-    view.appendChild(controls);
+
+    let currentSort = "newest";
+    const sortLabels = {
+      newest: "Son yenilənən",
+      oldest: "Ən köhnə",
+      alphabetical: "Əlifba sırası",
+    };
+    const sortWrap = element("div", "archive-sort-wrap");
+    const sortBtn = button("", "archive-sort-btn");
+    const sortLabelSpan = element("span", "archive-sort-label", sortLabels[currentSort]);
+    const sortChevron = element("span", "archive-sort-chevron");
+    sortChevron.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
+    sortBtn.append(sortLabelSpan, sortChevron);
+
+    const sortMenu = element("div", "archive-sort-menu");
+    sortMenu.hidden = true;
+    [
+      { key: "newest", label: "Son yenilənən" },
+      { key: "oldest", label: "Ən köhnə" },
+      { key: "alphabetical", label: "Əlifba sırası" },
+    ].forEach((opt) => {
+      const optBtn = button(opt.label, `archive-sort-option${opt.key === currentSort ? " is-selected" : ""}`, (e) => {
+        e.stopPropagation();
+        currentSort = opt.key;
+        sortLabelSpan.textContent = opt.label;
+        [...sortMenu.children].forEach((c) => c.classList.remove("is-selected"));
+        optBtn.classList.add("is-selected");
+        sortMenu.hidden = true;
+        drawRows();
+      });
+      sortMenu.appendChild(optBtn);
+    });
+
+    sortBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const wasHidden = sortMenu.hidden;
+      closeAllArchiveMenus();
+      sortMenu.hidden = !wasHidden;
+    });
+
+    sortWrap.append(sortBtn, sortMenu);
+    toolbar.append(tabs, sortWrap);
+    controlsSection.append(searchWrap, toolbar);
+    view.appendChild(controlsSection);
 
     const list = element("div", "strategy-library");
 
@@ -5901,55 +6183,75 @@ function renderStrategyList() {
       const query = search.value.trim().toLocaleLowerCase("az");
       list.replaceChildren();
 
-      // Render active background jobs seamlessly at the top of the archive list
+      // Render active background jobs seamlessly
       const matchingBgJobs = activeBgJobs.filter((job) => !query || `${job.brief || ""} ${job.strategy?.summary || ""}`.toLocaleLowerCase("az").includes(query));
       if (currentFilter !== "Yadda saxlanmış") {
         matchingBgJobs.forEach((job) => {
           const isGenerating = job.status === "generating";
           const isError = job.status === "error";
           const row = element("article", `strategy-library-row ${isGenerating ? "library-row-progress" : isError ? "library-row-error" : ""}`);
+          row.setAttribute("role", "button");
+          row.setAttribute("tabindex", "0");
 
-          const main = element("div", "library-row-main");
           const briefTitle = job.brief ? (job.brief.length > 70 ? job.brief.slice(0, 70) + "…" : job.brief) : "Yeni Strategiya";
           const subtitle = isGenerating
             ? "Məlumatlar analiz olunur və strateji plan formalaşdırılır…"
             : isError
             ? (job.error || "Generasiya zamanı xəta baş verdi.")
             : (firstSentences(job.strategy?.summary || job.brief, 1));
-          main.append(element("h2", "", isGenerating ? briefTitle : (job.strategy?.title || briefTitle)), element("p", "", subtitle));
 
-          const meta = element("div", "library-row-meta");
-          meta.append(
-            element("span", "", `Başladı ${formatDate(job.startedAt)}`),
-            element("span", "", isGenerating ? "Arxa planda icra" : isError ? "Uğursuz oldu" : "Versiya 1")
+          // Top Header (Title + Chevron)
+          const rowHeader = element("div", "archive-row-header");
+          rowHeader.append(
+            element("h2", "archive-row-title", isGenerating ? briefTitle : (job.strategy?.title || briefTitle))
           );
+          if (!isError) {
+            const chevron = element("span", "archive-chevron-icon");
+            chevron.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+            rowHeader.appendChild(chevron);
+          }
 
-          if (isGenerating) {
-            const statusEl = element("span", "saved-status is-generating");
-            const pulse = element("span", "bg-job-pulse");
-            statusEl.append(pulse, document.createTextNode("Hazırlanır"));
-            const openBtn = button("Bax →", "text-button", () => openBackgroundJob(job.id));
-            row.append(main, meta, statusEl, openBtn);
-          } else if (job.status === "ready") {
-            const statusEl = element("span", "saved-status", "Hazırdır");
-            const openBtn = button("Aç →", "text-button", () => openBackgroundJob(job.id));
-            row.append(main, meta, statusEl, openBtn);
-          } else if (isError) {
-            const statusEl = element("span", "saved-status is-error", "Xəta");
-            const actionsWrap = element("div", "bg-job-error-actions");
-            const retryBtn = button("Yoxla", "bg-job-retry-btn", () => {
+          const descEl = element("p", "archive-row-desc", subtitle);
+
+          // Footer (Date · Version + Status + Actions)
+          const rowFooter = element("div", "archive-row-footer");
+          const metaLine = element("div", "archive-row-meta-line");
+
+          const dateVer = element("span", "archive-row-date-ver", `Başladı ${formatArchiveDate(job.startedAt)} · ${isGenerating ? "Arxa planda" : isError ? "Xəta" : "v1"}`);
+          const statusEl = element("div", `archive-row-status ${isGenerating ? "is-generating" : isError ? "is-error" : ""}`);
+          const dot = element("span", "archive-status-dot");
+          statusEl.append(dot, document.createTextNode(isGenerating ? "Hazırlanır" : isError ? "Xəta" : "Hazırdır"));
+          metaLine.append(dateVer, statusEl);
+
+          const actionsWrap = element("div", "archive-row-actions");
+          if (isError) {
+            const retryBtn = button("Yoxla", "bg-job-retry-btn", (e) => {
+              e.stopPropagation();
               job.status = "generating";
               job.error = null;
               persistBackgroundJobs();
               resumeBackgroundJobs();
               render();
             });
-            const deleteBtn = button("Sil", "bg-job-delete-btn", () => {
+            const deleteBtn = button("Sil", "bg-job-delete-btn", (e) => {
+              e.stopPropagation();
               removeBackgroundJob(job.id);
               render();
             });
             actionsWrap.append(retryBtn, deleteBtn);
-            row.append(main, meta, statusEl, actionsWrap);
+          }
+
+          rowFooter.append(metaLine, actionsWrap);
+          row.append(rowHeader, descEl, rowFooter);
+
+          if (!isError) {
+            row.addEventListener("click", () => openBackgroundJob(job.id));
+            row.addEventListener("keydown", (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openBackgroundJob(job.id);
+              }
+            });
           }
 
           list.appendChild(row);
@@ -5965,20 +6267,90 @@ function renderStrategyList() {
         records = records.filter((r) => Boolean(r.id));
       }
 
+      // Sort
+      records.sort((a, b) => {
+        if (currentSort === "oldest") {
+          return (a.updatedAt || a.createdAt || "").localeCompare(b.updatedAt || b.createdAt || "");
+        }
+        if (currentSort === "alphabetical") {
+          return (a.title || "").localeCompare(b.title || "", "az");
+        }
+        return (b.updatedAt || b.createdAt || "").localeCompare(a.updatedAt || a.createdAt || "");
+      });
+
       if (!records.length && (!matchingBgJobs.length || currentFilter === "Yadda saxlanmış")) {
-        list.appendChild(element("p", "library-no-results", "Bu axtarışa uyğun strategiya tapılmadı."));
+        const noRes = element("div", "archive-no-results");
+        noRes.append(
+          element("h3", "", "Nəticə tapılmadı"),
+          element("p", "", query ? `“${search.value.trim()}” üçün uyğun strategiya yoxdur.` : "Bu filter üçün uyğun strategiya yoxdur."),
+          button("Filterləri təmizlə", "archive-clear-filters-btn", () => {
+            search.value = "";
+            currentFilter = "Hamısı";
+            [...tabs.children].forEach((item, i) => item.classList.toggle("is-active", i === 0));
+            drawRows();
+            search.focus();
+          })
+        );
+        list.appendChild(noRes);
         return;
       }
 
       records.forEach((record) => {
         const row = element("article", "strategy-library-row");
-        const main = element("div", "library-row-main");
-        main.append(element("h2", "", record.title), element("p", "", firstSentences(record.strategy?.summary || record.brief, 1)));
-        const meta = element("div", "library-row-meta");
-        meta.append(element("span", "", `Yenilənib ${formatDate(record.updatedAt)}`), element("span", "", `Versiya ${record.versionCount}`));
-        const status = element("span", "saved-status", "Hazırdır");
-        const open = button("Aç →", "text-button", () => openSavedStrategy(record.id));
-        row.append(main, meta, status, open);
+        row.setAttribute("role", "button");
+        row.setAttribute("tabindex", "0");
+        row.setAttribute("aria-label", `${record.title}, ${formatArchiveDate(record.updatedAt)}`);
+
+        row.addEventListener("click", () => openSavedStrategy(record.id));
+        row.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openSavedStrategy(record.id);
+          }
+        });
+
+        // Top Header: Title + Chevron
+        const rowHeader = element("div", "archive-row-header");
+        const titleEl = element("h2", "archive-row-title", record.title);
+        const chevron = element("span", "archive-chevron-icon");
+        chevron.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+        rowHeader.append(titleEl, chevron);
+
+        // Body: Description
+        const descEl = element("p", "archive-row-desc", firstSentences(record.strategy?.summary || record.brief, 1));
+
+        // Footer: Date · Version + Status + Context Menu
+        const rowFooter = element("div", "archive-row-footer");
+        const metaLine = element("div", "archive-row-meta-line");
+        metaLine.setAttribute("title", `${formatDate(record.updatedAt)} · Versiya ${record.versionCount || 1}`);
+
+        const dateVer = element("span", "archive-row-date-ver", `${formatArchiveDate(record.updatedAt)} · v${record.versionCount || 1}`);
+        const status = element("div", "archive-row-status");
+        const dot = element("span", "archive-status-dot");
+        status.append(dot, document.createTextNode("Hazırdır"));
+        metaLine.append(dateVer, status);
+
+        const actionsWrap = element("div", "archive-row-actions");
+        const moreBtn = button("", "archive-more-btn");
+        moreBtn.setAttribute("aria-label", "Strategiya əməliyyatları");
+        moreBtn.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`;
+
+        const contextMenu = createStrategyRowContextMenu(record);
+
+        moreBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const wasHidden = contextMenu.hidden;
+          closeAllArchiveMenus();
+          if (wasHidden) {
+            contextMenu.hidden = false;
+            moreBtn.classList.add("is-active");
+          }
+        });
+
+        actionsWrap.append(moreBtn, contextMenu);
+        rowFooter.append(metaLine, actionsWrap);
+
+        row.append(rowHeader, descEl, rowFooter);
         list.appendChild(row);
       });
     };
@@ -5994,6 +6366,7 @@ async function openSavedStrategy(id) {
   try {
     const data = await api(`/api/strategy/${id}`);
     const record = data.strategy;
+    state.mode = "build";
     Object.assign(state, {
       view: "home",
       status: "saved",
@@ -6013,6 +6386,7 @@ async function openSavedStrategy(id) {
       strategyAskOpen: false,
       refinementOpen: false,
     });
+    syncMode();
     render();
     closeSidebar();
   } catch (error) {
@@ -6044,7 +6418,7 @@ function renderPlannerView() {
 
   const view = element("section", "planner-view");
 
-  // Header Row with 3D Calendar Hero Badge
+  // Workspace header
   const headerRow = element("header", "planner-header-row");
   const headerText = element("div", "planner-header-text");
   headerText.append(
@@ -6056,11 +6430,12 @@ function renderPlannerView() {
   headerRow.append(headerText);
   view.appendChild(headerRow);
 
-  // Quick Add Composer Card
+  // Persistent task composer — its visual placement is handled in CSS so the
+  // existing add-task behaviour and keyboard submission remain unchanged.
   const composer = element("form", "planner-composer-card");
   const taskInput = element("input", "planner-composer-input");
   taskInput.type = "text";
-  taskInput.placeholder = "Yeni tapşırıq yaz və əlavə et…";
+  taskInput.placeholder = "Yeni tapşırıq əlavə et...";
   taskInput.required = true;
 
   const composerBottom = element("div", "planner-composer-bottom");
@@ -6069,7 +6444,17 @@ function renderPlannerView() {
   const selectLabel = element("span", "planner-select-label", "Bu gün");
   const groupSelect = document.createElement("select");
   groupSelect.className = "planner-select-native";
-  ["Bu gün", "Növbəti 48 saat", "Bu həftə", "Ümumi"].forEach((opt) => {
+  const plannerGroupOptions = [
+    "Bu gün",
+    "Növbəti 48 saat",
+    "Növbəti 72 saat",
+    "Növbəti 7 gün",
+    "Növbəti 14 gün",
+    "Növbəti 30 gün",
+    "Növbəti 60 gün",
+    "Ümumi",
+  ];
+  plannerGroupOptions.forEach((opt) => {
     const option = document.createElement("option");
     option.value = opt;
     option.textContent = opt;
@@ -6103,8 +6488,14 @@ function renderPlannerView() {
   chevronSvg.innerHTML = `<polyline points="6 9 12 15 18 9"/>`;
   selectPill.appendChild(chevronSvg);
 
-  const submitBtn = button("＋ Əlavə et", "planner-submit-btn");
+  const submitBtn = button("", "planner-submit-btn");
   submitBtn.type = "submit";
+  submitBtn.setAttribute("aria-label", "Tapşırığı əlavə et");
+  submitBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5"/><path d="m6 11 6-6 6 6"/>
+    </svg>
+  `;
 
   composerBottom.append(selectPill, submitBtn);
   composer.append(taskInput, composerBottom);
@@ -6137,7 +6528,8 @@ function renderPlannerView() {
   });
   view.appendChild(composer);
 
-  // Search Bar
+  // Lightweight search and filter toolbar
+  const toolbar = element("div", "planner-toolbar");
   const searchBar = element("div", "planner-search-bar");
   searchBar.innerHTML = `
     <svg class="planner-search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -6150,9 +6542,6 @@ function renderPlannerView() {
   searchInput.placeholder = "Tapşırıqlarda axtar…";
   searchInput.setAttribute("aria-label", "Tapşırıqlarda axtar");
   searchBar.appendChild(searchInput);
-  view.appendChild(searchBar);
-
-  // Filter Pills Row
   const filterRow = element("div", "planner-filter-row");
   const filterPills = element("div", "planner-filter-pills");
   const filterOptions = [
@@ -6170,7 +6559,8 @@ function renderPlannerView() {
     filterPills.appendChild(btn);
   });
   filterRow.appendChild(filterPills);
-  view.appendChild(filterRow);
+  toolbar.append(searchBar, filterRow);
+  view.appendChild(toolbar);
 
   const listContainer = element("div", "planner-tasks-container");
   view.appendChild(listContainer);
@@ -6193,18 +6583,27 @@ function renderPlannerView() {
     listContainer.replaceChildren();
 
     if (!tasks.length) {
-      const empty = element("div", "empty-state");
+      const empty = element("div", "planner-empty-state");
       empty.append(
-        element("span", "empty-icon", "✓"),
-        element("h2", "", state.plannerTasks.length ? "Bu filtrə uyğun tapşırıq tapılmadı" : "Planlaşdırılan tapşırıq yoxdur"),
-        element("p", "", "Strategiyaların 'Növbəti addımlar' bölməsindən bir kliklə tapşırıq əlavə edə və ya yuxarıdan yeni tapşırıq yaza bilərsən.")
+        element("h2", "", "Tapşırıq tapılmadı"),
+        element("p", "", "Filteri dəyiş və ya yeni tapşırıq əlavə et.")
       );
       listContainer.appendChild(empty);
       return;
     }
 
     // Group by groupLabel
-    const groupOrder = ["Bu gün", "Növbəti 48 saat", "Bu həftə", "Ümumi"];
+    const groupOrder = [
+      "Bu gün",
+      "Növbəti 48 saat",
+      "Növbəti 72 saat",
+      "Növbəti 7 gün",
+      "Bu həftə",
+      "Növbəti 14 gün",
+      "Növbəti 30 gün",
+      "Növbəti 60 gün",
+      "Ümumi",
+    ];
     const groups = {};
     tasks.forEach((task) => {
       const g = task.groupLabel || "Ümumi";
@@ -6223,42 +6622,47 @@ function renderPlannerView() {
       if (!groupTasks.length) return;
 
       const groupEl = element("div", "planner-group");
-      const groupHeader = element("div", "planner-group-header");
+      const isCollapsible = groupName === "Ümumi";
+      const isCollapsed = isCollapsible && state.plannerCollapsedGroups.has(groupName);
+      const groupHeader = isCollapsible
+        ? button("", "planner-group-header is-collapsible")
+        : element("div", "planner-group-header");
       const activeCount = groupTasks.filter((t) => !t.completed).length;
-      groupHeader.append(
+      const groupTitle = element("div", "planner-group-title");
+      groupTitle.append(
         element("h3", "planner-group-name", groupName.toUpperCase()),
         element("span", "planner-group-badge", `${activeCount} aktiv`)
       );
+      groupHeader.appendChild(groupTitle);
+      if (isCollapsible) {
+        groupHeader.setAttribute("aria-expanded", String(!isCollapsed));
+        groupHeader.setAttribute("aria-label", `Ümumi tapşırıqları ${isCollapsed ? "aç" : "bağla"}`);
+        groupHeader.insertAdjacentHTML("beforeend", `
+          <svg class="planner-group-chevron" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        `);
+        if (isCollapsed) groupHeader.classList.add("is-collapsed");
+        groupHeader.addEventListener("click", () => {
+          if (state.plannerCollapsedGroups.has(groupName)) state.plannerCollapsedGroups.delete(groupName);
+          else state.plannerCollapsedGroups.add(groupName);
+          drawPlannerList();
+        });
+      }
       groupEl.appendChild(groupHeader);
 
       const taskList = element("div", "planner-task-list");
+      taskList.hidden = isCollapsed;
       groupTasks.forEach((task) => {
         const card = element("div", `planner-task-card${task.completed ? " is-done" : ""}`);
 
-        const cardTop = element("div", "planner-card-top");
+        const cardMain = element("div", "planner-card-main");
 
         // Custom checkbox
         const checkWrap = element("label", "planner-check-wrap");
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.checked = Boolean(task.completed);
-        checkbox.addEventListener("change", async () => {
-          task.completed = checkbox.checked;
-          card.classList.toggle("is-done", task.completed);
-          updatePlannerBadge();
-          try {
-            await authRequest(`/api/planner/${task.id}`, {
-              method: "PATCH",
-              body: JSON.stringify({ completed: task.completed }),
-            });
-          } catch (err) {
-            checkbox.checked = !task.completed;
-            task.completed = checkbox.checked;
-            card.classList.toggle("is-done", task.completed);
-            updatePlannerBadge();
-            showToast(err.message || "Yeniləmək mümkün olmadı", "error");
-          }
-        });
         const customBox = element("span", "planner-custom-checkbox");
         checkWrap.append(checkbox, customBox);
 
@@ -6269,12 +6673,46 @@ function renderPlannerView() {
           e.stopPropagation();
           const existingMenu = menuWrap.querySelector(".planner-dropdown-menu");
           document.querySelectorAll(".planner-dropdown-menu").forEach((m) => m.remove());
+          document.querySelectorAll(".planner-task-card.has-open-menu").forEach((c) => c.classList.remove("has-open-menu"));
           if (existingMenu) return;
 
+          card.classList.add("has-open-menu");
           const dropdown = element("div", "planner-dropdown-menu");
+          if (task.strategyTitle) {
+            const sourceItem = button("", "planner-dropdown-item planner-dropdown-source", (ev) => {
+              ev.stopPropagation();
+              dropdown.remove();
+              card.classList.remove("has-open-menu");
+              if (task.strategyId) openSavedStrategy(task.strategyId);
+              else {
+                state.mode = "build";
+                state.view = "list";
+                render();
+              }
+            });
+            sourceItem.innerHTML = `
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+              <span class="planner-dropdown-source-copy"><small>Mənbə</small><strong>${task.strategyTitle}</strong></span>
+            `;
+            dropdown.appendChild(sourceItem);
+          }
+          if (task.createdAt) {
+            const timeItem = element("div", "planner-dropdown-item planner-dropdown-time");
+            timeItem.innerHTML = `
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span class="planner-dropdown-source-copy"><small>Əlavə edilib</small><strong>${formatDate(task.createdAt)}</strong></span>
+            `;
+            dropdown.appendChild(timeItem);
+          }
           const deleteItem = button("", "planner-dropdown-item is-danger", async (ev) => {
             ev.stopPropagation();
             dropdown.remove();
+            card.classList.remove("has-open-menu");
             if (!window.confirm("Bu tapşırığı silmək istədiyinizdən əminsiniz?")) {
               return;
             }
@@ -6303,45 +6741,34 @@ function renderPlannerView() {
         menuBtn.setAttribute("aria-label", "Əməliyyatlar");
         menuBtn.innerHTML = `
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <circle cx="12" cy="5" r="1.8"/>
+            <circle cx="5" cy="12" r="1.8"/>
             <circle cx="12" cy="12" r="1.8"/>
-            <circle cx="12" cy="19" r="1.8"/>
+            <circle cx="19" cy="12" r="1.8"/>
           </svg>
         `;
         menuWrap.appendChild(menuBtn);
 
-        cardTop.append(checkWrap, textEl, menuWrap);
+        cardMain.append(checkWrap, textEl, menuWrap);
 
-        const cardBottom = element("div", "planner-card-bottom");
-        if (task.strategyTitle) {
-          const stratChip = button("", "planner-strategy-chip", () => {
-            if (task.strategyId) openSavedStrategy(task.strategyId);
-            else {
-              state.mode = "build";
-              state.view = "list";
-              render();
-            }
-          });
-          stratChip.innerHTML = `
-            <span class="planner-chip-star">✦</span>
-            <span class="planner-chip-title">${task.strategyTitle}</span>
-          `;
-          cardBottom.appendChild(stratChip);
-        } else {
-          cardBottom.appendChild(element("div"));
-        }
+        checkbox.addEventListener("change", async () => {
+          task.completed = checkbox.checked;
+          card.classList.toggle("is-done", task.completed);
+          updatePlannerBadge();
+          try {
+            await authRequest(`/api/planner/${task.id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ completed: task.completed }),
+            });
+          } catch (err) {
+            checkbox.checked = !task.completed;
+            task.completed = checkbox.checked;
+            card.classList.toggle("is-done", task.completed);
+            updatePlannerBadge();
+            showToast(err.message || "Yeniləmək mümkün olmadı", "error");
+          }
+        });
 
-        const timeText = element("span", "planner-time-text");
-        timeText.innerHTML = `
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12 6 12 12 16 14"/>
-          </svg>
-          ${formatTimeOnly(task.createdAt)}
-        `;
-        cardBottom.appendChild(timeText);
-
-        card.append(cardTop, cardBottom);
+        card.appendChild(cardMain);
         taskList.appendChild(card);
       });
 
@@ -6353,6 +6780,7 @@ function renderPlannerView() {
   const onDocClick = (e) => {
     if (!e.target.closest(".planner-menu-wrap")) {
       document.querySelectorAll(".planner-dropdown-menu").forEach((m) => m.remove());
+      document.querySelectorAll(".planner-task-card.has-open-menu").forEach((c) => c.classList.remove("has-open-menu"));
     }
   };
   if (window._marketifyPlannerDocClick) {
@@ -8037,6 +8465,18 @@ window.addEventListener("marketify:account-restored", () => {
   showToast("Xoş gəldiniz! 14 günlük silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.", "success");
 });
 
+function navigateHome() {
+  if (state.view !== "home") {
+    state.view = "home";
+    syncMode();
+    syncNav();
+    render();
+  } else {
+    if (state.mode === "ask") startNewChat();
+    else resetStrategy();
+  }
+}
+
 newStrategyButton?.addEventListener("click", () => {
   if (state.mode === "ask") startNewChat();
   else resetStrategy();
@@ -8047,25 +8487,22 @@ document.querySelector("#mobileNewButton")?.addEventListener("click", () => {
 });
 mobileMenuButton.addEventListener("click", openSidebar);
 railMenuButton.addEventListener("click", () => (sidebar.classList.contains("is-open") ? closeSidebar() : openSidebar()));
-railHomeButton.addEventListener("click", () => {
-  if (state.mode === "ask") startNewChat();
-  else resetStrategy();
-});
+railHomeButton.addEventListener("click", navigateHome);
 railStrategiesButton.addEventListener("click", () => {
-  state.mode = "build";
   state.view = "list";
+  syncNav();
   render();
   closeSidebar();
 });
 railPlannerButton?.addEventListener("click", () => {
-  state.mode = "build";
   state.view = "planner";
+  syncNav();
   render();
   closeSidebar();
 });
 railLimitsButton?.addEventListener("click", () => {
-  state.mode = "build";
   state.view = "limits";
+  syncNav();
   render();
   closeSidebar();
 });
@@ -8074,41 +8511,40 @@ mobileOverlay.addEventListener("click", closeSidebar);
 document.querySelectorAll(".brand").forEach((brandEl) => {
   brandEl.addEventListener("click", (e) => {
     e.preventDefault();
-    if (state.mode === "ask") startNewChat();
-    else resetStrategy();
+    navigateHome();
   });
 });
 homeNav.addEventListener("click", () => {
-  if (state.mode === "ask") startNewChat();
-  else resetStrategy();
+  navigateHome();
+  closeSidebar();
 });
 strategiesNav.addEventListener("click", () => {
-  state.mode = "build";
   state.view = "list";
+  syncNav();
   render();
   closeSidebar();
 });
 plannerNav?.addEventListener("click", () => {
-  state.mode = "build";
   state.view = "planner";
+  syncNav();
   render();
   closeSidebar();
 });
 limitsNav?.addEventListener("click", () => {
-  state.mode = "build";
   state.view = "limits";
+  syncNav();
   render();
   closeSidebar();
 });
 settingsNav.addEventListener("click", () => {
-  state.mode = "build";
   state.view = "settings";
+  syncNav();
   render();
   closeSidebar();
 });
 accountButton.addEventListener("click", () => {
-  state.mode = "build";
   state.view = "settings";
+  syncNav();
   render();
   closeSidebar();
 });
@@ -8260,12 +8696,18 @@ if (!new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/veri
 
 initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
-  if (user?.settings?.defaultMode && (user.settings.defaultMode === "ask" || user.settings.defaultMode === "build")) {
-    setMode(user.settings.defaultMode);
+  const preferredMode = user?.settings?.defaultMode || (() => {
+    try { return localStorage.getItem("marketify_default_mode"); } catch { return null; }
+  })();
+  if (preferredMode === "ask" || preferredMode === "build") {
+    try { localStorage.setItem("marketify_default_mode", preferredMode); } catch {}
+    state.mode = preferredMode;
+    syncMode();
+    syncNav();
   }
   const params = new URLSearchParams(window.location.search);
   const requestedMode = params.get("mode");
-  if (["ask", "build"].includes(requestedMode)) state.mode = requestedMode;
+  if (["ask", "build"].includes(requestedMode)) setMode(requestedMode);
   if (params.get("view") === "limits") state.view = "limits";
   resumeBackgroundJobs();
   render();

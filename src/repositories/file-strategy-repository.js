@@ -187,6 +187,91 @@ export class FileStrategyRepository {
     return claimed;
   }
 
+  async delete(id, ownerId) {
+    if (!id || !ownerId) return false;
+    const records = await this.readAll();
+    const remaining = records.filter((record) => !(record.id === id && record.ownerId === ownerId));
+    if (remaining.length === records.length) return false;
+    await this.writeAll(remaining);
+    return true;
+  }
+
+  async updateTitle(id, ownerId, title) {
+    if (!id || !ownerId || !title?.trim()) return null;
+    const records = await this.readAll();
+    const index = records.findIndex((record) => record.id === id && record.ownerId === ownerId);
+    if (index === -1) return null;
+
+    const trimmedTitle = title.trim();
+    const now = new Date().toISOString();
+    const record = records[index];
+    const updatedStrategy = record.strategy ? { ...record.strategy, title: trimmedTitle } : { title: trimmedTitle };
+    const updatedVersions = (record.versions || []).map((v, i, arr) => {
+      if (i === arr.length - 1 && v.data) {
+        return { ...v, data: { ...v.data, title: trimmedTitle } };
+      }
+      return v;
+    });
+
+    records[index] = {
+      ...record,
+      title: trimmedTitle,
+      strategy: updatedStrategy,
+      versions: updatedVersions,
+      updatedAt: now,
+    };
+
+    await this.writeAll(records);
+    return records[index];
+  }
+
+  async duplicate(id, ownerId) {
+    if (!id || !ownerId) return null;
+    const records = await this.readAll();
+    const original = records.find((record) => record.id === id && record.ownerId === ownerId);
+    if (!original) return null;
+
+    const now = new Date().toISOString();
+    const newId = randomUUID();
+    const newTitle = `${original.title} (Kopiya)`;
+    const newStrategy = original.strategy ? JSON.parse(JSON.stringify(original.strategy)) : { title: newTitle };
+    newStrategy.title = newTitle;
+
+    const versions = (original.versions || []).map((v) => ({
+      ...v,
+      id: randomUUID(),
+      data: v.data ? JSON.parse(JSON.stringify(v.data)) : newStrategy,
+    }));
+
+    if (!versions.length) {
+      versions.push({
+        id: randomUUID(),
+        versionNumber: 1,
+        data: newStrategy,
+        changeRequest: "Dublikat strategiya",
+        createdAt: now,
+      });
+    } else {
+      versions[versions.length - 1].data.title = newTitle;
+    }
+
+    const duplicateRecord = {
+      ...original,
+      id: newId,
+      clientSaveId: randomUUID(),
+      title: newTitle,
+      strategy: newStrategy,
+      versions,
+      currentVersionId: versions.at(-1)?.id || randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    records.unshift(duplicateRecord);
+    await this.writeAll(records);
+    return duplicateRecord;
+  }
+
   async deleteAllByOwner(ownerId) {
     if (!ownerId) return 0;
     const records = await this.readAll();

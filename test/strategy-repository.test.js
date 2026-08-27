@@ -86,3 +86,48 @@ test("a saved refinement appends a non-destructive version", async () => {
   assert.equal(updated.versions[0].data.title, "Restaurant growth");
   assert.equal(updated.strategy.title, "Budget-optimized restaurant growth");
 });
+
+test("repository delete, updateTitle, and duplicate methods work correctly and are owner-scoped", async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-crud-test-"));
+  const repository = new FileStrategyRepository(path.join(directory, "strategies.json"));
+  const strategy = sampleStrategy("Original Strategy");
+  const created = await repository.create(
+    {
+      clientSaveId: "client-save-crud",
+      brief: "Build a brand strategy.",
+      answers: [],
+      strategy,
+      versions: [
+        {
+          versionNumber: 1,
+          data: strategy,
+          changeRequest: "Initial strategy",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    },
+    "owner-1",
+  );
+
+  // Update title
+  const renamed = await repository.updateTitle(created.id, "owner-1", "Updated Strategy Title");
+  assert.equal(renamed.title, "Updated Strategy Title");
+  assert.equal(renamed.strategy.title, "Updated Strategy Title");
+
+  // Attempt rename with wrong owner
+  const wrongOwnerRename = await repository.updateTitle(created.id, "owner-2", "Hacked Title");
+  assert.equal(wrongOwnerRename, null);
+
+  // Duplicate
+  const duplicated = await repository.duplicate(created.id, "owner-1");
+  assert.notEqual(duplicated.id, created.id);
+  assert.equal(duplicated.title, "Updated Strategy Title (Kopiya)");
+  assert.equal((await repository.list("owner-1")).length, 2);
+
+  // Delete original
+  const deleted = await repository.delete(created.id, "owner-1");
+  assert.equal(deleted, true);
+  assert.equal(await repository.getById(created.id, "owner-1"), null);
+  assert.equal((await repository.list("owner-1")).length, 1);
+});
+

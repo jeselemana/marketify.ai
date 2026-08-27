@@ -200,6 +200,7 @@ export class FileUserRepository {
           memories: [],
           autoContext: true,
           strategyPersonalization: true,
+          defaultMode: "build",
         },
         passwordChangedAt: now,
         lastLoginAt: now,

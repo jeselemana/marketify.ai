@@ -59,6 +59,7 @@ export function publicUser(user) {
       memories: Array.isArray(settings.memories) ? settings.memories : [],
       autoContext: settings.autoContext !== false,
       strategyPersonalization: settings.strategyPersonalization !== false,
+      defaultMode: settings.defaultMode === "ask" ? "ask" : "build",
     },
     createdAt: user.createdAt,
   };

@@ -142,12 +142,14 @@ test("signup, session, login, reset, and single-use reset token work end to end"
   const enabledSettings = await fetch(`${base}/api/auth/settings`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", Cookie: cookie },
-    body: JSON.stringify({ personalIntelligence: true }),
+    body: JSON.stringify({ personalIntelligence: true, defaultMode: "ask" }),
   });
   assert.equal(enabledSettings.status, 200);
   assert.equal((await enabledSettings.json()).user.settings.personalIntelligence, true);
   const refreshedMe = await fetch(`${base}/api/auth/me`, { headers: { Cookie: cookie } });
-  assert.equal((await refreshedMe.json()).user.settings.personalIntelligence, true);
+  const meJson = await refreshedMe.json();
+  assert.equal(meJson.user.settings.personalIntelligence, true);
+  assert.equal(meJson.user.settings.defaultMode, "ask");
 
   const importRes = await fetch(`${base}/api/auth/settings/import-memory`, {
     method: "POST",

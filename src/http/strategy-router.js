@@ -347,12 +347,43 @@ export function createStrategyRouter(repository, learningLoop = null) {
     }),
   );
 
-  router.get(
+  router.delete(
     "/:id",
     asyncRoute(async (req, res) => {
-      const record = await repository.getById(req.params.id, req.ownerId);
-      if (!record) return res.status(404).json({ error: "Strategiya tapılmadı.", code: "NOT_FOUND" });
-      return res.json({ strategy: publicRecord(record) });
+      if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) {
+        return res.status(400).json({ error: "Strategiya ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
+      }
+      const success = await repository.delete(req.params.id, req.ownerId);
+      if (!success) return res.status(404).json({ error: "Strategiya tapılmadı.", code: "NOT_FOUND" });
+      return res.json({ success: true, id: req.params.id });
+    }),
+  );
+
+  router.patch(
+    "/:id",
+    asyncRoute(async (req, res) => {
+      if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) {
+        return res.status(400).json({ error: "Strategiya ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
+      }
+      const title = typeof req.body?.title === "string" ? req.body.title.trim() : "";
+      if (!title) {
+        return res.status(400).json({ error: "Strategiya adı boş ola bilməz.", code: "VALIDATION_ERROR" });
+      }
+      const updated = await repository.updateTitle(req.params.id, req.ownerId, title);
+      if (!updated) return res.status(404).json({ error: "Strategiya tapılmadı.", code: "NOT_FOUND" });
+      return res.json({ strategy: publicRecord(updated) });
+    }),
+  );
+
+  router.post(
+    "/:id/duplicate",
+    asyncRoute(async (req, res) => {
+      if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) {
+        return res.status(400).json({ error: "Strategiya ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
+      }
+      const duplicate = await repository.duplicate(req.params.id, req.ownerId);
+      if (!duplicate) return res.status(404).json({ error: "Strategiya tapılmadı.", code: "NOT_FOUND" });
+      return res.status(201).json({ strategy: publicRecord(duplicate) });
     }),
   );
 
