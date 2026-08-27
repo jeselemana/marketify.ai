@@ -2374,7 +2374,7 @@ function renderLoading() {
       <span>İşi arxa planda davam etdir</span>
     `;
     bgBtn.addEventListener("click", () => {
-      if (window.confirm("Əsas səhifəyə qayıdırsınız bu analizi arxa planda davam etdirmək istədiyinizdən əminsiniz? Daha sonra onunla \"Arxiv\" səhifəsindən tanış ola biləcəksiniz.")) {
+      if (window.confirm("Əsas səhifəyə qayıdırsınız. Bu strategiyanın hazırlanmasını arxa planda davam etdirmək istəyirsiniz? Nəticə hazır olduqda Arxiv bölməsində saxlanılacaq.")) {
         minimizeToBackground();
       }
     });
@@ -2427,7 +2427,7 @@ function renderLoading() {
     `;
     bgBtn.addEventListener("click", () => {
       const confirmed = window.confirm(
-        "Əsas səhifəyə qayıdırsınız bu analizi arxa planda davam etdirmək istədiyinizdən əminsiniz? Daha sonra onunla \"Arxiv\" səhifəsindən tanış ola biləcəksiniz."
+        "Əsas səhifəyə qayıdırsınız. Bu strategiyanın hazırlanmasını arxa planda davam etdirmək istəyirsiniz? Nəticə hazır olduqda Arxiv bölməsində saxlanılacaq."
       );
       if (confirmed) {
         minimizeToBackground();
@@ -2505,7 +2505,8 @@ function cancelCurrentAnalysis() {
 function minimizeToBackground() {
   if (state.status !== "generating") return;
 
-  const job = {
+  const existingJob = backgroundJobs.find((j) => j.idempotencyKey === state.clientSaveId);
+  const job = existingJob || {
     id: crypto.randomUUID(),
     brief: state.brief,
     answers: [...state.answers],
@@ -2520,12 +2521,12 @@ function minimizeToBackground() {
     savedId: null,
   };
 
-  // Cancel any previous background job
-  backgroundJobs.forEach((j) => {
-    if (j.status === "generating") j.status = "error";
-  });
-
-  backgroundJobs.unshift(job);
+  if (!existingJob) {
+    backgroundJobs.unshift(job);
+  } else {
+    job.status = "generating";
+    job.error = null;
+  }
   persistBackgroundJobs();
 
   // Do NOT abort currentAbortController — let the fetch continue
@@ -2561,10 +2562,7 @@ function minimizeToBackground() {
     faqExpandedAll: false,
   });
   render();
-  showToast("Analiz arxa planda davam edir ✦", "default");
-
-  // The fetch promise from startGeneration will resolve/reject and write to the bgJob
-  // This is handled by the modified startGeneration() which checks backgroundJobs
+  showToast("Strategiya arxa planda hazırlanır ✦", "default");
 }
 
 async function autoSaveBackgroundJob(job) {
@@ -2589,10 +2587,18 @@ async function autoSaveBackgroundJob(job) {
   }
 }
 
-function resumeBackgroundJobs() {
+async function resumeBackgroundJobs() {
   if (!backgroundJobs.length) return;
 
-  backgroundJobs.forEach(async (job) => {
+  // Ensure saved strategies are loaded
+  if (!state.savedStrategies || !state.savedStrategies.length) {
+    try {
+      await loadSavedStrategies();
+    } catch {}
+  }
+
+  const jobsToProcess = [...backgroundJobs];
+  for (const job of jobsToProcess) {
     // Check if the strategy was already saved on server by idempotencyKey or brief
     const alreadySaved = state.savedStrategies.find(
       (s) => (s.clientSaveId && s.clientSaveId === job.idempotencyKey) || (s.brief && s.brief === job.brief)
@@ -2600,10 +2606,16 @@ function resumeBackgroundJobs() {
     if (alreadySaved) {
       removeBackgroundJob(job.id);
       if (state.view === "list") renderStrategyList();
-      return;
+      continue;
     }
 
-    if (job.status !== "generating") return;
+    // If ready but not saved to server yet, retry autoSave
+    if (job.status === "ready" && job.strategy && !job.savedId) {
+      await autoSaveBackgroundJob(job);
+      continue;
+    }
+
+    if (job.status !== "generating") continue;
 
     try {
       const data = await api("/api/strategy/generate", {
@@ -2621,6 +2633,7 @@ function resumeBackgroundJobs() {
         state.strategy = data.strategy;
         state.updatedAt = new Date().toISOString();
         state.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: state.updatedAt }];
+        removeBackgroundJob(job.id);
         setStatus("ready");
         render();
         showToast("Strategiya hazırdır ✓");
@@ -2632,13 +2645,13 @@ function resumeBackgroundJobs() {
       job.completedAt = new Date().toISOString();
       job.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: job.completedAt }];
       persistBackgroundJobs();
-      autoSaveBackgroundJob(job);
+      await autoSaveBackgroundJob(job);
     } catch (err) {
-      if (err.name === "AbortError") return;
+      if (err.name === "AbortError") continue;
 
       // If temporary network disconnection, keep in generating status and retry on reconnect
       if (!navigator.onLine) {
-        return;
+        continue;
       }
 
       // Check if server already finished and saved it
@@ -2650,21 +2663,21 @@ function resumeBackgroundJobs() {
         if (savedNow) {
           removeBackgroundJob(job.id);
           if (state.view === "list") renderStrategyList();
-          return;
+          continue;
         }
       } catch {}
 
       if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
         setError(err, startGeneration, state.questions?.length ? "needs_clarification" : "draft");
-        return;
+        continue;
       }
 
       job.status = "error";
       job.error = err.message || "Xəta baş verdi";
       persistBackgroundJobs();
-      if (state.view === "list") render();
+      if (state.view === "list") renderStrategyList();
     }
-  });
+  }
 }
 
 document.addEventListener("visibilitychange", () => {
@@ -2686,10 +2699,11 @@ function openBackgroundJob(jobId) {
       status: job.savedId ? "saved" : "ready",
       brief: job.brief,
       answers: job.answers || [],
-      assumptions: job.strategy.assumptions || [],
+      assumptions: job.assumptions || job.strategy?.assumptions || [],
       strategy: job.strategy,
       versions: job.versions || [],
       savedId: job.savedId || null,
+      clientSaveId: job.idempotencyKey,
       updatedAt: job.completedAt,
       error: null,
       retry: null,
@@ -2707,13 +2721,12 @@ function openBackgroundJob(jobId) {
       assumptions: job.assumptions || [],
       clientSaveId: job.idempotencyKey,
     });
-    removeBackgroundJob(jobId);
     render();
     closeSidebar();
   } else if (job.status === "error") {
     showToast(job.error || "Xəta baş verdi", "error");
     removeBackgroundJob(jobId);
-    if (state.view === "list") render();
+    if (state.view === "list") renderStrategyList();
   }
 }
 
@@ -3115,11 +3128,6 @@ async function startAssessment() {
   clearError();
   currentAbortController?.abort();
   currentAbortController = new AbortController();
-  // Cancel previous in-progress background jobs to avoid duplicate generation load
-  backgroundJobs.forEach((j) => {
-    if (j.status === "generating") j.status = "error";
-  });
-  persistBackgroundJobs();
   setStatus("analyzing");
   render();
   try {
@@ -3390,7 +3398,7 @@ async function startGeneration() {
     currentAbortController = null;
 
     // Check if this generation was moved to background while awaiting
-    const bgJob = backgroundJobs.find((j) => j.idempotencyKey === generationKey && j.status === "generating");
+    const bgJob = backgroundJobs.find((j) => j.idempotencyKey === generationKey);
     if (bgJob) {
       bgJob.status = "ready";
       bgJob.strategy = finalStrategy;
@@ -3421,10 +3429,14 @@ async function startGeneration() {
     // Check if this generation was moved to background
     const bgJob = backgroundJobs.find((j) => j.idempotencyKey === generationKey && j.status === "generating");
     if (bgJob) {
+      if (!navigator.onLine) {
+        // Keep in generating status so online event can resume
+        return;
+      }
       bgJob.status = "error";
       bgJob.error = error.message || "Xəta baş verdi";
       persistBackgroundJobs();
-      if (state.view === "list") render();
+      if (state.view === "list") renderStrategyList();
       return;
     }
     setError(error, startGeneration, state.questions.length ? "needs_clarification" : "draft");
@@ -5073,7 +5085,8 @@ function renderRecentList() {
     const pulse = element("span", "recent-bg-pulse");
     icon.appendChild(pulse);
     const textWrap = element("div", "recent-text-wrap");
-    textWrap.append(element("span", "recent-title", "Hazırlanır..."), element("span", "recent-date", formatDate(job.startedAt)));
+    const jobTitle = job.brief ? (job.brief.length > 26 ? job.brief.slice(0, 26) + "…" : job.brief) : "Yeni Strategiya";
+    textWrap.append(element("span", "recent-title", jobTitle), element("span", "recent-date", "Hazırlanır · " + formatDate(job.startedAt)));
     item.append(icon, textWrap);
     recentList.appendChild(item);
   });
@@ -8709,9 +8722,9 @@ initializeAuthentication(async (user) => {
   const requestedMode = params.get("mode");
   if (["ask", "build"].includes(requestedMode)) setMode(requestedMode);
   if (params.get("view") === "limits") state.view = "limits";
-  resumeBackgroundJobs();
   render();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks(), loadUsageStats()]);
+  resumeBackgroundJobs();
   if (window.location.hash === "#terms" || window.location.pathname === "/terms") {
     openLegalModal("terms");
   } else if (window.location.hash === "#privacy" || window.location.pathname === "/privacy") {

@@ -103,101 +103,42 @@ export function createStrategyRouter(repository, learningLoop = null) {
     }),
   );
 
-  router.post(
-    "/generate",
-    asyncRoute(async (req, res) => {
-      const payload = parse(GenerateRequestSchema, req.body);
-      const requestKey = `${req.ownerId}:${payload.idempotencyKey}`;
-      
-      let generation = activeGenerations.get(requestKey);
-      if (!generation) {
-        generation = (async () => {
-          const personalizationContext = buildStrategyPersonalizationContext({
-            user: req.user,
-          });
-          const tracked = await runTrackedBuild({
-            learningLoop, ownerId: req.ownerId, taskType: "build_generate", userPrompt: payload.brief,
-            relevantContext: { personalizationApplied: Boolean(personalizationContext) },
-            execute: (onUsage) => generateStrategy({ ...payload, ownerId: req.ownerId, personalizationContext, onUsage }),
-          });
-          const strategy = tracked.result;
-          // Automatically save completed strategy to server repository so it is never lost if user closes browser
-          try {
-            const now = new Date().toISOString();
-            await repository.create(
-              {
-                clientSaveId: payload.idempotencyKey,
-                brief: payload.brief,
-                answers: payload.answers,
-                strategy,
-                versions: [
-                  {
-                    versionNumber: 1,
-                    data: strategy,
-                    changeRequest: "İlkin strategiya",
-                    createdAt: now,
-                  },
-                ],
-                learningInteractionId: tracked.interactionId,
-              },
-              req.ownerId,
-            );
-          } catch (saveErr) {
-            console.error("Auto-save on server failed:", saveErr);
-          }
-          return tracked;
-        })();
+  async function getOrCreateGeneration({ payload, ownerId, user, onChunk = null, allowAbortSignal = null }) {
+    const requestKey = `${ownerId}:${payload.idempotencyKey}`;
 
-        activeGenerations.set(requestKey, generation);
-        generation.then(
-          () => setTimeout(() => activeGenerations.delete(requestKey), 15 * 60 * 1000).unref(),
-          () => activeGenerations.delete(requestKey),
-        );
-      }
+    // 1. Check if already saved in repository
+    const allRecords = await repository.readAll();
+    const existing = allRecords.find((r) => r.ownerId === ownerId && r.clientSaveId === payload.idempotencyKey);
+    if (existing) {
+      return { result: existing.strategy, interactionId: existing.learningInteractionId || null, fromStore: true };
+    }
 
-      const tracked = await generation;
-      const strategy = tracked.result;
-      if (!res.writableEnded) {
-        res.json({ strategy });
-      }
-    }),
-  );
-
-  router.post(
-    "/generate-stream",
-    asyncRoute(async (req, res) => {
-      const payload = parse(GenerateRequestSchema, req.body);
-      const abortController = new AbortController();
-      req.on("close", () => {
-        if (!res.writableEnded) abortController.abort();
-      });
-
-      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-      res.setHeader("Cache-Control", "no-cache, no-transform");
-      res.setHeader("Connection", "keep-alive");
-      res.setHeader("X-Accel-Buffering", "no");
-      res.flushHeaders?.();
-
-      const sendEvent = (data) => {
-        if (res.writableEnded) return;
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
-      };
-
-      try {
+    // 2. Check if already generating in background
+    let generation = activeGenerations.get(requestKey);
+    if (!generation) {
+      generation = (async () => {
         const personalizationContext = buildStrategyPersonalizationContext({
-          user: req.user,
+          user,
         });
-
         const tracked = await runTrackedBuild({
-          learningLoop, ownerId: req.ownerId, taskType: "build_generate", userPrompt: payload.brief,
+          learningLoop,
+          ownerId,
+          taskType: "build_generate",
+          userPrompt: payload.brief,
           relevantContext: { personalizationApplied: Boolean(personalizationContext) },
-          execute: (onUsage) => generateStrategy({
-            ...payload, ownerId: req.ownerId, personalizationContext, signal: abortController.signal, onUsage,
-            onChunk: ({ chunk, finishReason, model }) => sendEvent({ chunk, finishReason, model }),
-          }),
+          execute: (onUsage) =>
+            generateStrategy({
+              ...payload,
+              ownerId,
+              personalizationContext,
+              signal: allowAbortSignal,
+              onUsage,
+              onChunk: onChunk ? (chunkInfo) => onChunk(chunkInfo) : undefined,
+            }),
         });
         const strategy = tracked.result;
 
+        // Automatically save completed strategy to server repository so it is never lost if user closes browser
         try {
           const now = new Date().toISOString();
           await repository.create(
@@ -216,17 +157,70 @@ export function createStrategyRouter(repository, learningLoop = null) {
               ],
               learningInteractionId: tracked.interactionId,
             },
-            req.ownerId,
+            ownerId,
           );
         } catch (saveErr) {
           console.error("Auto-save on server failed:", saveErr);
         }
+        return tracked;
+      })();
+
+      activeGenerations.set(requestKey, generation);
+      generation.then(
+        () => setTimeout(() => activeGenerations.delete(requestKey), 15 * 60 * 1000).unref(),
+        () => activeGenerations.delete(requestKey),
+      );
+    }
+
+    return generation;
+  }
+
+  router.post(
+    "/generate",
+    asyncRoute(async (req, res) => {
+      const payload = parse(GenerateRequestSchema, req.body);
+      const tracked = await getOrCreateGeneration({
+        payload,
+        ownerId: req.ownerId,
+        user: req.user,
+      });
+      const strategy = tracked.result;
+      if (!res.writableEnded) {
+        res.json({ strategy });
+      }
+    }),
+  );
+
+  router.post(
+    "/generate-stream",
+    asyncRoute(async (req, res) => {
+      const payload = parse(GenerateRequestSchema, req.body);
+
+      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders?.();
+
+      const sendEvent = (data) => {
+        if (res.writableEnded) return;
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+
+      try {
+        const tracked = await getOrCreateGeneration({
+          payload,
+          ownerId: req.ownerId,
+          user: req.user,
+          onChunk: ({ chunk, finishReason, model }) => sendEvent({ chunk, finishReason, model }),
+        });
+        const strategy = tracked.result;
 
         sendEvent({ done: true, strategy });
         res.write("data: [DONE]\n\n");
         res.end();
       } catch (streamError) {
-        if (abortController.signal.aborted || streamError.name === "AbortError") {
+        if (streamError.name === "AbortError") {
           return res.end();
         }
 

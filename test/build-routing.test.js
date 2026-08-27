@@ -122,4 +122,82 @@ test("strategy router GET /:id returns single strategy, validates id, and enforc
   assert.equal(res4.body.code, "VALIDATION_ERROR");
 });
 
+test("strategy router POST /generate returns existing saved strategy if clientSaveId exists", async (t) => {
+  const os = (await import("node:os")).default;
+  const path = (await import("node:path")).default;
+  const fs = (await import("node:fs/promises")).default;
+  const { FileStrategyRepository } = await import("../src/repositories/file-strategy-repository.js");
+  const { createStrategyRouter, strategyErrorHandler } = await import("../src/http/strategy-router.js");
+
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-idempotent-test-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+
+  const repository = new FileStrategyRepository(path.join(directory, "strategies.json"));
+  const sampleData = {
+    title: "Pre-existing Strategy",
+    summary: "A focused strategy summary.",
+    context: {},
+    sections: [],
+    priorities: [],
+    actionPlan: [],
+    kpis: [],
+    risks: [],
+    assumptions: [],
+    nextSteps: [],
+  };
+
+  await repository.create(
+    {
+      clientSaveId: "idempotency-key-xyz",
+      brief: "Test brief for pre-existing",
+      answers: [],
+      strategy: sampleData,
+      versions: [{ versionNumber: 1, data: sampleData, changeRequest: "Initial", createdAt: new Date().toISOString() }],
+    },
+    "owner-user-1",
+  );
+
+  const router = createStrategyRouter(repository);
+
+  const req = {
+    method: "POST",
+    url: "/generate",
+    baseUrl: "/api/strategy",
+    body: {
+      brief: "Test brief for pre-existing",
+      idempotencyKey: "idempotency-key-xyz",
+      answers: [],
+    },
+    ownerId: "owner-user-1",
+    headers: {},
+    on: () => {},
+  };
+
+  const response = await new Promise((resolve) => {
+    let statusCode = 200;
+    const res = {
+      status(s) {
+        statusCode = s;
+        return this;
+      },
+      json(data) {
+        resolve({ status: statusCode, body: data });
+        return this;
+      },
+      setHeader() {},
+    };
+
+    router.handle(req, res, (err) => {
+      if (err) {
+        strategyErrorHandler(err, req, res, () => resolve({ status: 500, body: { error: err.message } }));
+      } else {
+        resolve({ status: 404, body: { error: "Not matched" } });
+      }
+    });
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body?.strategy?.title, "Pre-existing Strategy");
+});
+
 
