@@ -254,7 +254,7 @@ const state = {
       if (requested === "ask" || requested === "build") return requested;
       const saved = localStorage.getItem("marketify_default_mode");
       if (saved === "ask" || saved === "build") return saved;
-    } catch {}
+    } catch { }
     return "build";
   })(),
   view: "home",
@@ -294,7 +294,7 @@ const state = {
     try {
       const saved = localStorage.getItem("marketify_ask_model");
       if (saved === "gemini-3.7-flash" || saved === "auto") return saved;
-    } catch {}
+    } catch { }
     return "auto";
   })(),
   askThinking: (() => {
@@ -302,7 +302,7 @@ const state = {
       const saved = localStorage.getItem("marketify_ask_thinking");
       if (saved === "true") return true;
       if (saved === "false") return false;
-    } catch {}
+    } catch { }
     return false;
   })(),
   strategyAskOpen: false,
@@ -333,7 +333,7 @@ function loadBackgroundJobs() {
 function persistBackgroundJobs() {
   try {
     localStorage.setItem("marketify_bg_jobs", JSON.stringify(backgroundJobs));
-  } catch {}
+  } catch { }
 }
 
 function removeBackgroundJob(id) {
@@ -377,29 +377,29 @@ function formatDate(value) {
   if (!value) return "İndi";
   const date = new Date(value);
   if (isNaN(date.getTime())) return "İndi";
-  
+
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
-  
+
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   const isYesterday = date.toDateString() === yesterday.toDateString();
-  
+
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
   const time = `${hours}:${minutes}`;
-  
+
   if (isToday) {
     return `Bu gün, ${time}`;
   }
   if (isYesterday) {
     return `Dünən, ${time}`;
   }
-  
+
   const months = ["Yan", "Fev", "Mar", "Apr", "May", "İyn", "İyl", "Avq", "Sen", "Okt", "Noy", "Dek"];
   const day = date.getDate();
   const month = months[date.getMonth()] || "";
-  
+
   if (date.getFullYear() === now.getFullYear()) {
     return `${day} ${month}, ${time}`;
   }
@@ -606,7 +606,7 @@ function setMode(mode) {
   if (!['build', 'ask'].includes(mode)) return;
   try {
     localStorage.setItem("marketify_default_mode", mode);
-  } catch {}
+  } catch { }
   if (state.mode === mode && state.view === "home") return;
   state.mode = mode;
   state.view = "home";
@@ -826,7 +826,7 @@ function renderIntake() {
   form.append(contextMenu, label, textarea, composerActions);
 
   const helper = element("div", "ask-composer-meta");
-  const disclaimer = element("p", "ask-disclaimer", "Marketify süni intellekt funksiyası yerinə yetirir və səhvlər edə bilər.");
+  const disclaimer = element("p", "ask-disclaimer", "Marketify səhv edə bilər.");
   helper.appendChild(disclaimer);
 
   composerArea.append(form, helper);
@@ -894,7 +894,7 @@ function renderAskRichText(value) {
       continue;
     }
 
-    if (line.startsWith("```") ) {
+    if (line.startsWith("```")) {
       const language = line.slice(3).trim();
       const content = [];
       index += 1;
@@ -1290,7 +1290,7 @@ function renderAsk() {
       const fileData = await readUploadedFileAsData(file);
       state.askPendingFile = fileData;
       state.askModel = "gemini-3.7-flash";
-      try { localStorage.setItem("marketify_ask_model", "gemini-3.7-flash"); } catch {}
+      try { localStorage.setItem("marketify_ask_model", "gemini-3.7-flash"); } catch { }
       state.askError = "";
     } catch (err) {
       state.askError = err.message || "Fayl oxunarkən xəta baş verdi.";
@@ -1316,7 +1316,7 @@ function renderAsk() {
   const activeTasks = state.plannerTasks.filter((task) => !task.completed);
   let contextPane = "main";
   let input;
-  let resizeInput = () => {};
+  let resizeInput = () => { };
   const drawContextMenu = () => {
     contextPopover.replaceChildren();
     if (contextPane === "main") {
@@ -1447,7 +1447,7 @@ function renderAsk() {
   input.name = "message";
   input.rows = 1;
   input.maxLength = 8000;
-  input.placeholder = selectedStrategy?.title || selectedTask?.text || (state.askPendingFile ? "Fayl haqqında sualını yaz…" : "Marketify-dən soruş…");
+  input.placeholder = selectedStrategy?.title || selectedTask?.text || (state.askPendingFile ? "Fayl haqqında sualını yaz…" : "Marketify-dan soruş");
   input.disabled = state.askLoading;
 
   const submit = button("", "ask-submit");
@@ -1473,7 +1473,7 @@ function renderAsk() {
   const autoOption = button("", `ask-model-option${!isFlashSelected ? " is-active" : ""}`, (e) => {
     e.preventDefault();
     state.askModel = "auto";
-    try { localStorage.setItem("marketify_ask_model", "auto"); } catch {}
+    try { localStorage.setItem("marketify_ask_model", "auto"); } catch { }
     modelSelectorMenu.open = false;
     render();
   });
@@ -1489,7 +1489,7 @@ function renderAsk() {
   const flashOption = button("", `ask-model-option${isFlashSelected ? " is-active" : ""}`, (e) => {
     e.preventDefault();
     state.askModel = "gemini-3.7-flash";
-    try { localStorage.setItem("marketify_ask_model", "gemini-3.7-flash"); } catch {}
+    try { localStorage.setItem("marketify_ask_model", "gemini-3.7-flash"); } catch { }
     modelSelectorMenu.open = false;
     render();
   });
@@ -1520,7 +1520,7 @@ function renderAsk() {
     switchInput.addEventListener("change", (e) => {
       e.stopPropagation();
       state.askThinking = switchInput.checked;
-      try { localStorage.setItem("marketify_ask_thinking", String(state.askThinking)); } catch {}
+      try { localStorage.setItem("marketify_ask_thinking", String(state.askThinking)); } catch { }
       thinkingSub.textContent = state.askThinking ? "Dərin analiz aktivdir" : "Sürətli birbaşa cavab";
       trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
     });
@@ -1616,7 +1616,7 @@ function renderAsk() {
   });
 
   const helper = element("div", "ask-composer-meta");
-  const disclaimer = element("p", "ask-disclaimer", "Marketify süni intellekt funksiyası yerinə yetirir və səhvlər edə bilər.");
+  const disclaimer = element("p", "ask-disclaimer", "Marketify səhv edə bilər.");
   helper.appendChild(disclaimer);
   composerArea.append(form, helper);
   shell.append(thread, composerArea);
@@ -1711,11 +1711,11 @@ class LiveTypewriter {
       const charsToType = Math.min(
         remaining,
         isFinishing && remaining > 500 ? 120 :
-        remaining > 2000 ? 50 :
-        remaining > 800 ? 25 :
-        remaining > 260 ? 10 :
-        remaining > 90 ? 4 :
-        remaining > 24 ? 2 : 1
+          remaining > 2000 ? 50 :
+            remaining > 800 ? 25 :
+              remaining > 260 ? 10 :
+                remaining > 90 ? 4 :
+                  remaining > 24 ? 2 : 1
       );
       this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
       this.onUpdate(this.currentText, false);
@@ -2274,17 +2274,17 @@ function renderLoading() {
   const isAssessment = state.status === "analyzing";
   const phases = isAssessment
     ? [
-        ["Brif strukturlaşdırılır", "Biznes məqsədini, bazarı və əsas məhdudiyyətləri vahid kontekstdə toplayıram."],
-        ["Kritik boşluqlar yoxlanılır", "Yalnız strategiyanın keyfiyyətini dəyişəcək məlumatların çatışıb-çatışmadığını yoxlayıram."],
-        ["Növbəti addım seçilir", "Mövcud məlumatla davam etmək və ya qısa dəqiqləşdirmə istəmək qərarı hazırlanır."],
-      ]
+      ["Brif strukturlaşdırılır", "Biznes məqsədini, bazarı və əsas məhdudiyyətləri vahid kontekstdə toplayıram."],
+      ["Kritik boşluqlar yoxlanılır", "Yalnız strategiyanın keyfiyyətini dəyişəcək məlumatların çatışıb-çatışmadığını yoxlayıram."],
+      ["Növbəti addım seçilir", "Mövcud məlumatla davam etmək və ya qısa dəqiqləşdirmə istəmək qərarı hazırlanır."],
+    ]
     : [
-        ["Brif strukturlaşdırılır", "Auditoriya, məqsəd, vaxt və büdcə bir strateji çərçivədə birləşdirilir."],
-        ["Prioritetlər müəyyən edilir", "Ən yüksək təsir yaradacaq qərarlar və asılılıqlar sıralanır."],
-        ["Strategiya qurulur", "Mövqelənmə, kanallar və təklif vahid istiqamətdə əlaqələndirilir."],
-        ["İcra planı hazırlanır", "Strateji qərarlar ardıcıl və icra edilə bilən mərhələlərə çevrilir."],
-        ["Ölçü və risklər yoxlanılır", "KPI-lar, risklər və növbəti addımlar strategiya ilə uyğunlaşdırılır."],
-      ];
+      ["Brif strukturlaşdırılır", "Auditoriya, məqsəd, vaxt və büdcə bir strateji çərçivədə birləşdirilir."],
+      ["Prioritetlər müəyyən edilir", "Ən yüksək təsir yaradacaq qərarlar və asılılıqlar sıralanır."],
+      ["Strategiya qurulur", "Mövqelənmə, kanallar və təklif vahid istiqamətdə əlaqələndirilir."],
+      ["İcra planı hazırlanır", "Strateji qərarlar ardıcıl və icra edilə bilən mərhələlərə çevrilir."],
+      ["Ölçü və risklər yoxlanılır", "KPI-lar, risklər və növbəti addımlar strategiya ilə uyğunlaşdırılır."],
+    ];
   let currentPhase = 0;
   const view = element("section", `loading-view ${isAssessment ? "is-assessment" : "is-generation"}`);
   view.setAttribute("aria-live", "polite");
@@ -2594,7 +2594,7 @@ async function resumeBackgroundJobs() {
   if (!state.savedStrategies || !state.savedStrategies.length) {
     try {
       await loadSavedStrategies();
-    } catch {}
+    } catch { }
   }
 
   const jobsToProcess = [...backgroundJobs];
@@ -2665,7 +2665,7 @@ async function resumeBackgroundJobs() {
           if (state.view === "list") renderStrategyList();
           continue;
         }
-      } catch {}
+      } catch { }
 
       if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
         setError(err, startGeneration, state.questions?.length ? "needs_clarification" : "draft");
@@ -5753,7 +5753,7 @@ function renderSettings() {
         updateWorkspaceIdentity(data.user);
         try {
           localStorage.setItem("marketify_default_mode", currentDefaultMode);
-        } catch {}
+        } catch { }
         state.mode = currentDefaultMode;
         syncMode();
         syncNav();
@@ -5863,7 +5863,7 @@ function renderSettings() {
     panel.appendChild(apiNotice);
 
     const docsList = element("div", "settings-legal-list");
-    
+
     const termsRow = element("div", "settings-legal-row");
     const termsInfo = element("div");
     termsInfo.append(element("strong", "", "İstifadə Şərtləri"), element("p", "", "Xidmətdən istifadə qaydaları, hüquqlar və öhdəliklər."));
@@ -6210,8 +6210,8 @@ function renderStrategyList() {
           const subtitle = isGenerating
             ? "Məlumatlar analiz olunur və strateji plan formalaşdırılır…"
             : isError
-            ? (job.error || "Generasiya zamanı xəta baş verdi.")
-            : (firstSentences(job.strategy?.summary || job.brief, 1));
+              ? (job.error || "Generasiya zamanı xəta baş verdi.")
+              : (firstSentences(job.strategy?.summary || job.brief, 1));
 
           // Top Header (Title + Chevron)
           const rowHeader = element("div", "archive-row-header");
@@ -7795,7 +7795,7 @@ function parseImportedMemoryText(raw) {
     if (firstBrace !== -1 && lastBrace > firstBrace) {
       try {
         parsedJson = JSON.parse(text.slice(firstBrace, lastBrace + 1));
-      } catch {}
+      } catch { }
     }
     if (!parsedJson) {
       const firstBracket = text.indexOf("[");
@@ -7803,7 +7803,7 @@ function parseImportedMemoryText(raw) {
       if (firstBracket !== -1 && lastBracket > firstBracket) {
         try {
           parsedJson = JSON.parse(text.slice(firstBracket, lastBracket + 1));
-        } catch {}
+        } catch { }
       }
     }
   }
@@ -8143,12 +8143,12 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
 
     const hasProfile = Boolean(
       currentParsedData.brandName ||
-        currentParsedData.industry ||
-        currentParsedData.primaryMarket ||
-        currentParsedData.targetAudience ||
-        currentParsedData.customInstructions ||
-        (currentParsedData.tone &&
-          currentParsedData.tone !== "professional")
+      currentParsedData.industry ||
+      currentParsedData.primaryMarket ||
+      currentParsedData.targetAudience ||
+      currentParsedData.customInstructions ||
+      (currentParsedData.tone &&
+        currentParsedData.tone !== "professional")
     );
 
     const hasMemories = currentParsedData.memories.length > 0;
@@ -8385,12 +8385,12 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
 
       const hasProfileData = Boolean(
         currentParsedData.brandName ||
-          currentParsedData.industry ||
-          currentParsedData.primaryMarket ||
-          currentParsedData.targetAudience ||
-          currentParsedData.customInstructions ||
-          (currentParsedData.tone &&
-            currentParsedData.tone !== "professional")
+        currentParsedData.industry ||
+        currentParsedData.primaryMarket ||
+        currentParsedData.targetAudience ||
+        currentParsedData.customInstructions ||
+        (currentParsedData.tone &&
+          currentParsedData.tone !== "professional")
       );
 
       if (!hasProfileData && !selectedMemories.length) {
@@ -8439,8 +8439,7 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
           }
 
           showToast(
-            `Yaddaş idxal edildi · ${
-              res.importedCount || selectedMemories.length
+            `Yaddaş idxal edildi · ${res.importedCount || selectedMemories.length
             } fakt`
           );
         } catch (err) {
@@ -8753,7 +8752,7 @@ initializeAuthentication(async (user) => {
     try { return localStorage.getItem("marketify_default_mode"); } catch { return null; }
   })();
   if (preferredMode === "ask" || preferredMode === "build") {
-    try { localStorage.setItem("marketify_default_mode", preferredMode); } catch {}
+    try { localStorage.setItem("marketify_default_mode", preferredMode); } catch { }
     state.mode = preferredMode;
     syncMode();
     syncNav();
