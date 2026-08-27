@@ -14118,10 +14118,10 @@ body.sidebar-open .planner-composer-card {
 }
 
 /* ==========================================================================
-   Privacy Policy Update Announcement Toast
+   Technical Support Notice Toast
    ========================================================================== */
 
-.privacy-notice-toast {
+.support-notice-toast {
   position: fixed;
   bottom: 24px;
   right: 24px;
@@ -14139,40 +14139,40 @@ body.sidebar-open .planner-composer-card {
   pointer-events: none;
 }
 
-.privacy-notice-toast.is-visible {
+.support-notice-toast.is-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
 }
 
-.privacy-notice-toast.is-dismissing {
+.support-notice-toast.is-dismissing {
   opacity: 0;
   transform: translateY(12px) scale(0.96);
   pointer-events: none;
 }
 
-.privacy-notice-header {
+.support-notice-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
-.privacy-notice-badge {
+.support-notice-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 12.5px;
   font-weight: 650;
-  color: var(--accent, #1d4ed8);
+  color: var(--accent, #4f6ee8);
 }
 
-.privacy-notice-badge svg {
-  color: var(--accent, #1d4ed8);
+.support-notice-badge svg {
+  color: var(--accent, #4f6ee8);
 }
 
-.privacy-notice-close {
+.support-notice-close {
   width: 24px;
   height: 24px;
   border-radius: 6px;
@@ -14187,31 +14187,49 @@ body.sidebar-open .planner-composer-card {
   transition: all 0.15s ease;
 }
 
-.privacy-notice-close:hover {
+.support-notice-close:hover {
   background: rgba(15, 23, 42, 0.06);
   color: var(--text-primary, #0f172a);
 }
 
-.privacy-notice-body {
+.support-notice-title {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text-primary, #0f172a);
+  margin: 0 0 4px;
+  line-height: 1.4;
+}
+
+.support-notice-body {
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--text-secondary, #475569);
-  margin: 0 0 14px;
+  margin: 0 0 8px;
 }
 
-.privacy-notice-body strong {
-  color: var(--text-primary, #0f172a);
+.support-notice-email {
+  display: inline-block;
+  font-size: 12.5px;
   font-weight: 600;
+  color: var(--accent, #1d4ed8);
+  text-decoration: none;
+  margin-bottom: 14px;
+  transition: color 0.15s ease;
 }
 
-.privacy-notice-actions {
+.support-notice-email:hover {
+  color: #1e40af;
+  text-decoration: underline;
+}
+
+.support-notice-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
 }
 
-.privacy-notice-read-btn {
+.support-notice-dontshow-btn {
   font-size: 12px;
   padding: 7px 12px;
   border-radius: 8px;
@@ -14223,12 +14241,12 @@ body.sidebar-open .planner-composer-card {
   transition: all 0.15s ease;
 }
 
-.privacy-notice-read-btn:hover {
+.support-notice-dontshow-btn:hover {
   background: #f1f5f9;
   border-color: #cbd5e1;
 }
 
-.privacy-notice-ack-btn {
+.support-notice-mail-btn {
   font-size: 12px;
   padding: 7px 14px;
   border-radius: 8px;
@@ -14237,8 +14255,35 @@ body.sidebar-open .planner-composer-card {
   transition: all 0.15s ease;
 }
 
+/* Auto-dismiss progress bar */
+.support-notice-progress-wrap {
+  margin-top: 12px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.support-notice-progress-bar {
+  height: 100%;
+  width: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent, #4f6ee8), #93b0f8);
+  transform-origin: left;
+  transform: scaleX(1);
+}
+
+.support-notice-progress-bar.is-running {
+  animation: support-progress-shrink linear forwards;
+}
+
+@keyframes support-progress-shrink {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
 @media (max-width: 640px) {
-  .privacy-notice-toast {
+  .support-notice-toast {
     bottom: 16px;
     right: 16px;
     left: 16px;

@@ -8651,54 +8651,94 @@ window.addEventListener("drop", (e) => {
   }
 });
 
-function checkPrivacyPolicyBanner() {
-  const STORAGE_KEY = "marketify_privacy_notice_2026_08";
-  if (localStorage.getItem(STORAGE_KEY) === "acknowledged") return;
-  if (document.querySelector("#privacyNoticeToast")) return;
+function checkSupportBanner() {
+  const STORAGE_KEY = "marketify_support_notice_dismissed";
+  if (localStorage.getItem(STORAGE_KEY) === "dismissed") return;
+  if (document.querySelector("#supportNoticeToast")) return;
 
-  const toast = element("aside", "privacy-notice-toast");
-  toast.id = "privacyNoticeToast";
+  const AUTO_DISMISS_SECONDS = 12;
+
+  const toast = element("aside", "support-notice-toast");
+  toast.id = "supportNoticeToast";
   toast.setAttribute("role", "status");
   toast.setAttribute("aria-live", "polite");
 
-  const header = element("div", "privacy-notice-header");
-  const badge = element("div", "privacy-notice-badge");
+  const header = element("div", "support-notice-header");
+  const badge = element("div", "support-notice-badge");
   badge.innerHTML = `
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-    <span>Məxfilik siyasətimiz yeniləndi</span>
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+    <span>Texniki dəstək</span>
   `;
 
+  let autoDismissTimer;
+
   const dismiss = () => {
-    localStorage.setItem(STORAGE_KEY, "acknowledged");
+    clearTimeout(autoDismissTimer);
     toast.classList.add("is-dismissing");
     setTimeout(() => toast.remove(), 260);
   };
 
-  const closeBtn = button("✕", "privacy-notice-close", dismiss);
+  const dismissPermanently = () => {
+    localStorage.setItem(STORAGE_KEY, "dismissed");
+    dismiss();
+  };
+
+  const closeBtn = button("✕", "support-notice-close", dismiss);
   closeBtn.setAttribute("aria-label", "Bağla");
   header.append(badge, closeBtn);
 
-  const body = element(
+  const title = element(
     "p",
-    "privacy-notice-body",
-    "Məlumatlarınızın təhlükəsizliyini və şəffaflığı artırmaq üçün Məxfilik Siyasətimizi yenilədik. Şərtlərlə tanış ola bilərsiniz. Əgər yenilənmiş şərtlər sizin üçün uyğun deyilsə, istədiyiniz vaxt Təhlükəsizlik bölməsindən hesabınızı silə bilərsiniz."
+    "support-notice-title",
+    "Texniki çətinliklə qarşılaşdığınız halda bizə məlumat verin"
   );
 
-  const actions = element("div", "privacy-notice-actions");
-  const readBtn = button("Siyasətlə tanış ol →", "secondary-button privacy-notice-read-btn", () => {
-    openLegalModal("privacy");
+  const body = element(
+    "p",
+    "support-notice-body",
+    "Hər hansı bir xəta, gözlənilməz davranış və ya istifadə zamanı yaranan texniki problem barədə aşağıdakı ünvana yazaraq bizə bildirə bilərsiniz. Komandamız ən qısa zamanda sizə dəstək göstərəcək."
+  );
+
+  const emailLink = element("a", "support-notice-email");
+  emailLink.href = "mailto:marketifysupport@googlegroups.com";
+  emailLink.textContent = "marketifysupport@googlegroups.com";
+  emailLink.setAttribute("aria-label", "Dəstək e-poçtu");
+
+  const actions = element("div", "support-notice-actions");
+  const dontShowBtn = button("Bir daha göstərmə", "secondary-button support-notice-dontshow-btn", dismissPermanently);
+  dontShowBtn.type = "button";
+
+  const mailBtn = button("Mail yaz →", "primary-button support-notice-mail-btn", () => {
+    window.location.href = "mailto:marketifysupport@googlegroups.com";
   });
-  readBtn.type = "button";
+  mailBtn.type = "button";
 
-  const ackBtn = button("Anladım", "primary-button privacy-notice-ack-btn", dismiss);
-  ackBtn.type = "button";
+  actions.append(dontShowBtn, mailBtn);
+  toast.append(header, title, body, emailLink, actions);
 
-  actions.append(readBtn, ackBtn);
-  toast.append(header, body, actions);
+  // Progress bar for auto-dismiss countdown
+  const progressWrap = element("div", "support-notice-progress-wrap");
+  const progressBar = element("div", "support-notice-progress-bar");
+  progressWrap.appendChild(progressBar);
+  toast.appendChild(progressWrap);
+  progressBar.style.animationDuration = AUTO_DISMISS_SECONDS + "s";
 
   document.body.appendChild(toast);
   requestAnimationFrame(() => {
     toast.classList.add("is-visible");
+    progressBar.classList.add("is-running");
+  });
+
+  autoDismissTimer = setTimeout(dismiss, AUTO_DISMISS_SECONDS * 1000);
+
+  // Pause auto-dismiss on hover
+  toast.addEventListener("mouseenter", () => {
+    clearTimeout(autoDismissTimer);
+    progressBar.style.animationPlayState = "paused";
+  });
+  toast.addEventListener("mouseleave", () => {
+    autoDismissTimer = setTimeout(dismiss, AUTO_DISMISS_SECONDS * 1000);
+    progressBar.style.animationPlayState = "running";
   });
 }
 
@@ -8730,5 +8770,5 @@ initializeAuthentication(async (user) => {
   } else if (window.location.hash === "#privacy" || window.location.pathname === "/privacy") {
     openLegalModal("privacy");
   }
-  checkPrivacyPolicyBanner();
+  checkSupportBanner();
 });
