@@ -28,7 +28,7 @@ button, fieldset, figure, h1, h2, h3, p { margin: 0; }
 .button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 20px; padding: 8px 17px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; }
 .button-dark { color: white; background: var(--text-primary); }
 .button-dark:hover { background: #30343c; }
-.menu-toggle { background: none; width: 44px; height: 44px; padding: 12px; }
+.menu-toggle { background: none; border: none; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); color: var(--text-primary); flex-shrink: 0; }
 .mobile-nav { padding-block: 10px 24px; }
 .mobile-nav a { padding: 10px 0; display: block; }
 .eyebrow { font-size: 12px; line-height: 1.5; font-weight: 500; color: var(--text-secondary); letter-spacing: .045em; }

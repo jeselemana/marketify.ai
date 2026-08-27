@@ -6593,11 +6593,15 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
 }
 
 .ask-context-plus {
-  display: block;
-  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 22px;
   font-weight: 300;
   line-height: 1;
-  transform: translateY(-4px);
+  transform: translateY(-2px);
 }
 
 .ask-context-popover {
@@ -6793,7 +6797,7 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-  padding-bottom: 1px;
+  align-self: center;
   position: relative;
   z-index: 70;
 }
