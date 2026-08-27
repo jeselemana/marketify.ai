@@ -347,6 +347,18 @@ export function createStrategyRouter(repository, learningLoop = null) {
     }),
   );
 
+  router.get(
+    "/:id",
+    asyncRoute(async (req, res) => {
+      if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) {
+        return res.status(400).json({ error: "Strategiya ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
+      }
+      const existing = await repository.getById(req.params.id, req.ownerId);
+      if (!existing) return res.status(404).json({ error: "Strategiya tapılmadı.", code: "NOT_FOUND" });
+      return res.json({ strategy: publicRecord(existing) });
+    }),
+  );
+
   router.delete(
     "/:id",
     asyncRoute(async (req, res) => {
