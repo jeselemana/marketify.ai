@@ -25,6 +25,7 @@ import { aiConfig, hasOpenAIConfiguration, hasGeminiConfiguration } from "./src/
 import { getGeminiClient } from "./src/services/ai/client.js";
 import { LLMProviderError } from "./src/services/ai/llm-router.js";
 import { resolveAskModelRoute } from "./src/services/ai/ask-routing.js";
+import { geminiFileCache } from "./src/services/ai/gemini-file-cache.js";
 import { evaluateSearchRoute } from "./src/services/ai/search-router.js";
 import { buildPersonalizationContext, getRelevantUserContext } from "./src/services/ai/personal-context.js";
 import { FileAiLearningRepository } from "./src/repositories/file-ai-learning-repository.js";
@@ -134,7 +135,8 @@ app.use(cors((req, callback) => {
     return callback(error);
   }
 }));
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "25mb" }));
+app.use(express.urlencoded({ limit: "25mb", extended: true }));
 app.use((req, res, next) => {
   if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) return next();
   const source = req.get("Origin") || (() => {
@@ -755,15 +757,72 @@ async function generateGeminiAskStreamResponse({
 }) {
   const gemini = getGeminiClient();
 
+  const hasAnyFile = messages.some((m) => Boolean(m?.file && (m.file.data || m.file.textContent || m.file.name || m.file.fileId)));
+  const fileGuidance = hasAnyFile
+    ? "\n\nThe user has provided an uploaded file or document as analysis context. Carefully read, understand, and analyze all attached file content, documents, images, tables, code, or data. Answer the user's specific questions based on the file content with high accuracy, clarity, and depth. Provide actionable insights and strategic recommendations based on the provided material."
+    : "";
+
+  const searchGuidance = enableSearch
+    ? "\n\nLive Google Search Grounding is active for this query. You have real-time internet search capability. Search the web and use the latest grounded search results to provide accurate, up-to-date facts, current prices, and real-time market data. Never say that you cannot browse the internet or that live search is disabled."
+    : "";
+
+  const fullSystemInstruction = (instructions || "") + searchGuidance + fileGuidance;
+
+  let geminiCachedContentName = null;
+  const firstFileMsg = messages.find((m) => m && m.role === "user" && m.file);
+  if (firstFileMsg && firstFileMsg.file) {
+    const resolvedFile = geminiFileCache.resolveFile(firstFileMsg.file);
+    if (resolvedFile) {
+      firstFileMsg.file = resolvedFile;
+      geminiCachedContentName = await geminiFileCache.getOrCreateGeminiCachedContent({
+        geminiClient: gemini,
+        model: "gemini-3.7-flash",
+        file: resolvedFile,
+        systemInstruction: fullSystemInstruction,
+      });
+    }
+  }
+
   const contents = [];
   for (const m of messages) {
-    if (!m || typeof m.content !== "string" || !m.content.trim()) continue;
+    if (!m) continue;
     const role = m.role === "assistant" ? "model" : "user";
-    const text = m.content.trim();
+    const parts = [];
+
+    // Handle attached file for user turns
+    if (role === "user" && m.file) {
+      const resolved = geminiFileCache.resolveFile(m.file) || m.file;
+      const fileName = String(resolved.name || "fayl").trim();
+      const mimeType = String(resolved.mimeType || resolved.type || "application/octet-stream").trim();
+      const rawData = String(resolved.data || "").replace(/^data:[^;]+;base64,/, "").trim();
+
+      if (!geminiCachedContentName) {
+        if (resolved.textContent && typeof resolved.textContent === "string") {
+          parts.push({
+            text: `[Yüklənmiş fayl konteksti: "${fileName}"]\n\`\`\`\n${resolved.textContent}\n\`\`\``,
+          });
+        } else if (rawData) {
+          parts.push({
+            inlineData: {
+              mimeType,
+              data: rawData,
+            },
+          });
+        }
+      }
+    }
+
+    const text = typeof m.content === "string" ? m.content.trim() : "";
+    if (text) {
+      parts.push({ text });
+    } else if (parts.length === 0) {
+      continue;
+    }
+
     if (contents.length > 0 && contents[contents.length - 1].role === role) {
-      contents[contents.length - 1].parts[0].text += `\n\n${text}`;
+      contents[contents.length - 1].parts.push(...parts);
     } else {
-      contents.push({ role, parts: [{ text }] });
+      contents.push({ role, parts });
     }
   }
 
@@ -781,12 +840,9 @@ async function generateGeminiAskStreamResponse({
     contents.push({ role: "user", parts: [{ text: "Davam et" }] });
   }
 
-  const searchGuidance = enableSearch
-    ? "\n\nLive Google Search Grounding is active for this query. You have real-time internet search capability. Search the web and use the latest grounded search results to provide accurate, up-to-date facts, current prices, and real-time market data. Never say that you cannot browse the internet or that live search is disabled."
-    : "";
-
   const config = {
-    systemInstruction: (instructions ? instructions + searchGuidance : searchGuidance) || undefined,
+    systemInstruction: geminiCachedContentName ? undefined : (fullSystemInstruction ? fullSystemInstruction.trim() : undefined),
+    cachedContent: geminiCachedContentName || undefined,
     maxOutputTokens: aiConfig.geminiMaxOutputTokens || 65536,
     safetySettings: GEMINI_SAFETY_SETTINGS,
   };
@@ -922,15 +978,72 @@ async function generateGeminiAskResponse({
 }) {
   const gemini = getGeminiClient();
 
+  const hasAnyFile = messages.some((m) => Boolean(m?.file && (m.file.data || m.file.textContent || m.file.name || m.file.fileId)));
+  const fileGuidance = hasAnyFile
+    ? "\n\nThe user has provided an uploaded file or document as analysis context. Carefully read, understand, and analyze all attached file content, documents, images, tables, code, or data. Answer the user's specific questions based on the file content with high accuracy, clarity, and depth. Provide actionable insights and strategic recommendations based on the provided material."
+    : "";
+
+  const searchGuidance = enableSearch
+    ? "\n\nLive Google Search Grounding is active for this query. You have real-time internet search capability. Search the web and use the latest grounded search results to provide accurate, up-to-date facts, current prices, and real-time market data. Never say that you cannot browse the internet or that live search is disabled."
+    : "";
+
+  const fullSystemInstruction = (instructions || "") + searchGuidance + fileGuidance;
+
+  let geminiCachedContentName = null;
+  const firstFileMsg = messages.find((m) => m && m.role === "user" && m.file);
+  if (firstFileMsg && firstFileMsg.file) {
+    const resolvedFile = geminiFileCache.resolveFile(firstFileMsg.file);
+    if (resolvedFile) {
+      firstFileMsg.file = resolvedFile;
+      geminiCachedContentName = await geminiFileCache.getOrCreateGeminiCachedContent({
+        geminiClient: gemini,
+        model: "gemini-3.7-flash",
+        file: resolvedFile,
+        systemInstruction: fullSystemInstruction,
+      });
+    }
+  }
+
   const contents = [];
   for (const m of messages) {
-    if (!m || typeof m.content !== "string" || !m.content.trim()) continue;
+    if (!m) continue;
     const role = m.role === "assistant" ? "model" : "user";
-    const text = m.content.trim();
+    const parts = [];
+
+    // Handle attached file for user turns
+    if (role === "user" && m.file) {
+      const resolved = geminiFileCache.resolveFile(m.file) || m.file;
+      const fileName = String(resolved.name || "fayl").trim();
+      const mimeType = String(resolved.mimeType || resolved.type || "application/octet-stream").trim();
+      const rawData = String(resolved.data || "").replace(/^data:[^;]+;base64,/, "").trim();
+
+      if (!geminiCachedContentName) {
+        if (resolved.textContent && typeof resolved.textContent === "string") {
+          parts.push({
+            text: `[Yüklənmiş fayl konteksti: "${fileName}"]\n\`\`\`\n${resolved.textContent}\n\`\`\``,
+          });
+        } else if (rawData) {
+          parts.push({
+            inlineData: {
+              mimeType,
+              data: rawData,
+            },
+          });
+        }
+      }
+    }
+
+    const text = typeof m.content === "string" ? m.content.trim() : "";
+    if (text) {
+      parts.push({ text });
+    } else if (parts.length === 0) {
+      continue;
+    }
+
     if (contents.length > 0 && contents[contents.length - 1].role === role) {
-      contents[contents.length - 1].parts[0].text += `\n\n${text}`;
+      contents[contents.length - 1].parts.push(...parts);
     } else {
-      contents.push({ role, parts: [{ text }] });
+      contents.push({ role, parts });
     }
   }
 
@@ -948,12 +1061,9 @@ async function generateGeminiAskResponse({
     contents.push({ role: "user", parts: [{ text: "Davam et" }] });
   }
 
-  const searchGuidance = enableSearch
-    ? "\n\nLive Google Search Grounding is active for this query. You have real-time internet search capability. Search the web and use the latest grounded search results to provide accurate, up-to-date facts, current prices, and real-time market data. Never say that you cannot browse the internet or that live search is disabled."
-    : "";
-
   const config = {
-    systemInstruction: (instructions ? instructions + searchGuidance : searchGuidance) || undefined,
+    systemInstruction: geminiCachedContentName ? undefined : (fullSystemInstruction ? fullSystemInstruction.trim() : undefined),
+    cachedContent: geminiCachedContentName || undefined,
     maxOutputTokens: aiConfig.geminiMaxOutputTokens || 65536,
     safetySettings: GEMINI_SAFETY_SETTINGS,
   };
@@ -1073,17 +1183,40 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
   try {
     const messages = Array.isArray(req.body.messages)
       ? req.body.messages
-          .filter((message) => ["user", "assistant"].includes(message?.role) && typeof message?.content === "string")
+          .filter((message) => ["user", "assistant"].includes(message?.role) && (typeof message?.content === "string" || message?.file))
           .map((message) => ({
             role: message.role,
-            content: message.content.trim().slice(0, 5000),
+            content: typeof message.content === "string" ? message.content.trim().slice(0, 10000) : "",
             strategyTitle: typeof message.strategyTitle === "string" ? message.strategyTitle : undefined,
             taskTitle: typeof message.taskTitle === "string" ? message.taskTitle : undefined,
             model: typeof message.model === "string" ? message.model : undefined,
             interactionId: typeof message.interactionId === "string" && /^[0-9a-f-]{36}$/i.test(message.interactionId) ? message.interactionId : undefined,
+            file: message.file && typeof message.file === "object" ? {
+              fileId: typeof message.file.fileId === "string" ? message.file.fileId.slice(0, 100) : undefined,
+              name: String(message.file.name || "fayl").slice(0, 255),
+              size: typeof message.file.size === "number" ? message.file.size : 0,
+              type: String(message.file.type || "").slice(0, 100),
+              mimeType: String(message.file.mimeType || message.file.type || "application/octet-stream").slice(0, 100),
+              data: typeof message.file.data === "string" ? message.file.data : "",
+              textContent: typeof message.file.textContent === "string" ? message.file.textContent.slice(0, 200000) : undefined,
+            } : undefined,
           }))
-          .filter((message) => message.content)
+          .filter((message) => message.content || (message.file && (message.file.data || message.file.textContent || message.file.name || message.file.fileId)))
       : [];
+
+    for (const message of messages) {
+      if (message.file) {
+        const resolved = geminiFileCache.resolveFile(message.file);
+        if (resolved) {
+          message.file = {
+            ...message.file,
+            fileId: resolved.fileId || message.file.fileId,
+            data: resolved.data || message.file.data,
+            textContent: resolved.textContent || message.file.textContent,
+          };
+        }
+      }
+    }
 
     if (!messages.length || messages.at(-1)?.role !== "user") {
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
@@ -1115,8 +1248,9 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     }
 
     const hasStrategyContext = Boolean(selectedStrategy || selectedTask);
+    const hasAnyAttachment = messages.some((m) => Boolean(m.file && (m.file.data || m.file.textContent || m.file.name || m.file.fileId)));
     const lastUserMsg = messages.at(-1)?.content || "";
-    const route = resolveAskModelRoute({ requestedModel, lastUserMsg, hasStrategyContext });
+    const route = resolveAskModelRoute({ requestedModel, lastUserMsg, hasStrategyContext, hasAttachment: hasAnyAttachment });
     const isGemini = route === "gemini-3.7-flash";
     isGeminiRoute = isGemini;
 
@@ -1173,10 +1307,14 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     console.log(`\n🔍 [Ask] Sual: "${lastUserMsg.slice(0, 60)}..."`);
     console.log(`   Model: ${requestedModel} -> ${route} (${selectedAskModel})`);
     console.log(`   Google Search: ${enableSearch ? "Aktiv (Grounding)" : "Deaktiv"}`);
+    if (hasAnyAttachment) {
+      const firstFile = messages.find((m) => m.file)?.file;
+      console.log(`   📎 Fayl: ${firstFile?.name || "fayl"} (${firstFile?.mimeType || "naməlum"})`);
+    }
 
     learningInteractionId = learningLoop.createInteractionId();
     learningPrompt = messages.at(-1).content;
-    learningTaskType = selectedStrategy ? "ask_with_strategy" : selectedTask ? "ask_with_task" : "ask_general";
+    learningTaskType = selectedStrategy ? "ask_with_strategy" : selectedTask ? "ask_with_task" : hasAnyAttachment ? "ask_with_file" : "ask_general";
     learningModel = selectedAskModel;
     learningContext = {
       strategyId: strategyId || undefined,
@@ -1184,6 +1322,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       chatId: chatId || undefined,
       hasStrategyContext: Boolean(selectedStrategy),
       hasTaskContext: Boolean(selectedTask),
+      hasAttachment: Boolean(hasAnyAttachment),
       personalizationApplied: Boolean(personalizationContext),
       searchGrounded: Boolean(enableSearch),
     };
@@ -1191,6 +1330,22 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
 
     const requestedThinking = req.body.thinking;
     const isThinking = requestedThinking !== undefined ? (requestedThinking === true || requestedThinking === "true") : true;
+
+    const prepareMessagesForStorage = (msgs) => msgs.map((m) => {
+      if (m.file) {
+        return {
+          ...m,
+          file: {
+            fileId: m.file.fileId || undefined,
+            name: m.file.name,
+            size: m.file.size,
+            type: m.file.type,
+            mimeType: m.file.mimeType,
+          },
+        };
+      }
+      return m;
+    });
 
     // Real-time SSE streaming for responsive output.
     if (req.body.stream === true || req.headers.accept?.includes("text/event-stream")) {
@@ -1255,7 +1410,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         const savedChat = await chatRepository.saveChat({
           id: chatId || undefined,
           ownerId: req.ownerId,
-          messages: updatedMessages,
+          messages: prepareMessagesForStorage(updatedMessages),
           strategyId: strategyId || null,
           taskId: taskId || null,
         });
@@ -1326,7 +1481,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     const savedChat = await chatRepository.saveChat({
       id: chatId || undefined,
       ownerId: req.ownerId,
-      messages: updatedMessages,
+      messages: prepareMessagesForStorage(updatedMessages),
       strategyId: strategyId || null,
       taskId: taskId || null,
     });

@@ -34,3 +34,10 @@ test("Gemini configuration exposes default 3.7 flash and thinking budget", async
   assert.equal(typeof hasGeminiConfiguration(), "boolean");
   assert.equal(typeof hasOpenAIConfiguration(), "boolean");
 });
+
+test("Ask queries with file attachments route exclusively to Gemini 3.7 Flash", () => {
+  assert.equal(resolveAskModelRoute({ hasAttachment: true, lastUserMsg: "Bu sənədi analiz et" }), "gemini-3.7-flash");
+  assert.equal(resolveAskModelRoute({ hasAttachment: true, requestedModel: "terra", lastUserMsg: "swot analizi" }), "gemini-3.7-flash");
+  assert.equal(resolveAskModelRoute({ hasAttachment: true, requestedModel: "luna", lastUserMsg: "qısa başlıq" }), "gemini-3.7-flash");
+  assert.equal(resolveAskModelRoute({ hasAttachment: true, requestedModel: "auto", hasStrategyContext: true }), "gemini-3.7-flash");
+});

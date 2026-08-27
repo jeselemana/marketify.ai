@@ -137,6 +137,76 @@ function getAskMessageModelInfo(model) {
   };
 }
 
+function formatFileSize(bytes) {
+  const num = Number(bytes);
+  if (!Number.isFinite(num) || num <= 0) return "0 B";
+  if (num < 1024) return `${num} B`;
+  if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+  return `${(num / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileIconSvg(mimeType = "", fileName = "") {
+  const ext = String(fileName || "").split(".").pop()?.toLowerCase() || "";
+  const mime = String(mimeType || "").toLowerCase();
+
+  if (ext === "pdf" || mime.includes("pdf")) {
+    return `<svg class="ask-file-type-icon is-pdf" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15h2a1 1 0 0 0 1-1v-1a1 1 0 0 0-1-1H8v4zm1-3h1v1H9v-1zm4 3h1.5a1.5 1.5 0 0 0 1.5-1.5v-1a1.5 1.5 0 0 0-1.5-1.5H13v4zm1-3h.5a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H14v-2z"/></svg>`;
+  }
+  if (mime.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif", "heic", "svg"].includes(ext)) {
+    return `<svg class="ask-file-type-icon is-image" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+  }
+  if (["csv", "xlsx", "xls"].includes(ext) || mime.includes("sheet") || mime.includes("csv") || mime.includes("excel")) {
+    return `<svg class="ask-file-type-icon is-sheet" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>`;
+  }
+  if (["js", "ts", "json", "py", "html", "css", "sql", "md", "txt", "xml", "yaml", "yml"].includes(ext) || mime.includes("text") || mime.includes("json")) {
+    return `<svg class="ask-file-type-icon is-code" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
+  }
+  return `<svg class="ask-file-type-icon is-doc" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`;
+}
+
+async function readUploadedFileAsData(file) {
+  if (!file) return null;
+  const maxBytes = 20 * 1024 * 1024; // 20MB
+  if (file.size > maxBytes) {
+    throw new Error("Faylın həcmi 20MB-dan çox ola bilməz.");
+  }
+
+  const isTextLike = (file.type && file.type.startsWith("text/")) ||
+    ["txt", "md", "csv", "json", "js", "ts", "py", "html", "css", "sql", "xml", "yaml", "yml"].includes(
+      file.name.split(".").pop()?.toLowerCase() || ""
+    );
+
+  let textContent;
+  if (isTextLike) {
+    textContent = await new Promise((resolve) => {
+      const textReader = new FileReader();
+      textReader.onload = () => resolve(String(textReader.result || ""));
+      textReader.onerror = () => resolve("");
+      textReader.readAsText(file);
+    });
+  }
+
+  const base64Data = await new Promise((resolve, reject) => {
+    const dataReader = new FileReader();
+    dataReader.onload = () => {
+      const res = String(dataReader.result || "");
+      const raw = res.replace(/^data:[^;]+;base64,/, "");
+      resolve(raw);
+    };
+    dataReader.onerror = () => reject(new Error("Fayl oxuna bilmədi."));
+    dataReader.readAsDataURL(file);
+  });
+
+  return {
+    name: file.name,
+    size: file.size,
+    type: file.type || "application/octet-stream",
+    mimeType: file.type || "application/octet-stream",
+    data: base64Data,
+    textContent,
+  };
+}
+
 const STATUS_LABELS = {
   draft: "Qaralama",
   analyzing: "Analiz edilir",
@@ -204,6 +274,7 @@ const state = {
   askMessages: [],
   askLoading: false,
   askError: "",
+  askPendingFile: null,
   askStrategyId: "",
   askTaskId: "",
   askPromptHintStrategyId: "",
@@ -1112,8 +1183,15 @@ function renderAsk() {
             if (!moreMenu.contains(event.target)) moreMenu.open = false;
           };
           moreMenu.addEventListener("toggle", () => {
-            if (moreMenu.open) setTimeout(() => document.addEventListener("click", closeMoreMenu), 0);
-            else document.removeEventListener("click", closeMoreMenu);
+            if (moreMenu.open) {
+              setTimeout(() => {
+                document.addEventListener("pointerdown", closeMoreMenu, { passive: true });
+                document.addEventListener("click", closeMoreMenu);
+              }, 10);
+            } else {
+              document.removeEventListener("pointerdown", closeMoreMenu);
+              document.removeEventListener("click", closeMoreMenu);
+            }
           });
 
           actions.appendChild(moreMenu);
@@ -1126,7 +1204,21 @@ function renderAsk() {
           }
         }
       } else {
-        content.textContent = message.content;
+        if (message.file) {
+          const fileBadge = element("div", "ask-message-attachment");
+          const iconWrap = element("span", "ask-message-attachment-icon");
+          iconWrap.innerHTML = getFileIconSvg(message.file.mimeType || message.file.type, message.file.name);
+          const meta = element("div", "ask-message-attachment-meta");
+          meta.append(
+            element("span", "ask-message-attachment-name", message.file.name || "Fayl"),
+            element("span", "ask-message-attachment-size", formatFileSize(message.file.size))
+          );
+          fileBadge.append(iconWrap, meta);
+          content.appendChild(fileBadge);
+        }
+        if (message.content) {
+          content.appendChild(element("div", "ask-message-text", message.content));
+        }
         if (message.strategyTitle) {
           content.appendChild(element("span", "ask-message-context", `Strategiya: ${message.strategyTitle}`));
         }
@@ -1149,6 +1241,36 @@ function renderAsk() {
   }
 
   const composerArea = element("div", "ask-composer-area");
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.id = "askFileInput";
+  fileInput.className = "sr-only";
+  fileInput.accept = ".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,.txt,.md,.csv,.json,.docx,.doc,.xlsx,.xls,.html,.js,.ts,.py,.css";
+
+  const handleFileSelection = async (file) => {
+    if (!file) return;
+    try {
+      state.askLoading = true;
+      render();
+      const fileData = await readUploadedFileAsData(file);
+      state.askPendingFile = fileData;
+      state.askModel = "gemini-3.7-flash";
+      try { localStorage.setItem("marketify_ask_model", "gemini-3.7-flash"); } catch {}
+      state.askError = "";
+    } catch (err) {
+      state.askError = err.message || "Fayl oxunarkən xəta baş verdi.";
+    } finally {
+      state.askLoading = false;
+      render();
+    }
+  };
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files?.[0];
+    if (file) handleFileSelection(file);
+    fileInput.value = "";
+  });
+
   const contextMenu = document.createElement("details");
   contextMenu.className = `ask-context-menu${selectedStrategy || selectedTask ? " has-selection" : ""}`;
   const contextTrigger = element("summary", "ask-context-trigger");
@@ -1174,6 +1296,27 @@ function renderAsk() {
         btn.append(text, element("span", "ask-context-menu-chevron", "›"));
         contextPopover.appendChild(btn);
       };
+
+      const fileOption = button("", "ask-context-menu-option ask-context-menu-option-file", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        contextMenu.open = false;
+        fileInput.click();
+      });
+      const fileLeading = element("span", "ask-context-menu-option-icon");
+      fileLeading.innerHTML = `
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+        </svg>
+      `;
+      const fileCopy = element("span", "ask-context-menu-option-copy");
+      fileCopy.append(element("strong", "", "Fayl əlavə et"), element("small", "", "PDF, şəkil və ya sənəd yüklə"));
+      const fileMain = element("div", "ask-context-menu-option-main");
+      fileMain.append(fileLeading, fileCopy);
+      fileOption.append(fileMain, element("span", "ask-context-menu-chevron", "›"));
+      contextPopover.appendChild(fileOption);
+      contextPopover.appendChild(element("div", "ask-context-menu-divider"));
+
       if (selectedStrategy) option("Hazır sual seç", "Strategiyaya uyğun hazır prompt seç", "prompts");
       option("Strategiyalarım", "Yadda saxlanılan strategiyanı müzakirə et", "strategies");
       option("Planlaşdırılanlar", "Aktiv taskı kontekst kimi seç", "tasks");
@@ -1251,8 +1394,15 @@ function renderAsk() {
     if (!contextMenu.contains(event.target)) contextMenu.open = false;
   };
   contextMenu.addEventListener("toggle", () => {
-    if (contextMenu.open) setTimeout(() => document.addEventListener("click", closeContextMenu), 0);
-    else document.removeEventListener("click", closeContextMenu);
+    if (contextMenu.open) {
+      setTimeout(() => {
+        document.addEventListener("pointerdown", closeContextMenu, { passive: true });
+        document.addEventListener("click", closeContextMenu);
+      }, 10);
+    } else {
+      document.removeEventListener("pointerdown", closeContextMenu);
+      document.removeEventListener("click", closeContextMenu);
+    }
   });
 
   const form = element("form", "ask-composer");
@@ -1263,7 +1413,7 @@ function renderAsk() {
   input.name = "message";
   input.rows = 1;
   input.maxLength = 8000;
-  input.placeholder = selectedStrategy?.title || selectedTask?.text || "Marketify-dən soruş…";
+  input.placeholder = selectedStrategy?.title || selectedTask?.text || (state.askPendingFile ? "Fayl haqqında sualını yaz…" : "Marketify-dən soruş…");
   input.disabled = state.askLoading;
 
   const submit = button("", "ask-submit");
@@ -1277,7 +1427,7 @@ function renderAsk() {
   modelSelectorMenu.className = "ask-model-selector-menu";
   const modelTrigger = element("summary", "ask-model-selector-trigger");
   modelTrigger.setAttribute("aria-label", "Model rejimi");
-  modelTrigger.title = isFlashSelected ? "Rejim: Flash" : "Rejim: Auto";
+  modelTrigger.title = isFlashSelected ? "Rejim: Flash (Fayl və Axtarış)" : "Rejim: Auto";
 
   modelTrigger.innerHTML = `
     <span class="ask-model-name">${isFlashSelected ? "Flash" : "Auto"}</span>
@@ -1313,7 +1463,7 @@ function renderAsk() {
   flashOption.innerHTML = `
     <div class="ask-model-option-info">
       <strong>Flash</strong>
-      <small>Sürətli və dərin düşünmə</small>
+      <small>Fayl analizi və sürətli zəka</small>
     </div>
     ${isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
   `;
@@ -1357,14 +1507,82 @@ function renderAsk() {
     if (!modelSelectorMenu.contains(event.target)) modelSelectorMenu.open = false;
   };
   modelSelectorMenu.addEventListener("toggle", () => {
-    if (modelSelectorMenu.open) setTimeout(() => document.addEventListener("click", closeModelMenu), 0);
-    else document.removeEventListener("click", closeModelMenu);
+    if (modelSelectorMenu.open) {
+      setTimeout(() => {
+        document.addEventListener("pointerdown", closeModelMenu, { passive: true });
+        document.addEventListener("click", closeModelMenu);
+      }, 10);
+    } else {
+      document.removeEventListener("pointerdown", closeModelMenu);
+      document.removeEventListener("click", closeModelMenu);
+    }
   });
+
+  const composerLeading = element("div", "ask-composer-leading");
+  composerLeading.append(contextSlot, fileInput);
+
+  const composerBody = element("div", "ask-composer-body");
+  if (state.askPendingFile) {
+    const pendingChip = element("div", "ask-pending-file");
+    const chipIcon = element("span", `ask-pending-file-icon${state.askPendingFile.type.includes("pdf") ? " is-pdf" : state.askPendingFile.type.startsWith("image/") ? " is-image" : ""}`);
+    chipIcon.innerHTML = getFileIconSvg(state.askPendingFile.mimeType || state.askPendingFile.type, state.askPendingFile.name);
+    const chipMeta = element("div", "ask-pending-file-meta");
+    chipMeta.append(
+      element("span", "ask-pending-file-name", state.askPendingFile.name),
+      element("span", "ask-pending-file-size", `${formatFileSize(state.askPendingFile.size)} · Flash`)
+    );
+    const chipRemove = button("", "ask-pending-file-remove", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      state.askPendingFile = null;
+      render();
+    });
+    chipRemove.type = "button";
+    chipRemove.setAttribute("aria-label", "Faylı sil");
+    chipRemove.title = "Faylı sil";
+    chipRemove.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+    pendingChip.append(chipIcon, chipMeta, chipRemove);
+    composerBody.appendChild(pendingChip);
+  }
+  composerBody.append(label, input);
 
   const composerActions = element("div", "ask-composer-actions");
   composerActions.append(modelSelectorMenu, submit);
 
-  form.append(contextSlot, label, input, composerActions);
+  form.append(composerLeading, composerBody, composerActions);
+
+  // Drag & drop file upload on composer
+  form.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    form.classList.add("is-dragover");
+  });
+  form.addEventListener("dragleave", (e) => {
+    if (!form.contains(e.relatedTarget)) {
+      form.classList.remove("is-dragover");
+    }
+  });
+  form.addEventListener("drop", (e) => {
+    e.preventDefault();
+    form.classList.remove("is-dragover");
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleFileSelection(file);
+  });
+
+  // Paste image / file from clipboard
+  input.addEventListener("paste", (e) => {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (const item of items) {
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file) {
+            handleFileSelection(file);
+            break;
+          }
+        }
+      }
+    }
+  });
 
   const helper = element("div", "ask-composer-meta");
   const disclaimer = element("p", "ask-disclaimer", "Marketify süni intellekt funksiyası yerinə yetirir və səhvlər edə bilər.");
@@ -1376,7 +1594,9 @@ function renderAsk() {
   resizeInput = () => {
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
-    submit.disabled = input.value.trim().length < 2 || state.askLoading;
+    const hasText = input.value.trim().length >= 2;
+    const hasFile = Boolean(state.askPendingFile);
+    submit.disabled = (!hasText && !hasFile) || state.askLoading;
   };
   input.addEventListener("input", resizeInput);
   input.addEventListener("keydown", (event) => {
@@ -1388,7 +1608,10 @@ function renderAsk() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const message = input.value.trim();
-    if (message.length >= 2) submitAskMessage(message);
+    const hasFile = Boolean(state.askPendingFile);
+    if (message.length >= 2 || hasFile) {
+      submitAskMessage(message, state.askPendingFile);
+    }
   });
 
   requestAnimationFrame(() => {
@@ -1827,12 +2050,23 @@ async function thinkDeeperWithTerra(messageIndex) {
   }
 }
 
-async function submitAskMessage(message) {
+async function submitAskMessage(message, attachedFile = null) {
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
   const selectedTask = state.plannerTasks.find((task) => task.id === state.askTaskId) || null;
-  state.askMessages.push({ role: "user", content: message, strategyTitle: selectedStrategy?.title || "", taskTitle: selectedTask?.text || "" });
+  const fileToAttach = attachedFile || state.askPendingFile || null;
+  state.askPendingFile = null;
 
-  const chosenModel = state.askModel || "auto";
+  const contentText = message ? String(message).trim() : (fileToAttach ? `Bu faylı analiz et: ${fileToAttach.name}` : "");
+
+  state.askMessages.push({
+    role: "user",
+    content: contentText,
+    file: fileToAttach ? { ...fileToAttach } : undefined,
+    strategyTitle: selectedStrategy?.title || "",
+    taskTitle: selectedTask?.text || "",
+  });
+
+  const chosenModel = fileToAttach ? "gemini-3.7-flash" : (state.askModel || "auto");
   const initialPlaceholderModel = chosenModel === "gemini-3.7-flash" ? "gemini-3.7-flash" : (chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : "auto"));
   const assistantMsg = {
     role: "assistant",
@@ -1844,7 +2078,7 @@ async function submitAskMessage(message) {
   state.askLoading = true;
   state.askError = "";
   freshAskResponses.add(assistantMsg);
-  trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: chosenModel });
+  trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: chosenModel, hasFile: Boolean(fileToAttach) });
   render();
 
   let typewriter = null;
@@ -1984,6 +2218,12 @@ async function submitAskMessage(message) {
   } finally {
     if (accumulatedFullText && (!assistantMsg.content || assistantMsg.content.length < accumulatedFullText.length)) {
       assistantMsg.content = accumulatedFullText;
+    }
+    for (const msg of state.askMessages) {
+      if (msg && msg.file && (msg.file.data || msg.file.textContent)) {
+        delete msg.file.data;
+        delete msg.file.textContent;
+      }
     }
     assistantMsg.isStreaming = false;
     state.askLoading = false;
@@ -4023,7 +4263,21 @@ function buildStrategyAskMessage(message, messageIndex) {
   const content = element("div", "ask-message-content");
 
   if (!isAssistant) {
-    content.textContent = message.content;
+    if (message.file) {
+      const fileBadge = element("div", "ask-message-attachment");
+      const iconWrap = element("span", "ask-message-attachment-icon");
+      iconWrap.innerHTML = getFileIconSvg(message.file.mimeType || message.file.type, message.file.name);
+      const meta = element("div", "ask-message-attachment-meta");
+      meta.append(
+        element("span", "ask-message-attachment-name", message.file.name || "Fayl"),
+        element("span", "ask-message-attachment-size", formatFileSize(message.file.size))
+      );
+      fileBadge.append(iconWrap, meta);
+      content.appendChild(fileBadge);
+    }
+    if (message.content) {
+      content.appendChild(element("div", "ask-message-text", message.content));
+    }
     row.appendChild(content);
     return row;
   }

@@ -10,7 +10,12 @@ export function isComplexAskQuery(lastUserMsg = "", hasStrategyContext = false) 
 
 // Only OpenAI (Luna / Terra) and Gemini 3.7 Flash are accepted routes. Unsupported model
 // names fall back to automatic routing instead of granting access.
-export function resolveAskModelRoute({ requestedModel = "auto", lastUserMsg = "", hasStrategyContext = false } = {}) {
+// File attachments are exclusively handled by Gemini 3.7 Flash multimodal engine.
+export function resolveAskModelRoute({ requestedModel = "auto", lastUserMsg = "", hasStrategyContext = false, hasAttachment = false } = {}) {
+  if (hasAttachment) {
+    return "gemini-3.7-flash";
+  }
+
   const requested = String(requestedModel || "auto").trim().toLowerCase();
   if (requested === "gemini-3.7-flash" || requested === "flash" || requested === "gemini-3.7" || requested === "gemini") {
     return "gemini-3.7-flash";
