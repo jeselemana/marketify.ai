@@ -1463,7 +1463,7 @@ function renderAsk() {
   flashOption.innerHTML = `
     <div class="ask-model-option-info">
       <strong>Flash</strong>
-      <small>Fayl analizi və sürətli zəka</small>
+      <small>Gündəlik işlər üçün universal və sürətli model</small>
     </div>
     ${isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
   `;
