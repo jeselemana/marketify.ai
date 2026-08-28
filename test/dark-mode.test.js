@@ -26,31 +26,35 @@ test("tokens.css defines both light :root and dark [data-theme=\"dark\"] tokens"
   assert.ok(tokensCss.includes("--accent: #4f6ee8;"));
 });
 
-test("index.html includes FOUC prevention and rail theme toggle button", async () => {
+test("index.html removes theme toggle buttons from UI", async () => {
   const indexHtml = await fs.readFile(path.join(process.cwd(), "public/index.html"), "utf8");
   
   assert.ok(indexHtml.includes("marketify_theme"));
-  assert.ok(indexHtml.includes("railThemeToggleButton"));
-  assert.ok(indexHtml.includes("theme-icon-sun"));
-  assert.ok(indexHtml.includes("theme-icon-moon"));
+  assert.ok(!indexHtml.includes("railThemeToggleButton"));
+  assert.ok(!indexHtml.includes("sidebarThemeToggle"));
+  assert.ok(!indexHtml.includes("authThemeToggle"));
 });
 
-test("home.html includes FOUC prevention and header theme toggle button", async () => {
+test("home.html removes header theme toggle button from UI", async () => {
   const homeHtml = await fs.readFile(path.join(process.cwd(), "public/home.html"), "utf8");
   
   assert.ok(homeHtml.includes("marketify_theme"));
-  assert.ok(homeHtml.includes("homeThemeToggle"));
-  assert.ok(homeHtml.includes("theme-icon-sun"));
-  assert.ok(homeHtml.includes("theme-icon-moon"));
+  assert.ok(!homeHtml.includes("homeThemeToggle"));
 });
 
-test("theme styling retains navigation controls without the personalization appearance card", async () => {
+test("index_admin.html removes admin theme toggle button from UI", async () => {
+  const adminHtml = await fs.readFile(path.join(process.cwd(), "public/index_admin.html"), "utf8");
+  
+  assert.ok(adminHtml.includes("marketify_theme"));
+  assert.ok(!adminHtml.includes("adminThemeToggle"));
+});
+
+test("theme styling cleans up toggle buttons while retaining design token compatibility fallbacks", async () => {
   const styleCss = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
   const appScript = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
   
-  assert.doesNotMatch(styleCss, /\.settings-theme-selector|\.theme-choice-card/);
+  assert.doesNotMatch(styleCss, /\.rail-theme-toggle|\.sidebar-theme-toggle|\.settings-theme-selector|\.theme-choice-card/);
   assert.doesNotMatch(appScript, /theme-choice-card|Görünüş teması/);
-  assert.ok(styleCss.includes(".rail-theme-toggle"));
   // Components consume inherited theme tokens, including nodes rendered later.
   for (const component of ["sidebar", "ask-composer", "saved-card", "planner-task-card", "settings-panel", "legal-modal"]) {
     assert.ok(styleCss.includes(`.${component}`));
@@ -61,10 +65,10 @@ test("theme styling retains navigation controls without the personalization appe
   assert.match(styleCss, /--strategy-ink: var\(--theme-ink, #18181b\)/);
 });
 
-test("home.css includes home theme toggle styles", async () => {
+test("home.css cleans up theme toggle button styles", async () => {
   const homeCss = await fs.readFile(path.join(process.cwd(), "public/home.css"), "utf8");
   
-  assert.ok(homeCss.includes(".theme-toggle-btn"));
+  assert.ok(!homeCss.includes(".home-theme-toggle"));
   assert.ok(homeCss.includes("[data-theme=\"dark\"] .button-dark"));
 });
 
@@ -114,85 +118,38 @@ function themeHarness({ saved, blocked = false, readyState = 'loading' } = {}) {
   return {
     document, meta, writes, events, control,
     start: () => listeners.DOMContentLoaded?.(),
-    click: node => listeners.click({ target: { closest: () => node } }),
-    insert: node => observer([{ addedNodes: [node] }]),
-    storage: (key, newValue) => windowListeners.storage({ key, newValue }),
+    click: node => listeners.click?.({ target: { closest: () => node } }),
+    insert: node => observer?.([{ addedNodes: [node] }]),
+    storage: (key, newValue) => windowListeners.storage?.({ key, newValue }),
   };
 }
 
-test('first paint defaults to Light, restores only a valid Dark preference, and never overwrites storage at startup', () => {
-  for (const [saved, expected] of [[null, 'light'], ['invalid', 'light'], ['light', 'light'], ['dark', 'dark']]) {
+test('theme initialization enforces Light mode regardless of saved preference', () => {
+  for (const [saved, expected] of [[null, 'light'], ['invalid', 'light'], ['light', 'light'], ['dark', 'light']]) {
     const h = themeHarness({ saved });
     assert.equal(h.document.documentElement.dataset.theme, expected);
-    assert.equal(h.meta.content, expected === 'dark' ? '#111213' : '#ffffff');
-    assert.equal(h.writes.length, 0);
+    assert.equal(h.meta.content, '#ffffff');
   }
 });
 
-test('theme switch supports nested icon clicks, saves both choices and updates accessible state', () => {
+test('theme script keeps users restricted to Light theme on click or storage events', () => {
   const h = themeHarness();
   const toggle = h.control();
   h.start();
-  assert.equal(toggle.attrs['aria-pressed'], 'false');
-  h.click(toggle);
-  assert.equal(h.document.documentElement.dataset.theme, 'dark');
-  assert.equal(toggle.attrs['aria-label'], 'Light Mode-a keç');
-  assert.equal(toggle.dataset.tooltip, 'Light Mode-a keç');
-  assert.equal(toggle.attrs['aria-pressed'], 'true');
-  h.click(toggle);
   assert.equal(h.document.documentElement.dataset.theme, 'light');
-  assert.equal(h.meta.content, '#ffffff');
-  assert.deepEqual(h.writes, [['marketify_theme', 'dark'], ['marketify_theme', 'light']]);
-  assert.equal(h.events.at(-1).detail.theme, 'light');
-});
-
-test('blocked storage does not prevent rendering or switching themes', () => {
-  const h = themeHarness({ blocked: true });
-  h.start();
-  h.click(h.control());
-  assert.equal(h.document.documentElement.dataset.theme, 'dark');
-  assert.equal(h.writes.length, 0);
-});
-
-test('newly rendered theme controls inherit the current theme without rerendering the page', () => {
-  const h = themeHarness({ saved: 'dark', readyState: 'complete' });
-  const light = h.control('light');
-  const dark = h.control('dark');
-  h.insert(dark);
-  assert.equal(dark.attrs['aria-pressed'], 'true');
-  assert.equal(light.attrs['aria-pressed'], 'false');
-  h.click(light);
-  assert.equal(light.attrs['aria-pressed'], 'true');
-  assert.equal(dark.attrs['aria-pressed'], 'false');
-  dark.disabled = true;
-  h.click(dark);
-  assert.equal(h.document.documentElement.dataset.theme, 'light');
-});
-
-test('tabs synchronize theme changes and reset to Light when the preference is removed', () => {
-  const h = themeHarness();
-  const toggle = h.control();
-  h.start();
-  h.storage('unrelated_key', 'dark');
+  h.click(toggle);
   assert.equal(h.document.documentElement.dataset.theme, 'light');
   h.storage('marketify_theme', 'dark');
-  assert.equal(toggle.attrs['aria-pressed'], 'true');
-  h.storage('marketify_theme', null);
-  assert.equal(toggle.attrs['aria-pressed'], 'false');
-  h.storage(null, null);
   assert.equal(h.document.documentElement.dataset.theme, 'light');
-  assert.equal(h.writes.length, 0);
 });
 
-test('all entry points restore the theme synchronously before CSS and load shared controls', async () => {
+test('all entry points load theme.js synchronously before CSS', async () => {
   for (const file of ['index.html', 'home.html', 'index_admin.html']) {
     const html = await fs.readFile(new URL(`../public/${file}`, import.meta.url), 'utf8');
     const script = html.match(/<script[^>]+src="\/theme\.js[^>]+>/)?.[0];
     assert.ok(script, file);
     assert.doesNotMatch(script, /\b(?:async|defer|module)\b/);
     assert.ok(html.indexOf(script) < html.indexOf('rel="stylesheet"'), file);
-    assert.match(html, /href="\/theme\.css/);
-    assert.match(html, /data-theme-toggle/);
   }
 });
 

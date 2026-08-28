@@ -1,9 +1,5 @@
 @import url("/tokens.css?v=3.2");
 
-/* Theme controls occupy unused navigation space without moving existing items. */
-.rail-theme-toggle { margin-top: auto; }
-.sidebar-theme-toggle { position: absolute; top: 16px; right: 46px; }
-
 *,
 *::before,
 *::after {

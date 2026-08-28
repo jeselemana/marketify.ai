@@ -1,7 +1,4 @@
 /* Public homepage. All component rules are isolated from the workspace. */
-/* The new switch is outside document flow; existing header/content stay in place. */
-.home-theme-toggle.theme-toggle-btn { position: absolute; top: 25px; right: 8px; width: 32px; height: 36px; padding: 7px; }
-@media (max-width: 760px) { .home-theme-toggle.theme-toggle-btn { top: 84px; right: 24px; } }
 [data-theme="dark"] .button-dark,
 [data-theme="dark"] .composer-submit:not(:disabled),
 [data-theme="dark"] .skip-link { color: var(--bg-canvas); }
