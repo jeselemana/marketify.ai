@@ -39,3 +39,75 @@
   --rail-width: 56px;
   --sidebar-width: 276px;
 }
+
+/* Dark is opt-in. The light tokens above and all legacy fallbacks stay exact.
+   Theme-* tokens are deliberately undefined in Light so component-specific
+   legacy shades remain intact. New components should use the shared tokens. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  /* Neutral graphite surfaces; blue stays in accents and the composer halo. */
+  --bg-canvas: #111213;
+  --bg-rail: #191a1c;
+  --bg-sidebar: #18191b;
+  --bg-elevated: #202123;
+  --bg-soft: #262729;
+  --bg-hover: rgba(235, 239, 245, 0.055);
+  --border-subtle: #33363a;
+  --border-hover: #4a4e55;
+  --text-primary: #e6e7e9;
+  --text-secondary: #bdc0c5;
+  --text-tertiary: #a1a6ae;
+  --text-disabled: #707680;
+  /* Brand fills remain identical in both modes; small accent text uses ink. */
+  --accent: #4f6ee8;
+  --accent-hover: #405fd6;
+  --accent-soft: rgba(79, 110, 232, 0.14);
+  --success: #78d5ac;
+  --warning: #edc079;
+  --danger: #f69a9a;
+  --shadow-sm: 0 8px 26px rgba(0, 0, 0, 0.16);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.32);
+  /* Legacy component aliases: keep their original fallbacks in Light. */
+  --brand-primary: var(--theme-blue-ink);
+  --surface-secondary: var(--bg-soft);
+  --border-default: var(--border-subtle);
+  --accent-subtle: var(--accent-soft);
+  --primary: var(--accent);
+
+  --theme-canvas: var(--bg-canvas);
+  --theme-surface: var(--bg-elevated);
+  --theme-surface-soft: var(--bg-soft);
+  --theme-surface-muted: #2d2f32;
+  --theme-surface-rgb: 32, 33, 35;
+  --theme-inverse-surface: #35383d;
+  --theme-wash: rgba(235, 239, 245, 0.045);
+  --theme-overlay: rgba(5, 6, 7, 0.58);
+  --theme-ink: var(--text-primary);
+  --theme-copy: var(--text-secondary);
+  --theme-muted: var(--text-tertiary);
+  --theme-border: var(--border-subtle);
+  --theme-border-strong: var(--border-hover);
+  --theme-shadow-soft: rgba(0, 0, 0, 0.12);
+  --theme-shadow-strong: rgba(0, 0, 0, 0.28);
+
+  --theme-blue-ink: #a5bbf4;
+  --theme-blue-surface: #232b3a;
+  --theme-blue-border: #3b4862;
+  --theme-blue-rgb: 35, 43, 58;
+  --theme-purple-ink: #c5adfa;
+  --theme-purple-surface: #2d2936;
+  --theme-purple-border: #51475f;
+  --theme-purple-rgb: 45, 41, 54;
+  --theme-success-ink: #78d5ac;
+  --theme-success-surface: #242f2c;
+  --theme-success-border: #41584f;
+  --theme-success-rgb: 36, 47, 44;
+  --theme-warning-ink: #edc079;
+  --theme-warning-surface: #332d24;
+  --theme-warning-border: #61533d;
+  --theme-warning-rgb: 51, 45, 36;
+  --theme-danger-ink: #f69a9a;
+  --theme-danger-surface: #34272b;
+  --theme-danger-border: #67434c;
+  --theme-danger-rgb: 52, 39, 43;
+}

@@ -1,0 +1,41 @@
+/* Only new theme controls live here; existing layout rules are unchanged. */
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.theme-toggle-btn:hover { background: var(--bg-soft); color: var(--text-primary); }
+.theme-toggle-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+[data-theme-toggle] svg { width: 18px; height: 18px; flex-shrink: 0; }
+[data-theme-toggle] .theme-icon-sun { display: none; }
+[data-theme="dark"] [data-theme-toggle] .theme-icon-sun { display: block; }
+[data-theme="dark"] [data-theme-toggle] .theme-icon-moon { display: none; }
+.auth-theme-toggle { display: none; position: fixed; z-index: 45; top: 16px; right: 16px; }
+.auth-active .auth-theme-toggle { display: inline-flex; }
+.admin-theme-toggle { position: fixed; right: 16px; bottom: 16px; z-index: 30; }
+
+/* Native controls, browser autofill, and selections inherit the selected palette. */
+[data-theme="dark"] { color-scheme: dark; }
+[data-theme="dark"] ::selection { background: var(--theme-blue-border); color: var(--text-primary); }
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select { caret-color: var(--text-primary); }
+[data-theme="dark"] select option,
+[data-theme="dark"] select optgroup { background: var(--bg-elevated); color: var(--text-primary); }
+[data-theme="dark"] input:-webkit-autofill,
+[data-theme="dark"] input:-webkit-autofill:hover,
+[data-theme="dark"] input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-elevated) inset;
+  caret-color: var(--text-primary);
+}
+@media print { [data-theme-toggle], .settings-theme-selector { display: none !important; } }

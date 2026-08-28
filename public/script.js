@@ -1,6 +1,16 @@
 import { createDocumentExport, createExcelExport, createSpreadsheetExport, exportStrategyToPDF } from "./exporters.js";
-import { authRequest, initializeAuthentication, logout } from "./auth.js";
-import { PRESET_PROMPTS } from "./preset-prompts.js";
+import { authRequest, initializeAuthentication, logout } from "./auth.js?v=1.1";
+import { PRESET_PROMPTS, getPresetPrompts } from "./preset-prompts.js";
+import {
+  t,
+  getLanguage,
+  setLanguage,
+  formatDate as i18nFormatDate,
+  formatTime as i18nFormatTime,
+  formatRelativeTime as i18nFormatRelativeTime,
+  formatNumber as i18nFormatNumber,
+  LEGAL_DOCS_I18N,
+} from "./i18n.js";
 
 const workspace = document.querySelector("#workspace");
 const sidebar = document.querySelector("#sidebar");
@@ -37,15 +47,17 @@ const sidebarAskModeButton = document.querySelector("#sidebarAskModeButton");
 const keyboardShortcutsButton = document.querySelector("#keyboardShortcutsBtn");
 const keyboardShortcutsOverlay = document.querySelector("#keyboardShortcutsOverlay");
 
-const KEYBOARD_SHORTCUTS = [
-  { label: "Yeni strategiya və ya söhbət", mac: "⌘ ⌥ N", windows: "Ctrl Alt N", action: () => newStrategyButton?.click() },
-  { label: "Başlanğıc", mac: "⌘ 1", windows: "Ctrl 1", action: () => homeNav?.click() },
-  { label: "Arxiv", mac: "⌘ 2", windows: "Ctrl 2", action: () => strategiesNav?.click() },
-  { label: "Planlaşdırılanlar", mac: "⌘ 3", windows: "Ctrl 3", action: () => plannerNav?.click() },
-  { label: "Parametrlər", mac: "⌘ ,", windows: "Ctrl ,", action: () => settingsNav?.click() },
-  { label: "Build və Ask rejimi arasında keçid", mac: "⌘ ⇧ A", windows: "Ctrl ⇧ A", action: () => setMode(state.mode === "build" ? "ask" : "build") },
-  { label: "Bu pəncərəni bağla", mac: "Esc", windows: "Esc", action: () => closeShortcutModal() },
-];
+function getKeyboardShortcuts() {
+  return [
+    { label: t("shortcuts.items.newStrategyOrChat"), mac: "⌘ ⌥ N", windows: "Ctrl Alt N", action: () => newStrategyButton?.click() },
+    { label: t("shortcuts.items.home"), mac: "⌘ 1", windows: "Ctrl 1", action: () => homeNav?.click() },
+    { label: t("shortcuts.items.archive"), mac: "⌘ 2", windows: "Ctrl 2", action: () => strategiesNav?.click() },
+    { label: t("shortcuts.items.planner"), mac: "⌘ 3", windows: "Ctrl 3", action: () => plannerNav?.click() },
+    { label: t("shortcuts.items.settings"), mac: "⌘ ,", windows: "Ctrl ,", action: () => settingsNav?.click() },
+    { label: t("shortcuts.items.toggleMode"), mac: "⌘ ⇧ A", windows: "Ctrl ⇧ A", action: () => setMode(state.mode === "build" ? "ask" : "build") },
+    { label: t("shortcuts.items.closeModal"), mac: "Esc", windows: "Esc", action: () => closeShortcutModal() },
+  ];
+}
 
 function isMacPlatform() {
   return /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
@@ -74,28 +86,28 @@ function openShortcutModal() {
 
   const header = element("header", "keyboard-shortcuts-header");
   const titleGroup = element("div", "keyboard-shortcuts-title-group");
-  const title = element("h2", "", "Klaviatura qısayolları");
+  const title = element("h2", "", t("shortcuts.title"));
   title.id = "keyboardShortcutsTitle";
-  titleGroup.append(title, element("p", "", `${isMacPlatform() ? "macOS" : "Windows/Linux"} üçün sürətli idarəetmə`));
+  titleGroup.append(title, element("p", "", t("shortcuts.subtitle", { platform: isMacPlatform() ? "macOS" : "Windows/Linux" })));
 
   const closeButton = button("✕", "keyboard-shortcuts-close", closeShortcutModal);
-  closeButton.setAttribute("aria-label", "Qısayollar pəncərəsini bağla");
+  closeButton.setAttribute("aria-label", t("shortcuts.closeAria"));
   header.append(titleGroup, closeButton);
 
   const body = element("div", "keyboard-shortcuts-body");
   const table = element("div", "keyboard-shortcuts-list");
   table.setAttribute("role", "list");
-  KEYBOARD_SHORTCUTS.forEach((shortcut) => {
+  getKeyboardShortcuts().forEach((shortcut) => {
     const row = element("div", "keyboard-shortcut-row");
     row.setAttribute("role", "listitem");
     const copy = element("div", "keyboard-shortcut-copy");
     copy.appendChild(element("strong", "", shortcut.label));
     const keys = element("div", "keyboard-shortcut-keys");
-    keys.append(createShortcutKey(shortcut.mac), element("span", "keyboard-shortcut-or", "və"), createShortcutKey(shortcut.windows));
+    keys.append(createShortcutKey(shortcut.mac), element("span", "keyboard-shortcut-or", t("shortcuts.or")), createShortcutKey(shortcut.windows));
     row.append(copy, keys);
     table.appendChild(row);
   });
-  body.append(table, element("p", "keyboard-shortcuts-hint", "Qısayollar mətn sahəsində yazarkən də işləyir. Bu siyahını açmaq üçün ⌘/Ctrl + / və ya ? bas."));
+  body.append(table, element("p", "keyboard-shortcuts-hint", t("shortcuts.hint")));
 
   card.append(header, body);
   keyboardShortcutsOverlay.appendChild(card);
@@ -209,7 +221,7 @@ async function readUploadedFileAsData(file) {
   };
 }
 
-const STATUS_LABELS = {
+const STATUS_LABELS_AZ = {
   draft: "Qaralama",
   analyzing: "Analiz edilir",
   needs_clarification: "Məlumat gözlənilir",
@@ -220,13 +232,50 @@ const STATUS_LABELS = {
   error: "Xəta",
 };
 
-const QUICK_ACTIONS = [
-  ["shorten", "Qısalt"],
-  ["localize_azerbaijan", "Lokallaşdır"],
-  ["think_deeper", "Daha dərindən düşün"],
-  ["make_practical", "Praktik et"],
-  ["budget_optimize", "Büdcəni optimallaşdır"],
-];
+const STATUS_LABELS_EN = {
+  draft: "Draft",
+  analyzing: "Analyzing",
+  needs_clarification: "Clarification Needed",
+  generating: "Generating",
+  ready: "Ready",
+  refining: "Refining",
+  saved: "Saved",
+  error: "Error",
+};
+
+const STATUS_LABELS = new Proxy({}, {
+  get(target, prop) {
+    const dict = getLanguage() === "en" ? STATUS_LABELS_EN : STATUS_LABELS_AZ;
+    return dict[prop] || prop;
+  },
+});
+
+function getQuickActions() {
+  const isEn = getLanguage() === "en";
+  return isEn ? [
+    ["shorten", "Shorten"],
+    ["localize_azerbaijan", "Localize"],
+    ["think_deeper", "Think deeper"],
+    ["make_practical", "Make practical"],
+    ["budget_optimize", "Optimize budget"],
+  ] : [
+    ["shorten", "Qısalt"],
+    ["localize_azerbaijan", "Lokallaşdır"],
+    ["think_deeper", "Daha dərindən düşün"],
+    ["make_practical", "Praktik et"],
+    ["budget_optimize", "Büdcəni optimallaşdır"],
+  ];
+}
+
+const QUICK_ACTIONS = new Proxy([], {
+  get(target, prop) {
+    const actions = getQuickActions();
+    if (prop === "forEach") return (fn) => actions.forEach(fn);
+    if (prop === "map") return (fn) => actions.map(fn);
+    if (prop === "length") return actions.length;
+    return actions[prop];
+  },
+});
 
 const LOADING_ASK_PLACEHOLDERS = [
   "Brendinq prosesi nə qədər vaxt aparır?",
@@ -520,6 +569,11 @@ function closeSidebar() {
   railMenuButton.setAttribute("aria-expanded", "false");
 }
 
+function syncLanguageControls() {
+  const skipLink = document.querySelector(".skip-link");
+  if (skipLink) skipLink.textContent = t("nav.skipToMain");
+}
+
 function syncNav() {
   const isBuild = state.mode === "build";
   const nonHomeViews = ["list", "settings", "planner", "limits"];
@@ -533,24 +587,57 @@ function syncNav() {
   railPlannerButton?.classList.toggle("is-active", state.view === "planner");
   railLimitsButton?.classList.toggle("is-active", state.view === "limits");
 
-  railHomeButton.setAttribute("data-tooltip", `Başlanğıc${shortcutSuffix("⌘ 1", "Ctrl 1")}`);
-  railStrategiesButton.setAttribute("data-tooltip", `Arxiv${shortcutSuffix("⌘ 2", "Ctrl 2")}`);
-  railPlannerButton?.setAttribute("data-tooltip", `Planlaşdırılanlar${shortcutSuffix("⌘ 3", "Ctrl 3")}`);
-  railLimitsButton?.setAttribute("data-tooltip", "İstifadə");
+  railHomeButton.setAttribute("data-tooltip", `${t("nav.home")}${shortcutSuffix("⌘ 1", "Ctrl 1")}`);
+  railStrategiesButton.setAttribute("data-tooltip", `${t("nav.archive")}${shortcutSuffix("⌘ 2", "Ctrl 2")}`);
+  railPlannerButton?.setAttribute("data-tooltip", `${t("nav.planner")}${shortcutSuffix("⌘ 3", "Ctrl 3")}`);
+  railLimitsButton?.setAttribute("data-tooltip", t("nav.limits"));
 
   const homeLabel = homeNav.querySelector("span");
   if (homeLabel) {
-    homeLabel.textContent = isBuild ? "Başlanğıc" : "Sual-Cavab";
+    homeLabel.textContent = isBuild ? t("nav.home") : t("nav.askChat");
+  }
+
+  const strategiesLabel = strategiesNav.querySelector("span:first-of-type");
+  if (strategiesLabel) {
+    strategiesLabel.textContent = t("nav.archive");
+  }
+
+  const plannerLabel = plannerNav?.querySelector("span:first-of-type");
+  if (plannerLabel) {
+    plannerLabel.textContent = t("nav.planner");
+  }
+
+  const limitsLabel = limitsNav?.querySelector("span");
+  if (limitsLabel) {
+    limitsLabel.textContent = t("nav.limits");
+  }
+
+  const settingsLabel = settingsNav?.querySelector("span");
+  if (settingsLabel) {
+    settingsLabel.textContent = t("nav.settings");
   }
 
   const newButtonSpan = newStrategyButton?.querySelector("span");
   if (newButtonSpan) {
-    newButtonSpan.textContent = isBuild ? "Yeni strategiya" : "Yeni söhbət";
+    newButtonSpan.textContent = isBuild ? t("nav.newStrategy") : t("nav.newChat");
   }
 
   if (sidebarLabel) {
-    sidebarLabel.textContent = isBuild ? "Son işlər" : "Keçmiş söhbətlər";
+    sidebarLabel.textContent = isBuild ? t("nav.recentWork") : t("nav.chatHistory");
   }
+
+  const shortcutsBtn = document.querySelector("#keyboardShortcutsBtn");
+  if (shortcutsBtn) shortcutsBtn.textContent = t("nav.shortcuts");
+  const termsBtn = document.querySelector("#sidebarTermsBtn");
+  if (termsBtn) termsBtn.textContent = t("nav.terms");
+  const privacyBtn = document.querySelector("#sidebarPrivacyBtn");
+  if (privacyBtn) privacyBtn.textContent = t("nav.privacy");
+
+  if (workspaceMeta) {
+    workspaceMeta.textContent = state.currentUser ? t("brand.personalAccount") : t("brand.guestAccount");
+  }
+
+  syncLanguageControls();
 }
 
 function isHomePage() {
@@ -588,13 +675,14 @@ function syncMode() {
   sidebarAskModeButton?.setAttribute("aria-selected", String(!isBuild));
 
   if (railModeToggleButton) {
+    const isEn = getLanguage() === "en";
     railModeToggleButton.setAttribute(
       "data-tooltip",
-      `${isBuild ? "Rejim: Build (Ask-a keç)" : "Rejim: Ask (Build-ə keç)"}${shortcutSuffix("⌘ ⇧ A", "Ctrl ⇧ A")}`,
+      `${isBuild ? (isEn ? "Mode: Build (Switch to Ask)" : "Rejim: Build (Ask-a keç)") : (isEn ? "Mode: Ask (Switch to Build)" : "Rejim: Ask (Build-ə keç)")}${shortcutSuffix("⌘ ⇧ A", "Ctrl ⇧ A")}`,
     );
     railModeToggleButton.setAttribute(
       "aria-label",
-      isBuild ? "Ask rejiminə keç" : "Build rejiminə keç",
+      isBuild ? (isEn ? "Switch to Ask mode" : "Ask rejiminə keç") : (isEn ? "Switch to Build mode" : "Build rejiminə keç"),
     );
   }
 
@@ -687,7 +775,7 @@ function render() {
   return renderIntake();
 }
 
-const BUILD_CTA_LIST = [
+const BUILD_CTA_LIST_AZ = [
   "Növbəti strategiyanı quraq.",
   "Yeni marketinq hədəfin nədir?",
   "Brendini böyütmək üçün başlayaq.",
@@ -697,7 +785,17 @@ const BUILD_CTA_LIST = [
   "Rəqiblərdən fərqlənən plan quraq.",
 ];
 
-const ASK_CTA_LIST = [
+const BUILD_CTA_LIST_EN = [
+  "Let's build your next strategy.",
+  "What is your new marketing goal?",
+  "Let's start scaling your brand.",
+  "Describe your idea to drive sales growth.",
+  "Let's bring your new product to market.",
+  "Let's plan your next marketing campaign.",
+  "Let's craft a standout plan against competitors.",
+];
+
+const ASK_CTA_LIST_AZ = [
   "Nə haqda düşünürsən?",
   "Marketinq sualını ver.",
   "Hansı metrikanı analiz edək?",
@@ -707,8 +805,25 @@ const ASK_CTA_LIST = [
   "Kampaniyanı necə optimallaşdıraq?",
 ];
 
-const selectedBuildCta = BUILD_CTA_LIST[Math.floor(Math.random() * BUILD_CTA_LIST.length)];
-const selectedAskCta = ASK_CTA_LIST[Math.floor(Math.random() * ASK_CTA_LIST.length)];
+const ASK_CTA_LIST_EN = [
+  "What are you thinking about?",
+  "Ask your marketing question.",
+  "Which metric should we analyze?",
+  "Explore competitors and market data?",
+  "Let's talk through your business idea.",
+  "What is your objective today?",
+  "How should we optimize your campaign?",
+];
+
+function getBuildCta() {
+  const list = getLanguage() === "en" ? BUILD_CTA_LIST_EN : BUILD_CTA_LIST_AZ;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function getAskCta() {
+  const list = getLanguage() === "en" ? ASK_CTA_LIST_EN : ASK_CTA_LIST_AZ;
+  return list[Math.floor(Math.random() * list.length)];
+}
 
 function appendPresetPrompt(input, prompt, onChange) {
   const current = input.value.trim();
@@ -718,14 +833,16 @@ function appendPresetPrompt(input, prompt, onChange) {
 }
 
 function addPresetPromptPane(popover, mode, onSelect, onBack) {
+  const isEn = getLanguage() === "en";
   const header = element("div", "ask-context-menu-subheader");
   const back = button("‹", "ask-context-menu-back", onBack);
-  back.setAttribute("aria-label", "Kontekst menyusuna qayıt");
-  header.append(back, element("strong", "ask-context-menu-heading", "Hazır sual"));
+  back.setAttribute("aria-label", isEn ? "Back to context menu" : "Kontekst menyusuna qayıt");
+  header.append(back, element("strong", "ask-context-menu-heading", isEn ? "Sample Prompts" : "Hazır sual"));
   popover.appendChild(header);
 
   const list = element("div", "preset-prompt-list");
-  PRESET_PROMPTS[mode].forEach((prompt) => {
+  const prompts = getPresetPrompts ? getPresetPrompts(mode, getLanguage()) : PRESET_PROMPTS[mode];
+  prompts.forEach((prompt) => {
     const item = button("", "preset-prompt-item", () => onSelect(prompt.text));
     item.append(element("strong", "", prompt.title), element("span", "", prompt.text));
     list.appendChild(item);
@@ -734,6 +851,7 @@ function addPresetPromptPane(popover, mode, onSelect, onBack) {
 }
 
 function renderIntake() {
+  const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-ask", "workspace-intake", "is-empty");
 
   const shell = element("section", "ask-shell is-empty");
@@ -741,14 +859,14 @@ function renderIntake() {
 
   const thread = element("div", "ask-thread");
   const intro = element("div", "ask-intro");
-  const title = element("h1", "ask-title", selectedBuildCta);
+  const title = element("h1", "ask-title", getBuildCta());
   title.id = "intakeTitle";
   intro.append(title);
   thread.appendChild(intro);
 
   const composerArea = element("div", "ask-composer-area");
   const form = element("form", "ask-composer");
-  const label = element("label", "sr-only", "Strategiya brifi");
+  const label = element("label", "sr-only", isEn ? "Strategy brief" : "Strategiya brifi");
   label.htmlFor = "briefInput";
 
   const textarea = element("textarea", "ask-input");
@@ -756,13 +874,13 @@ function renderIntake() {
   textarea.name = "brief";
   textarea.rows = 1;
   textarea.maxLength = 8000;
-  textarea.placeholder = "Marketify ilə strategiya qur";
+  textarea.placeholder = isEn ? "Build strategy with Marketify" : "Marketify ilə strategiya qur";
   textarea.value = state.brief;
 
   const submit = button("", "ask-submit");
   submit.type = "submit";
   submit.disabled = state.brief.trim().length < 8;
-  submit.setAttribute("aria-label", "Strategiyanı qur");
+  submit.setAttribute("aria-label", isEn ? "Build strategy" : "Strategiyanı qur");
   submit.appendChild(element("span", "", "↑"));
 
   const composerActions = element("div", "ask-composer-actions");
@@ -771,8 +889,8 @@ function renderIntake() {
   const contextMenu = document.createElement("details");
   contextMenu.className = "ask-context-menu";
   const contextTrigger = element("summary", "ask-context-trigger");
-  contextTrigger.setAttribute("aria-label", "Əlavə seçimlər");
-  contextTrigger.title = "Əlavə seçimlər";
+  contextTrigger.setAttribute("aria-label", isEn ? "More options" : "Əlavə seçimlər");
+  contextTrigger.title = isEn ? "More options" : "Əlavə seçimlər";
   contextTrigger.appendChild(element("span", "ask-context-plus", "+"));
   const contextPopover = element("div", "ask-context-popover");
   let contextPane = "main";
@@ -793,13 +911,16 @@ function renderIntake() {
       return;
     }
     contextPopover.classList.remove("is-downwards");
-    contextPopover.appendChild(element("strong", "ask-context-menu-heading", "Əlavə et"));
+    contextPopover.appendChild(element("strong", "ask-context-menu-heading", isEn ? "Add" : "Əlavə et"));
     const option = button("", "ask-context-menu-option", () => {
       contextPane = "prompts";
       drawBuildMenu();
     });
     const copy = element("span", "ask-context-menu-option-copy");
-    copy.append(element("strong", "", "Hazır sual"), element("small", "", "Başlamaq üçün hazır prompt seç"));
+    copy.append(
+      element("strong", "", isEn ? "Sample Prompts" : "Hazır sual"),
+      element("small", "", isEn ? "Choose a ready-made prompt to get started" : "Başlamaq üçün hazır prompt seç")
+    );
     option.append(copy, element("span", "ask-context-menu-chevron", "›"));
     contextPopover.appendChild(option);
   };
@@ -826,7 +947,7 @@ function renderIntake() {
   form.append(contextMenu, label, textarea, composerActions);
 
   const helper = element("div", "ask-composer-meta");
-  const disclaimer = element("p", "ask-disclaimer", "Marketify səhv edə bilər.");
+  const disclaimer = element("p", "ask-disclaimer", t("common.disclaimer"));
   helper.appendChild(disclaimer);
 
   composerArea.append(form, helper);
@@ -1025,6 +1146,7 @@ async function shareAskResponse(content) {
 }
 
 function renderAsk() {
+  const isEn = getLanguage() === "en";
   const isAuto = state.askModel === "auto" || !state.askModel;
   workspace.classList.add("workspace-ask");
   const isChatActive = Boolean(state.askMessages.length || state.askLoading);
@@ -1040,7 +1162,7 @@ function renderAsk() {
 
   if (!state.askMessages.length) {
     const intro = element("div", "ask-intro");
-    const title = element("h1", "ask-title", selectedAskCta);
+    const title = element("h1", "ask-title", getAskCta());
     intro.append(title);
     thread.appendChild(intro);
   } else {
@@ -1071,9 +1193,11 @@ function renderAsk() {
           }
           const modelInfo = getAskMessageModelInfo(message.model);
           const isThinkingActive = modelInfo.isGemini ? Boolean(state.askThinking) : modelInfo.isTerra;
-          let label = isThinkingActive ? (modelInfo.isGemini ? "Marketify düşünür" : "Dərin analiz") : "Cavab hazırlanır";
+          let label = isThinkingActive
+            ? (modelInfo.isGemini ? (isEn ? "Marketify is thinking" : "Marketify düşünür") : (isEn ? "Deep analysis" : "Dərin analiz"))
+            : (isEn ? "Crafting response" : "Cavab hazırlanır");
           if (isSearching || message.statusText) {
-            label = message.statusText || "Veb axtarışı...";
+            label = message.statusText || (isEn ? "Web search..." : "Veb axtarışı...");
           }
           const thinkingLabel = element("span", "ask-thinking-label", label);
           const dots = element("span", "ask-thinking-dots");
@@ -1090,25 +1214,25 @@ function renderAsk() {
 
         if (!isStreamingMsg && message.content) {
           const actions = element("div", "ask-message-actions");
-          actions.setAttribute("aria-label", "Cavab əməliyyatları");
+          actions.setAttribute("aria-label", isEn ? "Response actions" : "Cavab əməliyyatları");
 
           const copy = button("", "ask-response-action ask-response-copy-btn", async () => {
             const ok = await copyAskResponse(message.content);
             if (ok) {
               recordLearningSignal(message.interactionId, { copied: true });
               copy.classList.add("is-copied");
-              copy.title = "Kopyalandı";
+              copy.title = isEn ? "Copied" : "Kopyalandı";
               copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
               setTimeout(() => {
                 copy.classList.remove("is-copied");
-                copy.title = "Kopyala";
+                copy.title = isEn ? "Copy" : "Kopyala";
                 copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
               }, 1800);
             }
           });
           copy.type = "button";
-          copy.setAttribute("aria-label", "Cavabı kopyala");
-          copy.title = "Kopyala";
+          copy.setAttribute("aria-label", isEn ? "Copy response" : "Cavabı kopyala");
+          copy.title = isEn ? "Copy" : "Kopyala";
           copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
 
           actions.append(copy);
@@ -1119,25 +1243,25 @@ function renderAsk() {
             render();
           });
           positive.type = "button";
-          positive.title = "Faydalı";
-          positive.setAttribute("aria-label", "Cavab faydalıdır");
-          positive.textContent = "↑";
+          positive.title = "Like";
+          positive.setAttribute("aria-label", isEn ? "Good response" : "Cavabı bəyən");
+          positive.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v10"/><path d="M3 10h4v10H3z"/><path d="M7 20h9.3a2 2 0 0 0 1.9-1.4l2.2-7A2 2 0 0 0 18.5 9H14l.7-3.4A2.7 2.7 0 0 0 12 2.3L7 10Z"/></svg>';
           const negative = button("", `ask-response-action${message.feedback === "negative" ? " is-selected" : ""}`, () => {
             message.feedback = "negative";
             recordLearningSignal(message.interactionId, { explicitRating: "negative" });
             render();
           });
           negative.type = "button";
-          negative.title = "Faydalı deyil";
-          negative.setAttribute("aria-label", "Cavab faydalı deyil");
-          negative.textContent = "↓";
+          negative.title = "Dislike";
+          negative.setAttribute("aria-label", isEn ? "Bad response" : "Cavabı bəyənmə");
+          negative.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 14V4"/><path d="M3 4h4v10H3z"/><path d="M7 4h9.3a2 2 0 0 1 1.9 1.4l2.2 7A2 2 0 0 1 18.5 15H14l.7 3.4a2.7 2.7 0 0 1-2.7 3.3L7 14Z"/></svg>';
           actions.append(positive, negative);
 
           const moreMenu = document.createElement("details");
           moreMenu.className = "ask-response-more-menu";
           const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
-          moreTrigger.setAttribute("aria-label", "Seçimlər");
-          moreTrigger.title = "Daha çox";
+          moreTrigger.setAttribute("aria-label", isEn ? "Options" : "Seçimlər");
+          moreTrigger.title = isEn ? "More options" : "Daha çox";
           moreTrigger.innerHTML = `
             <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
               <circle cx="5" cy="12" r="1.8"></circle>
@@ -1151,7 +1275,7 @@ function renderAsk() {
           const msgModelInfo = getAskMessageModelInfo(message.model);
 
           const modelRow = element("div", "ask-response-model-row");
-          const modelLabel = element("span", "ask-response-model-label", "Rejim:");
+          const modelLabel = element("span", "ask-response-model-label", isEn ? "Mode:" : "Rejim:");
           const modelName = element("span", "ask-response-model-name", msgModelInfo.displayName);
           modelRow.append(modelLabel, modelName);
           morePopover.appendChild(modelRow);
@@ -1173,7 +1297,7 @@ function renderAsk() {
                 <line x1="2" y1="12" x2="22" y2="12"></line>
                 <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
               </svg>
-              <span>Mənbələr</span>
+              <span>${isEn ? "Sources" : "Mənbələr"}</span>
             `;
             morePopover.appendChild(sourcesBtn);
           }
@@ -1190,7 +1314,7 @@ function renderAsk() {
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                 <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
               </svg>
-              <span>Daha dərindən düşün</span>
+              <span>${isEn ? "Think deeper" : "Daha dərindən düşün"}</span>
             `;
             morePopover.appendChild(thinkDeeperBtn);
           }
@@ -1208,7 +1332,7 @@ function renderAsk() {
               <line x1="12" y1="8" x2="12" y2="12"></line>
               <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
-            <span>Hüquqi problem bildir</span>
+            <span>${isEn ? "Report legal issue" : "Hüquqi problem bildir"}</span>
           `;
           morePopover.appendChild(reportBtn);
 
@@ -1245,7 +1369,7 @@ function renderAsk() {
           iconWrap.innerHTML = getFileIconSvg(message.file.mimeType || message.file.type, message.file.name);
           const meta = element("div", "ask-message-attachment-meta");
           meta.append(
-            element("span", "ask-message-attachment-name", message.file.name || "Fayl"),
+            element("span", "ask-message-attachment-name", message.file.name || (isEn ? "File" : "Fayl")),
             element("span", "ask-message-attachment-size", formatFileSize(message.file.size))
           );
           fileBadge.append(iconWrap, meta);
@@ -1255,10 +1379,10 @@ function renderAsk() {
           content.appendChild(element("div", "ask-message-text", message.content));
         }
         if (message.strategyTitle) {
-          content.appendChild(element("span", "ask-message-context", `Strategiya: ${message.strategyTitle}`));
+          content.appendChild(element("span", "ask-message-context", `${isEn ? "Strategy" : "Strategiya"}: ${message.strategyTitle}`));
         }
         if (message.taskTitle) {
-          content.appendChild(element("span", "ask-message-context", `Tapşırıq: ${message.taskTitle}`));
+          content.appendChild(element("span", "ask-message-context", `${isEn ? "Task" : "Tapşırıq"}: ${message.taskTitle}`));
         }
       }
       row.appendChild(content);
@@ -1270,7 +1394,7 @@ function renderAsk() {
     const error = element("div", "ask-error");
     error.append(
       element("strong", "", state.askError),
-      element("span", "", navigator.onLine ? "Bir neçə saniyə sonra yenidən yoxla." : "İnternet bağlantını yoxla."),
+      element("span", "", navigator.onLine ? (isEn ? "Please try again in a few seconds." : "Bir neçə saniyə sonra yenidən yoxla.") : (isEn ? "Check your internet connection." : "İnternet bağlantını yoxla.")),
     );
     thread.appendChild(error);
   }
@@ -1293,7 +1417,7 @@ function renderAsk() {
       try { localStorage.setItem("marketify_ask_model", "gemini-3.7-flash"); } catch { }
       state.askError = "";
     } catch (err) {
-      state.askError = err.message || "Fayl oxunarkən xəta baş verdi.";
+      state.askError = err.message || (isEn ? "Error reading file." : "Fayl oxunarkən xəta baş verdi.");
     } finally {
       state.askLoading = false;
       render();
@@ -1309,8 +1433,8 @@ function renderAsk() {
   const contextMenu = document.createElement("details");
   contextMenu.className = `ask-context-menu${selectedStrategy || selectedTask ? " has-selection" : ""}`;
   const contextTrigger = element("summary", "ask-context-trigger");
-  contextTrigger.setAttribute("aria-label", "Kontekst seç");
-  contextTrigger.title = selectedStrategy || selectedTask ? `Kontekst: ${[selectedStrategy?.title, selectedTask?.text].filter(Boolean).join(" · ")}` : "Kontekst seç";
+  contextTrigger.setAttribute("aria-label", isEn ? "Select context" : "Kontekst seç");
+  contextTrigger.title = selectedStrategy || selectedTask ? `${isEn ? "Context" : "Kontekst"}: ${[selectedStrategy?.title, selectedTask?.text].filter(Boolean).join(" · ")}` : (isEn ? "Select context" : "Kontekst seç");
   contextTrigger.appendChild(element("span", "ask-context-plus", "+"));
   const contextPopover = element("div", "ask-context-popover");
   const activeTasks = state.plannerTasks.filter((task) => !task.completed);
@@ -1320,7 +1444,7 @@ function renderAsk() {
   const drawContextMenu = () => {
     contextPopover.replaceChildren();
     if (contextPane === "main") {
-      contextPopover.appendChild(element("strong", "ask-context-menu-heading", "Kontekst əlavə et"));
+      contextPopover.appendChild(element("strong", "ask-context-menu-heading", isEn ? "Add context" : "Kontekst əlavə et"));
       const option = (title, description, pane) => {
         const btn = button("", "ask-context-menu-option", (event) => {
           event.preventDefault(); event.stopPropagation(); contextMenu.open = true;
@@ -1345,20 +1469,20 @@ function renderAsk() {
         </svg>
       `;
       const fileCopy = element("span", "ask-context-menu-option-copy");
-      fileCopy.append(element("strong", "", "Fayl əlavə et"), element("small", "", "PDF, şəkil və ya sənəd yüklə"));
+      fileCopy.append(element("strong", "", isEn ? "Attach file" : "Fayl əlavə et"), element("small", "", isEn ? "Upload PDF, image or document" : "PDF, şəkil və ya sənəd yüklə"));
       const fileMain = element("div", "ask-context-menu-option-main");
       fileMain.append(fileLeading, fileCopy);
       fileOption.append(fileMain, element("span", "ask-context-menu-chevron", "›"));
       contextPopover.appendChild(fileOption);
       contextPopover.appendChild(element("div", "ask-context-menu-divider"));
 
-      if (selectedStrategy) option("Hazır sual seç", "Strategiyaya uyğun hazır prompt seç", "prompts");
-      option("Strategiyalarım", "Yadda saxlanılan strategiyanı müzakirə et", "strategies");
-      option("Planlaşdırılanlar", "Aktiv taskı kontekst kimi seç", "tasks");
-      if (!selectedStrategy) option("Hazır sual", "Başlamaq üçün hazır prompt seç", "prompts");
+      if (selectedStrategy) option(isEn ? "Preset prompts" : "Hazır sual seç", isEn ? "Select a prompt aligned with your goal" : "Strategiyaya uyğun hazır prompt seç", "prompts");
+      option(isEn ? "My Strategies" : "Strategiyalarım", isEn ? "Discuss a saved strategy" : "Yadda saxlanılan strategiyanı müzakirə et", "strategies");
+      option(isEn ? "Planner Tasks" : "Planlaşdırılanlar", isEn ? "Discuss an active task" : "Aktiv taskı kontekst kimi seç", "tasks");
+      if (!selectedStrategy) option(isEn ? "Preset Prompts" : "Hazır sual", isEn ? "Select a starter prompt" : "Başlamaq üçün hazır prompt seç", "prompts");
       if (selectedStrategy || selectedTask) {
         contextPopover.appendChild(element("div", "ask-context-menu-divider"));
-        contextPopover.appendChild(button("Konteksti sil", "ask-context-clear", () => {
+        contextPopover.appendChild(button(isEn ? "Clear context" : "Konteksti sil", "ask-context-clear", () => {
           state.askStrategyId = ""; state.askTaskId = ""; state.askPromptHintStrategyId = ""; contextMenu.open = false; render();
         }));
       }
@@ -1376,18 +1500,18 @@ function renderAsk() {
       event.preventDefault(); event.stopPropagation(); contextMenu.open = true;
       contextPane = "main"; drawContextMenu();
     });
-    back.setAttribute("aria-label", "Kontekst menyusuna qayıt");
+    back.setAttribute("aria-label", isEn ? "Back to context menu" : "Kontekst menyusuna qayıt");
     const subHeader = element("div", "ask-context-menu-subheader");
-    subHeader.append(back, element("strong", "ask-context-menu-heading", isStrategy ? "Strategiyalar" : "Planlaşdırılanlar"));
+    subHeader.append(back, element("strong", "ask-context-menu-heading", isStrategy ? (isEn ? "Strategies" : "Strategiyalar") : (isEn ? "Tasks" : "Planlaşdırılanlar")));
     contextPopover.appendChild(subHeader);
     const list = element("div", "ask-context-list");
     const entries = isStrategy ? state.savedStrategies : activeTasks;
     if (!entries.length) {
-      list.appendChild(element("div", "ask-context-empty", isStrategy ? "Arxiv hələ boşdur." : "Aktiv planlaşdırılan task yoxdur."));
+      list.appendChild(element("div", "ask-context-empty", isStrategy ? (isEn ? "Archive is currently empty." : "Arxiv hələ boşdur.") : (isEn ? "No active tasks in Planner." : "Aktiv planlaşdırılan task yoxdur.")));
     } else entries.forEach((entry) => {
       const selected = isStrategy ? entry.id === state.askStrategyId : entry.id === state.askTaskId;
       const item = button("", `ask-context-item${selected ? " is-selected" : ""}`);
-      item.append(element("span", "", isStrategy ? entry.title : entry.text), element("small", "", selected ? "Seçilib" : (isStrategy ? formatDate(entry.updatedAt) : entry.groupLabel || "Ümumi")));
+      item.append(element("span", "", isStrategy ? entry.title : entry.text), element("small", "", selected ? (isEn ? "Selected" : "Seçilib") : (isStrategy ? formatDate(entry.updatedAt) : entry.groupLabel || (isEn ? "General" : "Ümumi"))));
       item.addEventListener("click", () => {
         if (isStrategy) {
           state.askStrategyId = entry.id;
@@ -1403,14 +1527,14 @@ function renderAsk() {
   const contextSlot = element("div", "ask-context-slot");
   const showPromptHint = selectedStrategy && state.askPromptHintStrategyId === selectedStrategy.id;
   if (showPromptHint) {
-    const promptCta = button("Hazır prompt seç", "ask-preset-prompt-cta", () => {
+    const promptCta = button(isEn ? "Choose prompt" : "Hazır prompt seç", "ask-preset-prompt-cta", () => {
       promptCta.classList.add("is-hidden");
       state.askPromptHintStrategyId = "";
       contextPane = "prompts";
       drawContextMenu();
       contextMenu.open = true;
     });
-    promptCta.setAttribute("aria-label", "Hazır sual seç");
+    promptCta.setAttribute("aria-label", isEn ? "Select prompt" : "Hazır sual seç");
     promptCta.insertAdjacentHTML("afterbegin", '<svg class="ask-preset-prompt-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 13V3M4 7l4-4 4 4" /></svg>');
     contextMenu.append(contextTrigger, contextPopover);
     contextSlot.append(contextMenu, promptCta);
@@ -1440,28 +1564,28 @@ function renderAsk() {
   });
 
   const form = element("form", "ask-composer");
-  const label = element("label", "sr-only", "Ask sualı");
+  const label = element("label", "sr-only", isEn ? "Ask query" : "Ask sualı");
   label.htmlFor = "askInput";
   input = element("textarea", "ask-input");
   input.id = "askInput";
   input.name = "message";
   input.rows = 1;
   input.maxLength = 8000;
-  input.placeholder = selectedStrategy?.title || selectedTask?.text || (state.askPendingFile ? "Fayl haqqında sualını yaz…" : "Marketify-dan soruş");
+  input.placeholder = selectedStrategy?.title || selectedTask?.text || (state.askPendingFile ? (isEn ? "Ask a question about this file…" : "Fayl haqqında sualını yaz…") : (isEn ? "Ask Marketify anything" : "Marketify-dan soruş"));
   input.disabled = state.askLoading;
 
   const submit = button("", "ask-submit");
   submit.type = "submit";
   submit.disabled = true;
-  submit.setAttribute("aria-label", "Sualı göndər");
+  submit.setAttribute("aria-label", isEn ? "Send question" : "Sualı göndər");
   submit.appendChild(element("span", "", "↑"));
 
   const isFlashSelected = state.askModel === "gemini-3.7-flash";
   const modelSelectorMenu = document.createElement("details");
   modelSelectorMenu.className = "ask-model-selector-menu";
   const modelTrigger = element("summary", "ask-model-selector-trigger");
-  modelTrigger.setAttribute("aria-label", "Model rejimi");
-  modelTrigger.title = isFlashSelected ? "Rejim: Flash (Fayl və Axtarış)" : "Rejim: Auto";
+  modelTrigger.setAttribute("aria-label", isEn ? "Model mode" : "Model rejimi");
+  modelTrigger.title = isFlashSelected ? (isEn ? "Mode: Flash (Files & Search)" : "Rejim: Flash (Fayl və Axtarış)") : (isEn ? "Mode: Auto" : "Rejim: Auto");
 
   modelTrigger.innerHTML = `
     <span class="ask-model-name">${isFlashSelected ? "Flash" : "Auto"}</span>
@@ -1481,7 +1605,7 @@ function renderAsk() {
   autoOption.innerHTML = `
     <div class="ask-model-option-info">
       <strong>Auto</strong>
-      <small>Avtomatik rejim</small>
+      <small>${isEn ? "Automatic routing" : "Avtomatik rejim"}</small>
     </div>
     ${!isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
   `;
@@ -1497,7 +1621,7 @@ function renderAsk() {
   flashOption.innerHTML = `
     <div class="ask-model-option-info">
       <strong>Flash</strong>
-      <small>Gündəlik işlər üçün</small>
+      <small>${isEn ? "For daily workflows" : "Gündəlik işlər üçün"}</small>
     </div>
     ${isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
   `;
@@ -1508,20 +1632,20 @@ function renderAsk() {
     const divider = element("div", "ask-model-popover-divider");
     const thinkingRow = element("div", "ask-model-toggle-row");
     const thinkingInfo = element("div", "ask-model-toggle-info");
-    const thinkingTitle = element("strong", "", "Düşünmə");
-    const thinkingSub = element("small", "", state.askThinking ? "Dərin analiz aktivdir" : "Sürətli birbaşa cavab");
+    const thinkingTitle = element("strong", "", isEn ? "Thinking" : "Düşünmə");
+    const thinkingSub = element("small", "", state.askThinking ? (isEn ? "Deep analysis active" : "Dərin analiz aktivdir") : (isEn ? "Fast direct response" : "Sürətli birbaşa cavab"));
     thinkingInfo.append(thinkingTitle, thinkingSub);
 
     const switchLabel = element("label", "ask-toggle-switch");
     const switchInput = document.createElement("input");
     switchInput.type = "checkbox";
     switchInput.checked = Boolean(state.askThinking);
-    switchInput.setAttribute("aria-label", "Düşünmə rejimini dəyiş");
+    switchInput.setAttribute("aria-label", isEn ? "Toggle thinking mode" : "Düşünmə rejimini dəyiş");
     switchInput.addEventListener("change", (e) => {
       e.stopPropagation();
       state.askThinking = switchInput.checked;
       try { localStorage.setItem("marketify_ask_thinking", String(state.askThinking)); } catch { }
-      thinkingSub.textContent = state.askThinking ? "Dərin analiz aktivdir" : "Sürətli birbaşa cavab";
+      thinkingSub.textContent = state.askThinking ? (isEn ? "Deep analysis active" : "Dərin analiz aktivdir") : (isEn ? "Fast direct response" : "Sürətli birbaşa cavab");
       trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
     });
 
@@ -1569,8 +1693,8 @@ function renderAsk() {
       render();
     });
     chipRemove.type = "button";
-    chipRemove.setAttribute("aria-label", "Faylı sil");
-    chipRemove.title = "Faylı sil";
+    chipRemove.setAttribute("aria-label", isEn ? "Remove file" : "Faylı sil");
+    chipRemove.title = isEn ? "Remove file" : "Faylı sil";
     chipRemove.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
     pendingChip.append(chipIcon, chipMeta, chipRemove);
     composerBody.appendChild(pendingChip);
@@ -1616,7 +1740,7 @@ function renderAsk() {
   });
 
   const helper = element("div", "ask-composer-meta");
-  const disclaimer = element("p", "ask-disclaimer", "Marketify səhv edə bilər.");
+  const disclaimer = element("p", "ask-disclaimer", isEn ? "Marketify can make mistakes." : "Marketify səhv edə bilər.");
   helper.appendChild(disclaimer);
   composerArea.append(form, helper);
   shell.append(thread, composerArea);
@@ -2270,45 +2394,56 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
 }
 
 function renderLoading() {
+  const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-centered");
   const isAssessment = state.status === "analyzing";
   const phases = isAssessment
-    ? [
+    ? (isEn ? [
+      ["Structuring brief", "Consolidating business goals, target market, and key constraints into a unified context."],
+      ["Checking critical gaps", "Verifying if any crucial details required for strategic quality are missing."],
+      ["Determining next step", "Deciding whether to proceed directly or request a brief clarification."],
+    ] : [
       ["Brif strukturlaşdırılır", "Biznes məqsədini, bazarı və əsas məhdudiyyətləri vahid kontekstdə toplayıram."],
       ["Kritik boşluqlar yoxlanılır", "Yalnız strategiyanın keyfiyyətini dəyişəcək məlumatların çatışıb-çatışmadığını yoxlayıram."],
       ["Növbəti addım seçilir", "Mövcud məlumatla davam etmək və ya qısa dəqiqləşdirmə istəmək qərarı hazırlanır."],
-    ]
-    : [
+    ])
+    : (isEn ? [
+      ["Structuring brief", "Connecting audience, goals, timeline, and budget into a unified strategic framework."],
+      ["Setting priorities", "Sequencing high-impact decisions and critical dependencies."],
+      ["Crafting strategy", "Aligning positioning, channels, and core value proposition."],
+      ["Building execution plan", "Transforming strategic directions into sequential, actionable phases."],
+      ["Verifying KPIs and risks", "Aligning success metrics, risk mitigations, and immediate next steps."],
+    ] : [
       ["Brif strukturlaşdırılır", "Auditoriya, məqsəd, vaxt və büdcə bir strateji çərçivədə birləşdirilir."],
       ["Prioritetlər müəyyən edilir", "Ən yüksək təsir yaradacaq qərarlar və asılılıqlar sıralanır."],
       ["Strategiya qurulur", "Mövqelənmə, kanallar və təklif vahid istiqamətdə əlaqələndirilir."],
       ["İcra planı hazırlanır", "Strateji qərarlar ardıcıl və icra edilə bilən mərhələlərə çevrilir."],
       ["Ölçü və risklər yoxlanılır", "KPI-lar, risklər və növbəti addımlar strategiya ilə uyğunlaşdırılır."],
-    ];
+    ]);
   let currentPhase = 0;
   const view = element("section", `loading-view ${isAssessment ? "is-assessment" : "is-generation"}`);
   view.setAttribute("aria-live", "polite");
   const statusLine = element("div", "loading-status-line");
   statusLine.append(
     element("span", "loading-live-dot"),
-    element("span", "loading-eyebrow", isAssessment ? "BRİF ANALİZİ" : "STRATEGİYA HAZIRLANIR"),
+    element("span", "loading-eyebrow", isAssessment ? (isEn ? "BRIEF ANALYSIS" : "BRİF ANALİZİ") : (isEn ? "GENERATING STRATEGY" : "STRATEGİYA HAZIRLANIR")),
   );
   const title = element(
     "h1",
     "loading-title",
-    isAssessment ? "Brifdən növbəti qərara" : "Brifdən icra planına",
+    isAssessment ? (isEn ? "From brief to next decision" : "Brifdən növbəti qərara") : (isEn ? "From brief to execution roadmap" : "Brifdən icra planına"),
   );
   const intro = element(
     "p",
     "loading-intro",
     isAssessment
-      ? "Məlumatları yoxlayıb ən doğru növbəti addımı müəyyənləşdiririk."
-      : "Marketify daxil etdiyin konteksti strukturlaşdırılmış strategiyaya çevirir.",
+      ? (isEn ? "Evaluating inputs to determine the optimal next steps." : "Məlumatları yoxlayıb ən doğru növbəti addımı müəyyənləşdiririk.")
+      : (isEn ? "Marketify transforms your business context into a structured strategy." : "Marketify daxil etdiyin konteksti strukturlaşdırılmış strategiyaya çevirir."),
   );
 
   const activity = element("div", "loading-activity");
   const activityTop = element("div", "loading-activity-top");
-  const activityLabel = element("span", "loading-activity-label", "Hazırda");
+  const activityLabel = element("span", "loading-activity-label", isEn ? "Currently" : "Hazırda");
   const activityCount = element("span", "loading-activity-count", `01 / ${String(phases.length).padStart(2, "0")}`);
   activityTop.append(activityLabel, activityCount);
 
@@ -2350,8 +2485,8 @@ function renderLoading() {
     "span",
     "",
     isAssessment
-      ? "Vacib detal çatışmasa, yalnız zəruri sualları verəcəyik."
-      : "Məzmun hazır olduqda birbaşa strategiya iş sahəsinə keçəcəksən.",
+      ? (isEn ? "If critical details are missing, we will ask only essential questions." : "Vacib detal çatışmasa, yalnız zəruri sualları verəcəyik.")
+      : (isEn ? "You will be redirected straight to the strategy workspace once ready." : "Məzmun hazır olduqda birbaşa strategiya iş sahəsinə keçəcəksən."),
   );
   reassurance.append(sparkIcon, reassuranceText);
 
@@ -2363,18 +2498,21 @@ function renderLoading() {
   if (!isAssessment) {
     const bgBtn = element("button", "loading-back-button");
     bgBtn.type = "button";
-    bgBtn.setAttribute("aria-label", "İşi arxa planda davam etdir");
-    bgBtn.title = "İşi arxa planda davam etdir";
+    bgBtn.setAttribute("aria-label", isEn ? "Continue in background" : "İşi arxa planda davam etdir");
+    bgBtn.title = isEn ? "Continue in background" : "İşi arxa planda davam etdir";
     bgBtn.innerHTML = `
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
         <polyline points="15 3 21 3 21 9"></polyline>
         <line x1="10" y1="14" x2="21" y2="3"></line>
       </svg>
-      <span>İşi arxa planda davam etdir</span>
+      <span>${isEn ? "Continue in background" : "İşi arxa planda davam etdir"}</span>
     `;
     bgBtn.addEventListener("click", () => {
-      if (window.confirm("Əsas səhifəyə qayıdırsınız. Bu strategiyanın hazırlanmasını arxa planda davam etdirmək istəyirsiniz? Nəticə hazır olduqda Arxiv bölməsində saxlanılacaq.")) {
+      const confirmMsg = isEn
+        ? "Returning to home screen. Would you like to continue generating this strategy in the background? Once complete, it will be saved in your Archive."
+        : "Əsas səhifəyə qayıdırsınız. Bu strategiyanın hazırlanmasını arxa planda davam etdirmək istəyirsiniz? Nəticə hazır olduqda Arxiv bölməsində saxlanılacaq.";
+      if (window.confirm(confirmMsg)) {
         minimizeToBackground();
       }
     });
@@ -2383,27 +2521,28 @@ function renderLoading() {
 
   const desktopCancelBtn = element("button", "loading-cancel-button");
   desktopCancelBtn.type = "button";
-  desktopCancelBtn.setAttribute("aria-label", "Brif analizini dayandır");
-  desktopCancelBtn.title = "Analizi dayandır";
+  desktopCancelBtn.setAttribute("aria-label", isEn ? "Stop brief analysis" : "Brif analizini dayandır");
+  desktopCancelBtn.title = isEn ? "Stop analysis" : "Analizi dayandır";
   desktopCancelBtn.innerHTML = `
     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" fill="currentColor" rx="1"/>
     </svg>
-    <span>Dayandır</span>
+    <span>${isEn ? "Stop" : "Dayandır"}</span>
   `;
   desktopCancelBtn.addEventListener("click", () => {
-    if (window.confirm("Brif analizini dayandırmaq istədiyinizdən əminsiniz?")) cancelCurrentAnalysis();
+    const confirmCancelMsg = isEn ? "Are you sure you want to stop the analysis?" : "Brif analizini dayandırmaq istədiyinizdən əminsiniz?";
+    if (window.confirm(confirmCancelMsg)) cancelCurrentAnalysis();
   });
 
   const desktopHistoryBtn = element("button", "loading-history-button");
   desktopHistoryBtn.type = "button";
-  desktopHistoryBtn.setAttribute("aria-label", "Tarixçə");
-  desktopHistoryBtn.title = "Söhbət və brif tarixçəsi";
+  desktopHistoryBtn.setAttribute("aria-label", isEn ? "History" : "Tarixçə");
+  desktopHistoryBtn.title = isEn ? "Chat and brief history" : "Söhbət və brif tarixçəsi";
   desktopHistoryBtn.innerHTML = `
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/>
     </svg>
-    <span>Tarixçə</span>
+    <span>${isEn ? "History" : "Tarixçə"}</span>
     ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
   `;
   desktopHistoryBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
@@ -2415,19 +2554,21 @@ function renderLoading() {
   if (!isAssessment) {
     const bgBtn = element("button", "loading-back-btn-mobile");
     bgBtn.type = "button";
-    bgBtn.setAttribute("aria-label", "İşi arxa planda davam etdir");
-    bgBtn.title = "İşi arxa planda davam etdir";
+    bgBtn.setAttribute("aria-label", isEn ? "Continue in background" : "İşi arxa planda davam etdir");
+    bgBtn.title = isEn ? "Continue in background" : "İşi arxa planda davam etdir";
     bgBtn.innerHTML = `
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
         <polyline points="15 3 21 3 21 9"></polyline>
         <line x1="10" y1="14" x2="21" y2="3"></line>
       </svg>
-      <span>İşi arxa planda davam etdir</span>
+      <span>${isEn ? "Continue in background" : "İşi arxa planda davam etdir"}</span>
     `;
     bgBtn.addEventListener("click", () => {
       const confirmed = window.confirm(
-        "Əsas səhifəyə qayıdırsınız. Bu strategiyanın hazırlanmasını arxa planda davam etdirmək istəyirsiniz? Nəticə hazır olduqda Arxiv bölməsində saxlanılacaq."
+        isEn
+          ? "Returning to home screen. Would you like to continue generating this strategy in the background? Once complete, it will be saved in your Archive."
+          : "Əsas səhifəyə qayıdırsınız. Bu strategiyanın hazırlanmasını arxa planda davam etdirmək istəyirsiniz? Nəticə hazır olduqda Arxiv bölməsində saxlanılacaq."
       );
       if (confirmed) {
         minimizeToBackground();
@@ -2445,10 +2586,10 @@ function renderLoading() {
       <circle cx="12" cy="12" r="10"/>
       <rect x="9" y="9" width="6" height="6" fill="currentColor" rx="1"/>
     </svg>
-    <span>Dayandır</span>
+    <span>${isEn ? "Stop" : "Dayandır"}</span>
   `;
   cancelBtn.addEventListener("click", () => {
-    const confirmed = window.confirm("Brif analizini dayandırmaq istədiyinizdən əminsiniz?");
+    const confirmed = window.confirm(isEn ? "Are you sure you want to stop the analysis?" : "Brif analizini dayandırmaq istədiyinizdən əminsiniz?");
     if (confirmed) {
       cancelCurrentAnalysis();
     }
@@ -3163,6 +3304,7 @@ async function startAssessment() {
 }
 
 function renderClarification() {
+  const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-centered");
   const index = Math.min(state.clarificationIndex, state.questions.length - 1);
   const question = state.questions[index];
@@ -3171,13 +3313,13 @@ function renderClarification() {
   view.setAttribute("aria-labelledby", "clarificationTitle");
   const top = element("div", "clarification-heading");
   top.append(
-    element("div", "step-label", state.round ? "BİR DETAL DA DƏQİQLƏŞDİRƏK" : "QISA DƏQİQLƏŞDİRMƏ"),
-    element("h1", "clarification-title", "Strategiyanı dəqiqləşdirək"),
-    element("p", "clarification-copy", "Bir neçə vacib detal strategiyanı real biznesinə uyğunlaşdıracaq."),
+    element("div", "step-label", state.round ? (isEn ? "ONE MORE DETAIL" : "BİR DETAL DA DƏQİQLƏŞDİRƏK") : (isEn ? "BRIEF CLARIFICATION" : "QISA DƏQİQLƏŞDİRMƏ")),
+    element("h1", "clarification-title", isEn ? "Let's clarify your strategy" : "Strategiyanı dəqiqləşdirək"),
+    element("p", "clarification-copy", isEn ? "A few key details will tailor the strategy directly to your business." : "Bir neçə vacib detal strategiyanı real biznesinə uyğunlaşdıracaq."),
   );
 
   const progressMeta = element("div", "clarification-progress-meta");
-  progressMeta.append(element("span", "", `${index + 1} / ${state.questions.length}`), element("span", "", "Sual"));
+  progressMeta.append(element("span", "", `${index + 1} / ${state.questions.length}`), element("span", "", isEn ? "Question" : "Sual"));
   const progressTrack = element("div", "clarification-progress");
   const progressFill = element("span");
   progressFill.style.width = `${((index + 1) / state.questions.length) * 100}%`;
@@ -3194,9 +3336,9 @@ function renderClarification() {
     textInput.name = question.id;
     textInput.rows = 4;
     textInput.maxLength = 1500;
-    textInput.placeholder = "Cavabını qısa və konkret yaz…";
+    textInput.placeholder = isEn ? "Write your answer briefly and specifically…" : "Cavabını qısa və konkret yaz…";
     textInput.value = state.clarificationDrafts[question.id] || "";
-    stage.append(textInput, element("p", "question-example", "Məsələn: əsas məhsul, auditoriya, büdcə və ya fərqləndirici yanaşma."));
+    stage.append(textInput, element("p", "question-example", isEn ? "For example: core product, target audience, budget, or key differentiator." : "Məsələn: əsas məhsul, auditoriya, büdcə və ya fərqləndirici yanaşma."));
   } else {
     const options = element("div", "choice-grid");
     const selected = new Set(Array.isArray(state.clarificationDrafts[question.id]) ? state.clarificationDrafts[question.id] : [state.clarificationDrafts[question.id]].filter(Boolean));
@@ -3216,10 +3358,10 @@ function renderClarification() {
 
   const context = document.createElement("details");
   context.className = "clarification-context";
-  const contextSummary = element("summary", "", "Marketify nə bilir?");
+  const contextSummary = element("summary", "", isEn ? "What Marketify knows" : "Marketify nə bilir?");
   const contextBody = element("div", "clarification-context-body");
   const briefRow = element("div", "context-summary-row");
-  briefRow.append(element("strong", "", "Brif"), element("span", "", state.brief.slice(0, 220)));
+  briefRow.append(element("strong", "", isEn ? "Brief" : "Brif"), element("span", "", state.brief.slice(0, 220)));
   contextBody.appendChild(briefRow);
   state.answers.slice(-3).forEach((answer) => {
     const row = element("div", "context-summary-row");
@@ -3229,14 +3371,14 @@ function renderClarification() {
   context.append(contextSummary, contextBody);
 
   const actions = element("div", "clarification-actions");
-  const back = button("← Geri", "text-button", () => {
+  const back = button(isEn ? "← Back" : "← Geri", "text-button", () => {
     if (index === 0) return;
     state.clarificationIndex = index - 1;
     render();
   });
   back.disabled = index === 0;
-  const skip = button("Dəqiq bilmirəm", "text-button clarification-skip");
-  const continueButton = button(index === state.questions.length - 1 ? "Tamamla" : "Davam et", "primary-button");
+  const skip = button(isEn ? "Not sure / Skip" : "Dəqiq bilmirəm", "text-button clarification-skip");
+  const continueButton = button(index === state.questions.length - 1 ? (isEn ? "Complete" : "Tamamla") : (isEn ? "Continue" : "Davam et"), "primary-button");
   continueButton.type = "submit";
   continueButton.appendChild(element("span", "button-arrow", "→"));
   const actionRight = element("div", "clarification-action-right");
@@ -3246,7 +3388,7 @@ function renderClarification() {
 
   const advance = (answer) => {
     if (!answer) {
-      showToast("Davam etmək üçün cavab seç və ya yaz.", "error");
+      showToast(isEn ? "Select or write an answer to continue." : "Davam etmək üçün cavab seç və ya yaz.", "error");
       return;
     }
     state.clarificationDrafts[question.id] = question.inputType === "multi_choice" ? answer.split(", ") : answer;
@@ -3265,7 +3407,7 @@ function renderClarification() {
     startAssessment();
   };
 
-  skip.addEventListener("click", () => advance("Dəqiq məlum deyil — əsaslandırılmış işçi fərziyyə istifadə et."));
+  skip.addEventListener("click", () => advance(isEn ? "Not specified — use a reasoned working assumption." : "Dəqiq məlum deyil — əsaslandırılmış işçi fərziyyə istifadə et."));
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const value = textInput ? textInput.value.trim() : new FormData(form).getAll(question.id).join(", ").trim();
@@ -3487,14 +3629,15 @@ function createSectionHeading(kicker, title, description) {
 }
 
 function buildFormatSwitcher() {
+  const isEn = getLanguage() === "en";
   const container = element("div", "strategy-format-tabs");
   container.setAttribute("role", "tablist");
-  container.setAttribute("aria-label", "Görünüş formatı");
+  container.setAttribute("aria-label", isEn ? "View format" : "Görünüş formatı");
 
   const tabs = [
-    { id: "blog", label: "Məqalə (Blog)" },
-    { id: "faq", label: "Sual-Cavab (FAQ)" },
-    { id: "roadmap", label: "İcra Planı" },
+    { id: "blog", label: isEn ? "Article (Blog)" : "Məqalə (Blog)" },
+    { id: "faq", label: isEn ? "Q&A (FAQ)" : "Sual-Cavab (FAQ)" },
+    { id: "roadmap", label: isEn ? "Execution Plan" : "İcra Planı" },
   ];
 
   tabs.forEach((tab) => {
@@ -3511,6 +3654,7 @@ function buildFormatSwitcher() {
 }
 
 function buildStrategyHeader(strategy) {
+  const isEn = getLanguage() === "en";
   const header = element("header", "strategy-overview");
   header.id = "overview";
 
@@ -3519,13 +3663,13 @@ function buildStrategyHeader(strategy) {
   status.append(element("span", "status-dot"), document.createTextNode(STATUS_LABELS[state.status]));
 
   const meta = element("div", "strategy-meta");
-  const readingTime = element("span", "reading-time-badge", `~${calcReadingTime(strategy)} dəqiqəlik oxu`);
+  const readingTime = element("span", "reading-time-badge", isEn ? `~${calcReadingTime(strategy)} min read` : `~${calcReadingTime(strategy)} dəqiqəlik oxu`);
   meta.append(
     status,
     element("span", "meta-divider", "·"),
-    element("span", "", `Versiya ${state.versions.length}`),
+    element("span", "", isEn ? `Version ${state.versions.length}` : `Versiya ${state.versions.length}`),
     element("span", "meta-divider", "·"),
-    element("span", "", `Yenilənib ${formatDate(state.updatedAt)}`),
+    element("span", "", isEn ? `Updated ${i18nFormatDate(state.updatedAt)}` : `Yenilənib ${i18nFormatDate(state.updatedAt)}`),
     element("span", "meta-divider", "·"),
     readingTime,
   );
@@ -3533,8 +3677,6 @@ function buildStrategyHeader(strategy) {
 
   const title = element("h1", "strategy-title", strategy.title);
 
-  // Fully readable strategy context. Values intentionally wrap instead of
-  // relying on truncation or tooltips.
   const contextChips = element("dl", "context-chips-strip strategy-context-grid");
   const appendContextItem = (label, value) => {
     if (!value) return;
@@ -3542,17 +3684,16 @@ function buildStrategyHeader(strategy) {
     item.append(element("dt", "strategy-context-label", label), element("dd", "strategy-context-value", String(value)));
     contextChips.appendChild(item);
   };
-  appendContextItem("Auditoriya", strategy.context?.targetAudience);
-  appendContextItem("Bazar", strategy.context?.market);
+  appendContextItem(isEn ? "Audience" : "Auditoriya", strategy.context?.targetAudience);
+  appendContextItem(isEn ? "Market" : "Bazar", strategy.context?.market);
   const budget = budgetSignal(state.brief);
-  appendContextItem("Büdcə", budget);
-  appendContextItem("Biznes", strategy.context?.business);
+  appendContextItem(isEn ? "Budget" : "Büdcə", budget);
+  appendContextItem(isEn ? "Business" : "Biznes", strategy.context?.business);
 
-  // Strateji Xülasə / Executive Brief Box (Clean, single presentation, no duplicate essence text below!)
   const execCard = element("div", "strategy-executive-card");
   const execKicker = element("div", "exec-card-header");
   execKicker.append(
-    element("span", "exec-badge", "STRATEJİ XÜLASƏ VƏ ƏSAS İSTİQAMƏT"),
+    element("span", "exec-badge", isEn ? "STRATEGIC SUMMARY & DIRECTION" : "STRATEJİ XÜLASƏ VƏ ƏSAS İSTİQAMƏT"),
   );
   const execText = element("p", "exec-summary-text", strategy.summary);
   execCard.append(execKicker, execText);
@@ -3569,16 +3710,17 @@ function buildStrategyHeader(strategy) {
 }
 
 function buildKpiCard(kpi) {
+  const isEn = getLanguage() === "en";
   const card = element("article", "kpi-card");
   const header = element("div", "kpi-card-header");
-  const kicker = element("span", "kpi-card-kicker", "KPI METRİKİ");
+  const kicker = element("span", "kpi-card-kicker", isEn ? "KPI METRIC" : "KPI METRİKİ");
   const name = element("h3", "kpi-name", kpi.name);
   header.append(kicker, name);
 
   const targetBox = element("div", "kpi-target-box");
   targetBox.append(
-    element("span", "kpi-target-label", "Hədəf / İlk Siqnal:"),
-    element("p", "kpi-target-value", kpi.target || "İlk ölçüm dövrü"),
+    element("span", "kpi-target-label", isEn ? "Target / Signal:" : "Hədəf / İlk Siqnal:"),
+    element("p", "kpi-target-value", kpi.target || (isEn ? "Initial baseline period" : "İlk ölçüm dövrü")),
   );
 
   const desc = element("p", "kpi-desc", kpi.reason);
@@ -3587,18 +3729,27 @@ function buildKpiCard(kpi) {
 }
 
 function buildBlogView(strategy) {
+  const isEn = getLanguage() === "en";
   const container = element("div", "strategy-blog-container");
 
-  // 01. PRIORİTETLƏR
+  // 01. PRIORITIES
   const priorities = element("section", "strategy-work-section");
   priorities.id = "priorities";
-  priorities.appendChild(createSectionHeading("01. PRİORİTETLƏR", "İlk növbədə nəyə fokuslanırıq?", "Resursların və diqqətin yönəldiləcəyi ən vacib strateji istiqamətlər"));
+  priorities.appendChild(
+    isEn
+      ? createSectionHeading("01. PRIORITIES", "What do we focus on first?", "High-impact strategic directions where resources and attention are concentrated")
+      : createSectionHeading("01. PRİORİTETLƏR", "İlk növbədə nəyə fokuslanırıq?", "Resursların və diqqətin yönəldiləcəyi ən vacib strateji istiqamətlər")
+  );
   const pillarGrid = element("div", "strategy-pillar-grid");
   strategy.priorities.forEach((item, index) => {
     const card = element("article", `strategy-pillar-card priority-${item.priority}`);
     const top = element("div", "pillar-card-top");
     const num = element("span", "pillar-num", String(index + 1).padStart(2, "0"));
-    const priorityLabel = item.priority === "high" ? "Yüksək Prioritet" : item.priority === "medium" ? "Orta Prioritet" : "Planlı";
+    const priorityLabel = item.priority === "high"
+      ? (isEn ? "High Priority" : "Yüksək Prioritet")
+      : item.priority === "medium"
+        ? (isEn ? "Medium Priority" : "Orta Prioritet")
+        : (isEn ? "Planned" : "Planlı");
     const badge = element("span", `pillar-badge priority-${item.priority}`, priorityLabel);
     top.append(num, badge);
     const h3 = element("h3", "pillar-title", item.title);
@@ -3608,10 +3759,14 @@ function buildBlogView(strategy) {
   });
   priorities.appendChild(pillarGrid);
 
-  // 02. STRATEJİ QƏRARLAR VƏ YANAŞMA
+  // 02. STRATEGIC DECISIONS
   const direction = element("section", "strategy-work-section");
   direction.id = "decisions";
-  direction.appendChild(createSectionHeading("02. STRATEJİ QƏRARLAR", "Kanal, mövqeləndirmə və hədəf yanaşması", "Məqsədə çatmaq üçün verilmiş əsas qərarlar və tətbiq qaydaları"));
+  direction.appendChild(
+    isEn
+      ? createSectionHeading("02. STRATEGIC DECISIONS", "Channel, positioning, and market approach", "Key strategic choices and execution guidelines to achieve the objective")
+      : createSectionHeading("02. STRATEJİ QƏRARLAR", "Kanal, mövqeləndirmə və hədəf yanaşması", "Məqsədə çatmaq üçün verilmiş əsas qərarlar və tətbiq qaydaları")
+  );
   const sections = element("div", "editorial-sections-list");
   strategy.sections.forEach((section, index) => {
     const article = element("article", "editorial-section-card");
@@ -3622,36 +3777,23 @@ function buildBlogView(strategy) {
 
     const body = element("div", "editorial-card-body");
 
-    // Decision Highlight Callout
     const decisionBox = element("div", "editorial-decision-box");
     decisionBox.append(
-      element("strong", "decision-label", "Əsas Qərar:"),
+      element("strong", "decision-label", isEn ? "Core Decision:" : "Əsas Qərar:"),
       element("p", "decision-text", section.summary || firstSentences(section.content, 2)),
     );
     body.appendChild(decisionBox);
 
-    // Rationale
-    if (section.content) {
-      const rationaleBox = element("div", "editorial-rationale-box");
-      rationaleBox.append(
-        element("span", "rationale-label", "Niyə və necə işləyir?"),
-        element("p", "rationale-text", section.content),
-      );
-      body.appendChild(rationaleBox);
-    }
+    const rationale = element("div", "editorial-rationale");
+    rationale.appendChild(element("p", "rationale-text", section.content));
+    body.appendChild(rationale);
 
-    // Actionable Bullets
     if (section.bullets && section.bullets.length) {
-      const actionsBox = element("div", "editorial-actions-box");
-      actionsBox.append(element("span", "actions-label", "Tətbiq və İcra Addımları:"));
-      const list = element("ul", "editorial-bullets");
-      section.bullets.forEach((item) => {
-        const li = element("li");
-        li.append(element("span", "bullet-check", "✓"), document.createTextNode(item));
-        list.appendChild(li);
+      const bulletsList = element("ul", "editorial-bullets-list");
+      section.bullets.forEach((bullet) => {
+        bulletsList.appendChild(element("li", "", bullet));
       });
-      actionsBox.appendChild(list);
-      body.appendChild(actionsBox);
+      body.appendChild(bulletsList);
     }
 
     article.append(header, body);
@@ -3659,31 +3801,31 @@ function buildBlogView(strategy) {
   });
   direction.appendChild(sections);
 
-  // 03. İCRA PLANI (Timeline)
+  // 03. EXECUTION ROADMAP
   const actionPlan = element("section", "strategy-work-section");
   actionPlan.id = "execution";
-  actionPlan.appendChild(createSectionHeading("03. İCRA PLANI", "Mərhələli tətbiq qrafiki", "Strategiyadan konkret nəticələrə doğru addım-addım yol xəritəsi"));
-  const timeline = element("div", "roadmap-timeline");
+  actionPlan.appendChild(
+    isEn
+      ? createSectionHeading("03. EXECUTION ROADMAP", "Step-by-step implementation plan", "Sequential action plan organized into phased execution milestones")
+      : createSectionHeading("03. İCRA MƏRHƏLƏLƏRİ", "Addım-addım tətbiq planı", "Strateji qərarların mərhələli və ardıcıl həyata keçirilməsi")
+  );
+  const timeline = element("div", "strategy-timeline");
   strategy.actionPlan.forEach((phase, index) => {
-    const card = element("article", "roadmap-phase-card");
-    const phaseHeader = element("div", "phase-card-header");
-    const phaseBadge = element("span", "phase-badge", `Mərhələ ${index + 1}`);
-    const phaseTitle = element("h3", "phase-title", phase.phase);
-    phaseHeader.append(phaseBadge, phaseTitle);
+    const card = element("article", "phase-card");
+    const header = element("header", "phase-header");
+    const badge = element("span", "phase-badge", isEn ? `Phase ${index + 1}` : `Mərhələ ${index + 1}`);
+    const title = element("h3", "phase-title", phase.phase);
+    header.append(badge, title);
+    card.appendChild(header);
 
-    const actionList = element("ul", "phase-action-list");
-    phase.actions.forEach((action) => {
-      const li = element("li");
-      li.append(element("span", "action-dot", "•"), document.createTextNode(action));
-      actionList.appendChild(li);
-    });
-
-    card.append(phaseHeader, actionList);
+    const list = element("ul", "phase-actions-list");
+    phase.actions.forEach((act) => list.appendChild(element("li", "", act)));
+    card.appendChild(list);
 
     if (phase.expectedOutcome) {
       const outcome = element("div", "phase-outcome");
       outcome.append(
-        element("strong", "", "Gözlənilən nəticə: "),
+        element("strong", "", isEn ? "Expected outcome: " : "Gözlənilən nəticə: "),
         document.createTextNode(phase.expectedOutcome),
       );
       card.appendChild(outcome);
@@ -3692,50 +3834,66 @@ function buildBlogView(strategy) {
   });
   actionPlan.appendChild(timeline);
 
-  // 04. KPI GÖSTƏRİCİLƏRİ
+  // 04. KPI METRICS
   const measurement = element("section", "strategy-work-section");
   measurement.id = "kpi";
-  measurement.appendChild(createSectionHeading("04. KPI GÖSTƏRİCİLƏRİ", "Ölçü və uğur siqnalları", "Strategiyanın effektivliyini izləmək üçün əsas performans göstəriciləri"));
+  measurement.appendChild(
+    isEn
+      ? createSectionHeading("04. SUCCESS METRICS & KPIS", "Measurement and success signals", "Core performance indicators to track strategy effectiveness")
+      : createSectionHeading("04. KPI GÖSTƏRİCİLƏRİ", "Ölçü və uğur siqnalları", "Strategiyanın effektivliyini izləmək üçün əsas performans göstəriciləri")
+  );
   const kpiGrid = element("div", "kpi-cards-grid");
   strategy.kpis.forEach((kpi) => {
     kpiGrid.appendChild(buildKpiCard(kpi));
   });
   measurement.appendChild(kpiGrid);
 
-  // 05. RİSKLƏR VƏ HƏLLİ
+  // 05. RISKS & MITIGATIONS
   const risks = element("section", "strategy-work-section");
   risks.id = "risks";
-  risks.appendChild(createSectionHeading("05. RİSKLƏR VƏ HƏLLİ", "Ehtiyat tədbirləri və qarşısının alınması", "Gözlənilməz çətinliklərə qarşı sığorta və həll yolları"));
+  risks.appendChild(
+    isEn
+      ? createSectionHeading("05. RISKS & MITIGATIONS", "Precautionary measures and safeguards", "Risk mitigation strategies for unexpected challenges")
+      : createSectionHeading("05. RİSKLƏR VƏ HƏLLİ", "Ehtiyat tədbirləri və qarşısının alınması", "Gözlənilməz çətinliklərə qarşı sığorta və həll yolları")
+  );
   const riskGrid = element("div", "risk-cards-grid");
   if (strategy.risks && strategy.risks.length) {
     strategy.risks.forEach((risk, index) => {
       const card = element("article", "risk-card");
       const top = element("div", "risk-card-top");
-      const badge = element("span", `risk-badge risk-${index < 2 ? "high" : "medium"}`, index < 2 ? "Yüksək Risk" : "Orta Risk");
+      const badge = element(
+        "span",
+        `risk-badge risk-${index < 2 ? "high" : "medium"}`,
+        index < 2 ? (isEn ? "High Risk" : "Yüksək Risk") : (isEn ? "Medium Risk" : "Orta Risk")
+      );
       const title = element("h3", "risk-title", risk.risk);
       top.append(badge, title);
       const mitigation = element("div", "risk-mitigation");
-      mitigation.append(element("strong", "", "Həll yolu: "), document.createTextNode(risk.mitigation));
+      mitigation.append(element("strong", "", isEn ? "Mitigation: " : "Həll yolu: "), document.createTextNode(risk.mitigation));
       card.append(top, mitigation);
       riskGrid.appendChild(card);
     });
   } else {
-    riskGrid.appendChild(element("p", "section-empty", "Əlavə kritik risk müəyyən edilməyib."));
+    riskGrid.appendChild(element("p", "section-empty", isEn ? "No critical risks identified." : "Əlavə kritik risk müəyyən edilməyib."));
   }
   risks.appendChild(riskGrid);
 
-  // 06. NÖVBƏTİ ADDIMLAR (Checklist)
+  // 06. NEXT STEPS
   const closeout = element("section", "strategy-work-section next-actions-section");
   closeout.id = "next";
   const headingWrapper = element("div", "section-heading-with-action");
-  headingWrapper.appendChild(createSectionHeading("06. NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addım-addım tapşırıqlar"));
+  headingWrapper.appendChild(
+    isEn
+      ? createSectionHeading("06. IMMEDIATE NEXT STEPS", "Immediate action items", "Actionable step-by-step tasks to set the strategy in motion")
+      : createSectionHeading("06. NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addım-addım tapşırıqlar")
+  );
 
-  const addAllToPlannerButton = button("✦ Planlaşdırılanlara əlavə et", "add-to-planner-btn", async () => {
+  const addAllToPlannerButton = button(isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et", "add-to-planner-btn", async () => {
     addAllToPlannerButton.disabled = true;
-    addAllToPlannerButton.textContent = "Əlavə edilir…";
+    addAllToPlannerButton.textContent = isEn ? "Adding…" : "Əlavə edilir…";
     try {
       const itemsToBatch = [];
-      const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+      const groupLabels = isEn ? ["Today", "Next 48 hours", "This week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
       const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
       groupLabels.forEach((label, groupIndex) => {
         const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
@@ -3744,7 +3902,7 @@ function buildBlogView(strategy) {
             text: item,
             groupLabel: label,
             strategyId: state.savedId || null,
-            strategyTitle: strategy.title || "Strategiya",
+            strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
           });
         });
       });
@@ -3755,16 +3913,16 @@ function buildBlogView(strategy) {
       });
       state.plannerTasks = Array.isArray(res.tasks) ? res.tasks : state.plannerTasks;
       updatePlannerBadge();
-      showToast(`${res.added?.length || itemsToBatch.length} tapşırıq Planlaşdırılanlara əlavə edildi ✓`, "success");
-      addAllToPlannerButton.textContent = "✓ Əlavə edildi";
+      showToast(isEn ? `${res.added?.length || itemsToBatch.length} tasks added to Planner ✓` : `${res.added?.length || itemsToBatch.length} tapşırıq Planlaşdırılanlara əlavə edildi ✓`, "success");
+      addAllToPlannerButton.textContent = isEn ? "✓ Added" : "✓ Əlavə edildi";
       setTimeout(() => {
         addAllToPlannerButton.disabled = false;
-        addAllToPlannerButton.textContent = "✦ Planlaşdırılanlara əlavə et";
+        addAllToPlannerButton.textContent = isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et";
       }, 2500);
     } catch (err) {
-      showToast(err.message || "Xəta baş verdi", "error");
+      showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
       addAllToPlannerButton.disabled = false;
-      addAllToPlannerButton.textContent = "✦ Planlaşdırılanlara əlavə et";
+      addAllToPlannerButton.textContent = isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et";
     }
   });
 
@@ -3772,7 +3930,7 @@ function buildBlogView(strategy) {
   closeout.appendChild(headingWrapper);
 
   const checklistGrid = element("div", "action-checklist-grid");
-  const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+  const groupLabels = isEn ? ["Today", "Next 48 hours", "This week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
   const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
   groupLabels.forEach((label, groupIndex) => {
     const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
@@ -3787,7 +3945,7 @@ function buildBlogView(strategy) {
       checkbox.dataset.key = `${groupIndex}-${itemIndex}`;
       const span = element("span", "checklist-item-text", item);
 
-      const singleAddBtn = button("+ Planlaşdır", "item-plan-btn", async (e) => {
+      const singleAddBtn = button(isEn ? "+ Plan" : "+ Planlaşdır", "item-plan-btn", async (e) => {
         e.preventDefault();
         e.stopPropagation();
         singleAddBtn.disabled = true;
@@ -3799,18 +3957,18 @@ function buildBlogView(strategy) {
               text: item,
               groupLabel: label,
               strategyId: state.savedId || null,
-              strategyTitle: strategy.title || "Strategiya",
+              strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
             }),
           });
           if (res.task) {
             state.plannerTasks = [res.task, ...state.plannerTasks.filter((t) => t.id !== res.task.id)];
             updatePlannerBadge();
-            showToast("Tapşırıq Planlaşdırılanlara əlavə edildi ✓", "success");
+            showToast(isEn ? "Task added to Planner ✓" : "Tapşırıq Planlaşdırılanlara əlavə edildi ✓", "success");
             singleAddBtn.textContent = "✓";
           }
         } catch (err) {
-          showToast(err.message || "Xəta baş verdi", "error");
-          singleAddBtn.textContent = "+ Planlaşdır";
+          showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
+          singleAddBtn.textContent = isEn ? "+ Plan" : "+ Planlaşdır";
           singleAddBtn.disabled = false;
         }
       });
@@ -3840,23 +3998,34 @@ function buildBlogView(strategy) {
 }
 
 function buildFaqView(strategy) {
+  const isEn = getLanguage() === "en";
   const container = element("div", "strategy-faq-container");
 
   const faqHeader = element("div", "faq-intro-header");
-  const faqTitle = element("h2", "faq-main-title", "Strategiya haqqında tez-tez verilən suallar və aydın cavablar");
-  const faqSubtitle = element("p", "faq-main-desc", "Bütün strateji qərarlar, hədəf auditoriyası, icra mərhələləri və risklər sual-cavab formatında ümumiləşdirilib.");
+  const faqTitle = element(
+    "h2",
+    "faq-main-title",
+    isEn ? "Frequently Asked Questions and Clear Answers about the Strategy" : "Strategiya haqqında tez-tez verilən suallar və aydın cavablar"
+  );
+  const faqSubtitle = element(
+    "p",
+    "faq-main-desc",
+    isEn
+      ? "All strategic decisions, target audience insights, execution milestones, and risk mitigations organized into a clear Q&A format."
+      : "Bütün strateji qərarlar, hədəf auditoriyası, icra mərhələləri və risklər sual-cavab formatında ümumiləşdirilib."
+  );
   faqHeader.append(faqTitle, faqSubtitle);
 
   // FAQ Controls: Search + Toggle All
   const controlsBar = element("div", "faq-controls-bar");
   const searchInput = element("input", "faq-search-input");
   searchInput.type = "search";
-  searchInput.placeholder = "Suallarda axtar...";
+  searchInput.placeholder = isEn ? "Search questions..." : "Suallarda axtar...";
   searchInput.value = state.faqFilter || "";
-  searchInput.setAttribute("aria-label", "Suallarda axtar");
+  searchInput.setAttribute("aria-label", isEn ? "Search questions" : "Suallarda axtar");
 
   const toggleAllBtn = button(
-    state.faqExpandedAll ? "Hamısını bağla" : "Hamısını aç",
+    state.faqExpandedAll ? (isEn ? "Collapse all" : "Hamısını bağla") : (isEn ? "Expand all" : "Hamısını aç"),
     "secondary-button compact faq-toggle-btn",
     () => {
       state.faqExpandedAll = !state.faqExpandedAll;
@@ -3864,7 +4033,7 @@ function buildFaqView(strategy) {
       detailsList.forEach((d) => {
         d.open = state.faqExpandedAll;
       });
-      toggleAllBtn.textContent = state.faqExpandedAll ? "Hamısını bağla" : "Hamısını aç";
+      toggleAllBtn.textContent = state.faqExpandedAll ? (isEn ? "Collapse all" : "Hamısını bağla") : (isEn ? "Expand all" : "Hamısını aç");
     },
   );
 
@@ -3875,16 +4044,14 @@ function buildFaqView(strategy) {
   const faqItemsData = [
     {
       id: "faq-goal",
-      category: "Məqsəd və Xülasə",
-      question: "Bu strategiyanın əsas biznes məqsədi və istiqaməti nədir?",
+      category: isEn ? "Objective & Summary" : "Məqsəd və Xülasə",
+      question: isEn ? "What is the primary business goal and direction of this strategy?" : "Bu strategiyanın əsas biznes məqsədi və istiqaməti nədir?",
       renderBody: () => {
         const body = element("div", "faq-body-content");
-        body.append(
-          element("p", "faq-lead-text", strategy.summary),
-        );
+        body.append(element("p", "faq-lead-text", strategy.summary));
         if (strategy.context?.objective) {
           const objBox = element("div", "faq-info-callout");
-          objBox.append(element("strong", "", "Hədəflənən Nəticə: "), document.createTextNode(strategy.context.objective));
+          objBox.append(element("strong", "", isEn ? "Targeted Outcome: " : "Hədəflənən Nəticə: "), document.createTextNode(strategy.context.objective));
           body.appendChild(objBox);
         }
         return body;
@@ -3892,32 +4059,36 @@ function buildFaqView(strategy) {
     },
     {
       id: "faq-audience",
-      category: "Auditoriya və Bazar",
-      question: "Hədəf auditoriyamız kimlərdir və harada fəaliyyət göstəririk?",
+      category: isEn ? "Audience & Market" : "Auditoriya və Bazar",
+      question: isEn ? "Who is our target audience and where are we operating?" : "Hədəf auditoriyamız kimlərdir və harada fəaliyyət göstəririk?",
       renderBody: () => {
         const body = element("div", "faq-body-content");
         if (strategy.context?.targetAudience) {
-          body.append(element("p", "", `Əsas auditoriya: ${strategy.context.targetAudience}`));
+          body.append(element("p", "", `${isEn ? "Primary audience" : "Əsas auditoriya"}: ${strategy.context.targetAudience}`));
         }
         if (strategy.context?.market) {
-          body.append(element("p", "", `Fəaliyyət bazarı və coğrafiya: ${strategy.context.market}`));
+          body.append(element("p", "", `${isEn ? "Market and geography" : "Fəaliyyət bazarı və coğrafiya"}: ${strategy.context.market}`));
         }
         if (strategy.context?.business) {
-          body.append(element("p", "", `Biznes modeli və təklif: ${strategy.context.business}`));
+          body.append(element("p", "", `${isEn ? "Business model and proposition" : "Biznes modeli və təklif"}: ${strategy.context.business}`));
         }
         return body;
       },
     },
     {
       id: "faq-priorities",
-      category: "Prioritetlər",
-      question: "İlk növbədə hansı strateji prioritetləri icra etməliyik?",
+      category: isEn ? "Priorities" : "Prioritetlər",
+      question: isEn ? "Which strategic priorities should we execute first?" : "İlk növbədə hansı strateji prioritetləri icra etməliyik?",
       renderBody: () => {
         const body = element("div", "faq-body-content");
         const list = element("div", "faq-priorities-list");
         strategy.priorities.forEach((p, idx) => {
           const item = element("div", "faq-priority-row");
-          const tag = element("span", `pillar-badge priority-${p.priority}`, p.priority === "high" ? "Yüksək" : p.priority === "medium" ? "Orta" : "Planlı");
+          const tag = element(
+            "span",
+            `pillar-badge priority-${p.priority}`,
+            p.priority === "high" ? (isEn ? "High" : "Yüksək") : p.priority === "medium" ? (isEn ? "Medium" : "Orta") : (isEn ? "Planned" : "Planlı")
+          );
           const text = element("div", "");
           text.append(element("strong", "", `${idx + 1}. ${p.title}: `), document.createTextNode(p.description));
           item.append(tag, text);
@@ -3929,8 +4100,8 @@ function buildFaqView(strategy) {
     },
     {
       id: "faq-decisions",
-      category: "Strateji Qərarlar",
-      question: "Marketinq və inkişaf üzrə hansı əsas qərarlar verilib?",
+      category: isEn ? "Strategic Decisions" : "Strateji Qərarlar",
+      question: isEn ? "What core decisions have been made regarding marketing and growth?" : "Marketinq və inkişaf üzrə hansı əsas qərarlar verilib?",
       renderBody: () => {
         const body = element("div", "faq-body-content");
         strategy.sections.forEach((sec, idx) => {
@@ -3955,15 +4126,15 @@ function buildFaqView(strategy) {
     },
     {
       id: "faq-execution",
-      category: "İcra Planı",
-      question: "İcra planı hansı mərhələlərlə həyata keçiriləcək?",
+      category: isEn ? "Execution Plan" : "İcra Planı",
+      question: isEn ? "What are the execution milestones and timeline?" : "İcra planı hansı mərhələlərlə həyata keçiriləcək?",
       renderBody: () => {
         const body = element("div", "faq-body-content");
         const timeline = element("div", "roadmap-timeline");
         strategy.actionPlan.forEach((ph, idx) => {
           const card = element("div", "roadmap-phase-card");
           const h = element("div", "phase-card-header");
-          h.append(element("span", "phase-badge", `Mərhələ ${idx + 1}`), element("h3", "phase-title", ph.phase));
+          h.append(element("span", "phase-badge", isEn ? `Phase ${idx + 1}` : `Mərhələ ${idx + 1}`), element("h3", "phase-title", ph.phase));
           const ul = element("ul", "phase-action-list");
           ph.actions.forEach((act) => {
             const li = element("li");
@@ -3973,7 +4144,7 @@ function buildFaqView(strategy) {
           card.append(h, ul);
           if (ph.expectedOutcome) {
             const out = element("div", "phase-outcome");
-            out.append(element("span", "outcome-icon", "🎯"), element("strong", "", "Gözlənilən nəticə: "), document.createTextNode(ph.expectedOutcome));
+            out.append(element("span", "outcome-icon", "🎯"), element("strong", "", isEn ? "Expected outcome: " : "Gözlənilən nəticə: "), document.createTextNode(ph.expectedOutcome));
             card.appendChild(out);
           }
           timeline.appendChild(card);
@@ -3984,8 +4155,8 @@ function buildFaqView(strategy) {
     },
     {
       id: "faq-kpi",
-      category: "KPI və Nəticə",
-      question: "Strategiyanın uğurunu və nəticələrini hansı KPI-larla ölçəcəyik?",
+      category: isEn ? "KPIs & Results" : "KPI və Nəticə",
+      question: isEn ? "How will we measure strategic success and outcome signals?" : "Strategiyanın uğurunu və nəticələrini hansı KPI-larla ölçəcəyik?",
       renderBody: () => {
         const body = element("div", "faq-body-content");
         const kpiGrid = element("div", "kpi-cards-grid");
@@ -3998,8 +4169,8 @@ function buildFaqView(strategy) {
     },
     {
       id: "faq-risks",
-      category: "Risklər",
-      question: "Hansı risklər yarana bilər və onların qarşısını necə alacağıq?",
+      category: isEn ? "Risks" : "Risklər",
+      question: isEn ? "What risks may arise and how will we mitigate them?" : "Hansı risklər yarana bilər və onların qarşısını necə alacağıq?",
       renderBody: () => {
         const body = element("div", "faq-body-content");
         const riskGrid = element("div", "risk-cards-grid");
@@ -4007,9 +4178,12 @@ function buildFaqView(strategy) {
           strategy.risks.forEach((r, idx) => {
             const card = element("article", "risk-card");
             const top = element("div", "risk-card-top");
-            top.append(element("span", `risk-badge risk-${idx < 2 ? "high" : "medium"}`, idx < 2 ? "Yüksək Risk" : "Orta Risk"), element("h3", "risk-title", r.risk));
+            top.append(
+              element("span", `risk-badge risk-${idx < 2 ? "high" : "medium"}`, idx < 2 ? (isEn ? "High Risk" : "Yüksək Risk") : (isEn ? "Medium Risk" : "Orta Risk")),
+              element("h3", "risk-title", r.risk)
+            );
             const mit = element("div", "risk-mitigation");
-            mit.append(element("strong", "", "Həll yolu: "), document.createTextNode(r.mitigation));
+            mit.append(element("strong", "", isEn ? "Mitigation: " : "Həll yolu: "), document.createTextNode(r.mitigation));
             card.append(top, mit);
             riskGrid.appendChild(card);
           });
@@ -4020,12 +4194,12 @@ function buildFaqView(strategy) {
     },
     {
       id: "faq-next",
-      category: "İlk Addımlar",
-      question: "Dərhal (növbəti 24–48 saatda) hansı ilk addımları atmalıyıq?",
+      category: isEn ? "Next Steps" : "İlk Addımlar",
+      question: isEn ? "What immediate steps (next 24–48 hours) should we take?" : "Dərhal (növbəti 24–48 saatda) hansı ilk addımları atmalıyıq?",
       renderBody: () => {
         const body = element("div", "faq-body-content");
         const checklistGrid = element("div", "action-checklist-grid");
-        const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+        const groupLabels = isEn ? ["Today", "Next 48 hours", "This week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
         const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
         groupLabels.forEach((label, groupIndex) => {
           const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
@@ -4053,8 +4227,8 @@ function buildFaqView(strategy) {
   if (strategy.assumptions && strategy.assumptions.length) {
     faqItemsData.push({
       id: "faq-assumptions",
-      category: "Fərziyyələr",
-      question: "Bu strategiya hansı ilkin fərziyyələrə və şərtlərə əsaslanır?",
+      category: isEn ? "Assumptions" : "Fərziyyələr",
+      question: isEn ? "What initial assumptions and conditions is this strategy built on?" : "Bu strategiya hansı ilkin fərziyyələrə və şərtlərə əsaslanır?",
       renderBody: () => {
         const body = element("div", "faq-body-content");
         const list = element("ul", "editorial-bullets");
@@ -4073,14 +4247,14 @@ function buildFaqView(strategy) {
 
   const renderFilteredFaq = () => {
     faqAccordion.replaceChildren();
-    const query = (state.faqFilter || "").trim().toLocaleLowerCase("az");
+    const query = (state.faqFilter || "").trim().toLowerCase();
     const matched = faqItemsData.filter((item) => {
       if (!query) return true;
-      return item.question.toLocaleLowerCase("az").includes(query) || item.category.toLocaleLowerCase("az").includes(query);
+      return item.question.toLowerCase().includes(query) || item.category.toLowerCase().includes(query);
     });
 
     if (!matched.length) {
-      faqAccordion.appendChild(element("p", "faq-no-results", "Axtarışınıza uyğun sual tapılmadı."));
+      faqAccordion.appendChild(element("p", "faq-no-results", isEn ? "No questions match your search." : "Axtarışınıza uyğun sual tapılmadı."));
       return;
     }
 
@@ -4118,17 +4292,22 @@ function buildFaqView(strategy) {
 }
 
 function buildRoadmapView(strategy) {
+  const isEn = getLanguage() === "en";
   const container = element("div", "strategy-roadmap-container");
 
   // Timeline
   const actionPlan = element("section", "strategy-work-section");
   actionPlan.id = "execution";
-  actionPlan.appendChild(createSectionHeading("İCRA MƏRHƏLƏLƏRİ", "Strategiyadan hərəkətə", "Hər bir mərhələnin hədəfləri və gözlənilən nəticələri"));
+  actionPlan.appendChild(
+    isEn
+      ? createSectionHeading("EXECUTION ROADMAP", "From strategy to action", "Objectives and expected milestones for each phase")
+      : createSectionHeading("İCRA MƏRHƏLƏLƏRİ", "Strategiyadan hərəkətə", "Hər bir mərhələnin hədəfləri və gözlənilən nəticələri")
+  );
   const timeline = element("div", "roadmap-timeline");
   strategy.actionPlan.forEach((phase, index) => {
     const card = element("article", "roadmap-phase-card");
     const phaseHeader = element("div", "phase-card-header");
-    const phaseBadge = element("span", "phase-badge", `Mərhələ ${index + 1}`);
+    const phaseBadge = element("span", "phase-badge", isEn ? `Phase ${index + 1}` : `Mərhələ ${index + 1}`);
     const phaseTitle = element("h3", "phase-title", phase.phase);
     phaseHeader.append(phaseBadge, phaseTitle);
 
@@ -4145,7 +4324,7 @@ function buildRoadmapView(strategy) {
       const outcome = element("div", "phase-outcome");
       outcome.append(
         element("span", "outcome-icon", "🎯"),
-        element("strong", "", "Gözlənilən nəticə: "),
+        element("strong", "", isEn ? "Expected outcome: " : "Gözlənilən nəticə: "),
         document.createTextNode(phase.expectedOutcome),
       );
       card.appendChild(outcome);
@@ -4158,14 +4337,18 @@ function buildRoadmapView(strategy) {
   const closeout = element("section", "strategy-work-section next-actions-section");
   closeout.id = "next";
   const headingWrapper = element("div", "section-heading-with-action");
-  headingWrapper.appendChild(createSectionHeading("NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addımlar"));
+  headingWrapper.appendChild(
+    isEn
+      ? createSectionHeading("IMMEDIATE NEXT STEPS", "Immediate action items", "Initial steps to set the strategy in motion")
+      : createSectionHeading("NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addımlar")
+  );
 
-  const addAllToPlannerButton = button("✦ Planlaşdırılanlara əlavə et", "add-to-planner-btn", async () => {
+  const addAllToPlannerButton = button(isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et", "add-to-planner-btn", async () => {
     addAllToPlannerButton.disabled = true;
-    addAllToPlannerButton.textContent = "Əlavə edilir…";
+    addAllToPlannerButton.textContent = isEn ? "Adding…" : "Əlavə edilir…";
     try {
       const itemsToBatch = [];
-      const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+      const groupLabels = isEn ? ["Today", "Next 48 hours", "This week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
       const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
       groupLabels.forEach((label, groupIndex) => {
         const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
@@ -4174,7 +4357,7 @@ function buildRoadmapView(strategy) {
             text: item,
             groupLabel: label,
             strategyId: state.savedId || null,
-            strategyTitle: strategy.title || "Strategiya",
+            strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
           });
         });
       });
@@ -4185,16 +4368,16 @@ function buildRoadmapView(strategy) {
       });
       state.plannerTasks = Array.isArray(res.tasks) ? res.tasks : state.plannerTasks;
       updatePlannerBadge();
-      showToast(`${res.added?.length || itemsToBatch.length} tapşırıq Planlaşdırılanlara əlavə edildi ✓`, "success");
-      addAllToPlannerButton.textContent = "✓ Əlavə edildi";
+      showToast(isEn ? `${res.added?.length || itemsToBatch.length} tasks added to Planner ✓` : `${res.added?.length || itemsToBatch.length} tapşırıq Planlaşdırılanlara əlavə edildi ✓`, "success");
+      addAllToPlannerButton.textContent = isEn ? "✓ Added" : "✓ Əlavə edildi";
       setTimeout(() => {
         addAllToPlannerButton.disabled = false;
-        addAllToPlannerButton.textContent = "✦ Planlaşdırılanlara əlavə et";
+        addAllToPlannerButton.textContent = isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et";
       }, 2500);
     } catch (err) {
-      showToast(err.message || "Xəta baş verdi", "error");
+      showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
       addAllToPlannerButton.disabled = false;
-      addAllToPlannerButton.textContent = "✦ Planlaşdırılanlara əlavə et";
+      addAllToPlannerButton.textContent = isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et";
     }
   });
 
@@ -4202,7 +4385,7 @@ function buildRoadmapView(strategy) {
   closeout.appendChild(headingWrapper);
 
   const checklistGrid = element("div", "action-checklist-grid");
-  const groupLabels = ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+  const groupLabels = isEn ? ["Today", "Next 48 hours", "This week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
   const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
   groupLabels.forEach((label, groupIndex) => {
     const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
@@ -4217,7 +4400,7 @@ function buildRoadmapView(strategy) {
       checkbox.dataset.key = `roadmap-${groupIndex}-${itemIndex}`;
       const span = element("span", "checklist-item-text", item);
 
-      const singleAddBtn = button("+ Planlaşdır", "item-plan-btn", async (e) => {
+      const singleAddBtn = button(isEn ? "+ Plan" : "+ Planlaşdır", "item-plan-btn", async (e) => {
         e.preventDefault();
         e.stopPropagation();
         singleAddBtn.disabled = true;
@@ -4229,18 +4412,18 @@ function buildRoadmapView(strategy) {
               text: item,
               groupLabel: label,
               strategyId: state.savedId || null,
-              strategyTitle: strategy.title || "Strategiya",
+              strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
             }),
           });
           if (res.task) {
             state.plannerTasks = [res.task, ...state.plannerTasks.filter((t) => t.id !== res.task.id)];
             updatePlannerBadge();
-            showToast("Tapşırıq Planlaşdırılanlara əlavə edildi ✓", "success");
+            showToast(isEn ? "Task added to Planner ✓" : "Tapşırıq Planlaşdırılanlara əlavə edildi ✓", "success");
             singleAddBtn.textContent = "✓";
           }
         } catch (err) {
-          showToast(err.message || "Xəta baş verdi", "error");
-          singleAddBtn.textContent = "+ Planlaşdır";
+          showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
+          singleAddBtn.textContent = isEn ? "+ Plan" : "+ Planlaşdır";
           singleAddBtn.disabled = false;
         }
       });
@@ -4256,7 +4439,11 @@ function buildRoadmapView(strategy) {
   // KPI checkpoints
   const measurement = element("section", "strategy-work-section");
   measurement.id = "kpi";
-  measurement.appendChild(createSectionHeading("UĞUR VƏ KPI YOXLAMA NÖQTƏLƏRİ", "Ölçü və hədəf siqnalları"));
+  measurement.appendChild(
+    isEn
+      ? createSectionHeading("SUCCESS METRICS & KPI CHECKPOINTS", "Measurement and goal signals")
+      : createSectionHeading("UĞUR VƏ KPI YOXLAMA NÖQTƏLƏRİ", "Ölçü və hədəf siqnalları")
+  );
   const kpiGrid = element("div", "kpi-cards-grid");
   strategy.kpis.forEach((kpi) => {
     kpiGrid.appendChild(buildKpiCard(kpi));
@@ -4529,13 +4716,14 @@ function buildStrategyAskAssistant() {
 }
 
 function renderStrategyWorkspace() {
+  const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-document");
   const strategy = state.strategy;
   const view = element("div", `strategy-view${state.status === "refining" ? " is-refining" : ""}${state.strategyAskOpen ? " is-ask-open" : ""}`);
 
   // Toolbar - Clean Top Navigation with Breadcrumb and Format Switcher
   const toolbar = element("div", "strategy-toolbar");
-  const crumb = button(`Arxiv / ${strategy.title}`, "strategy-breadcrumb", () => {
+  const crumb = button(`${isEn ? "Archive" : "Arxiv"} / ${strategy.title}`, "strategy-breadcrumb", () => {
     state.view = "list";
     render();
   });
@@ -4553,7 +4741,17 @@ function renderStrategyWorkspace() {
   let tocItems = [];
   if (state.strategyFormat === "faq") {
     documentCanvas.appendChild(buildFaqView(strategy));
-    tocItems = [
+    tocItems = isEn ? [
+      ["overview", "Summary & Context"],
+      ["faq-goal", "Goal"],
+      ["faq-audience", "Audience"],
+      ["faq-priorities", "Priorities"],
+      ["faq-decisions", "Decisions"],
+      ["faq-execution", "Execution Plan"],
+      ["faq-kpi", "KPI Metrics"],
+      ["faq-risks", "Risks"],
+      ["faq-next", "First Steps"],
+    ] : [
       ["overview", "Xülasə & Kontekst"],
       ["faq-goal", "Məqsəd"],
       ["faq-audience", "Auditoriya"],
@@ -4566,7 +4764,12 @@ function renderStrategyWorkspace() {
     ];
   } else if (state.strategyFormat === "roadmap") {
     documentCanvas.appendChild(buildRoadmapView(strategy));
-    tocItems = [
+    tocItems = isEn ? [
+      ["overview", "Summary"],
+      ["execution", "Phases"],
+      ["next", "Next Steps"],
+      ["kpi", "KPI Points"],
+    ] : [
       ["overview", "Xülasə"],
       ["execution", "Mərhələlər"],
       ["next", "Növbəti Addımlar"],
@@ -4574,7 +4777,15 @@ function renderStrategyWorkspace() {
     ];
   } else {
     documentCanvas.appendChild(buildBlogView(strategy));
-    tocItems = [
+    tocItems = isEn ? [
+      ["overview", "Summary & Context"],
+      ["priorities", "01. Priorities"],
+      ["decisions", "02. Strategic Decisions"],
+      ["execution", "03. Execution Plan"],
+      ["kpi", "04. KPI Targets"],
+      ["risks", "05. Risks & Mitigations"],
+      ["next", "06. Immediate Steps"],
+    ] : [
       ["overview", "Xülasə & Kontekst"],
       ["priorities", "01. Prioritetlər"],
       ["decisions", "02. Strateji Qərarlar"],
@@ -4587,7 +4798,7 @@ function renderStrategyWorkspace() {
 
   // Sticky TOC
   const toc = element("nav", "strategy-toc");
-  toc.setAttribute("aria-label", "Strategiya bölmələri");
+  toc.setAttribute("aria-label", isEn ? "Strategy sections" : "Strategiya bölmələri");
   tocItems.forEach(([id, label], index) => {
     const link = element("a", index === 0 ? "is-active" : "", label);
     link.href = `#${id}`;
@@ -4608,7 +4819,7 @@ function renderStrategyWorkspace() {
 
   if (state.status === "refining") {
     const working = element("div", "refining-banner");
-    working.append(element("span", "inline-spinner"), element("span", "", "Strategiya yenilənir — mövcud versiya ekranda qalır."));
+    working.append(element("span", "inline-spinner"), element("span", "", isEn ? "Strategy is refining — existing version remains visible." : "Strategiya yenilənir — mövcud versiya ekranda qalır."));
     view.prepend(working);
   }
   const banner = errorBanner();
@@ -4643,8 +4854,9 @@ function budgetSignal(brief) {
 }
 
 function buildRefinementPanel() {
+  const isEn = getLanguage() === "en";
   const panel = element("section", `refinement-dock${state.refinementOpen ? " is-expanded" : ""}`);
-  panel.setAttribute("aria-label", "Strategiyanı idarə et və yenilə");
+  panel.setAttribute("aria-label", isEn ? "Refine and manage strategy" : "Strategiyanı idarə et və yenilə");
 
   // Compact document actions live in the same surface as the refinement composer.
   const actionsStrip = element("div", "dock-actions-strip");
@@ -4653,7 +4865,7 @@ function buildRefinementPanel() {
     e.preventDefault();
     state.refinementOpen = !state.refinementOpen;
     refineToggle.setAttribute("aria-expanded", String(state.refinementOpen));
-    refineToggle.title = state.refinementOpen ? "Bağla" : "Düzəliş istə";
+    refineToggle.title = state.refinementOpen ? (isEn ? "Close" : "Bağla") : (isEn ? "Request edit" : "Düzəliş istə");
     panel.classList.toggle("is-expanded", state.refinementOpen);
 
     let popover = panel.querySelector(".refinement-popover");
@@ -4676,14 +4888,14 @@ function buildRefinementPanel() {
     }
   });
   refineToggle.type = "button";
-  refineToggle.setAttribute("aria-label", state.refinementOpen ? "Düzəliş pəncərəsini bağla" : "Strategiyada düzəliş istə");
+  refineToggle.setAttribute("aria-label", state.refinementOpen ? (isEn ? "Close refinement panel" : "Düzəliş pəncərəsini bağla") : (isEn ? "Request refinement" : "Strategiyada düzəliş istə"));
   refineToggle.setAttribute("aria-expanded", String(state.refinementOpen));
-  refineToggle.title = state.refinementOpen ? "Bağla" : "Düzəliş istə";
+  refineToggle.title = state.refinementOpen ? (isEn ? "Close" : "Bağla") : (isEn ? "Request edit" : "Düzəliş istə");
   refineToggle.innerHTML = `
     <svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
     </svg>
-    <span>Düzəliş istə</span>
+    <span>${isEn ? "Refine" : "Düzəliş istə"}</span>
   `;
 
   // Export wrap + button with minimalist download/export icon + menu
@@ -4697,7 +4909,7 @@ function buildRefinementPanel() {
       <polyline points="7 10 12 15 17 10"/>
       <line x1="12" y1="15" x2="12" y2="3"/>
     </svg>
-    <span>Yüklə</span>
+    <span>${isEn ? "Export" : "Yüklə"}</span>
     <svg class="dock-chevron-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
   `;
   const menu = buildExportMenu(exportBtn);
@@ -4728,7 +4940,7 @@ function buildRefinementPanel() {
     : `<svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`;
   saveBtn.innerHTML = `
     ${saveIconSvg}
-    <span>${state.savedId ? "Yadda saxlanıldı" : "Yadda saxla"}</span>
+    <span>${state.savedId ? (isEn ? "Saved" : "Yadda saxlanıldı") : (isEn ? "Save" : "Yadda saxla")}</span>
   `;
 
   const askSeparator = element("span", "dock-toolbar-separator dock-ask-separator");
@@ -4755,18 +4967,18 @@ function buildRefinementPanel() {
     }
   });
   askBtn.type = "button";
-  askBtn.setAttribute("aria-label", "Bu strategiya haqqında Marketify-dan soruş");
+  askBtn.setAttribute("aria-label", isEn ? "Ask Marketify about this strategy" : "Bu strategiya haqqında Marketify-dan soruş");
   askBtn.setAttribute("aria-expanded", String(state.strategyAskOpen));
   askBtn.innerHTML = `
     <svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h8M8 13h5"/></svg>
-    <span>Strategiya barədə soruş</span>
+    <span>${isEn ? "Ask about strategy" : "Strategiya barədə soruş"}</span>
   `;
 
   actionsStrip.append(refineToggle, exportWrap, toolbarSeparator, saveBtn, askSeparator, askBtn);
 
   // Suggestions are presented as an animated placeholder instead of controls.
   const form = element("form", "refinement-form");
-  const label = element("label", "sr-only", "Dəyişiklik istəyi");
+  const label = element("label", "sr-only", isEn ? "Refinement request" : "Dəyişiklik istəyi");
   label.htmlFor = "refinementInput";
 
   const inputPrefix = element("div", "refine-input-prefix");
@@ -4776,13 +4988,13 @@ function buildRefinementPanel() {
   input.id = "refinementInput";
   input.rows = 1;
   input.maxLength = 2000;
-  input.placeholder = "Qısalt";
+  input.placeholder = isEn ? "Shorten" : "Qısalt";
   input.disabled = state.status === "refining";
 
   const submit = button("", "refine-submit");
   submit.type = "submit";
   submit.disabled = true;
-  submit.setAttribute("aria-label", "Dəyişiklik istəyini göndər");
+  submit.setAttribute("aria-label", isEn ? "Send refinement request" : "Dəyişiklik istəyini göndər");
   submit.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
 
   form.append(label, inputPrefix, input, submit);
@@ -4822,7 +5034,10 @@ function buildRefinementPanel() {
 }
 
 function startRefinementPlaceholderTyping(input) {
-  const suggestions = ["Qısalt", "Lokallaşdır", "Daha dərindən düşün", "Praktik et"];
+  const isEn = getLanguage() === "en";
+  const suggestions = isEn
+    ? ["Shorten", "Localize", "Think deeper", "Make practical", "Optimize budget"]
+    : ["Qısalt", "Lokallaşdır", "Daha dərindən düşün", "Praktik et", "Büdcəni optimallaşdır"];
   let suggestionIndex = 0;
   let characterIndex = 0;
   let deleting = false;

@@ -10,6 +10,14 @@ const logPath = path.join(os.tmpdir(), "marketify-homepage-requests.jsonl");
 const user = { id: "homepage-test", fullName: "Nümunə iş məkanı", username: "numune", onboardingCompleted: true, settings: { defaultMode: "build" } };
 app.use(express.json());
 app.use((req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
+// Real app documents at mobile widths, for browsers without viewport emulation.
+app.get("/__theme-mobile", (req, res) => res.type("html").send(`<!doctype html>
+  <html lang="en"><head><title>Marketify responsive theme verification</title></head>
+  <body style="margin:0;display:flex;gap:20px;background:#333">
+    <iframe title="Mobile workspace" src="/workspace" style="width:390px;height:844px;border:0;flex:none"></iframe>
+    <iframe title="Mobile homepage" src="/" style="width:390px;height:844px;border:0;flex:none"></iframe>
+    <iframe title="Narrow sign-in" src="/login" style="width:320px;height:844px;border:0;flex:none"></iframe>
+  </body></html>`));
 app.get("/api/auth/config", (req, res) => res.json({ googleClientId: "" }));
 app.get("/api/auth/me", (req, res) => req.headers.cookie?.includes("homepage_test=1") ? res.json({ user }) : res.status(401).json({ code: "AUTH_REQUIRED" }));
 app.post("/api/auth/login", (req, res) => {

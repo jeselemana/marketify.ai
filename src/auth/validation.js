@@ -211,6 +211,7 @@ export const UserSettingsSchema = z.object({
   autoContext: z.boolean().optional().default(true),
   strategyPersonalization: z.boolean().optional().default(true),
   defaultMode: z.enum(["build", "ask"]).optional().default("build"),
+  language: z.enum(["az", "en"]).optional().default("az"),
 });
 
 export const ImportedMemoryItemSchema = z.object({
@@ -236,6 +237,7 @@ export const ImportMemoryPayloadSchema = z.object({
   memories: z.array(ImportedMemoryItemSchema).max(50, "Maksimum 50 yaddaş qeydi saxlanıla bilər.").optional().default([]),
   mergeMode: z.enum(["merge", "replace"]).optional().default("merge"),
   enablePersonalIntelligence: z.boolean().optional().default(true),
+  language: z.enum(["az", "en"]).optional().default("az"),
 });
 
 export function parseBody(schema, body) {
