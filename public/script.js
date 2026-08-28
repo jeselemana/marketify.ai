@@ -536,7 +536,7 @@ function syncNav() {
   railHomeButton.setAttribute("data-tooltip", `Başlanğıc${shortcutSuffix("⌘ 1", "Ctrl 1")}`);
   railStrategiesButton.setAttribute("data-tooltip", `Arxiv${shortcutSuffix("⌘ 2", "Ctrl 2")}`);
   railPlannerButton?.setAttribute("data-tooltip", `Planlaşdırılanlar${shortcutSuffix("⌘ 3", "Ctrl 3")}`);
-  railLimitsButton?.setAttribute("data-tooltip", "İstifadə limiti");
+  railLimitsButton?.setAttribute("data-tooltip", "İstifadə");
 
   const homeLabel = homeNav.querySelector("span");
   if (homeLabel) {
@@ -5678,13 +5678,13 @@ function renderSettings() {
       {
         id: "build",
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
-        name: "Build Rejimi",
+        name: "Build",
         desc: "Marketify açıldıqda və ya yeni sessiyada birbaşa strukturlaşdırılmış strategiya hazırlamaq rejimini aktiv edin.",
       },
       {
         id: "ask",
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-        name: "Ask Rejimi",
+        name: "Ask",
         desc: "Marketify açıldıqda və ya yeni sessiyada birbaşa AI ilə interaktiv söhbət və operativ sual-cavab rejimini aktiv edin.",
       },
     ];
@@ -6936,7 +6936,7 @@ function renderLimitsView() {
   const headerRow = element("div", "limits-header-row");
   const headerText = element("div", "limits-header-text");
   headerText.append(
-    element("h1", "", "İstifadə limiti"),
+    element("h1", "", "İstifadə"),
     element("p", "", "Workspace daxilində AI istifadənizi və fəallığınızı izləyin.")
   );
 
@@ -7002,24 +7002,7 @@ function renderLimitsView() {
   headerRow.append(headerText, headerControls);
   view.appendChild(headerRow);
 
-  // 2. Compact Unlimited Hero Banner
-  const heroCard = element("div", "limits-hero-card");
-  heroCard.innerHTML = `
-    <div class="limits-hero-top">
-      <div class="limits-status-pill">
-        <span class="limits-pulse-dot"></span>
-        <span class="limits-status-text">Limitsiz Plan</span>
-      </div>
-      <span class="limits-badge-tier">Aktiv</span>
-    </div>
-    <div class="limits-hero-body">
-      <h2>Bütün AI modelləri limitsizdir</h2>
-      <p>Build və Ask rejimlərində heç bir sorğu və ya kvota məhdudiyyəti yoxdur.</p>
-    </div>
-  `;
-  view.appendChild(heroCard);
-
-  // 3. Two Clean Mode Cards (Build & Ask)
+  // 2. Two Clean Mode Cards (Build & Ask)
   const modeGrid = element("div", "limits-mode-grid");
 
   // Build Card
@@ -7031,7 +7014,7 @@ function renderLimitsView() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </div>
         <div>
-          <h4>Build Rejimi</h4>
+          <h4>Build</h4>
           <span class="limits-mode-sub">Strateji generasiya və dəqiqləşdirmə</span>
         </div>
       </div>
@@ -7056,7 +7039,7 @@ function renderLimitsView() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
         </div>
         <div>
-          <h4>Ask Rejimi</h4>
+          <h4>Ask</h4>
           <span class="limits-mode-sub">İnteraktiv sual-cavab və analiz</span>
         </div>
       </div>
@@ -7081,7 +7064,7 @@ function renderLimitsView() {
   const periodTitle = period === "today" ? "Bugün" : period === "7d" ? "Son 7 gün" : period === "14d" ? "Son 14 gün" : "Son 30 gün";
   chartHeader.innerHTML = `
     <div>
-      <h3>Fəallıq Dinamikası</h3>
+      <h3>Fəallığınız</h3>
       <p>${escapeHtml(periodTitle)} üzrə sorğu və generasiyaların vizual bölgüsü.</p>
     </div>
     <div class="limits-chart-legend">
@@ -7152,6 +7135,80 @@ function renderLimitsView() {
   chartBody.appendChild(barsContainer);
   chartSection.appendChild(chartBody);
   view.appendChild(chartSection);
+
+  // 4. Compact & Premium FAQ Section (Collapsible)
+  const faqSection = document.createElement("details");
+  faqSection.className = "limits-faq-card";
+  const faqHeader = document.createElement("summary");
+  faqHeader.className = "limits-faq-header";
+  faqHeader.innerHTML = `
+    <div class="limits-faq-title-wrap">
+      <div class="limits-faq-icon">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <div>
+        <h3>Tez-tez verilən suallar</h3>
+        <p>İstifadə, rejimlər və fəallıq statistikaları haqqında faydalı məlumatlar.</p>
+      </div>
+    </div>
+    <div class="limits-faq-main-toggle" aria-hidden="true">
+      <svg class="limits-main-faq-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </div>
+  `;
+  faqSection.appendChild(faqHeader);
+
+  const faqList = element("div", "limits-faq-list");
+  const FAQ_ITEMS = [
+    {
+      q: "Build və Ask rejimləri arasındakı fərq nədir?",
+      a: "<strong>Build rejimi</strong> strukturlaşdırılmış marketinq strategiyaları, bazar analizi, hədəf auditoriya xəritələri və icra planları hazırlayır. <strong>Ask rejimi</strong> isə operativ sual-cavab, araşdırmalar və analitik dəqiqləşdirmələr üçün optimallaşdırılıb."
+    },
+    {
+      q: "Fəallıq statistikaları və dövrlər necə hesablanır?",
+      a: "Sistem seçdiyiniz dövr (Bugün, 7 gün, 14 gün, 30 gün) üzrə Build və Ask əməliyyatlarınızı avtomatik qeydə alır və dinamika qrafikində anlıq əks etdirir."
+    },
+    {
+      q: "Marketify AI-də istifadə və ya kvota limiti varmı?",
+      a: "Bütün modellər üzrə sorğu və strategiya generasiyası fasiləsiz iş axını üçün tam açıqdır. Sistem sabit və rahat iş üçün optimallaşdırılmışdır."
+    },
+    {
+      q: "Hazırladığım strategiyalar və söhbətlər harada saxlanılır?",
+      a: "Yaratdığınız bütün strategiyalar və söhbətlər profilinizə bağlı şəkildə saxlanılır. Sol paneldəki <strong>Arxiv</strong> və <strong>Planlaşdırılanlar</strong> bölmələrindən onlara istənilən vaxt baxa və davam etdirə bilərsiniz."
+    },
+    {
+      q: "Göstəricilər nə zaman və necə yenilənir?",
+      a: "Statistikalar hər yeni əməliyyatdan sonra avtomatik yenilənir. Həmçinin yuxarıdakı <strong>Yenilə</strong> düyməsini sıxaraq məlumatları anında təzələyə bilərsiniz."
+    }
+  ];
+
+  FAQ_ITEMS.forEach((item) => {
+    const details = document.createElement("details");
+    details.className = "limits-faq-item";
+    details.name = "limits-faq-accordion";
+    details.innerHTML = `
+      <summary class="limits-faq-summary">
+        <span class="limits-faq-question">${escapeHtml(item.q)}</span>
+        <span class="limits-faq-icon-wrap" aria-hidden="true">
+          <svg class="limits-faq-chevron" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </span>
+      </summary>
+      <div class="limits-faq-content">
+        <p>${item.a}</p>
+      </div>
+    `;
+    faqList.appendChild(details);
+  });
+
+  faqSection.appendChild(faqList);
+  view.appendChild(faqSection);
 
   workspace.appendChild(view);
 }
