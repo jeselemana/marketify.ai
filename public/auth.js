@@ -6,6 +6,7 @@ const appShell = document.querySelector("#appShell");
 const DEFAULT_GOOGLE_CLIENT_ID =
   "471975374819-mgn2g8auc7q9eko71air922aoo7h963p.apps.googleusercontent.com";
 let runtimeGoogleClientId = DEFAULT_GOOGLE_CLIENT_ID;
+let initializedGoogleClientId = null;
 
 async function loadAuthConfig() {
   try {
@@ -331,11 +332,14 @@ function googleSignInButton() {
     if (!runtimeGoogleClientId) return;
 
     try {
-      google.accounts.id.initialize({
-        client_id: runtimeGoogleClientId,
-        callback: handleGoogleCredential,
-        ux_mode: "popup",
-      });
+      if (initializedGoogleClientId !== runtimeGoogleClientId) {
+        google.accounts.id.initialize({
+          client_id: runtimeGoogleClientId,
+          callback: handleGoogleCredential,
+          ux_mode: "popup",
+        });
+        initializedGoogleClientId = runtimeGoogleClientId;
+      }
 
       google.accounts.id.renderButton(target, googleButtonOptions());
     } catch (err) {

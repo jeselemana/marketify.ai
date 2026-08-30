@@ -710,7 +710,6 @@ function askRateLimit(limit = 60, windowMs = 10 * 60 * 1000) {
 
 function formatGeminiErrorMessage(error) {
   if (!error) return "Naməlum xəta baş verdi.";
-  console.error("❌ [Gemini Error Raw]:", error?.status || "", error?.message || error);
   let msg = error.message || String(error);
   try {
     const raw = typeof msg === "string" && (msg.startsWith("{") || msg.includes('{"error"')) ? JSON.parse(msg) : null;
@@ -1304,14 +1303,6 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       : { enableSearch: false };
     const enableSearch = searchDecision.enableSearch;
 
-    console.log(`\n🔍 [Ask] Sual: "${lastUserMsg.slice(0, 60)}..."`);
-    console.log(`   Model: ${requestedModel} -> ${route} (${selectedAskModel})`);
-    console.log(`   Google Search: ${enableSearch ? "Aktiv (Grounding)" : "Deaktiv"}`);
-    if (hasAnyAttachment) {
-      const firstFile = messages.find((m) => m.file)?.file;
-      console.log(`   📎 Fayl: ${firstFile?.name || "fayl"} (${firstFile?.mimeType || "naməlum"})`);
-    }
-
     learningInteractionId = learningLoop.createInteractionId();
     learningPrompt = messages.at(-1).content;
     learningTaskType = selectedStrategy ? "ask_with_strategy" : selectedTask ? "ask_with_task" : hasAnyAttachment ? "ask_with_file" : "ask_general";
@@ -1812,7 +1803,7 @@ function learnFromGPT(userMessage, gptReply, intent) {
 const conversationHistoryByOwner = new Map();
 
 // 🧠 CHAT ENDPOINT
-app.post("/api/chat", async (req, res) => {
+app.post("/api/chat", askRateLimit(60), async (req, res) => {
   try {
     if (!openai) {
       return res.status(503).json({
@@ -1828,8 +1819,6 @@ if (selectedModel === "gpt-5.1-analytics") {
     req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
     req.connection?.remoteAddress ||
     req.ip;
-
-  console.log("🔍 Analytics request from IP:", userIp);
 
   if (!(await canUseAnalytics(userIp))) {
     return res.json({
