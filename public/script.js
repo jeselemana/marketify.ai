@@ -35,8 +35,10 @@ const plannerNav = document.querySelector("#plannerNav");
 const limitsNav = document.querySelector("#limitsNav");
 const settingsNav = document.querySelector("#settingsNav");
 const railLimitsButton = document.querySelector("#railLimitsButton");
+const railAccountButton = document.querySelector("#railAccountButton");
 const accountButton = document.querySelector("#accountButton");
 const workspaceAvatar = document.querySelector("#workspaceAvatar");
+const railWorkspaceAvatar = document.querySelector("#railWorkspaceAvatar");
 const workspaceName = document.querySelector("#workspaceName");
 const workspaceMeta = document.querySelector("#workspaceMeta");
 const buildModeButton = document.querySelector("#buildModeButton");
@@ -948,7 +950,7 @@ function renderIntake() {
   textarea.name = "brief";
   textarea.rows = 1;
   textarea.maxLength = 8000;
-  textarea.placeholder = isEn ? "Describe your product, campaign, or marketing goal..." : "Marketify ilə strategiya qur";
+  textarea.placeholder = isEn ? "Ask Marketify to Build" : "Marketify ilə strategiya qur";
   textarea.value = state.brief;
 
   const submit = button("", "ask-submit");
@@ -1559,7 +1561,7 @@ function renderAsk() {
       if (!selectedStrategy) option(isEn ? "Preset Prompts" : "Hazır sual", isEn ? "Select a starter prompt" : "Başlamaq üçün hazır prompt seç", "prompts");
       if (selectedStrategy || selectedTask) {
         contextPopover.appendChild(element("div", "ask-context-menu-divider"));
-        contextPopover.appendChild(button(isEn ? "Clear context" : "Konteksti sil", "ask-context-clear", () => {
+        contextPopover.appendChild(button(isEn ? "Delete context" : "Konteksti sil", "ask-context-clear", () => {
           state.askStrategyId = ""; state.askTaskId = ""; state.askPromptHintStrategyId = ""; contextMenu.open = false; render();
         }));
       }
@@ -5433,6 +5435,7 @@ function updateWorkspaceIdentity(user) {
   const isEn = getLanguage() === "en";
   if (!user) {
     workspaceAvatar.textContent = "M";
+    railWorkspaceAvatar.textContent = "M";
     workspaceName.textContent = "Marketify workspace";
     workspaceMeta.textContent = isEn ? "Guest session · account recommended" : "Hesabsız istifadə · hesab yaratmaq tövsiyə olunur";
     return;
@@ -5444,6 +5447,7 @@ function updateWorkspaceIdentity(user) {
     .map((part) => part[0]?.toLocaleUpperCase("az"))
     .join("") || "M";
   workspaceAvatar.textContent = initials;
+  railWorkspaceAvatar.textContent = initials;
   workspaceName.textContent = user.fullName;
   workspaceMeta.textContent = isEn ? `@${user.username} · Personal workspace` : `@${user.username} · Şəxsi hesab`;
 }
@@ -5512,7 +5516,7 @@ function buildLanguageSelectorSection() {
       if (state.currentUser) {
         try {
           await authRequest("/api/auth/settings", { method: "PATCH", body: JSON.stringify({ language: item.code }) });
-        } catch {}
+        } catch { }
       }
       showToast(t("settings.languageSelector.toastChanged", {}, item.code) || (item.code === "en" ? "Interface language updated." : "İnterfeys dili dəyişdirildi."), "success");
     });
@@ -7984,8 +7988,8 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
     </div>
     <div class="legal-report-notice-text">
       ${isEn
-        ? 'AI responses may contain inaccuracies and should not be construed as professional legal or financial advice. For more details, review our <button type="button" class="legal-report-terms-link" id="legalReportTermsLink">Terms of Service</button>.'
-        : 'Süni intellekt cavablarında qeyri-dəqiqlik və ya səhvlər ola bilər və onlar peşəkar məsləhət kimi qəbul edilməməlidir. Ətraflı məlumat üçün <button type="button" class="legal-report-terms-link" id="legalReportTermsLink">İstifadə şərtləri</button> ilə tanış olun.'}
+      ? 'AI responses may contain inaccuracies and should not be construed as professional legal or financial advice. For more details, review our <button type="button" class="legal-report-terms-link" id="legalReportTermsLink">Terms of Service</button>.'
+      : 'Süni intellekt cavablarında qeyri-dəqiqlik və ya səhvlər ola bilər və onlar peşəkar məsləhət kimi qəbul edilməməlidir. Ətraflı məlumat üçün <button type="button" class="legal-report-terms-link" id="legalReportTermsLink">İstifadə şərtləri</button> ilə tanış olun.'}
     </div>
   `;
   noticeBox.querySelector("#legalReportTermsLink")?.addEventListener("click", (e) => {
@@ -8764,8 +8768,8 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
       notice.innerHTML = `
         <span>
           ${isEn
-            ? `${currentParsedData.sensitiveExcluded} sensitive data items were excluded for security reasons.`
-            : `${currentParsedData.sensitiveExcluded} həssas məlumat təhlükəsizlik səbəbilə idxaldan çıxarıldı.`}
+          ? `${currentParsedData.sensitiveExcluded} sensitive data items were excluded for security reasons.`
+          : `${currentParsedData.sensitiveExcluded} həssas məlumat təhlükəsizlik səbəbilə idxaldan çıxarıldı.`}
         </span>
       `;
 
@@ -9122,6 +9126,12 @@ railPlannerButton?.addEventListener("click", () => {
 });
 railLimitsButton?.addEventListener("click", () => {
   state.view = "limits";
+  syncNav();
+  render();
+  closeSidebar();
+});
+railAccountButton?.addEventListener("click", () => {
+  state.view = "settings";
   syncNav();
   render();
   closeSidebar();

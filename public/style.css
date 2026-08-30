@@ -113,6 +113,68 @@ a {
   margin-top: 20px;
 }
 
+.rail-profile-button {
+  position: relative;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  margin-top: auto;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.rail-profile-avatar {
+  flex: 0 0 auto;
+}
+
+.rail-profile-button:hover {
+  border-color: var(--border-subtle);
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+}
+
+.rail-profile-button:focus-visible {
+  outline: 3px solid var(--theme-blue-border, rgba(79, 110, 232, 0.28));
+  outline-offset: 2px;
+}
+
+.rail-profile-button::after {
+  position: absolute;
+  z-index: 60;
+  top: 50%;
+  left: calc(100% + 10px);
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--theme-inverse-surface, #181f2e);
+  box-shadow: 0 4px 14px var(--theme-shadow-strong, rgba(0, 0, 0, 0.16));
+  color: #ffffff;
+  content: attr(data-tooltip);
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(4px, -50%);
+  transition: opacity 150ms ease, transform 150ms ease;
+  white-space: nowrap;
+}
+
+.rail-profile-button:hover::after,
+.rail-profile-button:focus-visible::after {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+body.sidebar-open .rail-profile-button {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
 .rail-button {
   position: relative;
   display: flex;
@@ -16197,4 +16259,3 @@ body.sidebar-open .planner-composer-card {
     font-size: 13px;
   }
 }
-
