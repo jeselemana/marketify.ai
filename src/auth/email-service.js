@@ -181,5 +181,3 @@ export class PasswordResetEmailService {
     await fs.writeFile(outboxPath, `${JSON.stringify(outbox, null, 2)}\n`, "utf8");
   }
 }
-
-export const EmailService = PasswordResetEmailService;

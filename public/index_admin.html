@@ -16,9 +16,7 @@
         <div class="header-left">
           <div class="brand-badge">Admin Panel</div>
           <h1>Marketify AI İdarəetmə Mərkəzi</h1>
-          <p class="subtitle">
-            Hüquqi problem müraciətlərini izləyin, cavab şablonlarını və GPT loglarını idarə edin.
-          </p>
+          <p class="subtitle">Hüquqi müraciətləri və AI Learning əməliyyatlarını idarə edin.</p>
         </div>
         <div class="header-right">
           <a href="/" class="btn btn-back">← Tətbiqə qayıt</a>
@@ -31,14 +29,6 @@
           <span class="tab-icon">⚖️</span>
           <span>Hüquqi Müraciətlər</span>
           <span class="tab-badge" id="badgePendingLegal">0</span>
-        </button>
-        <button class="nav-tab" id="tabBtnBrain" data-tab="brain" type="button" role="tab">
-          <span class="tab-icon">🧠</span>
-          <span>Brain & Şablonlar</span>
-        </button>
-        <button class="nav-tab" id="tabBtnLogs" data-tab="logs" type="button" role="tab">
-          <span class="tab-icon">📜</span>
-          <span>GPT Cavab Logları</span>
         </button>
         <button class="nav-tab" id="tabBtnLearning" data-tab="learning" type="button" role="tab">
           <span class="tab-icon">✦</span>
@@ -108,46 +98,6 @@
           <div id="legal-reports-container" class="legal-reports-list">
             <div class="loading-state">Məlumatlar yüklənir...</div>
           </div>
-        </section>
-      </main>
-
-      <!-- TAB 2: BRAIN & TEMPLATES -->
-      <main id="tabContentBrain" class="tab-content" style="display:none;">
-        <section class="card" id="stats-card">
-          <h2>Brain Statistikası</h2>
-          <div class="stats-grid">
-            <div class="stat">
-              <span class="label">Şablon sayı</span>
-              <span class="value" id="stat-templates">–</span>
-            </div>
-            <div class="stat">
-              <span class="label">Intent sayı</span>
-              <span class="value" id="stat-intents">–</span>
-            </div>
-            <div class="stat">
-              <span class="label">Log entry sayı</span>
-              <span class="value" id="stat-logs">–</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="card" id="templates-card">
-          <h2>Şablonlar</h2>
-          <p class="hint">
-            Hər intent üçün öyrənilən şablonları görə, silə və ya trash-dən geri qaytara bilərsən.
-          </p>
-          <div id="templates-container"></div>
-        </section>
-      </main>
-
-      <!-- TAB 3: GPT LOGS -->
-      <main id="tabContentLogs" class="tab-content" style="display:none;">
-        <section class="card" id="logs-card">
-          <h2>Son GPT Cavab Logları</h2>
-          <p class="hint">
-            Bu hissədə GPT-dən gələn cavablardan hansı intent kimi qeyd olunduğunu və bazaya necə düşdüyünü görürsən.
-          </p>
-          <div id="logs-container"></div>
         </section>
       </main>
 

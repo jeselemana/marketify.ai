@@ -4,26 +4,25 @@ Marketify AI is an AI strategy workspace built on the project's existing Express
 
 ## Run locally
 
-1. Copy `.env.example` to `.env` and add `OPENAI_API_KEY`.
+1. Copy `.env.example` to `.env` and add API keys (`OPENAI_API_KEY`, `GEMINI_API_KEY`).
 2. Install dependencies with `npm install`.
 3. Start with `npm start`.
-4. Open `http://localhost:5050` for the public homepage, or `/workspace` for the application.
-
-See [Homepage implementation and verification](docs/homepage.md) for the v3.0 homepage, prompt handoff and preview fixtures.
+4. Open `http://localhost:5050` in the browser.
 
 ## Configuration
 
-- `OPENAI_API_KEY` — required for assessment, generation, and refinement.
-- `OPENAI_FAST_MODEL` — intake/clarification model; defaults to `gpt-5.6-terra`.
+- `OPENAI_API_KEY` — required for assessment, generation, and refinement (Build mode).
+- `GEMINI_API_KEY` — required for Gemini 3.7 Flash Ask mode and Live Search Grounding.
 - `OPENAI_STRATEGY_MODEL` — generation/refinement model; defaults to `gpt-5.6-terra`.
-- `OPENAI_ASK_MODEL` — optional server-only model override for Ask mode.
+- `OPENAI_ASK_MODEL` — model for Ask mode; defaults to `gpt-5.6-luna`.
+- `GEMINI_ASK_MODEL` — Gemini model for Ask mode; defaults to `gemini-3.7-flash`.
 - `MAX_CLARIFICATION_ROUNDS` — defaults to `2`.
 - `PORT` — defaults to `5050`.
 - `APP_URL` — the canonical public origin, for example `https://marketify-ai.com`.
 - `TRUSTED_ORIGINS` — optional comma-separated additional browser origins.
-- `REDIS_URL` — recommended in production; used as the primary session, password-reset-token, and auth rate-limit store, plus the preserved legacy analytics limit.
+- `REDIS_URL` — recommended in production; used as the primary session, password-reset-token, rate-limit, and repository cache store.
 - `RESEND_API_KEY`, `EMAIL_FROM` — Resend HTTP API ilə e-poçt təsdiq kodu və şifrə bərpası göndərişi. `EMAIL_FROM` Resend-də təsdiqlənmiş domenə aid olmalıdır. SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`) alternativ olaraq dəstəklənir.
-- `ADMIN_USERNAMES` — comma-separated usernames allowed to access the preserved admin interface. With no value the admin interface is closed.
+- `ADMIN_USERNAMES` — comma-separated usernames allowed to access the admin dashboard (`/admin`).
 
 ## Data and ownership
 

@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { PasswordResetEmailService, EmailService } from "../src/auth/email-service.js";
+import { PasswordResetEmailService } from "../src/auth/email-service.js";
 
 test("sendLegalReportEmail forwards to elemanajes@gmail.com with all required fields in outbox", async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-legal-report-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
 
-  const service = new EmailService({ dataDir: directory, env: { NODE_ENV: "test" } });
+  const service = new PasswordResetEmailService({ dataDir: directory, env: { NODE_ENV: "test" } });
 
   await service.sendLegalReportEmail({
     issueType: "Müəllif hüquqları və əqli mülkiyyət pozuntusu",

@@ -35,13 +35,6 @@ test("index.html removes theme toggle buttons from UI", async () => {
   assert.ok(!indexHtml.includes("authThemeToggle"));
 });
 
-test("home.html removes header theme toggle button from UI", async () => {
-  const homeHtml = await fs.readFile(path.join(process.cwd(), "public/home.html"), "utf8");
-  
-  assert.ok(homeHtml.includes("marketify_theme"));
-  assert.ok(!homeHtml.includes("homeThemeToggle"));
-});
-
 test("index_admin.html removes admin theme toggle button from UI", async () => {
   const adminHtml = await fs.readFile(path.join(process.cwd(), "public/index_admin.html"), "utf8");
   
@@ -63,13 +56,6 @@ test("theme styling cleans up toggle buttons while retaining design token compat
   assert.match(styleCss, /--theme-border/);
   assert.match(styleCss, /--strategy-paper: var\(--theme-surface, #fafafa\)/);
   assert.match(styleCss, /--strategy-ink: var\(--theme-ink, #18181b\)/);
-});
-
-test("home.css cleans up theme toggle button styles", async () => {
-  const homeCss = await fs.readFile(path.join(process.cwd(), "public/home.css"), "utf8");
-  
-  assert.ok(!homeCss.includes(".home-theme-toggle"));
-  assert.ok(homeCss.includes("[data-theme=\"dark\"] .button-dark"));
 });
 
 const themeScript = await fs.readFile(new URL('../public/theme.js', import.meta.url), 'utf8');
@@ -144,7 +130,7 @@ test('theme script keeps users restricted to Light theme on click or storage eve
 });
 
 test('all entry points load theme.js synchronously before CSS', async () => {
-  for (const file of ['index.html', 'home.html', 'index_admin.html']) {
+  for (const file of ['index.html', 'index_admin.html']) {
     const html = await fs.readFile(new URL(`../public/${file}`, import.meta.url), 'utf8');
     const script = html.match(/<script[^>]+src="\/theme\.js[^>]+>/)?.[0];
     assert.ok(script, file);
@@ -157,7 +143,7 @@ test('all compatibility tokens are dark-only and every referenced compatibility 
   const light = themeTokens.slice(0, themeTokens.indexOf(':root[data-theme="dark"]'));
   assert.doesNotMatch(light.replace(/\/\*[\s\S]*?\*\//g, ''), /--theme-[\w-]+\s*:/);
   const defined = new Set([...themeTokens.matchAll(/(--theme-[\w-]+)\s*:/g)].map(match => match[1]));
-  for (const file of ['style.css', 'home.css', 'admin.css', 'theme.css']) {
+  for (const file of ['style.css', 'admin.css', 'theme.css']) {
     const css = await fs.readFile(new URL(`../public/${file}`, import.meta.url), 'utf8');
     for (const match of css.matchAll(/var\((--theme-[\w-]+)/g)) assert.ok(defined.has(match[1]), `${file}: ${match[1]}`);
     assert.doesNotMatch(css, /filter:\s*invert\(/);

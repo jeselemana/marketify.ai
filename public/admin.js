@@ -35,8 +35,6 @@ function setupTabs() {
   const tabs = document.querySelectorAll(".nav-tab");
   const contents = {
     legal: document.getElementById("tabContentLegal"),
-    brain: document.getElementById("tabContentBrain"),
-    logs: document.getElementById("tabContentLogs"),
     learning: document.getElementById("tabContentLearning"),
   };
 
@@ -58,8 +56,6 @@ function setupTabs() {
       });
 
       if (target === "legal") loadLegalReports();
-      if (target === "brain") { loadStats(); loadTemplates(); }
-      if (target === "logs") loadLogs();
       if (target === "learning") loadAiLearning();
     });
   });
@@ -398,189 +394,6 @@ function renderLegalReports() {
 
     container.appendChild(card);
   });
-}
-
-// -------------------------------------------------------------
-// 🧠 BRAIN & ŞABLONLAR
-// -------------------------------------------------------------
-async function loadStats() {
-  const elTemplates = document.getElementById("stat-templates");
-  const elIntents = document.getElementById("stat-intents");
-  const elLogs = document.getElementById("stat-logs");
-
-  try {
-    const stats = await fetchJSON("/admin/api/stats");
-    if (elTemplates) elTemplates.textContent = stats.totalTemplates ?? 0;
-    if (elIntents) elIntents.textContent = stats.totalIntents ?? 0;
-    if (elLogs) elLogs.textContent = stats.totalLogEntries ?? 0;
-  } catch (err) {
-    console.error("Stats xətası:", err);
-  }
-}
-
-async function loadTemplates() {
-  const container = document.getElementById("templates-container");
-  if (!container) return;
-  container.innerHTML = "";
-
-  try {
-    const { base, trash } = await fetchJSON("/admin/api/templates");
-    const intents = Object.keys(base || {});
-
-    if (!intents.length) {
-      container.innerHTML = '<p class="hint">Hələ heç bir şablon öyrənilməyib. Marketify bir az işləsin, sonra geri qayıdarsan. 😊</p>';
-      return;
-    }
-
-    intents.forEach((intent) => {
-      const items = Array.isArray(base[intent]) ? base[intent] : [];
-      const trashItems = Array.isArray(trash?.[intent]) ? trash[intent] : [];
-
-      const block = document.createElement("div");
-      block.className = "intent-block";
-
-      const header = document.createElement("div");
-      header.className = "intent-header";
-
-      const left = document.createElement("div");
-      const name = document.createElement("div");
-      name.className = "intent-name";
-      name.textContent = intent;
-
-      const count = document.createElement("div");
-      count.className = "intent-count";
-      count.textContent = `Aktiv: ${items.length} | Trash: ${trashItems.length}`;
-
-      left.appendChild(name);
-      left.appendChild(count);
-
-      const badge = document.createElement("span");
-      badge.className = "badge";
-      badge.textContent = "kliklə aç/bağla";
-
-      header.appendChild(left);
-      header.appendChild(badge);
-
-      const list = document.createElement("div");
-      list.className = "intent-templates";
-      list.style.display = "none";
-
-      items.forEach((t, index) => {
-        const item = document.createElement("div");
-        item.className = "template-item";
-        const text = document.createElement("div");
-        text.className = "template-text";
-        text.textContent = t.template;
-
-        const meta = document.createElement("div");
-        meta.className = "template-meta";
-        const info = document.createElement("span");
-        info.textContent = `Əlavə olunub: ${t.createdAt ? formatDate(t.createdAt) : "–"}`;
-
-        const btn = document.createElement("button");
-        btn.className = "btn btn-danger";
-        btn.textContent = "Trash-a at";
-        btn.addEventListener("click", async () => {
-          if (!confirm(`Bu şablonu trash-a atmaq istədiyinizə əminsiniz? [${intent} #${index}]`)) return;
-          await fetchJSON("/admin/api/templates/delete", {
-            method: "POST",
-            body: JSON.stringify({ intent, index }),
-          });
-          await loadTemplates();
-          await loadStats();
-        });
-
-        meta.appendChild(info);
-        meta.appendChild(btn);
-        item.appendChild(text);
-        item.appendChild(meta);
-        list.appendChild(item);
-      });
-
-      trashItems.forEach((t, index) => {
-        const item = document.createElement("div");
-        item.className = "template-item";
-        const text = document.createElement("div");
-        text.className = "template-text";
-        text.textContent = t.template;
-
-        const meta = document.createElement("div");
-        meta.className = "template-meta";
-        const info = document.createElement("span");
-        info.textContent = `Trash: ${t.deletedAt ? formatDate(t.deletedAt) : "–"}`;
-
-        const btn = document.createElement("button");
-        btn.className = "btn btn-ghost";
-        btn.textContent = "Bərpa et";
-        btn.addEventListener("click", async () => {
-          await fetchJSON("/admin/api/templates/restore", {
-            method: "POST",
-            body: JSON.stringify({ intent, index }),
-          });
-          await loadTemplates();
-          await loadStats();
-        });
-
-        meta.appendChild(info);
-        meta.appendChild(btn);
-        item.appendChild(text);
-        item.appendChild(meta);
-        list.appendChild(item);
-      });
-
-      header.addEventListener("click", () => {
-        list.style.display = list.style.display === "none" ? "block" : "none";
-      });
-
-      block.appendChild(header);
-      block.appendChild(list);
-      container.appendChild(block);
-    });
-  } catch (err) {
-    console.error("Templates xətası:", err);
-  }
-}
-
-// -------------------------------------------------------------
-// 📜 GPT CAVAB LOGLARI
-// -------------------------------------------------------------
-async function loadLogs() {
-  const container = document.getElementById("logs-container");
-  if (!container) return;
-  container.innerHTML = "";
-
-  try {
-    const { entries } = await fetchJSON("/admin/api/logs?limit=40");
-
-    if (!entries || !entries.length) {
-      container.innerHTML = '<p class="hint">Hələ log yoxdur. GPT cavabları gəldikcə bura dolacaq. 🧠</p>';
-      return;
-    }
-
-    entries.forEach((entry) => {
-      const item = document.createElement("div");
-      item.className = "log-item";
-
-      const q = document.createElement("div");
-      q.className = "log-question";
-      q.textContent = entry.question;
-
-      const intent = document.createElement("div");
-      intent.className = "log-intent";
-      intent.textContent = `Intent: ${entry.intent || "–"}`;
-
-      const time = document.createElement("div");
-      time.className = "log-time";
-      time.textContent = entry.createdAt ? formatDate(entry.createdAt) : "–";
-
-      item.appendChild(q);
-      item.appendChild(intent);
-      item.appendChild(time);
-      container.appendChild(item);
-    });
-  } catch (err) {
-    console.error("Log oxuma xətası:", err);
-  }
 }
 
 // -------------------------------------------------------------

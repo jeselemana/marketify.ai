@@ -1,4 +1,6 @@
 .env
+.DS_Store
+*.DS_Store
 node_modules
 data/strategies.json
 data/strategies.json.*.tmp
@@ -13,3 +15,4 @@ data/planner.json.*.tmp
 data/email-outbox.json
 data/ai-learning-*.json
 data/*.tmp
+

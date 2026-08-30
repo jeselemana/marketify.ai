@@ -6,9 +6,6 @@ import {
   getLanguage,
   setLanguage,
   formatDate as i18nFormatDate,
-  formatTime as i18nFormatTime,
-  formatRelativeTime as i18nFormatRelativeTime,
-  formatNumber as i18nFormatNumber,
   LEGAL_DOCS_I18N,
 } from "./i18n.js";
 
@@ -485,15 +482,6 @@ function formatDate(value) {
     return isEn ? `${month} ${day}, ${time}` : `${day} ${month}, ${time}`;
   }
   return isEn ? `${month} ${day}, ${date.getFullYear()}` : `${day} ${month} ${date.getFullYear()}`;
-}
-
-function formatTimeOnly(value) {
-  if (!value) return "00:00";
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return "00:00";
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
 }
 
 function slugify(value) {
