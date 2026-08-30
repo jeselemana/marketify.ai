@@ -143,7 +143,7 @@ function getAskMessageModelInfo(model) {
   }
   // Support existing saved messages while only rendering product-friendly labels.
   const isTerra = normalized === "terra" || /gpt[-\s]?5\.6[-\s]?terra/.test(normalized);
-  const displayName = isTerra ? "Dərin Analiz" : "Auto";
+  const displayName = isTerra ? (getLanguage() === "en" ? "Deep Analysis" : "Dərin Analiz") : "Auto";
   return {
     isGemini: false,
     isTerra,
@@ -180,9 +180,10 @@ function getFileIconSvg(mimeType = "", fileName = "") {
 
 async function readUploadedFileAsData(file) {
   if (!file) return null;
+  const isEn = getLanguage() === "en";
   const maxBytes = 20 * 1024 * 1024; // 20MB
   if (file.size > maxBytes) {
-    throw new Error("Faylın həcmi 20MB-dan çox ola bilməz.");
+    throw new Error(isEn ? "File size must not exceed 20MB." : "Faylın həcmi 20MB-dan çox ola bilməz.");
   }
 
   const isTextLike = (file.type && file.type.startsWith("text/")) ||
@@ -207,7 +208,7 @@ async function readUploadedFileAsData(file) {
       const raw = res.replace(/^data:[^;]+;base64,/, "");
       resolve(raw);
     };
-    dataReader.onerror = () => reject(new Error("Fayl oxuna bilmədi."));
+    dataReader.onerror = () => reject(new Error(isEn ? "Failed to read file." : "Fayl oxuna bilmədi."));
     dataReader.readAsDataURL(file);
   });
 
@@ -277,7 +278,7 @@ const QUICK_ACTIONS = new Proxy([], {
   },
 });
 
-const LOADING_ASK_PLACEHOLDERS = [
+const LOADING_ASK_PLACEHOLDERS_AZ = [
   "Brendinq prosesi nə qədər vaxt aparır?",
   "Hədəf auditoriyanı necə dəqiq seqmentləşdirim?",
   "Marketinq büdcəsini kanallar üzrə necə bölüşdürməliyəm?",
@@ -291,6 +292,32 @@ const LOADING_ASK_PLACEHOLDERS = [
   "E-ticarətdə səbət tərketmə faizini necə azalda bilərik?",
   "Kontent marketinqi ilə orqanik trafiki necə artıraq?",
 ];
+
+const LOADING_ASK_PLACEHOLDERS_EN = [
+  "How long does the branding process typically take?",
+  "How can I accurately segment my target audience?",
+  "How should I allocate the marketing budget across channels?",
+  "What are the 3 most critical metrics in competitor analysis?",
+  "What are the most effective acquisition channels for B2B?",
+  "How do we optimize our CAC to LTV ratio?",
+  "How can we maximize ROAS on paid social campaigns?",
+  "What are high-impact initial growth tactics for a startup?",
+  "What should the immediate first step be after finalizing strategy?",
+  "How do we define a differentiated Unique Selling Proposition (USP)?",
+  "How can we reduce cart abandonment rates in e-commerce?",
+  "How can we scale organic search traffic with content marketing?",
+];
+
+const LOADING_ASK_PLACEHOLDERS = new Proxy([], {
+  get(target, prop) {
+    const list = getLanguage() === "en" ? LOADING_ASK_PLACEHOLDERS_EN : LOADING_ASK_PLACEHOLDERS_AZ;
+    if (prop === "slice") return (...args) => list.slice(...args);
+    if (prop === "forEach") return (fn) => list.forEach(fn);
+    if (prop === "map") return (fn) => list.map(fn);
+    if (prop === "length") return list.length;
+    return list[prop];
+  },
+});
 
 let loadingAskPlaceholderTimer = null;
 let refinementPlaceholderTimer = null;
@@ -423,9 +450,10 @@ function trackEvent(name, metadata = {}) {
 }
 
 function formatDate(value) {
-  if (!value) return "İndi";
+  const isEn = getLanguage() === "en";
+  if (!value) return isEn ? "Just now" : "İndi";
   const date = new Date(value);
-  if (isNaN(date.getTime())) return "İndi";
+  if (isNaN(date.getTime())) return isEn ? "Just now" : "İndi";
 
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
@@ -439,20 +467,22 @@ function formatDate(value) {
   const time = `${hours}:${minutes}`;
 
   if (isToday) {
-    return `Bu gün, ${time}`;
+    return isEn ? `Today, ${time}` : `Bu gün, ${time}`;
   }
   if (isYesterday) {
-    return `Dünən, ${time}`;
+    return isEn ? `Yesterday, ${time}` : `Dünən, ${time}`;
   }
 
-  const months = ["Yan", "Fev", "Mar", "Apr", "May", "İyn", "İyl", "Avq", "Sen", "Okt", "Noy", "Dek"];
+  const monthsAz = ["Yan", "Fev", "Mar", "Apr", "May", "İyn", "İyl", "Avq", "Sen", "Okt", "Noy", "Dek"];
+  const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const months = isEn ? monthsEn : monthsAz;
   const day = date.getDate();
   const month = months[date.getMonth()] || "";
 
   if (date.getFullYear() === now.getFullYear()) {
-    return `${day} ${month}, ${time}`;
+    return isEn ? `${month} ${day}, ${time}` : `${day} ${month}, ${time}`;
   }
-  return `${day} ${month} ${date.getFullYear()}`;
+  return isEn ? `${month} ${day}, ${date.getFullYear()}` : `${day} ${month} ${date.getFullYear()}`;
 }
 
 function formatTimeOnly(value) {
@@ -478,6 +508,7 @@ let currentAbortController = null;
 
 async function api(path, options = {}) {
   let response;
+  const isEn = getLanguage() === "en";
   try {
     response = await fetch(path, {
       ...options,
@@ -486,11 +517,13 @@ async function api(path, options = {}) {
     });
   } catch (error) {
     if (error.name === "AbortError" || options.signal?.aborted) {
-      const abortErr = new Error("İcra dayandırıldı.");
+      const abortErr = new Error(isEn ? "Execution stopped." : "İcra dayandırıldı.");
       abortErr.name = "AbortError";
       throw abortErr;
     }
-    throw new Error(navigator.onLine ? "Strategiyanı hazırlamaq mümkün olmadı. Bir neçə saniyə sonra yenidən yoxla." : "İnternet bağlantısı yoxdur.");
+    throw new Error(navigator.onLine
+      ? (isEn ? "Unable to generate strategy. Please try again in a few seconds." : "Strategiyanı hazırlamaq mümkün olmadı. Bir neçə saniyə sonra yenidən yoxla.")
+      : (isEn ? "No internet connection." : "İnternet bağlantısı yoxdur."));
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -498,8 +531,8 @@ async function api(path, options = {}) {
       window.dispatchEvent(new CustomEvent("marketify:auth-required"));
     }
     const safeMessage = data.error || (path === "/api/ask"
-      ? "Cavabı hazırlamaq mümkün olmadı."
-      : "Strategiyanı hazırlamaq mümkün olmadı. Bir neçə saniyə sonra yenidən yoxla.");
+      ? (isEn ? "Unable to generate response." : "Cavabı hazırlamaq mümkün olmadı.")
+      : (isEn ? "Unable to generate strategy. Please try again in a few seconds." : "Strategiyanı hazırlamaq mümkün olmadı. Bir neçə saniyə sonra yenidən yoxla."));
     const error = new Error(safeMessage);
     error.code = data.code;
     error.status = response.status;
@@ -524,7 +557,7 @@ function showToast(message, tone = "success") {
 
 
 function setError(error, retry, returnStatus = "draft") {
-  state.error = error?.message || "Gözlənilməz xəta baş verdi.";
+  state.error = error?.message || (getLanguage() === "en" ? "An unexpected error occurred." : "Gözlənilməz xəta baş verdi.");
   state.retry = retry;
   setStatus(returnStatus);
   render();
@@ -537,13 +570,14 @@ function clearError() {
 
 function errorBanner() {
   if (!state.error) return null;
+  const isEn = getLanguage() === "en";
   const banner = element("div", "error-banner");
   const copy = element("div");
-  copy.append(element("strong", "", "Sorğu tamamlanmadı"), element("p", "", state.error));
+  copy.append(element("strong", "", isEn ? "Request not completed" : "Sorğu tamamlanmadı"), element("p", "", state.error));
   banner.append(copy);
   if (state.retry) {
     banner.append(
-      button("Yenidən cəhd et", "secondary-button compact", () => {
+      button(isEn ? "Try again" : "Yenidən cəhd et", "secondary-button compact", () => {
         const retry = state.retry;
         clearError();
         retry();
@@ -587,10 +621,46 @@ function syncNav() {
   railPlannerButton?.classList.toggle("is-active", state.view === "planner");
   railLimitsButton?.classList.toggle("is-active", state.view === "limits");
 
-  railHomeButton.setAttribute("data-tooltip", `${t("nav.home")}${shortcutSuffix("⌘ 1", "Ctrl 1")}`);
+  railHomeButton.setAttribute("data-tooltip", `${isBuild ? t("nav.home") : t("nav.askChat")}${shortcutSuffix("⌘ 1", "Ctrl 1")}`);
+  railHomeButton.setAttribute("aria-label", isBuild ? t("nav.home") : t("nav.askChat"));
   railStrategiesButton.setAttribute("data-tooltip", `${t("nav.archive")}${shortcutSuffix("⌘ 2", "Ctrl 2")}`);
-  railPlannerButton?.setAttribute("data-tooltip", `${t("nav.planner")}${shortcutSuffix("⌘ 3", "Ctrl 3")}`);
-  railLimitsButton?.setAttribute("data-tooltip", t("nav.limits"));
+  railStrategiesButton.setAttribute("aria-label", t("nav.archive"));
+  if (railPlannerButton) {
+    railPlannerButton.setAttribute("data-tooltip", `${t("nav.planner")}${shortcutSuffix("⌘ 3", "Ctrl 3")}`);
+    railPlannerButton.setAttribute("aria-label", t("nav.planner"));
+  }
+  if (railLimitsButton) {
+    railLimitsButton.setAttribute("data-tooltip", t("nav.limits"));
+    railLimitsButton.setAttribute("aria-label", t("nav.limits"));
+  }
+  if (railMenuButton) {
+    railMenuButton.setAttribute("data-tooltip", t("nav.menu"));
+    railMenuButton.setAttribute("aria-label", t("nav.openMenu"));
+  }
+  const railNavEl = document.querySelector(".navigation-rail");
+  if (railNavEl) {
+    railNavEl.setAttribute("aria-label", t("nav.quickNavAria"));
+  }
+  const sidebarEl = document.querySelector("#sidebar");
+  if (sidebarEl) {
+    sidebarEl.setAttribute("aria-label", t("nav.mainNavAria"));
+  }
+  const brandLink = document.querySelector(".brand");
+  if (brandLink) {
+    brandLink.setAttribute("aria-label", t("brand.homeAriaLabel"));
+  }
+  const closeSidebarBtn = document.querySelector("#sidebarClose") || document.querySelector("#closeSidebarButton");
+  if (closeSidebarBtn) {
+    closeSidebarBtn.setAttribute("aria-label", t("nav.closeMenu"));
+  }
+  const modeSwitchEl = document.querySelector(".sidebar-mode-switch");
+  if (modeSwitchEl) {
+    modeSwitchEl.setAttribute("aria-label", t("nav.modeSwitchAria"));
+  }
+  const skipLinkEl = document.querySelector(".skip-link");
+  if (skipLinkEl) {
+    skipLinkEl.textContent = t("nav.skipToMain");
+  }
 
   const homeLabel = homeNav.querySelector("span");
   if (homeLabel) {
@@ -637,6 +707,10 @@ function syncNav() {
     workspaceMeta.textContent = state.currentUser ? t("brand.personalAccount") : t("brand.guestAccount");
   }
 
+  const isEn = getLanguage() === "en";
+  document.title = isEn ? "Marketify AI — AI Marketing Strategy Workspace" : "Marketify AI — Strategiya workspace-i";
+
+  renderRecentList();
   syncLanguageControls();
 }
 
@@ -787,12 +861,12 @@ const BUILD_CTA_LIST_AZ = [
 
 const BUILD_CTA_LIST_EN = [
   "Let's build your next strategy.",
-  "What is your new marketing goal?",
-  "Let's start scaling your brand.",
-  "Describe your idea to drive sales growth.",
-  "Let's bring your new product to market.",
-  "Let's plan your next marketing campaign.",
-  "Let's craft a standout plan against competitors.",
+  "What is your primary marketing goal?",
+  "Let's scale your customer acquisition.",
+  "Describe your product, campaign, or business objective.",
+  "Let's launch your new product to market.",
+  "Plan your next high-converting marketing campaign.",
+  "Build a differentiated go-to-market plan.",
 ];
 
 const ASK_CTA_LIST_AZ = [
@@ -806,13 +880,13 @@ const ASK_CTA_LIST_AZ = [
 ];
 
 const ASK_CTA_LIST_EN = [
-  "What are you thinking about?",
-  "Ask your marketing question.",
-  "Which metric should we analyze?",
-  "Explore competitors and market data?",
-  "Let's talk through your business idea.",
-  "What is your objective today?",
-  "How should we optimize your campaign?",
+  "What marketing challenge are you tackling?",
+  "Ask your strategic marketing question.",
+  "Which channel or metric should we analyze?",
+  "Benchmark competitors and market trends.",
+  "Stress-test your business or campaign idea.",
+  "What is your growth priority today?",
+  "How can we optimize your marketing funnel?",
 ];
 
 function getBuildCta() {
@@ -837,7 +911,7 @@ function addPresetPromptPane(popover, mode, onSelect, onBack) {
   const header = element("div", "ask-context-menu-subheader");
   const back = button("‹", "ask-context-menu-back", onBack);
   back.setAttribute("aria-label", isEn ? "Back to context menu" : "Kontekst menyusuna qayıt");
-  header.append(back, element("strong", "ask-context-menu-heading", isEn ? "Sample Prompts" : "Hazır sual"));
+  header.append(back, element("strong", "ask-context-menu-heading", isEn ? "Prompt Templates" : "Hazır sual"));
   popover.appendChild(header);
 
   const list = element("div", "preset-prompt-list");
@@ -874,7 +948,7 @@ function renderIntake() {
   textarea.name = "brief";
   textarea.rows = 1;
   textarea.maxLength = 8000;
-  textarea.placeholder = isEn ? "Build strategy with Marketify" : "Marketify ilə strategiya qur";
+  textarea.placeholder = isEn ? "Describe your product, campaign, or marketing goal..." : "Marketify ilə strategiya qur";
   textarea.value = state.brief;
 
   const submit = button("", "ask-submit");
@@ -918,8 +992,8 @@ function renderIntake() {
     });
     const copy = element("span", "ask-context-menu-option-copy");
     copy.append(
-      element("strong", "", isEn ? "Sample Prompts" : "Hazır sual"),
-      element("small", "", isEn ? "Choose a ready-made prompt to get started" : "Başlamaq üçün hazır prompt seç")
+      element("strong", "", isEn ? "Prompt Templates" : "Hazır sual"),
+      element("small", "", isEn ? "Choose a ready-made strategy brief template" : "Başlamaq üçün hazır prompt seç")
     );
     option.append(copy, element("span", "ask-context-menu-chevron", "›"));
     contextPopover.appendChild(option);
@@ -1106,13 +1180,15 @@ function renderAskRichText(value) {
   return root;
 }
 
-async function copyAskResponse(content, successMessage = "Cavab kopyalandı.") {
+async function copyAskResponse(content, successMessage = null) {
+  const isEn = getLanguage() === "en";
+  const defaultMsg = isEn ? "Response copied to clipboard." : "Cavab kopyalandı.";
   try {
     await navigator.clipboard.writeText(content);
-    showToast(successMessage, "neutral");
+    showToast(successMessage || defaultMsg, "neutral");
     return true;
   } catch {
-    showToast("Cavabı kopyalamaq mümkün olmadı.", "error");
+    showToast(isEn ? "Failed to copy response." : "Cavabı kopyalamaq mümkün olmadı.", "error");
     return false;
   }
 }
@@ -1132,16 +1208,17 @@ async function recordLearningSignal(interactionId, signal) {
 }
 
 async function shareAskResponse(content) {
+  const isEn = getLanguage() === "en";
   if (navigator.share) {
     try {
-      await navigator.share({ title: "Marketify cavabı", text: content });
+      await navigator.share({ title: isEn ? "Marketify response" : "Marketify cavabı", text: content });
       trackEvent("ask_response_shared", { method: "native" });
       return;
     } catch (error) {
       if (error?.name === "AbortError") return;
     }
   }
-  const copied = await copyAskResponse(content, "Paylaşmaq üçün cavab kopyalandı.");
+  const copied = await copyAskResponse(content, isEn ? "Response copied to share." : "Paylaşmaq üçün cavab kopyalandı.");
   if (copied) trackEvent("ask_response_shared", { method: "clipboard" });
 }
 
@@ -1194,10 +1271,10 @@ function renderAsk() {
           const modelInfo = getAskMessageModelInfo(message.model);
           const isThinkingActive = modelInfo.isGemini ? Boolean(state.askThinking) : modelInfo.isTerra;
           let label = isThinkingActive
-            ? (modelInfo.isGemini ? (isEn ? "Marketify is thinking" : "Marketify düşünür") : (isEn ? "Deep analysis" : "Dərin analiz"))
-            : (isEn ? "Crafting response" : "Cavab hazırlanır");
+            ? (modelInfo.isGemini ? (isEn ? "Marketify is reasoning…" : "Marketify düşünür") : (isEn ? "Deep Strategic Analysis…" : "Dərin analiz"))
+            : (isEn ? "Synthesizing response…" : "Cavab hazırlanır");
           if (isSearching || message.statusText) {
-            label = message.statusText || (isEn ? "Web search..." : "Veb axtarışı...");
+            label = message.statusText || (isEn ? "Searching the web…" : "Veb axtarışı...");
           }
           const thinkingLabel = element("span", "ask-thinking-label", label);
           const dots = element("span", "ask-thinking-dots");
@@ -1243,8 +1320,8 @@ function renderAsk() {
             render();
           });
           positive.type = "button";
-          positive.title = "Like";
-          positive.setAttribute("aria-label", isEn ? "Good response" : "Cavabı bəyən");
+          positive.title = isEn ? "Helpful response" : "Cavabı bəyən";
+          positive.setAttribute("aria-label", isEn ? "Helpful response" : "Cavabı bəyən");
           positive.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v10"/><path d="M3 10h4v10H3z"/><path d="M7 20h9.3a2 2 0 0 0 1.9-1.4l2.2-7A2 2 0 0 0 18.5 9H14l.7-3.4A2.7 2.7 0 0 0 12 2.3L7 10Z"/></svg>';
           const negative = button("", `ask-response-action${message.feedback === "negative" ? " is-selected" : ""}`, () => {
             message.feedback = "negative";
@@ -1252,16 +1329,16 @@ function renderAsk() {
             render();
           });
           negative.type = "button";
-          negative.title = "Dislike";
-          negative.setAttribute("aria-label", isEn ? "Bad response" : "Cavabı bəyənmə");
+          negative.title = isEn ? "Unhelpful response" : "Cavabı bəyənmə";
+          negative.setAttribute("aria-label", isEn ? "Unhelpful response" : "Cavabı bəyənmə");
           negative.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 14V4"/><path d="M3 4h4v10H3z"/><path d="M7 4h9.3a2 2 0 0 1 1.9 1.4l2.2 7A2 2 0 0 1 18.5 15H14l.7 3.4a2.7 2.7 0 0 1-2.7 3.3L7 14Z"/></svg>';
           actions.append(positive, negative);
 
           const moreMenu = document.createElement("details");
           moreMenu.className = "ask-response-more-menu";
           const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
-          moreTrigger.setAttribute("aria-label", isEn ? "Options" : "Seçimlər");
-          moreTrigger.title = isEn ? "More options" : "Daha çox";
+          moreTrigger.setAttribute("aria-label", isEn ? "More actions" : "Seçimlər");
+          moreTrigger.title = isEn ? "More actions" : "Daha çox";
           moreTrigger.innerHTML = `
             <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
               <circle cx="5" cy="12" r="1.8"></circle>
@@ -1297,7 +1374,7 @@ function renderAsk() {
                 <line x1="2" y1="12" x2="22" y2="12"></line>
                 <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
               </svg>
-              <span>${isEn ? "Sources" : "Mənbələr"}</span>
+              <span>${isEn ? "Grounding Sources" : "Mənbələr"}</span>
             `;
             morePopover.appendChild(sourcesBtn);
           }
@@ -1314,7 +1391,7 @@ function renderAsk() {
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                 <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
               </svg>
-              <span>${isEn ? "Think deeper" : "Daha dərindən düşün"}</span>
+              <span>${isEn ? "Deep Strategic Reasoning" : "Daha dərindən düşün"}</span>
             `;
             morePopover.appendChild(thinkDeeperBtn);
           }
@@ -1332,7 +1409,7 @@ function renderAsk() {
               <line x1="12" y1="8" x2="12" y2="12"></line>
               <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
-            <span>${isEn ? "Report legal issue" : "Hüquqi problem bildir"}</span>
+            <span>${isEn ? "Report Issue" : "Hüquqi problem bildir"}</span>
           `;
           morePopover.appendChild(reportBtn);
 
@@ -1876,6 +1953,7 @@ function openGroundingSourcesModal(groundingMetadata) {
   const dragHandle = element("div", "ask-sources-drag-handle");
   dragHandle.setAttribute("aria-hidden", "true");
 
+  const isEn = getLanguage() === "en";
   const header = element("div", "ask-sources-drawer-header");
   const titleGroup = element("div", "ask-sources-drawer-title-group");
   const titleRow = element("div", "ask-sources-drawer-title-row");
@@ -1888,10 +1966,10 @@ function openGroundingSourcesModal(groundingMetadata) {
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
     </svg>
   `;
-  const title = element("h3", "", "İstifadə olunan mənbələr");
+  const title = element("h3", "", isEn ? "Sources Used" : "İstifadə olunan mənbələr");
   titleRow.append(icon, title);
 
-  const subtitle = element("p", "", "Canlı axtarış vasitəsilə əldə edilən veb mənbələri");
+  const subtitle = element("p", "", isEn ? "Web citations and grounding references retrieved via real-time search" : "Canlı axtarış vasitəsilə əldə edilən veb mənbələri");
   titleGroup.append(titleRow, subtitle);
 
   const closeModal = () => {
@@ -1902,7 +1980,7 @@ function openGroundingSourcesModal(groundingMetadata) {
 
   const closeBtn = element("button", "ask-sources-drawer-close");
   closeBtn.type = "button";
-  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
   closeBtn.innerHTML = `
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="18" y1="6" x2="6" y2="18"/>
@@ -1916,7 +1994,7 @@ function openGroundingSourcesModal(groundingMetadata) {
 
   if (searchQueries.length > 0) {
     const queriesBox = element("div", "ask-sources-queries-box");
-    const queriesLabel = element("div", "ask-sources-queries-label", "Axtarış sorğuları:");
+    const queriesLabel = element("div", "ask-sources-queries-label", isEn ? "Search queries:" : "Axtarış sorğuları:");
     const queriesTags = element("div", "ask-sources-queries-tags");
     searchQueries.forEach((query) => {
       queriesTags.appendChild(element("span", "ask-sources-query-tag", query));
@@ -1966,7 +2044,7 @@ function openGroundingSourcesModal(groundingMetadata) {
     });
     body.appendChild(list);
   } else {
-    body.appendChild(element("p", "ask-sources-empty", "Bu cavab üçün əlavə veb keçidi tapılmadı."));
+    body.appendChild(element("p", "ask-sources-empty", isEn ? "No web links found for this response." : "Bu cavab üçün əlavə veb keçidi tapılmadı."));
   }
 
   drawer.append(dragHandle, header, body);
@@ -2399,20 +2477,20 @@ function renderLoading() {
   const isAssessment = state.status === "analyzing";
   const phases = isAssessment
     ? (isEn ? [
-      ["Structuring brief", "Consolidating business goals, target market, and key constraints into a unified context."],
-      ["Checking critical gaps", "Verifying if any crucial details required for strategic quality are missing."],
-      ["Determining next step", "Deciding whether to proceed directly or request a brief clarification."],
+      ["Structuring brief", "Synthesizing business goals, target market, and core constraints into a unified context."],
+      ["Auditing strategic gaps", "Evaluating if critical inputs or market details require clarification."],
+      ["Determining next step", "Deciding whether to build directly or request quick targeted clarification."],
     ] : [
       ["Brif strukturlaşdırılır", "Biznes məqsədini, bazarı və əsas məhdudiyyətləri vahid kontekstdə toplayıram."],
       ["Kritik boşluqlar yoxlanılır", "Yalnız strategiyanın keyfiyyətini dəyişəcək məlumatların çatışıb-çatışmadığını yoxlayıram."],
       ["Növbəti addım seçilir", "Mövcud məlumatla davam etmək və ya qısa dəqiqləşdirmə istəmək qərarı hazırlanır."],
     ])
     : (isEn ? [
-      ["Structuring brief", "Connecting audience, goals, timeline, and budget into a unified strategic framework."],
-      ["Setting priorities", "Sequencing high-impact decisions and critical dependencies."],
-      ["Crafting strategy", "Aligning positioning, channels, and core value proposition."],
-      ["Building execution plan", "Transforming strategic directions into sequential, actionable phases."],
-      ["Verifying KPIs and risks", "Aligning success metrics, risk mitigations, and immediate next steps."],
+      ["Structuring brief", "Unifying audience, goals, timelines, and budget into an actionable framework."],
+      ["Setting strategic priorities", "Sequencing high-leverage decisions and critical growth dependencies."],
+      ["Architecting strategy", "Aligning value proposition, target segments, and channel mix."],
+      ["Building execution roadmap", "Transforming strategic goals into a phased 30-60-90 day milestone plan."],
+      ["Finalizing KPIs & mitigations", "Defining measurable success metrics, contingencies, and next steps."],
     ] : [
       ["Brif strukturlaşdırılır", "Auditoriya, məqsəd, vaxt və büdcə bir strateji çərçivədə birləşdirilir."],
       ["Prioritetlər müəyyən edilir", "Ən yüksək təsir yaradacaq qərarlar və asılılıqlar sıralanır."],
@@ -2431,14 +2509,14 @@ function renderLoading() {
   const title = element(
     "h1",
     "loading-title",
-    isAssessment ? (isEn ? "From brief to next decision" : "Brifdən növbəti qərara") : (isEn ? "From brief to execution roadmap" : "Brifdən icra planına"),
+    isAssessment ? (isEn ? "Analyzing your brief" : "Brifdən növbəti qərara") : (isEn ? "Building your execution roadmap" : "Brifdən icra planına"),
   );
   const intro = element(
     "p",
     "loading-intro",
     isAssessment
-      ? (isEn ? "Evaluating inputs to determine the optimal next steps." : "Məlumatları yoxlayıb ən doğru növbəti addımı müəyyənləşdiririk.")
-      : (isEn ? "Marketify transforms your business context into a structured strategy." : "Marketify daxil etdiyin konteksti strukturlaşdırılmış strategiyaya çevirir."),
+      ? (isEn ? "Synthesizing your input to tailor strategic recommendations." : "Məlumatları yoxlayıb ən doğru növbəti addımı müəyyənləşdiririk.")
+      : (isEn ? "Generating strategic priorities, channel mix, KPIs, and execution milestones." : "Marketify daxil etdiyin konteksti strukturlaşdırılmış strategiyaya çevirir."),
   );
 
   const activity = element("div", "loading-activity");
@@ -2485,8 +2563,8 @@ function renderLoading() {
     "span",
     "",
     isAssessment
-      ? (isEn ? "If critical details are missing, we will ask only essential questions." : "Vacib detal çatışmasa, yalnız zəruri sualları verəcəyik.")
-      : (isEn ? "You will be redirected straight to the strategy workspace once ready." : "Məzmun hazır olduqda birbaşa strategiya iş sahəsinə keçəcəksən."),
+      ? (isEn ? "If any critical context is missing, we will ask only essential questions." : "Vacib detal çatışmasa, yalnız zəruri sualları verəcəyik.")
+      : (isEn ? "You will be redirected straight to your strategic workspace once ready." : "Məzmun hazır olduqda birbaşa strategiya iş sahəsinə keçəcəksən."),
   );
   reassurance.append(sparkIcon, reassuranceText);
 
@@ -2510,7 +2588,7 @@ function renderLoading() {
     `;
     bgBtn.addEventListener("click", () => {
       const confirmMsg = isEn
-        ? "Returning to home screen. Would you like to continue generating this strategy in the background? Once complete, it will be saved in your Archive."
+        ? "Your strategy is being generated in the background and will be automatically saved to your Archive. Return to Home?"
         : "Əsas səhifəyə qayıdırsınız. Bu strategiyanın hazırlanmasını arxa planda davam etdirmək istəyirsiniz? Nəticə hazır olduqda Arxiv bölməsində saxlanılacaq.";
       if (window.confirm(confirmMsg)) {
         minimizeToBackground();
@@ -2567,7 +2645,7 @@ function renderLoading() {
     bgBtn.addEventListener("click", () => {
       const confirmed = window.confirm(
         isEn
-          ? "Returning to home screen. Would you like to continue generating this strategy in the background? Once complete, it will be saved in your Archive."
+          ? "Your strategy is being generated in the background and will be automatically saved to your Archive. Return to Home?"
           : "Əsas səhifəyə qayıdırsınız. Bu strategiyanın hazırlanmasını arxa planda davam etdirmək istəyirsiniz? Nəticə hazır olduqda Arxiv bölməsində saxlanılacaq."
       );
       if (confirmed) {
@@ -2602,7 +2680,7 @@ function renderLoading() {
       <circle cx="12" cy="12" r="9"/>
       <polyline points="12 7 12 12 15 15"/>
     </svg>
-    <span>Tarixçə</span>
+    <span>${isEn ? "History" : "Tarixçə"}</span>
     ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
   `;
   historyBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
@@ -2631,6 +2709,7 @@ function renderLoading() {
 }
 
 function cancelCurrentAnalysis() {
+  const isEn = getLanguage() === "en";
   clearInterval(progressTimer);
   clearInterval(loadingAskPlaceholderTimer);
   if (currentAbortController) {
@@ -2639,12 +2718,13 @@ function cancelCurrentAnalysis() {
   }
   document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-modal-overlay").forEach((el) => el.remove());
   state.status = "draft";
-  showToast("Brif analizi dayandırıldı.", "default");
+  showToast(isEn ? "Brief analysis canceled." : "Brif analizi dayandırıldı.", "default");
   render();
 }
 
 function minimizeToBackground() {
   if (state.status !== "generating") return;
+  const isEn = getLanguage() === "en";
 
   const existingJob = backgroundJobs.find((j) => j.idempotencyKey === state.clientSaveId);
   const job = existingJob || {
@@ -2703,10 +2783,11 @@ function minimizeToBackground() {
     faqExpandedAll: false,
   });
   render();
-  showToast("Strategiya arxa planda hazırlanır ✦", "default");
+  showToast(isEn ? "Strategy generating in background ✦" : "Strategiya arxa planda hazırlanır ✦", "default");
 }
 
 async function autoSaveBackgroundJob(job) {
+  const isEn = getLanguage() === "en";
   try {
     const data = await api("/api/strategy/save", {
       method: "POST",
@@ -2721,7 +2802,7 @@ async function autoSaveBackgroundJob(job) {
     job.savedId = data.strategy.id;
     removeBackgroundJob(job.id);
     await loadSavedStrategies();
-    showToast("Strategiya hazırlandı və arxivə saxlanıldı ✓");
+    showToast(isEn ? "Strategy generated and saved to archive ✓" : "Strategiya hazırlandı və arxivə saxlanıldı ✓");
   } catch (error) {
     console.error("Auto-save background job failed:", error);
     persistBackgroundJobs();
@@ -2730,6 +2811,7 @@ async function autoSaveBackgroundJob(job) {
 
 async function resumeBackgroundJobs() {
   if (!backgroundJobs.length) return;
+  const isEn = getLanguage() === "en";
 
   // Ensure saved strategies are loaded
   if (!state.savedStrategies || !state.savedStrategies.length) {
@@ -2773,18 +2855,18 @@ async function resumeBackgroundJobs() {
       if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
         state.strategy = data.strategy;
         state.updatedAt = new Date().toISOString();
-        state.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: state.updatedAt }];
+        state.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: isEn ? "Initial Strategy" : "İlkin strategiya", createdAt: state.updatedAt }];
         removeBackgroundJob(job.id);
         setStatus("ready");
         render();
-        showToast("Strategiya hazırdır ✓");
+        showToast(isEn ? "Strategy is ready ✓" : "Strategiya hazırdır ✓");
         return;
       }
 
       job.status = "ready";
       job.strategy = data.strategy;
       job.completedAt = new Date().toISOString();
-      job.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: "İlkin strategiya", createdAt: job.completedAt }];
+      job.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: isEn ? "Initial Strategy" : "İlkin strategiya", createdAt: job.completedAt }];
       persistBackgroundJobs();
       await autoSaveBackgroundJob(job);
     } catch (err) {
@@ -2814,7 +2896,7 @@ async function resumeBackgroundJobs() {
       }
 
       job.status = "error";
-      job.error = err.message || "Xəta baş verdi";
+      job.error = err.message || (isEn ? "An error occurred." : "Xəta baş verdi");
       persistBackgroundJobs();
       if (state.view === "list") renderStrategyList();
     }
@@ -2833,6 +2915,7 @@ window.addEventListener("online", () => {
 function openBackgroundJob(jobId) {
   const job = backgroundJobs.find((j) => j.id === jobId);
   if (!job) return;
+  const isEn = getLanguage() === "en";
 
   if (job.status === "ready" && job.strategy) {
     Object.assign(state, {
@@ -2865,7 +2948,7 @@ function openBackgroundJob(jobId) {
     render();
     closeSidebar();
   } else if (job.status === "error") {
-    showToast(job.error || "Xəta baş verdi", "error");
+    showToast(job.error || (isEn ? "An error occurred." : "Xəta baş verdi"), "error");
     removeBackgroundJob(jobId);
     if (state.view === "list") renderStrategyList();
   }
@@ -2874,6 +2957,7 @@ function openBackgroundJob(jobId) {
 function showAnalysisHistoryModal(isAssessment = true) {
   const existing = document.querySelector(".analysis-history-overlay");
   if (existing) existing.remove();
+  const isEn = getLanguage() === "en";
 
   const overlay = element("div", "analysis-history-overlay");
   const drawer = element("div", "analysis-history-drawer");
@@ -2882,8 +2966,8 @@ function showAnalysisHistoryModal(isAssessment = true) {
 
   const header = element("div", "analysis-history-header");
   const titleGroup = element("div", "analysis-history-title-group");
-  const title = element("h3", "", "Söhbət və Brif Tarixçəsi");
-  const subtitle = element("p", "", "Daxil edilmiş məlumatlar və dəqiqləşdirmə dialoqu");
+  const title = element("h3", "", isEn ? "Brief & Clarification History" : "Söhbət və Brif Tarixçəsi");
+  const subtitle = element("p", "", isEn ? "Captured business context and clarification responses" : "Daxil edilmiş məlumatlar və dəqiqləşdirmə dialoqu");
   titleGroup.append(title, subtitle);
 
   const closeModal = () => {
@@ -2894,7 +2978,7 @@ function showAnalysisHistoryModal(isAssessment = true) {
 
   const closeBtn = element("button", "analysis-history-close");
   closeBtn.type = "button";
-  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
   closeBtn.innerHTML = `
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="18" y1="6" x2="6" y2="18"/>
@@ -2918,8 +3002,8 @@ function showAnalysisHistoryModal(isAssessment = true) {
             <circle cx="12" cy="7" r="4"/>
           </svg>
         </span>
-        <strong class="history-item-sender">İlkin Brif</strong>
-        <span class="history-item-tag">İstifadəçi</span>
+        <strong class="history-item-sender">${isEn ? "Initial Brief" : "İlkin Brif"}</strong>
+        <span class="history-item-tag">${isEn ? "User" : "İstifadəçi"}</span>
       </div>
       <div class="history-item-content">
         <p>${escapeHtml(state.brief)}</p>
@@ -2941,7 +3025,7 @@ function showAnalysisHistoryModal(isAssessment = true) {
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
             </svg>
           </span>
-          <strong class="history-item-sender">Dəqiqləşdirmə Sualı #${idx + 1}</strong>
+          <strong class="history-item-sender">${isEn ? `Clarification Question #${idx + 1}` : `Dəqiqləşdirmə Sualı #${idx + 1}`}</strong>
           <span class="history-item-tag ai-tag">Marketify AI</span>
         </div>
         <div class="history-item-content">
@@ -2957,8 +3041,8 @@ function showAnalysisHistoryModal(isAssessment = true) {
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </span>
-          <strong class="history-item-sender">Cavabınız</strong>
-          <span class="history-item-tag">İstifadəçi</span>
+          <strong class="history-item-sender">${isEn ? "Your Answer" : "Cavabınız"}</strong>
+          <span class="history-item-tag">${isEn ? "User" : "İstifadəçi"}</span>
         </div>
         <div class="history-item-content">
           <p>${escapeHtml(item.answer)}</p>
@@ -2970,7 +3054,7 @@ function showAnalysisHistoryModal(isAssessment = true) {
     });
   } else if (!state.brief) {
     const emptyState = element("div", "history-empty-state");
-    emptyState.innerHTML = `<p>Hələlik qeydə alınmış məlumat yoxdur.</p>`;
+    emptyState.innerHTML = `<p>${isEn ? "No context recorded yet." : "Hələlik qeydə alınmış məlumat yoxdur."}</p>`;
     body.appendChild(emptyState);
   }
 
@@ -2978,7 +3062,7 @@ function showAnalysisHistoryModal(isAssessment = true) {
   footer.innerHTML = `
     <div class="history-status-indicator">
       <span class="history-pulse-dot"></span>
-      <span>${isAssessment ? "Brif analiz olunur…" : "Strategiya formalaşdırılır…"}</span>
+      <span>${isAssessment ? (isEn ? "Analyzing brief…" : "Brif analiz olunur…") : (isEn ? "Synthesizing strategy…" : "Strategiya formalaşdırılır…")}</span>
     </div>
   `;
 
@@ -3003,6 +3087,7 @@ function showAnalysisHistoryModal(isAssessment = true) {
 function showLoadingAskModal(initialQuery) {
   const existing = document.querySelector(".loading-ask-modal-overlay");
   if (existing) existing.remove();
+  const isEn = getLanguage() === "en";
 
   const overlay = element("div", "loading-ask-modal-overlay");
   const modal = element("div", "loading-ask-modal");
@@ -3012,13 +3097,13 @@ function showLoadingAskModal(initialQuery) {
   const header = element("div", "loading-ask-modal-header");
   const titleGroup = element("div", "loading-ask-modal-title-group");
   const titleRow = element("div", "loading-ask-modal-title-row");
-  const title = element("h3", "", "Marketify-dan soruş");
+  const title = element("h3", "", isEn ? "Strategic Marketing Copilot" : "Marketify-dan soruş");
   titleRow.appendChild(title);
 
   const statusSub = element("div", "loading-ask-modal-status");
   statusSub.innerHTML = `
     <span class="history-pulse-dot"></span>
-    <span>Brif analizi arxa planda davam edir…</span>
+    <span>${isEn ? "Brief analysis running in background…" : "Brif analizi arxa planda davam edir…"}</span>
   `;
   titleGroup.append(titleRow, statusSub);
 
@@ -3030,7 +3115,7 @@ function showLoadingAskModal(initialQuery) {
 
   const closeBtn = element("button", "analysis-history-close");
   closeBtn.type = "button";
-  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
   closeBtn.innerHTML = `
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="18" y1="6" x2="6" y2="18"/>
@@ -3045,13 +3130,13 @@ function showLoadingAskModal(initialQuery) {
   const modalForm = element("form", "loading-ask-modal-form");
   const modalInput = element("input", "loading-ask-modal-input");
   modalInput.type = "text";
-  modalInput.placeholder = "Əlavə sualını yaz…";
+  modalInput.placeholder = isEn ? "Ask a follow-up or marketing question…" : "Əlavə sualını yaz…";
   modalInput.autocomplete = "off";
   modalInput.maxLength = 1000;
 
   const modalSend = element("button", "loading-ask-send-btn");
   modalSend.type = "submit";
-  modalSend.setAttribute("aria-label", "Göndər");
+  modalSend.setAttribute("aria-label", isEn ? "Send" : "Göndər");
   modalSend.innerHTML = `
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="12" y1="19" x2="12" y2="5"></line>
@@ -3090,7 +3175,7 @@ function showLoadingAskModal(initialQuery) {
             <circle cx="12" cy="7" r="4"/>
           </svg>
         </span>
-        <strong>Siz</strong>
+        <strong>${isEn ? "You" : "Siz"}</strong>
       </div>
       <div class="ask-thread-msg-content"><p>${escapeHtml(text)}</p></div>
     `;
@@ -3140,7 +3225,7 @@ function showLoadingAskModal(initialQuery) {
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Cavab almaq mümkün olmadı.");
+        throw new Error(errorData.error || (isEn ? "Unable to generate response." : "Cavab almaq mümkün olmadı."));
       }
 
       loadingItem.classList.remove("is-thinking");
@@ -3167,7 +3252,7 @@ function showLoadingAskModal(initialQuery) {
           if (data.status === "searching") {
             const dots = loadingItem.querySelector(".loading-processing-dots");
             if (dots && !loadingItem.querySelector(".ask-searching-badge")) {
-              const badge = element("div", "ask-searching-badge", "Veb axtarışı...");
+              const badge = element("div", "ask-searching-badge", isEn ? "Searching the web…" : "Veb axtarışı...");
               loadingItem.querySelector(".ask-thread-msg-content")?.prepend(badge);
             }
           }
@@ -3180,7 +3265,7 @@ function showLoadingAskModal(initialQuery) {
             reply = data.reply || reply;
             renderReply();
             if (data.groundingMetadata) {
-              const sourcesBtn = button("🌐 Mənbələr", "ask-thread-sources-btn", () => {
+              const sourcesBtn = button(isEn ? "🌐 Sources" : "🌐 Mənbələr", "ask-thread-sources-btn", () => {
                 openGroundingSourcesModal(data.groundingMetadata);
               });
               sourcesBtn.type = "button";
@@ -3217,13 +3302,13 @@ function showLoadingAskModal(initialQuery) {
         eventLines = [];
       }
 
-      if (!reply) throw new Error("AI boş cavab qaytardı.");
+      if (!reply) throw new Error(isEn ? "AI returned an empty response." : "AI boş cavab qaytardı.");
       renderReply();
       thread.push({ role: "assistant", content: reply });
     } catch (err) {
       loadingItem.classList.remove("is-thinking");
       const contentWrap = loadingItem.querySelector(".ask-thread-msg-content");
-      contentWrap.innerHTML = `<p class="ask-thread-error">${escapeHtml(err.message || "Cavab almaq mümkün olmadı.")}</p>`;
+      contentWrap.innerHTML = `<p class="ask-thread-error">${escapeHtml(err.message || (isEn ? "Unable to generate response." : "Cavab almaq mümkün olmadı."))}</p>`;
     } finally {
       messagesBody.scrollTop = messagesBody.scrollHeight;
       modalInput.focus();
@@ -3245,8 +3330,8 @@ function showLoadingAskModal(initialQuery) {
     welcome.innerHTML = `
       <div class="loading-ask-welcome-spark">✦</div>
       <div class="loading-ask-welcome-text">
-        <strong>Marketify-dan soruş</strong>
-        <p>Brif analizi arxa planda davam edərkən istənilən marketinq sualınızı verə bilərsiniz.</p>
+        <strong>${isEn ? "Strategic Marketing Copilot" : "Marketify-dan soruş"}</strong>
+        <p>${isEn ? "Explore marketing questions, unit economics, or channel ideas while your strategy brief is being analyzed." : "Brif analizi arxa planda davam edərkən istənilən marketinq sualınızı verə bilərsiniz."}</p>
       </div>
     `;
     const suggestionsWrap = element("div", "loading-ask-suggestions");
@@ -3313,9 +3398,9 @@ function renderClarification() {
   view.setAttribute("aria-labelledby", "clarificationTitle");
   const top = element("div", "clarification-heading");
   top.append(
-    element("div", "step-label", state.round ? (isEn ? "ONE MORE DETAIL" : "BİR DETAL DA DƏQİQLƏŞDİRƏK") : (isEn ? "BRIEF CLARIFICATION" : "QISA DƏQİQLƏŞDİRMƏ")),
-    element("h1", "clarification-title", isEn ? "Let's clarify your strategy" : "Strategiyanı dəqiqləşdirək"),
-    element("p", "clarification-copy", isEn ? "A few key details will tailor the strategy directly to your business." : "Bir neçə vacib detal strategiyanı real biznesinə uyğunlaşdıracaq."),
+    element("div", "step-label", state.round ? (isEn ? "FOLLOW-UP CLARIFICATION" : "BİR DETAL DA DƏQİQLƏŞDİRƏK") : (isEn ? "STRATEGY CLARIFICATION" : "QISA DƏQİQLƏŞDİRMƏ")),
+    element("h1", "clarification-title", isEn ? "Sharpen your strategy details" : "Strategiyanı dəqiqləşdirək"),
+    element("p", "clarification-copy", isEn ? "A few targeted details will ensure an accurate, execution-ready strategy." : "Bir neçə vacib detal strategiyanı real biznesinə uyğunlaşdıracaq."),
   );
 
   const progressMeta = element("div", "clarification-progress-meta");
@@ -3336,9 +3421,9 @@ function renderClarification() {
     textInput.name = question.id;
     textInput.rows = 4;
     textInput.maxLength = 1500;
-    textInput.placeholder = isEn ? "Write your answer briefly and specifically…" : "Cavabını qısa və konkret yaz…";
+    textInput.placeholder = isEn ? "Enter your answer or key preferences…" : "Cavabını qısa və konkret yaz…";
     textInput.value = state.clarificationDrafts[question.id] || "";
-    stage.append(textInput, element("p", "question-example", isEn ? "For example: core product, target audience, budget, or key differentiator." : "Məsələn: əsas məhsul, auditoriya, büdcə və ya fərqləndirici yanaşma."));
+    stage.append(textInput, element("p", "question-example", isEn ? "e.g. Core offerings, target customer profile, budget constraints, or unique value proposition." : "Məsələn: əsas məhsul, auditoriya, büdcə və ya fərqləndirici yanaşma."));
   } else {
     const options = element("div", "choice-grid");
     const selected = new Set(Array.isArray(state.clarificationDrafts[question.id]) ? state.clarificationDrafts[question.id] : [state.clarificationDrafts[question.id]].filter(Boolean));
@@ -3349,7 +3434,8 @@ function renderClarification() {
       input.name = question.id;
       input.value = option;
       input.checked = selected.has(option);
-      label.append(input, element("span", "", option));
+      const displayOption = isEn && option === "Digər" ? "Other (specify)" : option;
+      label.append(input, element("span", "", displayOption));
       options.appendChild(label);
     });
     stage.appendChild(options);
@@ -3358,7 +3444,7 @@ function renderClarification() {
 
   const context = document.createElement("details");
   context.className = "clarification-context";
-  const contextSummary = element("summary", "", isEn ? "What Marketify knows" : "Marketify nə bilir?");
+  const contextSummary = element("summary", "", isEn ? "Captured Context & Brief" : "Marketify nə bilir?");
   const contextBody = element("div", "clarification-context-body");
   const briefRow = element("div", "context-summary-row");
   briefRow.append(element("strong", "", isEn ? "Brief" : "Brif"), element("span", "", state.brief.slice(0, 220)));
@@ -3377,8 +3463,8 @@ function renderClarification() {
     render();
   });
   back.disabled = index === 0;
-  const skip = button(isEn ? "Not sure / Skip" : "Dəqiq bilmirəm", "text-button clarification-skip");
-  const continueButton = button(index === state.questions.length - 1 ? (isEn ? "Complete" : "Tamamla") : (isEn ? "Continue" : "Davam et"), "primary-button");
+  const skip = button(isEn ? "Skip / Use Best Estimate" : "Dəqiq bilmirəm", "text-button clarification-skip");
+  const continueButton = button(index === state.questions.length - 1 ? (isEn ? "Generate Strategy" : "Tamamla") : (isEn ? "Continue" : "Davam et"), "primary-button");
   continueButton.type = "submit";
   continueButton.appendChild(element("span", "button-arrow", "→"));
   const actionRight = element("div", "clarification-action-right");
@@ -3388,7 +3474,7 @@ function renderClarification() {
 
   const advance = (answer) => {
     if (!answer) {
-      showToast(isEn ? "Select or write an answer to continue." : "Davam etmək üçün cavab seç və ya yaz.", "error");
+      showToast(isEn ? "Please select or type an answer to continue." : "Davam etmək üçün cavab seç və ya yaz.", "error");
       return;
     }
     state.clarificationDrafts[question.id] = question.inputType === "multi_choice" ? answer.split(", ") : answer;
@@ -3407,7 +3493,7 @@ function renderClarification() {
     startAssessment();
   };
 
-  skip.addEventListener("click", () => advance(isEn ? "Not specified — use a reasoned working assumption." : "Dəqiq məlum deyil — əsaslandırılmış işçi fərziyyə istifadə et."));
+  skip.addEventListener("click", () => advance(isEn ? "Not specified — infer the most strategic industry standard." : "Dəqiq məlum deyil — əsaslandırılmış işçi fərziyyə istifadə et."));
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const value = textInput ? textInput.value.trim() : new FormData(form).getAll(question.id).join(", ").trim();
@@ -4144,7 +4230,7 @@ function buildFaqView(strategy) {
           card.append(h, ul);
           if (ph.expectedOutcome) {
             const out = element("div", "phase-outcome");
-            out.append(element("span", "outcome-icon", "🎯"), element("strong", "", isEn ? "Expected outcome: " : "Gözlənilən nəticə: "), document.createTextNode(ph.expectedOutcome));
+            out.append(element("span", "outcome-icon", "🎯"), element("strong", "", isEn ? "Expected Outcome: " : "Gözlənilən nəticə: "), document.createTextNode(ph.expectedOutcome));
             card.appendChild(out);
           }
           timeline.appendChild(card);
@@ -4183,7 +4269,7 @@ function buildFaqView(strategy) {
               element("h3", "risk-title", r.risk)
             );
             const mit = element("div", "risk-mitigation");
-            mit.append(element("strong", "", isEn ? "Mitigation: " : "Həll yolu: "), document.createTextNode(r.mitigation));
+            mit.append(element("strong", "", isEn ? "Mitigation Strategy: " : "Həll yolu: "), document.createTextNode(r.mitigation));
             card.append(top, mit);
             riskGrid.appendChild(card);
           });
@@ -4199,7 +4285,7 @@ function buildFaqView(strategy) {
       renderBody: () => {
         const body = element("div", "faq-body-content");
         const checklistGrid = element("div", "action-checklist-grid");
-        const groupLabels = isEn ? ["Today", "Next 48 hours", "This week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+        const groupLabels = isEn ? ["Today", "Next 48 Hours", "This Week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
         const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
         groupLabels.forEach((label, groupIndex) => {
           const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
@@ -4324,7 +4410,7 @@ function buildRoadmapView(strategy) {
       const outcome = element("div", "phase-outcome");
       outcome.append(
         element("span", "outcome-icon", "🎯"),
-        element("strong", "", isEn ? "Expected outcome: " : "Gözlənilən nəticə: "),
+        element("strong", "", isEn ? "Expected Outcome: " : "Gözlənilən nəticə: "),
         document.createTextNode(phase.expectedOutcome),
       );
       card.appendChild(outcome);
@@ -4343,12 +4429,12 @@ function buildRoadmapView(strategy) {
       : createSectionHeading("NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addımlar")
   );
 
-  const addAllToPlannerButton = button(isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et", "add-to-planner-btn", async () => {
+  const addAllToPlannerButton = button(isEn ? "✦ Add All Tasks to Planner" : "✦ Planlaşdırılanlara əlavə et", "add-to-planner-btn", async () => {
     addAllToPlannerButton.disabled = true;
     addAllToPlannerButton.textContent = isEn ? "Adding…" : "Əlavə edilir…";
     try {
       const itemsToBatch = [];
-      const groupLabels = isEn ? ["Today", "Next 48 hours", "This week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+      const groupLabels = isEn ? ["Today", "Next 48 Hours", "This Week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
       const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
       groupLabels.forEach((label, groupIndex) => {
         const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
@@ -4372,12 +4458,12 @@ function buildRoadmapView(strategy) {
       addAllToPlannerButton.textContent = isEn ? "✓ Added" : "✓ Əlavə edildi";
       setTimeout(() => {
         addAllToPlannerButton.disabled = false;
-        addAllToPlannerButton.textContent = isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et";
+        addAllToPlannerButton.textContent = isEn ? "✦ Add All Tasks to Planner" : "✦ Planlaşdırılanlara əlavə et";
       }, 2500);
     } catch (err) {
       showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
       addAllToPlannerButton.disabled = false;
-      addAllToPlannerButton.textContent = isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et";
+      addAllToPlannerButton.textContent = isEn ? "✦ Add All Tasks to Planner" : "✦ Planlaşdırılanlara əlavə et";
     }
   });
 
@@ -4385,7 +4471,7 @@ function buildRoadmapView(strategy) {
   closeout.appendChild(headingWrapper);
 
   const checklistGrid = element("div", "action-checklist-grid");
-  const groupLabels = isEn ? ["Today", "Next 48 hours", "This week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+  const groupLabels = isEn ? ["Today", "Next 48 Hours", "This Week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
   const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
   groupLabels.forEach((label, groupIndex) => {
     const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
@@ -4400,7 +4486,7 @@ function buildRoadmapView(strategy) {
       checkbox.dataset.key = `roadmap-${groupIndex}-${itemIndex}`;
       const span = element("span", "checklist-item-text", item);
 
-      const singleAddBtn = button(isEn ? "+ Plan" : "+ Planlaşdır", "item-plan-btn", async (e) => {
+      const singleAddBtn = button(isEn ? "+ Add to Planner" : "+ Planlaşdır", "item-plan-btn", async (e) => {
         e.preventDefault();
         e.stopPropagation();
         singleAddBtn.disabled = true;
@@ -4499,6 +4585,7 @@ async function ensureStrategyAskContext() {
 }
 
 function buildStrategyAskMessage(message, messageIndex) {
+  const isEn = getLanguage() === "en";
   const isAssistant = message.role === "assistant";
   const isStreaming = Boolean(message.isStreaming);
   const row = element("article", `strategy-ask-message ask-message ask-message-${message.role}${isStreaming ? " is-streaming" : ""}`);
@@ -4511,7 +4598,7 @@ function buildStrategyAskMessage(message, messageIndex) {
       iconWrap.innerHTML = getFileIconSvg(message.file.mimeType || message.file.type, message.file.name);
       const meta = element("div", "ask-message-attachment-meta");
       meta.append(
-        element("span", "ask-message-attachment-name", message.file.name || "Fayl"),
+        element("span", "ask-message-attachment-name", message.file.name || (isEn ? "File" : "Fayl")),
         element("span", "ask-message-attachment-size", formatFileSize(message.file.size))
       );
       fileBadge.append(iconWrap, meta);
@@ -4537,9 +4624,11 @@ function buildStrategyAskMessage(message, messageIndex) {
         `)
       : element("span", "strategy-ask-thinking-spark", "✦");
     const modelInfo = getAskMessageModelInfo(message.model);
-    let labelText = modelInfo.isTerra ? "Dərin analiz" : "Cavab hazırlanır";
+    let labelText = modelInfo.isTerra
+      ? (isEn ? "Deep Strategic Analysis…" : "Dərin analiz")
+      : (isEn ? "Synthesizing response…" : "Cavab hazırlanır");
     if (isSearching || message.statusText) {
-      labelText = message.statusText || "Veb axtarışı...";
+      labelText = message.statusText || (isEn ? "Searching the web…" : "Veb axtarışı...");
     }
     const label = element("span", "ask-thinking-label", labelText);
     const dots = element("span", "ask-thinking-dots");
@@ -4561,22 +4650,22 @@ function buildStrategyAskMessage(message, messageIndex) {
       setTimeout(() => copy.classList.remove("is-copied"), 1400);
     });
     copy.type = "button";
-    copy.title = "Kopyala";
-    copy.setAttribute("aria-label", "Cavabı kopyala");
+    copy.title = isEn ? "Copy" : "Kopyala";
+    copy.setAttribute("aria-label", isEn ? "Copy response" : "Cavabı kopyala");
     copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     actions.appendChild(copy);
 
     if (message.groundingMetadata) {
-      const sourcesBtn = button("🌐 Mənbələr", "strategy-ask-action strategy-ask-sources", () => {
+      const sourcesBtn = button(isEn ? "🌐 Web Sources" : "🌐 Mənbələr", "strategy-ask-action strategy-ask-sources", () => {
         openGroundingSourcesModal(message.groundingMetadata);
       });
       sourcesBtn.type = "button";
-      sourcesBtn.title = "Veb mənbələri";
+      sourcesBtn.title = isEn ? "Web sources" : "Veb mənbələri";
       actions.appendChild(sourcesBtn);
     }
 
     if (!getAskMessageModelInfo(message.model).isTerra) {
-      const deeper = button("✦ Dərin düşün", "strategy-ask-action strategy-ask-deeper", () => thinkDeeperWithTerra(messageIndex));
+      const deeper = button(isEn ? "✦ Think Deeper" : "✦ Dərin düşün", "strategy-ask-action strategy-ask-deeper", () => thinkDeeperWithTerra(messageIndex));
       deeper.type = "button";
       deeper.disabled = state.askLoading;
       actions.appendChild(deeper);
@@ -4585,8 +4674,8 @@ function buildStrategyAskMessage(message, messageIndex) {
       openLegalReportModal({ messageContent: message.content, model: getAskMessageModelInfo(message.model).displayName });
     });
     report.type = "button";
-    report.title = "Hüquqi problem bildir";
-    report.setAttribute("aria-label", "Hüquqi problem bildir");
+    report.title = isEn ? "Report issue" : "Hüquqi problem bildir";
+    report.setAttribute("aria-label", isEn ? "Report issue" : "Hüquqi problem bildir");
     report.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5h.01"/></svg>';
     actions.appendChild(report);
     content.appendChild(actions);
@@ -4597,6 +4686,7 @@ function buildStrategyAskMessage(message, messageIndex) {
 }
 
 function buildStrategyAskAssistant() {
+  const isEn = getLanguage() === "en";
   const root = element(
     "div",
     `strategy-ask-root${state.strategyAskOpen ? " is-open" : ""}${state.refinementOpen ? " is-refinement-open" : ""}`,
@@ -4611,18 +4701,18 @@ function buildStrategyAskAssistant() {
     if (askBtn) askBtn.setAttribute("aria-expanded", "false");
   });
   backdrop.type = "button";
-  backdrop.setAttribute("aria-label", "Strategiya söhbətini bağla");
+  backdrop.setAttribute("aria-label", isEn ? "Close strategy conversation" : "Strategiya söhbətini bağla");
   root.appendChild(backdrop);
 
   const panel = element("section", "strategy-ask-panel");
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", "true");
-  panel.setAttribute("aria-label", "Strategiya üzrə Marketify Ask");
+  panel.setAttribute("aria-label", isEn ? "Strategy Copilot" : "Strategiya üzrə Marketify Ask");
 
   const header = element("header", "strategy-ask-header");
   const heading = element("div", "strategy-ask-heading");
-  const title = element("strong", "", "Ask Marketify");
-  const context = element("span", "strategy-ask-context", state.strategy?.title || "Aktiv strategiya");
+  const title = element("strong", "", isEn ? "Strategy Copilot" : "Ask Marketify");
+  const context = element("span", "strategy-ask-context", state.strategy?.title || (isEn ? "Active Strategy" : "Aktiv strategiya"));
   heading.append(title, context);
   const close = button("", "strategy-ask-close", (e) => {
     e.preventDefault();
@@ -4633,7 +4723,7 @@ function buildStrategyAskAssistant() {
     if (askBtn) askBtn.setAttribute("aria-expanded", "false");
   });
   close.type = "button";
-  close.setAttribute("aria-label", "Söhbəti kiçilt");
+  close.setAttribute("aria-label", isEn ? "Minimize conversation" : "Söhbəti kiçilt");
   close.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>';
   header.append(heading, close);
 
@@ -4641,13 +4731,18 @@ function buildStrategyAskAssistant() {
   body.setAttribute("aria-live", "polite");
   if (!state.askMessages.length) {
     const welcome = element("div", "strategy-ask-welcome");
-    welcome.innerHTML = `<span class="strategy-ask-orb">✦</span><strong>Strategiyanı birlikdə təhlil edək</strong><p>Bu strategiyanın qərarları, prioritetləri, riskləri və icra addımları barədə soruş.</p>`;
+    welcome.innerHTML = `<span class="strategy-ask-orb">✦</span><strong>${isEn ? "Analyze this strategy together" : "Strategiyanı birlikdə təhlil edək"}</strong><p>${isEn ? "Ask about strategic decisions, key priorities, risks, or next action steps." : "Bu strategiyanın qərarları, prioritetləri, riskləri və icra addımları barədə soruş."}</p>`;
     body.appendChild(welcome);
-    [
+    const askSuggestions = isEn ? [
+      "What is the biggest risk in this strategy?",
+      "What should I prioritize in the first 30 days?",
+      "Identify critical blind spots in this plan.",
+    ] : [
       "Bu strategiyada ən böyük risk nədir?",
       "İlk 30 gündə nəyə fokuslanmalıyam?",
       "Bu planın zəif nöqtələrini göstər.",
-    ].forEach((question) => {
+    ];
+    askSuggestions.forEach((question) => {
       const suggestion = button(question, "strategy-ask-suggestion", async (e) => {
         e.preventDefault();
         if (state.askLoading) return;
@@ -4671,12 +4766,12 @@ function buildStrategyAskAssistant() {
   const input = element("textarea", "strategy-ask-input");
   input.rows = 1;
   input.maxLength = 8000;
-  input.placeholder = "Strategiya haqqında soruş…";
+  input.placeholder = isEn ? "Ask a question about this strategy…" : "Strategiya haqqında soruş…";
   input.disabled = state.askLoading;
   const send = button("", "strategy-ask-send");
   send.type = "submit";
   send.disabled = true;
-  send.setAttribute("aria-label", "Sualı göndər");
+  send.setAttribute("aria-label", isEn ? "Send question" : "Sualı göndər");
   send.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>';
   form.append(input, send);
 
@@ -4702,7 +4797,7 @@ function buildStrategyAskAssistant() {
     if (ready) submitAskMessage(message);
   });
 
-  footer.append(form, element("p", "strategy-ask-disclaimer", "Söhbət Ask tarixçəsində saxlanılır · Cavab aktiv strategiya əsasında hazırlanır."));
+  footer.append(form, element("p", "strategy-ask-disclaimer", isEn ? "Conversation is saved in Chat history · Answers are grounded in the active strategy." : "Söhbət Ask tarixçəsində saxlanılır · Cavab aktiv strategiya əsasında hazırlanır."));
   panel.append(header, body, footer);
   root.appendChild(panel);
 
@@ -4848,9 +4943,10 @@ function shortValue(value, max = 28) {
 }
 
 function budgetSignal(brief) {
-  const match = String(brief || "").match(/(?:₼|AZN|manat|büdcə)\s*[:：-]?\s*([\d.,]+(?:\s*[–-]\s*[\d.,]+)?)/i)
-    || String(brief || "").match(/([\d.,]+(?:\s*[–-]\s*[\d.,]+)?)\s*(?:AZN|₼|manat)/i);
-  return match ? `${match[1]} AZN` : "Optimallaşdırılmış";
+  const isEn = getLanguage() === "en";
+  const match = String(brief || "").match(/(?:₼|AZN|manat|büdcə|budget|\$|USD)\s*[:：-]?\s*([\d.,]+(?:\s*[–-]\s*[\d.,]+)?)/i)
+    || String(brief || "").match(/([\d.,]+(?:\s*[–-]\s*[\d.,]+)?)\s*(?:AZN|₼|manat|\$|USD)/i);
+  return match ? `${match[1]} AZN` : (isEn ? "Optimized" : "Optimallaşdırılmış");
 }
 
 function buildRefinementPanel() {
@@ -4890,12 +4986,12 @@ function buildRefinementPanel() {
   refineToggle.type = "button";
   refineToggle.setAttribute("aria-label", state.refinementOpen ? (isEn ? "Close refinement panel" : "Düzəliş pəncərəsini bağla") : (isEn ? "Request refinement" : "Strategiyada düzəliş istə"));
   refineToggle.setAttribute("aria-expanded", String(state.refinementOpen));
-  refineToggle.title = state.refinementOpen ? (isEn ? "Close" : "Bağla") : (isEn ? "Request edit" : "Düzəliş istə");
+  refineToggle.title = state.refinementOpen ? (isEn ? "Close" : "Bağla") : (isEn ? "Request strategic revisions" : "Düzəliş istə");
   refineToggle.innerHTML = `
     <svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
     </svg>
-    <span>${isEn ? "Refine" : "Düzəliş istə"}</span>
+    <span>${isEn ? "Refine Strategy" : "Düzəliş istə"}</span>
   `;
 
   // Export wrap + button with minimalist download/export icon + menu
@@ -4971,7 +5067,7 @@ function buildRefinementPanel() {
   askBtn.setAttribute("aria-expanded", String(state.strategyAskOpen));
   askBtn.innerHTML = `
     <svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h8M8 13h5"/></svg>
-    <span>${isEn ? "Ask about strategy" : "Strategiya barədə soruş"}</span>
+    <span>${isEn ? "Ask Strategy Copilot" : "Strategiya barədə soruş"}</span>
   `;
 
   actionsStrip.append(refineToggle, exportWrap, toolbarSeparator, saveBtn, askSeparator, askBtn);
@@ -5036,7 +5132,7 @@ function buildRefinementPanel() {
 function startRefinementPlaceholderTyping(input) {
   const isEn = getLanguage() === "en";
   const suggestions = isEn
-    ? ["Shorten", "Localize", "Think deeper", "Make practical", "Optimize budget"]
+    ? ["Make it more concise...", "Localize for regional market...", "Deepen competitive analysis...", "Focus on immediate quick wins...", "Optimize budget allocation..."]
     : ["Qısalt", "Lokallaşdır", "Daha dərindən düşün", "Praktik et", "Büdcəni optimallaşdır"];
   let suggestionIndex = 0;
   let characterIndex = 0;
@@ -5100,11 +5196,14 @@ async function requestRefinement(action, request) {
         createdAt: state.updatedAt,
       });
     }
+    const isEn = getLanguage() === "en";
     const actionLabel = QUICK_ACTIONS.find(([id]) => id === action)?.[1];
-    state.changeSummary = `Yeniləndi — ${actionLabel || "istədiyin dəyişiklik"} strategiyanın əlaqəli hissələrinə tətbiq olundu.`;
+    state.changeSummary = isEn
+      ? `Updated — ${actionLabel || "requested revisions"} applied to relevant strategy sections.`
+      : `Yeniləndi — ${actionLabel || "istədiyin dəyişiklik"} strategiyanın əlaqəli hissələrinə tətbiq olundu.`;
     setStatus(state.savedId ? "saved" : "ready");
     render();
-    showToast("Yeni strategiya versiyası hazırdır.");
+    showToast(isEn ? "New strategy version is ready." : "Yeni strategiya versiyası hazırdır.");
     if (state.savedId) loadSavedStrategies();
   } catch (error) {
     setError(error, () => requestRefinement(action, request), previousStatus);
@@ -5131,7 +5230,7 @@ async function saveStrategy() {
     setStatus("saved");
     trackEvent("strategy_saved", { versionCount: state.versions.length });
     render();
-    showToast("Strategiya workspace-ə əlavə edildi.");
+    showToast(isEn ? "Strategy saved to workspace." : "Strategiya workspace-ə əlavə edildi.");
     await loadSavedStrategies();
   } catch (error) {
     showToast(error.message, "error");
@@ -5139,36 +5238,37 @@ async function saveStrategy() {
 }
 
 function buildExportMenu(trigger) {
+  const isEn = getLanguage() === "en";
   const menu = element("div", "export-menu");
   menu.setAttribute("role", "menu");
-  const title = element("span", "export-label", "İxrac et");
+  const title = element("span", "export-label", isEn ? "Export" : "İxrac et");
   menu.appendChild(title);
 
-  const pdf = button("PDF sənədi (.pdf)", "export-option", () => {
+  const pdf = button(isEn ? "PDF Document (.pdf)" : "PDF sənədi (.pdf)", "export-option", () => {
     trackEvent("export_requested", { format: "pdf" });
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
-    showToast("PDF generasiya edilir və açılır…");
+    showToast(isEn ? "Generating and opening PDF…" : "PDF generasiya edilir və açılır…");
     exportStrategyToPDF(state.strategy);
   });
 
-  const doc = button("HTML sənədi (.html)", "export-option", () => {
+  const doc = button(isEn ? "HTML Report (.html)" : "HTML sənədi (.html)", "export-option", () => {
     trackEvent("export_requested", { format: "document" });
     downloadExport(createDocumentExport(state.strategy));
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
   });
 
-  const csv = button("CSV / Cədvəl (.csv)", "export-option", () => {
-    trackEvent("export_requested", { format: "spreadsheet" });
-    downloadExport(createSpreadsheetExport(state.strategy));
+  const excel = button(isEn ? "Excel Spreadsheet (.xls)" : "Excel cədvəli (.xls)", "export-option", () => {
+    trackEvent("export_requested", { format: "excel" });
+    downloadExport(createExcelExport(state.strategy));
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
   });
 
-  const excel = button("Excel cədvəli (.xls)", "export-option", () => {
-    trackEvent("export_requested", { format: "excel" });
-    downloadExport(createExcelExport(state.strategy));
+  const csv = button(isEn ? "CSV Data (.csv)" : "CSV / Cədvəl (.csv)", "export-option", () => {
+    trackEvent("export_requested", { format: "spreadsheet" });
+    downloadExport(createSpreadsheetExport(state.strategy));
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
   });
@@ -5178,6 +5278,7 @@ function buildExportMenu(trigger) {
 }
 
 function downloadExport(file) {
+  const isEn = getLanguage() === "en";
   const content = file.extension === "xls" && !String(file.content).startsWith("\ufeff")
     ? `\ufeff${file.content}`
     : file.content;
@@ -5189,7 +5290,7 @@ function downloadExport(file) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  showToast("Export faylı hazırdır.");
+  showToast(isEn ? "Export file ready." : "Export faylı hazırdır.");
 }
 
 async function loadSavedStrategies() {
@@ -5215,6 +5316,7 @@ async function loadSavedChats() {
 }
 
 async function openSavedChat(chatId) {
+  const isEn = getLanguage() === "en";
   try {
     const data = await api(`/api/ask/chats/${chatId}`);
     if (!data.chat) return;
@@ -5230,33 +5332,35 @@ async function openSavedChat(chatId) {
     render();
     closeSidebar();
   } catch (error) {
-    showToast("Söhbəti yükləmək mümkün olmadı.", "error");
+    showToast(isEn ? "Unable to load chat." : "Söhbəti yükləmək mümkün olmadı.", "error");
   }
 }
 
 async function deleteSavedChat(event, chatId) {
   event.stopPropagation();
+  const isEn = getLanguage() === "en";
   try {
     await api(`/api/ask/chats/${chatId}`, { method: "DELETE" });
     if (state.askChatId === chatId) {
       startNewChat();
     }
     await loadSavedChats();
-    showToast("Söhbət silindi.");
+    showToast(isEn ? "Chat deleted." : "Söhbət silindi.");
   } catch (error) {
-    showToast("Söhbəti silmək mümkün olmadı.", "error");
+    showToast(isEn ? "Unable to delete chat." : "Söhbəti silmək mümkün olmadı.", "error");
   }
 }
 
 function renderRecentList() {
+  const isEn = getLanguage() === "en";
   recentList.replaceChildren();
 
   if (state.mode === "ask") {
     if (!state.savedChats.length) {
       const empty = element("div", "recent-empty");
       empty.append(
-        element("strong", "", "Söhbətlər burada görünəcək."),
-        element("span", "", "Marketify Ask ilə apardığın söhbətlər burada saxlanılır.")
+        element("strong", "", isEn ? "Chats will appear here." : "Söhbətlər burada görünəcək."),
+        element("span", "", isEn ? "Your conversations with Marketify Ask are saved here." : "Marketify Ask ilə apardığın söhbətlər burada saxlanılır.")
       );
       recentList.appendChild(empty);
       return;
@@ -5271,12 +5375,12 @@ function renderRecentList() {
 
       const textWrap = element("div", "recent-text-wrap");
       textWrap.append(
-        element("span", "recent-title", chat.title || "Söhbət"),
+        element("span", "recent-title", chat.title || (isEn ? "Chat" : "Söhbət")),
         element("span", "recent-date", formatDate(chat.updatedAt || chat.createdAt))
       );
 
       const deleteBtn = button("", "recent-delete-btn", (e) => deleteSavedChat(e, chat.id));
-      deleteBtn.setAttribute("aria-label", "Söhbəti sil");
+      deleteBtn.setAttribute("aria-label", isEn ? "Delete chat" : "Söhbəti sil");
       deleteBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
 
       item.append(icon, textWrap, deleteBtn);
@@ -5287,7 +5391,10 @@ function renderRecentList() {
 
   if (!state.savedStrategies.length && !backgroundJobs.some((j) => j.status === "generating")) {
     const empty = element("div", "recent-empty");
-    empty.append(element("strong", "", "Strategiyalar burada görünəcək."), element("span", "", "Yadda saxladığın işlər bu bölmədə qalır."));
+    empty.append(
+      element("strong", "", isEn ? "Strategies will appear here." : "Strategiyalar burada görünəcək."),
+      element("span", "", isEn ? "Your saved strategy roadmaps are preserved here." : "Yadda saxladığın işlər bu bölmədə qalır.")
+    );
     recentList.appendChild(empty);
     return;
   }
@@ -5300,8 +5407,8 @@ function renderRecentList() {
     const pulse = element("span", "recent-bg-pulse");
     icon.appendChild(pulse);
     const textWrap = element("div", "recent-text-wrap");
-    const jobTitle = job.brief ? (job.brief.length > 26 ? job.brief.slice(0, 26) + "…" : job.brief) : "Yeni Strategiya";
-    textWrap.append(element("span", "recent-title", jobTitle), element("span", "recent-date", "Hazırlanır · " + formatDate(job.startedAt)));
+    const jobTitle = job.brief ? (job.brief.length > 26 ? job.brief.slice(0, 26) + "…" : job.brief) : (isEn ? "New Strategy" : "Yeni Strategiya");
+    textWrap.append(element("span", "recent-title", jobTitle), element("span", "recent-date", (isEn ? "Generating · " : "Hazırlanır · ") + formatDate(job.startedAt)));
     item.append(icon, textWrap);
     recentList.appendChild(item);
   });
@@ -5323,10 +5430,11 @@ function renderRecentList() {
 
 function updateWorkspaceIdentity(user) {
   state.currentUser = user;
+  const isEn = getLanguage() === "en";
   if (!user) {
     workspaceAvatar.textContent = "M";
     workspaceName.textContent = "Marketify workspace";
-    workspaceMeta.textContent = "Hesabsız istifadə · hesab yaratmaq tövsiyə olunur";
+    workspaceMeta.textContent = isEn ? "Guest session · account recommended" : "Hesabsız istifadə · hesab yaratmaq tövsiyə olunur";
     return;
   }
   const initials = user.fullName
@@ -5337,7 +5445,7 @@ function updateWorkspaceIdentity(user) {
     .join("") || "M";
   workspaceAvatar.textContent = initials;
   workspaceName.textContent = user.fullName;
-  workspaceMeta.textContent = `@${user.username} · Şəxsi hesab`;
+  workspaceMeta.textContent = isEn ? `@${user.username} · Personal workspace` : `@${user.username} · Şəxsi hesab`;
 }
 
 function settingsField(label, name, value, type = "text", autocomplete = "off", placeholder = "") {
@@ -5363,49 +5471,123 @@ function settingsMessage(form, message, tone = "error") {
   node.textContent = message;
 }
 
+function buildLanguageSelectorSection() {
+  const currentLang = getLanguage();
+  const isEn = currentLang === "en";
+  const row = element("div", "settings-lang-row");
+
+  const info = element("div", "settings-lang-info");
+  const label = element("span", "settings-lang-label", t("settings.languageSelector.title") || (isEn ? "Interface Language" : "İnterfeys dili"));
+  const hint = element("span", "settings-lang-hint", t("settings.languageSelector.intro") || (isEn ? "Choose your preferred language for Marketify AI." : "Marketify AI üçün istifadə etmək istədiyiniz dili seçin."));
+  info.append(label, hint);
+
+  const dropdown = element("details", "settings-lang-dropdown");
+  const trigger = element("summary", "settings-lang-trigger");
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-label", isEn ? "Select interface language" : "İnterfeys dilini seçin");
+
+  const currLabel = currentLang === "en" ? "English" : "Azərbaycan dili";
+
+  trigger.innerHTML = `
+    <span class="settings-lang-curr-name">${currLabel}</span>
+    <svg class="settings-lang-chevron" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
+      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+    </svg>
+  `;
+
+  const menu = element("div", "settings-lang-menu");
+  menu.setAttribute("role", "listbox");
+
+  const languages = [
+    { code: "az", name: "Azərbaycan dili" },
+    { code: "en", name: "English" },
+  ];
+
+  languages.forEach((item) => {
+    const isSelected = currentLang === item.code;
+    const opt = button("", `settings-lang-option${isSelected ? " is-selected" : ""}`, async () => {
+      dropdown.removeAttribute("open");
+      if (getLanguage() === item.code) return;
+      setLanguage(item.code, true);
+      if (state.currentUser) {
+        try {
+          await authRequest("/api/auth/settings", { method: "PATCH", body: JSON.stringify({ language: item.code }) });
+        } catch {}
+      }
+      showToast(t("settings.languageSelector.toastChanged", {}, item.code) || (item.code === "en" ? "Interface language updated." : "İnterfeys dili dəyişdirildi."), "success");
+    });
+    opt.type = "button";
+    opt.setAttribute("role", "option");
+    opt.setAttribute("aria-selected", String(isSelected));
+    opt.innerHTML = `
+      <span class="settings-lang-opt-name">${item.name}</span>
+      ${isSelected ? `<svg class="settings-lang-check" viewBox="0 0 20 20" width="15" height="15" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+      </svg>` : ""}
+    `;
+    menu.appendChild(opt);
+  });
+
+  dropdown.append(trigger, menu);
+  row.append(info, dropdown);
+  return row;
+}
+
 function renderSettings() {
+  const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-settings");
   workspace.replaceChildren();
   const view = element("section", "settings-view");
   const header = element("header", "settings-header");
-  header.append(element("span", "section-kicker", "WORKSPACE"), element("h1", "", state.currentUser ? "Parametrlər" : "Gedişatını qoruyun"), element("p", "", state.currentUser ? "Hesab məlumatlarını və giriş təhlükəsizliyini idarə et." : "Hesabsız istifadə edə bilərsən. Hesab yaratdıqda bu cihazdakı strategiyaların profilinə köçürüləcək və başqa cihazlardan da əlçatan olacaq."));
+  header.append(
+    element("span", "section-kicker", "WORKSPACE"),
+    element("h1", "", state.currentUser ? (isEn ? "Settings" : "Parametrlər") : (isEn ? "Preserve your progress" : "Gedişatını qoruyun")),
+    element("p", "", state.currentUser
+      ? (isEn ? "Manage your account preferences, intelligence, and security." : "Hesab məlumatlarını və giriş təhlükəsizliyini idarə et.")
+      : (isEn ? "You can use Marketify as a guest. Creating an account syncs your strategies across devices." : "Hesabsız istifadə edə bilərsən. Hesab yaratdıqda bu cihazdakı strategiyaların profilinə köçürüləcək və başqa cihazlardan da əlçatan olacaq."))
+  );
+
   if (!state.currentUser) {
     const panel = element("section", "settings-panel guest-account-panel");
     panel.append(
-      element("h2", "", "Hesab məcburi deyil"),
-      element("p", "settings-panel-intro", "Hazırkı işlərin bu brauzerdə saxlanılır. Cihaz dəyişdikdə itirməmək üçün pulsuz hesab yaratmağı tövsiyə edirik."),
+      element("h2", "", isEn ? "Account is optional" : "Hesab məcburi deyil"),
+      element("p", "settings-panel-intro", isEn ? "Your current work is saved locally in this browser. Create a free account to back up and sync across devices." : "Hazırkı işlərin bu brauzerdə saxlanılır. Cihaz dəyişdikdə itirməmək üçün pulsuz hesab yaratmağı tövsiyə edirik."),
     );
     const actions = element("div", "guest-account-actions");
     actions.append(
-      button("Hesab yarat", "primary-button", () => { window.location.href = "/signup?returnTo=/workspace"; }),
-      button("Daxil ol", "secondary-button", () => { window.location.href = "/login?returnTo=/workspace"; }),
+      button(isEn ? "Create account" : "Hesab yarat", "primary-button", () => { window.location.href = "/signup?returnTo=/workspace"; }),
+      button(isEn ? "Log in" : "Daxil ol", "secondary-button", () => { window.location.href = "/login?returnTo=/workspace"; }),
     );
     panel.appendChild(actions);
+
+    // Language Selector for Guest
+    panel.appendChild(buildLanguageSelectorSection());
+
     view.append(header, panel);
     workspace.appendChild(view);
     return;
   }
   const tabs = element("div", "settings-tabs");
   tabs.setAttribute("role", "tablist");
-  const accountTab = button("Hesab", `settings-tab${state.settingsTab === "account" ? " is-active" : ""}`, () => {
+  const accountTab = button(t("settings.tabs.account"), `settings-tab${state.settingsTab === "account" ? " is-active" : ""}`, () => {
     state.settingsTab = "account";
     renderSettings();
   });
   accountTab.setAttribute("role", "tab");
   accountTab.setAttribute("aria-selected", String(state.settingsTab === "account"));
-  const securityTab = button("Təhlükəsizlik", `settings-tab${state.settingsTab === "security" ? " is-active" : ""}`, () => {
+  const securityTab = button(t("settings.tabs.security"), `settings-tab${state.settingsTab === "security" ? " is-active" : ""}`, () => {
     state.settingsTab = "security";
     renderSettings();
   });
   securityTab.setAttribute("role", "tab");
   securityTab.setAttribute("aria-selected", String(state.settingsTab === "security"));
-  const experienceTab = button("Fərdiləşdirmə", `settings-tab${state.settingsTab === "experience" ? " is-active" : ""}`, () => {
+  const experienceTab = button(t("settings.tabs.experience"), `settings-tab${state.settingsTab === "experience" ? " is-active" : ""}`, () => {
     state.settingsTab = "experience";
     renderSettings();
   });
   experienceTab.setAttribute("role", "tab");
   experienceTab.setAttribute("aria-selected", String(state.settingsTab === "experience"));
-  const legalTab = button("Hüquqi & Məxfilik", `settings-tab${state.settingsTab === "legal" ? " is-active" : ""}`, () => {
+  const legalTab = button(t("settings.tabs.legal"), `settings-tab${state.settingsTab === "legal" ? " is-active" : ""}`, () => {
     state.settingsTab = "legal";
     renderSettings();
   });
@@ -5416,41 +5598,48 @@ function renderSettings() {
 
   if (state.settingsTab === "account") {
     const panel = element("section", "settings-panel");
-    panel.append(element("h2", "", "Hesab məlumatları"), element("p", "settings-panel-intro", "Workspace-də görünən adını və giriş məlumatlarını yenilə."));
+    panel.append(
+      element("h2", "", t("settings.account.title")),
+      element("p", "settings-panel-intro", t("settings.account.intro"))
+    );
     const form = element("form", "settings-form account-settings-form");
     form.append(
-      settingsField("Ad və soyad", "fullName", state.currentUser.fullName, "text", "name"),
-      settingsField("İstifadəçi adı", "username", state.currentUser.username, "text", "username"),
-      settingsField("E-poçt", "email", state.currentUser.email, "email", "email"),
+      settingsField(t("settings.account.fullName"), "fullName", state.currentUser.fullName, "text", "name"),
+      settingsField(t("settings.account.username"), "username", state.currentUser.username, "text", "username"),
+      settingsField(t("settings.account.email"), "email", state.currentUser.email, "email", "email"),
     );
-    const save = button("Dəyişiklikləri saxla", "primary-button");
+    const save = button(t("settings.account.saveBtn"), "primary-button");
     save.type = "submit";
     form.appendChild(save);
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       save.disabled = true;
-      save.textContent = "Saxlanılır…";
+      save.textContent = isEn ? "Saving…" : "Saxlanılır…";
       try {
         const data = await authRequest("/api/auth/account", {
           method: "PATCH",
           body: JSON.stringify(Object.fromEntries(new FormData(form))),
         });
         updateWorkspaceIdentity(data.user);
-        settingsMessage(form, "Hesab məlumatları yeniləndi.", "success");
+        settingsMessage(form, isEn ? "Account information updated." : "Hesab məlumatları yeniləndi.", "success");
       } catch (error) {
         settingsMessage(form, error.message);
       } finally {
         save.disabled = false;
-        save.textContent = "Dəyişiklikləri saxla";
+        save.textContent = t("settings.account.saveBtn");
       }
     });
     panel.appendChild(form);
+
+    // Add Language Selector inside Account tab
+    panel.appendChild(buildLanguageSelectorSection());
+
     view.appendChild(panel);
   } else if (state.settingsTab === "experience") {
     const panel = element("section", "settings-panel settings-experience-panel");
     panel.append(
-      element("h2", "", "Fərdiləşdirilmiş təcrübə"),
-      element("p", "settings-panel-intro", "Brendinizi, sahənizi və cavab üslubunuzu təyin edərək Marketify AI-ın sizin biznesinizə tam uyğunlaşmasını təmin edin."),
+      element("h2", "", t("settings.experience.title")),
+      element("p", "settings-panel-intro", t("settings.experience.intro")),
     );
 
     const userSettings = state.currentUser.settings || {};
@@ -5465,11 +5654,11 @@ function renderSettings() {
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       </div>
       <div class="experience-import-text">
-        <strong>Yaddaş köçür</strong>
-        <p>ChatGPT, Claude və ya Gemini-dakı yaddaşınızı və brend məlumatlarınızı Marketify-a birbaşa köçürün.</p>
+        <strong>${escapeHtml(t("settings.experience.importTitle"))}</strong>
+        <p>${escapeHtml(t("settings.experience.importDesc"))}</p>
       </div>
     `;
-    const importBtn = button("Yaddaşı köçür", "secondary-button experience-import-trigger-btn", () => {
+    const importBtn = button(t("settings.experience.importBtn"), "secondary-button experience-import-trigger-btn", () => {
       openImportMemoryModal({
         userSettings: state.currentUser?.settings || {},
         onImportSuccess: (updatedUser) => {
@@ -5486,13 +5675,13 @@ function renderSettings() {
     const masterCard = element("div", "experience-hero-toggle");
     const masterLeft = element("div", "experience-hero-left");
     masterLeft.append(
-      element("strong", "", "Fərdiləşdirilmiş cavablar və strategiyalar"),
-      element("p", "", "Aktiv olduqda Ask söhbətləri və Build rejimi aşağıdakı brend profili, üslub və yaddaş qeydləri əsasında cavab verir."),
+      element("strong", "", t("settings.experience.masterTitle")),
+      element("p", "", t("settings.experience.masterDesc")),
     );
     const masterToggle = element("button", "settings-toggle");
     masterToggle.type = "button";
     masterToggle.setAttribute("role", "switch");
-    masterToggle.setAttribute("aria-label", "Fərdiləşdirilmiş təcrübə");
+    masterToggle.setAttribute("aria-label", t("settings.experience.masterTitle"));
     let isMasterEnabled = userSettings.personalIntelligence === true;
     const syncMasterToggle = () => {
       masterToggle.classList.toggle("is-active", isMasterEnabled);
@@ -5547,14 +5736,14 @@ function renderSettings() {
     // 1. Business Profile (Primary - Open by default)
     const profileGrid = element("div", "experience-grid-fields");
     profileGrid.append(
-      settingsField("Brend / Layihə adı", "brandName", userSettings.brandName || "", "text", "organization", "Məs: Marketify AI"),
-      settingsField("Fəaliyyət sahəsi / Sənaye", "industry", userSettings.industry || "", "text", "off", "Məs: B2B SaaS, E-ticarət, Kosmetika"),
-      settingsField("Əsas bazar / Coğrafiya", "primaryMarket", userSettings.primaryMarket || "", "text", "off", "Məs: Azərbaycan (Bakı və regionlar)"),
-      settingsField("Hədəf kütlə", "targetAudience", userSettings.targetAudience || "", "text", "off", "Məs: 20-35 yaş gənclər, startaplar"),
+      settingsField(t("settings.experience.brandName"), "brandName", userSettings.brandName || "", "text", "organization", isEn ? "e.g. Marketify AI" : "Məs: Marketify AI"),
+      settingsField(t("settings.experience.industry"), "industry", userSettings.industry || "", "text", "off", isEn ? "e.g. B2B SaaS, E-commerce" : "Məs: B2B SaaS, E-ticarət, Kosmetika"),
+      settingsField(t("settings.experience.primaryMarket"), "primaryMarket", userSettings.primaryMarket || "", "text", "off", isEn ? "e.g. Global, North America, Azerbaijan" : "Məs: Azərbaycan (Bakı və regionlar)"),
+      settingsField(t("settings.experience.targetAudience"), "targetAudience", userSettings.targetAudience || "", "text", "off", isEn ? "e.g. Tech founders, Growth marketers" : "Məs: 20-35 yaş gənclər, startaplar"),
     );
     const profileAccordion = createExperienceAccordion({
-      title: "Biznes və brend profili",
-      desc: "Hər dəfə şirkətiniz haqqında təkrar məlumat verməmək üçün əsas detalları daxil edin.",
+      title: t("settings.experience.profileTitle"),
+      desc: t("settings.experience.profileDesc"),
       isOpen: true,
       contentNode: profileGrid,
     });
@@ -5566,32 +5755,32 @@ function renderSettings() {
       {
         id: "professional",
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>',
-        name: "Peşəkar və Analitik",
-        desc: "Dəqiq biznes arqumentləri, strukturlaşdırılmış təhlil və rəsmi terminlər.",
+        name: t("settings.experience.tones.professional.name"),
+        desc: t("settings.experience.tones.professional.desc"),
       },
       {
         id: "creative",
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>',
-        name: "Yaradıcı və Cəsarətli",
-        desc: "Fərqli marketinq ideyaları, viral konseptlər və təsirli şüarlar.",
+        name: t("settings.experience.tones.creative.name"),
+        desc: t("settings.experience.tones.creative.desc"),
       },
       {
         id: "concise",
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
-        name: "Qısa və İcra Yönümlü",
-        desc: "Girişsiz, birbaşa icra addımları, qısa bəndlər və dərhal tətbiq olunan həllər.",
+        name: t("settings.experience.tones.concise.name"),
+        desc: t("settings.experience.tones.concise.desc"),
       },
       {
         id: "friendly",
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-        name: "Dostcasına və İzahlı",
-        desc: "Səmimi dil, anlaşıqlı yanaşma və marketinq terminlərinin sadə izahı.",
+        name: t("settings.experience.tones.friendly.name"),
+        desc: t("settings.experience.tones.friendly.desc"),
       },
       {
         id: "data_driven",
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
-        name: "Nəticə və Satış Yönümlü",
-        desc: "Dönüşüm (conversion), ROAS, satış qıfı və ölçülə bilən KPI fokuslu.",
+        name: t("settings.experience.tones.data_driven.name"),
+        desc: t("settings.experience.tones.data_driven.desc"),
       },
     ];
 
@@ -5604,10 +5793,10 @@ function renderSettings() {
       card.innerHTML = `
         <div class="tone-card-top">
           <span class="tone-card-icon-wrap">${opt.icon}</span>
-          <strong class="tone-card-title">${opt.name}</strong>
+          <strong class="tone-card-title">${escapeHtml(opt.name)}</strong>
           <span class="tone-card-check"></span>
         </div>
-        <p class="tone-card-desc">${opt.desc}</p>
+        <p class="tone-card-desc">${escapeHtml(opt.desc)}</p>
       `;
       card.addEventListener("click", () => {
         currentTone = opt.id;
@@ -5619,8 +5808,8 @@ function renderSettings() {
     });
 
     const toneAccordion = createExperienceAccordion({
-      title: "AI cavab üslubu və tonu",
-      desc: "Cavabların və tərtib olunan strategiyaların hansı tonda təqdim olunmasını seçin.",
+      title: t("settings.experience.toneTitle"),
+      desc: t("settings.experience.toneDesc"),
       badgeNode: toneBadge,
       isOpen: false,
       contentNode: toneGrid,
@@ -5633,13 +5822,15 @@ function renderSettings() {
     customTextarea.name = "customInstructions";
     customTextarea.rows = 3;
     customTextarea.maxLength = 2000;
-    customTextarea.placeholder = "Məsələn: Təkliflərdə həmişə büdcəyə qənaətcil rəqəmsal kanalları önə çək. Cavablarda addım-addım icra planı və ölçülə bilən KPI cədvəli təqdim et...";
+    customTextarea.placeholder = isEn
+      ? "e.g. Always prioritize cost-efficient digital channels. Provide step-by-step roadmaps with measurable KPI checkpoints..."
+      : "Məsələn: Təkliflərdə həmişə büdcəyə qənaətcil rəqəmsal kanalları önə çək. Cavablarda addım-addım icra planı və ölçülə bilən KPI cədvəli təqdim et...";
     customTextarea.value = userSettings.customInstructions || "";
-    customLabel.append(element("span", "settings-field-label", "Təlimat mətni"), customTextarea);
+    customLabel.append(element("span", "settings-field-label", t("settings.experience.customInstructions")), customTextarea);
 
     const customAccordion = createExperienceAccordion({
-      title: "Xüsusi təlimatlar",
-      desc: "Marketify-ın sizin üçün cavab hazırlayarkən riayət etməli olduğu xüsusi qaydalar.",
+      title: t("settings.experience.instructionsTitle"),
+      desc: t("settings.experience.instructionsDesc"),
       isOpen: false,
       contentNode: customLabel,
     });
@@ -5648,25 +5839,25 @@ function renderSettings() {
     // 4. Memory Hub (Secondary - Collapsible)
     const memoryWrapper = element("div", "experience-memory-wrapper");
     const memoryListContainer = element("div", "experience-memory-list");
-    const memoryBadge = element("span", "experience-summary-badge", `${memoriesList.length} qeyd`);
+    const memoryBadge = element("span", "experience-summary-badge", isEn ? `${memoriesList.length} memories` : `${memoriesList.length} qeyd`);
     const categoryNames = {
-      business: "Biznes faktı",
-      audience: "Auditoriya",
-      preference: "Üstünlük",
-      constraint: "Məhdudiyyət",
-      general: "Qeyd",
+      business: isEn ? "Business Fact" : "Biznes faktı",
+      audience: isEn ? "Audience" : "Auditoriya",
+      preference: isEn ? "Preference" : "Üstünlük",
+      constraint: isEn ? "Constraint" : "Məhdudiyyət",
+      general: isEn ? "General Note" : "Qeyd",
     };
     const memoryFilters = [
-      { id: "all", label: "Hamısı" },
-      { id: "preference", label: "Üstünlüklər" },
-      { id: "constraint", label: "Məhdudiyyətlər" },
-      { id: "business", label: "Biznes faktları" },
+      { id: "all", label: t("common.all") },
+      { id: "preference", label: isEn ? "Preferences" : "Üstünlüklər" },
+      { id: "constraint", label: isEn ? "Constraints" : "Məhdudiyyətlər" },
+      { id: "business", label: isEn ? "Business Facts" : "Biznes faktları" },
     ];
     let activeMemoryFilter = "all";
 
     const memoryFilterBar = element("div", "experience-memory-filters");
     memoryFilterBar.setAttribute("role", "tablist");
-    memoryFilterBar.setAttribute("aria-label", "Yaddaş kateqoriyası");
+    memoryFilterBar.setAttribute("aria-label", isEn ? "Memory category" : "Yaddaş kateqoriyası");
 
     const updateMemoryFilterState = () => {
       const counts = memoriesList.reduce((result, memory) => {
@@ -5699,25 +5890,25 @@ function renderSettings() {
 
     const renderMemories = () => {
       memoryListContainer.replaceChildren();
-      memoryBadge.textContent = `${memoriesList.length} qeyd`;
+      memoryBadge.textContent = isEn ? `${memoriesList.length} memories` : `${memoriesList.length} qeyd`;
       updateMemoryFilterState();
       const visibleMemories = activeMemoryFilter === "all"
         ? memoriesList
         : memoriesList.filter((memory) => memory.category === activeMemoryFilter);
       if (!visibleMemories.length) {
         const emptyText = memoriesList.length
-          ? "Bu kateqoriyada yaddaş qeydi yoxdur."
-          : "Hələ heç bir yaddaş qeydi saxlanılmayıb.";
+          ? (isEn ? "No memories found in this category." : "Bu kateqoriyada yaddaş qeydi yoxdur.")
+          : (isEn ? "No memory entries stored yet." : "Hələ heç bir yaddaş qeydi saxlanılmayıb.");
         const empty = element("p", "experience-memory-empty", emptyText);
         memoryListContainer.appendChild(empty);
         return;
       }
       visibleMemories.forEach((mem) => {
         const item = element("div", "experience-memory-item");
-        const catLabel = categoryNames[mem.category] || "Qeyd";
+        const catLabel = categoryNames[mem.category] || (isEn ? "Note" : "Qeyd");
         item.innerHTML = `
           <div class="memory-item-content">
-            <span class="memory-category-tag tag-${escapeHtml(mem.category || "general")}">${catLabel}</span>
+            <span class="memory-category-tag tag-${escapeHtml(mem.category || "general")}">${escapeHtml(catLabel)}</span>
             <span class="memory-text">${escapeHtml(mem.text)}</span>
           </div>
         `;
@@ -5726,8 +5917,8 @@ function renderSettings() {
           renderMemories();
         });
         delBtn.type = "button";
-        delBtn.setAttribute("aria-label", "Yaddaş qeydini sil");
-        delBtn.title = "Yaddaş qeydini sil";
+        delBtn.setAttribute("aria-label", isEn ? "Delete memory entry" : "Yaddaş qeydini sil");
+        delBtn.title = isEn ? "Delete memory" : "Yaddaş qeydini sil";
         delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="m6 7 1 13h10l1-13"/><path d="M9 7V4h6v3"/></svg>';
         item.appendChild(delBtn);
         memoryListContainer.appendChild(item);
@@ -5739,8 +5930,8 @@ function renderSettings() {
     const composerHeading = element("div", "experience-memory-composer-heading");
     const composerHeadingCopy = element("div", "experience-memory-composer-heading-copy");
     composerHeadingCopy.append(
-      element("span", "experience-memory-composer-title", "Yeni yaddaş qeydi"),
-      element("span", "experience-memory-composer-hint", "Model üçün qısa və konkret saxlayın"),
+      element("span", "experience-memory-composer-title", isEn ? "New memory entry" : "Yeni yaddaş qeydi"),
+      element("span", "experience-memory-composer-hint", isEn ? "Keep it concise and factual for best results" : "Model üçün qısa və konkret saxlayın"),
     );
     const setMemoryComposerOpen = (isOpen) => {
       memoryComposer.classList.toggle("is-open", isOpen);
@@ -5748,13 +5939,13 @@ function renderSettings() {
       memoryFilterBar.classList.toggle("is-collapsed", isOpen);
       memoryListContainer.classList.toggle("is-collapsed", isOpen);
       composerToggle.setAttribute("aria-expanded", String(isOpen));
-      composerToggle.title = isOpen ? "Yaddaş qeydini bağla" : "Yeni yaddaş qeydi əlavə et";
+      composerToggle.title = isOpen ? (isEn ? "Close composer" : "Yaddaş qeydini bağla") : (isEn ? "Add new memory" : "Yeni yaddaş qeydi əlavə et");
     };
     const composerToggle = button("", "memory-composer-toggle", () => setMemoryComposerOpen(false));
     composerToggle.type = "button";
-    composerToggle.setAttribute("aria-label", "Yaddaş qeydini bağla");
+    composerToggle.setAttribute("aria-label", isEn ? "Close composer" : "Yaddaş qeydini bağla");
     composerToggle.setAttribute("aria-expanded", "false");
-    composerToggle.title = "Yaddaş qeydini bağla";
+    composerToggle.title = isEn ? "Close composer" : "Yaddaş qeydini bağla";
     composerToggle.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
     composerHeading.append(
       composerHeadingCopy,
@@ -5764,23 +5955,23 @@ function renderSettings() {
     const addMemoryRow = element("div", "experience-add-memory-row");
     const memoryInput = element("input", "settings-input");
     memoryInput.type = "text";
-    memoryInput.placeholder = "Yeni fakt əlavə et... məs. Biz yalnız B2B şirkətlərlə işləyirik";
+    memoryInput.placeholder = isEn ? "Add new business fact... e.g. We only work with B2B SaaS companies" : "Yeni fakt əlavə et... məs. Biz yalnız B2B şirkətlərlə işləyirik";
     memoryInput.maxLength = 500;
-    memoryInput.setAttribute("aria-label", "Yeni yaddaş qeydi");
+    memoryInput.setAttribute("aria-label", isEn ? "New memory fact" : "Yeni yaddaş qeydi");
 
     const memoryCategorySelect = element("select", "settings-input settings-select");
-    memoryCategorySelect.setAttribute("aria-label", "Yaddaş qeydi kateqoriyası");
+    memoryCategorySelect.setAttribute("aria-label", isEn ? "Memory category" : "Yaddaş qeydi kateqoriyası");
     [
-      { val: "business", label: "Biznes Faktı" },
-      { val: "preference", label: "Üstünlük" },
-      { val: "constraint", label: "Məhdudiyyət" },
+      { val: "business", label: isEn ? "Business Fact" : "Biznes Faktı" },
+      { val: "preference", label: isEn ? "Preference" : "Üstünlük" },
+      { val: "constraint", label: isEn ? "Constraint" : "Məhdudiyyət" },
     ].forEach((c) => {
       const opt = element("option", "", c.label);
       opt.value = c.val;
       memoryCategorySelect.appendChild(opt);
     });
 
-    const addMemoryBtn = button("Yaddaşı saxla", "primary-button experience-add-btn", () => {
+    const addMemoryBtn = button(isEn ? "Save memory" : "Yaddaşı saxla", "primary-button experience-add-btn", () => {
       const text = memoryInput.value.trim();
       if (!text) return;
       const sensitiveWarning = checkSensitiveData(text);
@@ -5789,7 +5980,7 @@ function renderSettings() {
         return;
       }
       if (memoriesList.length >= 50) {
-        showToast("Maksimum 50 yaddaş qeydi saxlanıla bilər.", "error");
+        showToast(isEn ? "Maximum 50 memory entries allowed." : "Maksimum 50 yaddaş qeydi saxlanıla bilər.", "error");
         return;
       }
       memoriesList.unshift({
@@ -5809,12 +6000,12 @@ function renderSettings() {
 
     const memoryActionArea = element("div", "experience-memory-action-area");
     const memoryPrimaryActions = element("div", "experience-memory-primary-actions");
-    const addMemoryActionBtn = button("+ Yaddaş əlavə et", "primary-button memory-add-action-btn", () => {
+    const addMemoryActionBtn = button(isEn ? "+ Add memory" : "+ Yaddaş əlavə et", "primary-button memory-add-action-btn", () => {
       setMemoryComposerOpen(true);
       window.requestAnimationFrame(() => memoryInput.focus());
     });
     addMemoryActionBtn.type = "button";
-    const importMemoryInlineBtn = button("Başqa AI-dan köçür", "secondary-button experience-import-inline-btn", () => {
+    const importMemoryInlineBtn = button(isEn ? "Import from other AI" : "Başqa AI-dan köçür", "secondary-button experience-import-inline-btn", () => {
       openImportMemoryModal({
         userSettings: state.currentUser?.settings || {},
         onImportSuccess: (updatedUser) => {
@@ -5826,8 +6017,8 @@ function renderSettings() {
     importMemoryInlineBtn.type = "button";
     memoryPrimaryActions.append(addMemoryActionBtn, importMemoryInlineBtn);
 
-    const clearMemoriesBtn = button("Bütün yaddaşı təmizlə", "danger-text-button", () => {
-      if (confirm("Bütün yaddaş qeydlərini silmək istədiyinizdən əminsiniz?")) {
+    const clearMemoriesBtn = button(isEn ? "Clear all memories" : "Bütün yaddaşı təmizlə", "danger-text-button", () => {
+      if (confirm(isEn ? "Are you sure you want to delete all stored memories?" : "Bütün yaddaş qeydlərini silmək istədiyinizdən əminsiniz?")) {
         memoriesList = [];
         renderMemories();
       }
@@ -5839,7 +6030,7 @@ function renderSettings() {
 
     const memoryAccordion = createExperienceAccordion({
       title: "Memory Hub",
-      desc: "Marketify-ın biznesiniz haqqında yadda saxladığı məlumatları idarə edin.",
+      desc: t("settings.experience.memoryDesc"),
       badgeNode: memoryBadge,
       isOpen: false,
       contentNode: memoryWrapper,
@@ -5875,13 +6066,13 @@ function renderSettings() {
     };
 
     scopesWrapper.append(
-      createScopeRow("Ask", "Cari sualınızla bağlı olduqda keçmiş söhbətlər və strategiyalardan faydalı məlumatlar avtomatik cəlb edilir.", isAutoContext, (v) => { isAutoContext = v; }),
-      createScopeRow("Build", "Yeni strategiya yaradarkən və dəqiqləşdirərkən yuxarıdakı brend profili və ton nəzərə alınır.", isStrategyPersonalization, (v) => { isStrategyPersonalization = v; }),
+      createScopeRow("Ask", isEn ? "Automatically draws relevant context from past chats and strategies when answering questions." : "Cari sualınızla bağlı olduqda keçmiş söhbətlər və strategiyalardan faydalı məlumatlar avtomatik cəlb edilir.", isAutoContext, (v) => { isAutoContext = v; }),
+      createScopeRow("Build", isEn ? "Applies your brand profile and tone when generating and refining strategies." : "Yeni strategiya yaradarkən və dəqiqləşdirərkən yuxarıdakı brend profili və ton nəzərə alınır.", isStrategyPersonalization, (v) => { isStrategyPersonalization = v; }),
     );
 
     const scopesAccordion = createExperienceAccordion({
-      title: "Tətbiq rejimləri",
-      desc: "Fərdiləşdirmənin hansı modullarda işləməsini tənzimləyin.",
+      title: t("settings.experience.scopesTitle"),
+      desc: t("settings.experience.scopesDesc"),
       isOpen: false,
       contentNode: scopesWrapper,
     });
@@ -5894,13 +6085,13 @@ function renderSettings() {
         id: "build",
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
         name: "Build",
-        desc: "Marketify açıldıqda və ya yeni sessiyada birbaşa strukturlaşdırılmış strategiya hazırlamaq rejimini aktiv edin.",
+        desc: isEn ? "Start directly in structured strategy generation mode on platform launch." : "Marketify açıldıqda və ya yeni sessiyada birbaşa strukturlaşdırılmış strategiya hazırlamaq rejimini aktiv edin.",
       },
       {
         id: "ask",
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
         name: "Ask",
-        desc: "Marketify açıldıqda və ya yeni sessiyada birbaşa AI ilə interaktiv söhbət və operativ sual-cavab rejimini aktiv edin.",
+        desc: isEn ? "Start directly in interactive AI assistant and ad-hoc strategic Q&A mode on launch." : "Marketify açıldıqda və ya yeni sessiyada birbaşa AI ilə interaktiv söhbət və operativ sual-cavab rejimini aktiv edin.",
       },
     ];
 
@@ -5929,8 +6120,8 @@ function renderSettings() {
     });
 
     const defaultModeAccordion = createExperienceAccordion({
-      title: "Default rejim",
-      desc: "Platformanı açarkən Ask və ya Build rejiminin standart olaraq seçilməsini təyin edin.",
+      title: t("settings.experience.defaultModeTitle"),
+      desc: t("settings.experience.defaultModeDesc"),
       badgeNode: modeBadge,
       isOpen: false,
       contentNode: modeGrid,
@@ -5938,14 +6129,14 @@ function renderSettings() {
     form.appendChild(defaultModeAccordion);
 
     // Save bar
-    const save = button("Dəyişiklikləri saxla", "primary-button experience-save-btn");
+    const save = button(t("settings.experience.saveBtn"), "primary-button experience-save-btn");
     save.type = "submit";
     form.appendChild(save);
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       save.disabled = true;
-      save.textContent = "Saxlanılır…";
+      save.textContent = isEn ? "Saving…" : "Saxlanılır…";
       const formData = new FormData(form);
       const payload = {
         personalIntelligence: isMasterEnabled,
@@ -5972,14 +6163,14 @@ function renderSettings() {
         state.mode = currentDefaultMode;
         syncMode();
         syncNav();
-        settingsMessage(form, "Fərdiləşdirilmiş təcrübə parametrləri uğurla yeniləndi.", "success");
-        showToast("Parametrlər yadda saxlanıldı.");
+        settingsMessage(form, isEn ? "Personalized intelligence settings updated successfully." : "Fərdiləşdirilmiş təcrübə parametrləri uğurla yeniləndi.", "success");
+        showToast(isEn ? "Settings saved." : "Parametrlər yadda saxlanıldı.");
       } catch (error) {
         settingsMessage(form, error.message);
         showToast(error.message, "error");
       } finally {
         save.disabled = false;
-        save.textContent = "Dəyişiklikləri saxla";
+        save.textContent = t("settings.experience.saveBtn");
       }
     });
 
@@ -5987,24 +6178,27 @@ function renderSettings() {
     view.appendChild(panel);
   } else if (state.settingsTab === "security") {
     const panel = element("section", "settings-panel");
-    panel.append(element("h2", "", "Şifrə və sessiyalar"), element("p", "settings-panel-intro", "Şifrəni dəyişdikdə bu cihazdan başqa bütün aktiv sessiyalar bağlanacaq."));
+    panel.append(
+      element("h2", "", t("settings.security.title")),
+      element("p", "settings-panel-intro", t("settings.security.intro"))
+    );
     const form = element("form", "settings-form");
     form.append(
-      settingsField("Cari şifrə", "currentPassword", "", "password", "current-password"),
-      settingsField("Yeni şifrə", "newPassword", "", "password", "new-password"),
-      settingsField("Yeni şifrəni təsdiqlə", "confirmNewPassword", "", "password", "new-password"),
+      settingsField(t("settings.security.currentPassword"), "currentPassword", "", "password", "current-password"),
+      settingsField(t("settings.security.newPassword"), "newPassword", "", "password", "new-password"),
+      settingsField(t("settings.security.confirmPassword"), "confirmPassword", "", "password", "new-password"),
     );
-    const save = button("Şifrəni dəyiş", "primary-button");
+    const save = button(t("settings.security.changePasswordBtn"), "primary-button");
     save.type = "submit";
     form.appendChild(save);
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (form.newPassword.value !== form.confirmNewPassword.value) {
-        settingsMessage(form, "Yeni şifrələr eyni deyil.");
+      if (form.newPassword.value !== form.confirmPassword.value) {
+        settingsMessage(form, isEn ? "New passwords do not match." : "Yeni şifrələr eyni deyil.");
         return;
       }
       save.disabled = true;
-      save.textContent = "Yenilənir…";
+      save.textContent = isEn ? "Updating…" : "Yenilənir…";
       try {
         await authRequest("/api/auth/change-password", {
           method: "POST",
@@ -6014,18 +6208,21 @@ function renderSettings() {
           }),
         });
         form.reset();
-        settingsMessage(form, "Şifrə yeniləndi. Digər sessiyalar bağlandı.", "success");
+        settingsMessage(form, isEn ? "Password updated. Other sessions terminated." : "Şifrə yeniləndi. Digər sessiyalar bağlandı.", "success");
       } catch (error) {
         settingsMessage(form, error.message);
       } finally {
         save.disabled = false;
-        save.textContent = "Şifrəni dəyiş";
+        save.textContent = t("settings.security.changePasswordBtn");
       }
     });
     const signOut = element("div", "settings-signout");
     const copy = element("div");
-    copy.append(element("strong", "", "Bu cihazdan çıx"), element("p", "", "Marketify sessiyanı təhlükəsiz şəkildə bağlayacaq."));
-    signOut.append(copy, button("Hesabdan çıx", "danger-button", logout));
+    copy.append(
+      element("strong", "", t("settings.security.signOutTitle")),
+      element("p", "", t("settings.security.signOutDesc"))
+    );
+    signOut.append(copy, button(t("settings.security.signOutBtn"), "danger-button", logout));
 
     // Danger Zone: Account Deletion (14-day grace period)
     const isPendingDeletion = state.currentUser?.status === "pending_deletion" || Boolean(state.currentUser?.scheduledDeletionAt);
@@ -6034,33 +6231,35 @@ function renderSettings() {
 
     if (isPendingDeletion) {
       const schedDate = state.currentUser.scheduledDeletionAt
-        ? new Date(state.currentUser.scheduledDeletionAt).toLocaleDateString("az-AZ", { day: "numeric", month: "long", year: "numeric" })
-        : "14 gün sonra";
+        ? new Date(state.currentUser.scheduledDeletionAt).toLocaleDateString(isEn ? "en-US" : "az-AZ", { day: "numeric", month: "long", year: "numeric" })
+        : (isEn ? "in 14 days" : "14 gün sonra");
       deleteCopy.append(
-        element("strong", "danger-zone-title text-warning", "⚠️ Hesabın silinməsi gözlənilir"),
-        element("p", "", `Hesabınız 14 günlük gözləmə rejimindədir. Yekun silinmə tarixi: ${schedDate}. Bu tarixə qədər silinməni istədiyiniz vaxt ləğv edə bilərsiniz.`)
+        element("strong", "danger-zone-title text-warning", isEn ? "⚠️ Account deletion pending" : "⚠️ Hesabın silinməsi gözlənilir"),
+        element("p", "", isEn
+          ? `Your account is scheduled for deletion on ${schedDate}. You can cancel deletion anytime before this date.`
+          : `Hesabınız 14 günlük gözləmə rejimindədir. Yekun silinmə tarixi: ${schedDate}. Bu tarixə qədər silinməni istədiyiniz vaxt ləğv edə bilərsiniz.`)
       );
-      const cancelDeletionBtn = button("Silinməni ləğv et", "secondary-button experience-restore-btn", async () => {
+      const cancelDeletionBtn = button(isEn ? "Cancel deletion" : "Silinməni ləğv et", "secondary-button experience-restore-btn", async () => {
         cancelDeletionBtn.disabled = true;
-        cancelDeletionBtn.textContent = "Bərpa edilir…";
+        cancelDeletionBtn.textContent = isEn ? "Restoring…" : "Bərpa edilir…";
         try {
           const res = await authRequest("/api/auth/account/cancel-deletion", { method: "POST" });
           if (res?.user) state.currentUser = res.user;
-          showToast("Silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.", "success");
+          showToast(isEn ? "Deletion cancelled and account restored." : "Silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.", "success");
           render();
         } catch (err) {
-          showToast(err.message || "Xəta baş verdi.", "error");
+          showToast(err.message || (isEn ? "An error occurred." : "Xəta baş verdi."), "error");
           cancelDeletionBtn.disabled = false;
-          cancelDeletionBtn.textContent = "Silinməni ləğv et";
+          cancelDeletionBtn.textContent = isEn ? "Cancel deletion" : "Silinməni ləğv et";
         }
       });
       deleteAccountBox.append(deleteCopy, cancelDeletionBtn);
     } else {
       deleteCopy.append(
-        element("strong", "danger-zone-title text-danger", "Hesabı sil"),
-        element("p", "", "Hesabınızı və bütün məlumatlarınızı sistemdən silin.")
+        element("strong", "danger-zone-title text-danger", t("settings.security.deleteAccountTitle")),
+        element("p", "", t("settings.security.deleteAccountDesc"))
       );
-      const deleteBtn = button("Hesabı sil", "danger-button", openDeleteAccountModal);
+      const deleteBtn = button(t("settings.security.deleteAccountBtn"), "danger-button", openDeleteAccountModal);
       deleteAccountBox.append(deleteCopy, deleteBtn);
     }
 
@@ -6069,30 +6268,41 @@ function renderSettings() {
   } else {
     const panel = element("section", "settings-panel");
     panel.append(
-      element("h2", "", "Hüquqi Şərtlər və Məxfilik"),
-      element("p", "settings-panel-intro", "Platformanın istifadə qaydaları və 3-cü tərəf süni intellekt API şərtləri ilə tanış ol.")
+      element("h2", "", t("settings.legal.title")),
+      element("p", "settings-panel-intro", t("settings.legal.intro"))
     );
 
     const apiNotice = element("div", "legal-highlight-box");
-    apiNotice.innerHTML = "<strong>✦ 3-cü Tərəf Süni İntellekt API İnteqrasiyası</strong>Marketify AI xidməti biznes analizləri və strategiya generasiyası üçün qabaqcıl süni intellekt API provayderlərinin rəsmi infrastrukturundan istifadə edir.";
+    apiNotice.innerHTML = isEn
+      ? "<strong>✦ Third-Party AI API Infrastructure</strong>Marketify AI uses industry-leading artificial intelligence models and secure API infrastructure to generate strategic analyses and insights."
+      : "<strong>✦ 3-cü Tərəf Süni İntellekt API İnteqrasiyası</strong>Marketify AI xidməti biznes analizləri və strategiya generasiyası üçün qabaqcıl süni intellekt API provayderlərinin rəsmi infrastrukturundan istifadə edir.";
     panel.appendChild(apiNotice);
 
     const docsList = element("div", "settings-legal-list");
 
     const termsRow = element("div", "settings-legal-row");
     const termsInfo = element("div");
-    termsInfo.append(element("strong", "", "İstifadə Şərtləri"), element("p", "", "Xidmətdən istifadə qaydaları, hüquqlar və öhdəliklər."));
-    termsRow.append(termsInfo, button("Baxış keçir →", "secondary-button", () => openLegalModal("terms")));
+    termsInfo.append(
+      element("strong", "", t("settings.legal.termsTitle")),
+      element("p", "", t("settings.legal.termsDesc"))
+    );
+    termsRow.append(termsInfo, button(isEn ? "View Terms →" : "Baxış keçir →", "secondary-button", () => openLegalModal("terms")));
 
     const privacyRow = element("div", "settings-legal-row");
     const privacyInfo = element("div");
-    privacyInfo.append(element("strong", "", "Məxfilik siyasəti"), element("p", "", "Məlumatlarınızın necə toplandığı, istifadə edildiyi və qorunduğu."));
-    privacyRow.append(privacyInfo, button("Baxış keçir →", "secondary-button", () => openLegalModal("privacy")));
+    privacyInfo.append(
+      element("strong", "", t("settings.legal.privacyTitle")),
+      element("p", "", t("settings.legal.privacyDesc"))
+    );
+    privacyRow.append(privacyInfo, button(isEn ? "View Policy →" : "Baxış keçir →", "secondary-button", () => openLegalModal("privacy")));
 
     const reportRow = element("div", "settings-legal-row");
     const reportInfo = element("div");
-    reportInfo.append(element("strong", "", "Hüquqi Problem Bildirişi"), element("p", "", "Platforma və ya AI cavabları ilə bağlı hüquqi narahatlıq və ya pozuntu bildir."));
-    reportRow.append(reportInfo, button("Problem bildir →", "secondary-button", () => openLegalReportModal()));
+    reportInfo.append(
+      element("strong", "", t("settings.legal.reportTitle")),
+      element("p", "", t("settings.legal.reportDesc"))
+    );
+    reportRow.append(reportInfo, button(isEn ? "Report issue →" : "Problem bildir →", "secondary-button", () => openLegalReportModal()));
 
     docsList.append(termsRow, privacyRow, reportRow);
     panel.appendChild(docsList);
@@ -6102,27 +6312,30 @@ function renderSettings() {
 }
 
 function formatArchiveDate(value) {
-  if (!value) return "İndi";
+  const isEn = getLanguage() === "en";
+  if (!value) return isEn ? "Just now" : "İndi";
   const date = new Date(value);
-  if (isNaN(date.getTime())) return "İndi";
+  if (isNaN(date.getTime())) return isEn ? "Just now" : "İndi";
 
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
-  if (isToday) return "Bu gün";
+  if (isToday) return isEn ? "Today" : "Bu gün";
 
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   const isYesterday = date.toDateString() === yesterday.toDateString();
-  if (isYesterday) return "Dünən";
+  if (isYesterday) return isEn ? "Yesterday" : "Dünən";
 
-  const months = ["Yan", "Fev", "Mar", "Apr", "May", "İyn", "İyl", "Avq", "Sen", "Okt", "Noy", "Dek"];
+  const monthsAz = ["Yan", "Fev", "Mar", "Apr", "May", "İyn", "İyl", "Avq", "Sen", "Okt", "Noy", "Dek"];
+  const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const months = isEn ? monthsEn : monthsAz;
   const day = date.getDate();
   const month = months[date.getMonth()] || "";
 
   if (date.getFullYear() === now.getFullYear()) {
-    return `${day} ${month}`;
+    return isEn ? `${month} ${day}` : `${day} ${month}`;
   }
-  return `${day} ${month} ${date.getFullYear()}`;
+  return isEn ? `${month} ${day}, ${date.getFullYear()}` : `${day} ${month} ${date.getFullYear()}`;
 }
 
 function closeAllArchiveMenus() {
@@ -6134,17 +6347,23 @@ function closeAllArchiveMenus() {
   });
 }
 
-document.addEventListener("click", () => {
+document.addEventListener("click", (e) => {
   closeAllArchiveMenus();
+  document.querySelectorAll(".settings-lang-dropdown[open]").forEach((d) => {
+    if (!d.contains(e.target)) d.removeAttribute("open");
+  });
 });
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closeAllArchiveMenus();
+    document.querySelectorAll(".settings-lang-dropdown[open]").forEach((d) => d.removeAttribute("open"));
   }
 });
 
-function openArchivePromptModal({ title, label, initialValue, confirmText = "Yadda saxla", onConfirm }) {
+function openArchivePromptModal({ title, label, initialValue, confirmText = "", onConfirm }) {
+  const isEn = getLanguage() === "en";
+  const defaultConfirmText = confirmText || (isEn ? "Save" : "Yadda saxla");
   document.querySelectorAll(".archive-modal-overlay").forEach((el) => el.remove());
   const overlay = element("div", "archive-modal-overlay");
   const card = element("div", "archive-modal-card");
@@ -6155,11 +6374,11 @@ function openArchivePromptModal({ title, label, initialValue, confirmText = "Yad
   const input = element("input", "archive-modal-input");
   input.type = "text";
   input.value = initialValue || "";
-  input.placeholder = label || "Strategiya adı";
+  input.placeholder = label || (isEn ? "Strategy name" : "Strategiya adı");
 
   const actions = element("div", "archive-modal-actions");
-  const cancelBtn = button("Ləğv et", "archive-modal-cancel", () => overlay.remove());
-  const confirmBtn = button(confirmText, "archive-modal-confirm", async () => {
+  const cancelBtn = button(isEn ? "Cancel" : "Ləğv et", "archive-modal-cancel", () => overlay.remove());
+  const confirmBtn = button(defaultConfirmText, "archive-modal-confirm", async () => {
     const val = input.value.trim();
     if (!val) return;
     overlay.remove();
@@ -6190,7 +6409,9 @@ function openArchivePromptModal({ title, label, initialValue, confirmText = "Yad
   }, 40);
 }
 
-function openArchiveConfirmModal({ title, message, confirmText = "Təsdiq et", isDestructive = false, onConfirm }) {
+function openArchiveConfirmModal({ title, message, confirmText = "", isDestructive = false, onConfirm }) {
+  const isEn = getLanguage() === "en";
+  const defaultConfirmText = confirmText || (isEn ? "Confirm" : "Təsdiq et");
   document.querySelectorAll(".archive-modal-overlay").forEach((el) => el.remove());
   const overlay = element("div", "archive-modal-overlay");
   const card = element("div", "archive-modal-card");
@@ -6201,8 +6422,8 @@ function openArchiveConfirmModal({ title, message, confirmText = "Təsdiq et", i
   const descEl = element("p", "archive-modal-desc", message);
 
   const actions = element("div", "archive-modal-actions");
-  const cancelBtn = button("Ləğv et", "archive-modal-cancel", () => overlay.remove());
-  const confirmBtn = button(confirmText, `archive-modal-confirm${isDestructive ? " is-destructive" : ""}`, async () => {
+  const cancelBtn = button(isEn ? "Cancel" : "Ləğv et", "archive-modal-cancel", () => overlay.remove());
+  const confirmBtn = button(defaultConfirmText, `archive-modal-confirm${isDestructive ? " is-destructive" : ""}`, async () => {
     overlay.remove();
     await onConfirm();
   });
@@ -6219,6 +6440,7 @@ function openArchiveConfirmModal({ title, message, confirmText = "Təsdiq et", i
 }
 
 function createStrategyRowContextMenu(record) {
+  const isEn = getLanguage() === "en";
   const menu = element("div", "archive-context-menu");
   menu.hidden = true;
 
@@ -6227,16 +6449,16 @@ function createStrategyRowContextMenu(record) {
     menu.hidden = true;
     openSavedStrategy(record.id);
   });
-  openItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg><span>Aç</span>`;
+  openItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg><span>${isEn ? "Open" : "Aç"}</span>`;
 
   const renameItem = button("", "archive-menu-item", (e) => {
     e.stopPropagation();
     menu.hidden = true;
     openArchivePromptModal({
-      title: "Adını dəyiş",
-      label: "Strategiya adı",
+      title: isEn ? "Rename strategy" : "Adını dəyiş",
+      label: isEn ? "Strategy name" : "Strategiya adı",
       initialValue: record.title,
-      confirmText: "Yadda saxla",
+      confirmText: isEn ? "Save" : "Yadda saxla",
       onConfirm: async (newTitle) => {
         try {
           await api(`/api/strategy/${record.id}`, {
@@ -6247,14 +6469,14 @@ function createStrategyRowContextMenu(record) {
             state.strategy.title = newTitle;
           }
           await loadSavedStrategies();
-          showToast("Strategiyanın adı dəyişdirildi ✓");
+          showToast(isEn ? "Strategy renamed ✓" : "Strategiyanın adı dəyişdirildi ✓");
         } catch (error) {
-          showToast(error.message || "Adı dəyişmək mümkün olmadı.", "error");
+          showToast(error.message || (isEn ? "Unable to rename strategy." : "Adı dəyişmək mümkün olmadı."), "error");
         }
       },
     });
   });
-  renameItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg><span>Adını dəyiş</span>`;
+  renameItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg><span>${isEn ? "Rename" : "Adını dəyiş"}</span>`;
 
   const duplicateItem = button("", "archive-menu-item", async (e) => {
     e.stopPropagation();
@@ -6262,19 +6484,19 @@ function createStrategyRowContextMenu(record) {
     try {
       await api(`/api/strategy/${record.id}/duplicate`, { method: "POST" });
       await loadSavedStrategies();
-      showToast("Strategiyanın dublikatı yaradıldı ✓");
+      showToast(isEn ? "Strategy duplicated ✓" : "Strategiyanın dublikatı yaradıldı ✓");
     } catch (error) {
-      showToast(error.message || "Dublikat yaratmaq mümkün olmadı.", "error");
+      showToast(error.message || (isEn ? "Unable to duplicate strategy." : "Dublikat yaratmaq mümkün olmadı."), "error");
     }
   });
-  duplicateItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Dublikat yarat</span>`;
+  duplicateItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>${isEn ? "Duplicate" : "Dublikat yarat"}</span>`;
 
   const saveItem = button("", "archive-menu-item", (e) => {
     e.stopPropagation();
     menu.hidden = true;
-    showToast("Strategiya artıq arxivdə saxlanılıb ✓");
+    showToast(isEn ? "Strategy already preserved in Archive ✓" : "Strategiya artıq arxivdə saxlanılıb ✓");
   });
-  saveItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span>Arxivlə / Yadda saxla</span>`;
+  saveItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg><span>${isEn ? "Archive / Saved" : "Arxivlə / Yadda saxla"}</span>`;
 
   const divider = element("div", "archive-menu-divider");
 
@@ -6282,9 +6504,11 @@ function createStrategyRowContextMenu(record) {
     e.stopPropagation();
     menu.hidden = true;
     openArchiveConfirmModal({
-      title: "Strategiyanı sil",
-      message: `"${record.title || "Bu strategiya"}" arxivdən birdəfəlik silinəcək. Bu əməliyyat geri qaytarılmır.`,
-      confirmText: "Sil",
+      title: isEn ? "Delete strategy" : "Strategiyanı sil",
+      message: isEn
+        ? `"${record.title || "This strategy"}" will be permanently removed from Archive. This action cannot be undone.`
+        : `"${record.title || "Bu strategiya"}" arxivdən birdəfəlik silinəcək. Bu əməliyyat geri qaytarılmır.`,
+      confirmText: isEn ? "Delete" : "Sil",
       isDestructive: true,
       onConfirm: async () => {
         try {
@@ -6293,20 +6517,21 @@ function createStrategyRowContextMenu(record) {
             resetStrategy();
           }
           await loadSavedStrategies();
-          showToast("Strategiya arxivdən silindi.");
+          showToast(isEn ? "Strategy deleted from Archive." : "Strategiya arxivdən silindi.");
         } catch (error) {
-          showToast(error.message || "Strategiyanı silmək mümkün olmadı.", "error");
+          showToast(error.message || (isEn ? "Unable to delete strategy." : "Strategiyanı silmək mümkün olmadı."), "error");
         }
       },
     });
   });
-  deleteItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>Sil</span>`;
+  deleteItem.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>${isEn ? "Delete" : "Sil"}</span>`;
 
   menu.append(openItem, renameItem, duplicateItem, saveItem, divider, deleteItem);
   return menu;
 }
 
 function renderStrategyList() {
+  const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-list");
   workspace.replaceChildren();
 
@@ -6314,11 +6539,11 @@ function renderStrategyList() {
   const heading = element("div", "archive-header");
   const copy = element("div", "archive-header-copy");
   copy.append(
-    element("h1", "archive-title", "Arxiv"),
-    element("p", "archive-subtitle", "Strategiyalarını və saxladığın işləri idarə et")
+    element("h1", "archive-title", isEn ? "Archive" : "Arxiv"),
+    element("p", "archive-subtitle", isEn ? "Manage and organize your strategic roadmaps" : "Strategiyalarını və saxladığın işləri idarə et")
   );
   const newBtn = button("", "archive-new-btn", resetStrategy);
-  newBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Yeni</span>`;
+  newBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>${isEn ? "New" : "Yeni"}</span>`;
   heading.append(copy, newBtn);
   view.appendChild(heading);
 
@@ -6327,10 +6552,10 @@ function renderStrategyList() {
   if (!state.savedStrategies.length && !activeBgJobs.length) {
     const empty = element("div", "archive-empty-state");
     const emptyNewBtn = button("", "archive-new-btn", resetStrategy);
-    emptyNewBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Yeni</span>`;
+    emptyNewBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>${isEn ? "New" : "Yeni"}</span>`;
     empty.append(
-      element("h2", "archive-empty-title", "Hələ strategiya yoxdur"),
-      element("p", "archive-empty-desc", "İlk strategiyanı yaradaraq işə başla."),
+      element("h2", "archive-empty-title", isEn ? "No strategies yet" : "Hələ strategiya yoxdur"),
+      element("p", "archive-empty-desc", isEn ? "Get started by building your first go-to-market strategy." : "İlk strategiyanı yaradaraq işə başla."),
       emptyNewBtn,
     );
     view.appendChild(empty);
@@ -6343,18 +6568,23 @@ function renderStrategyList() {
     searchWrap.innerHTML = `<svg class="archive-search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
     const search = element("input", "archive-search-input");
     search.type = "search";
-    search.placeholder = "Strategiyalarda axtar";
-    search.setAttribute("aria-label", "Strategiyalarda axtar");
+    search.placeholder = isEn ? "Search strategies…" : "Strategiyalarda axtar";
+    search.setAttribute("aria-label", isEn ? "Search strategies" : "Strategiyalarda axtar");
     searchWrap.appendChild(search);
 
     // Toolbar with simple editorial tabs on left and Sort on right
     const toolbar = element("div", "archive-toolbar");
 
     const tabs = element("div", "archive-tabs");
-    let currentFilter = "Hamısı";
-    ["Hamısı", "Son", "Yadda saxlanmış"].forEach((label, index) => {
+    let currentFilterKey = "all";
+    const filterTabsConfig = [
+      { key: "all", label: isEn ? "All" : "Hamısı" },
+      { key: "recent", label: isEn ? "Recent" : "Son" },
+      { key: "saved", label: isEn ? "Saved" : "Yadda saxlanmış" },
+    ];
+    filterTabsConfig.forEach(({ key, label }, index) => {
       const tabBtn = button(label, `archive-tab${index === 0 ? " is-active" : ""}`, () => {
-        currentFilter = label;
+        currentFilterKey = key;
         [...tabs.children].forEach((item) => item.classList.toggle("is-active", item === tabBtn));
         drawRows();
       });
@@ -6363,9 +6593,9 @@ function renderStrategyList() {
 
     let currentSort = "newest";
     const sortLabels = {
-      newest: "Son yenilənən",
-      oldest: "Ən köhnə",
-      alphabetical: "Əlifba sırası",
+      newest: isEn ? "Most Recent" : "Son yenilənən",
+      oldest: isEn ? "Oldest First" : "Ən köhnə",
+      alphabetical: isEn ? "Alphabetical (A–Z)" : "Əlifba sırası",
     };
     const sortWrap = element("div", "archive-sort-wrap");
     const sortBtn = button("", "archive-sort-btn");
@@ -6377,9 +6607,9 @@ function renderStrategyList() {
     const sortMenu = element("div", "archive-sort-menu");
     sortMenu.hidden = true;
     [
-      { key: "newest", label: "Son yenilənən" },
-      { key: "oldest", label: "Ən köhnə" },
-      { key: "alphabetical", label: "Əlifba sırası" },
+      { key: "newest", label: isEn ? "Most Recent" : "Son yenilənən" },
+      { key: "oldest", label: isEn ? "Oldest First" : "Ən köhnə" },
+      { key: "alphabetical", label: isEn ? "Alphabetical (A–Z)" : "Əlifba sırası" },
     ].forEach((opt) => {
       const optBtn = button(opt.label, `archive-sort-option${opt.key === currentSort ? " is-selected" : ""}`, (e) => {
         e.stopPropagation();
@@ -6408,12 +6638,12 @@ function renderStrategyList() {
     const list = element("div", "strategy-library");
 
     const drawRows = () => {
-      const query = search.value.trim().toLocaleLowerCase("az");
+      const query = search.value.trim().toLocaleLowerCase(isEn ? "en" : "az");
       list.replaceChildren();
 
       // Render active background jobs seamlessly
-      const matchingBgJobs = activeBgJobs.filter((job) => !query || `${job.brief || ""} ${job.strategy?.summary || ""}`.toLocaleLowerCase("az").includes(query));
-      if (currentFilter !== "Yadda saxlanmış") {
+      const matchingBgJobs = activeBgJobs.filter((job) => !query || `${job.brief || ""} ${job.strategy?.summary || ""}`.toLocaleLowerCase(isEn ? "en" : "az").includes(query));
+      if (currentFilterKey !== "saved") {
         matchingBgJobs.forEach((job) => {
           const isGenerating = job.status === "generating";
           const isError = job.status === "error";
@@ -6421,11 +6651,11 @@ function renderStrategyList() {
           row.setAttribute("role", "button");
           row.setAttribute("tabindex", "0");
 
-          const briefTitle = job.brief ? (job.brief.length > 70 ? job.brief.slice(0, 70) + "…" : job.brief) : "Yeni Strategiya";
+          const briefTitle = job.brief ? (job.brief.length > 70 ? job.brief.slice(0, 70) + "…" : job.brief) : (isEn ? "New Strategy" : "Yeni Strategiya");
           const subtitle = isGenerating
-            ? "Məlumatlar analiz olunur və strateji plan formalaşdırılır…"
+            ? (isEn ? "Analyzing inputs and synthesizing strategic framework…" : "Məlumatlar analiz olunur və strateji plan formalaşdırılır…")
             : isError
-              ? (job.error || "Generasiya zamanı xəta baş verdi.")
+              ? (job.error || (isEn ? "An error occurred during generation." : "Generasiya zamanı xəta baş verdi."))
               : (firstSentences(job.strategy?.summary || job.brief, 1));
 
           // Top Header (Title + Chevron)
@@ -6445,15 +6675,15 @@ function renderStrategyList() {
           const rowFooter = element("div", "archive-row-footer");
           const metaLine = element("div", "archive-row-meta-line");
 
-          const dateVer = element("span", "archive-row-date-ver", `Başladı ${formatArchiveDate(job.startedAt)} · ${isGenerating ? "Arxa planda" : isError ? "Xəta" : "v1"}`);
+          const dateVer = element("span", "archive-row-date-ver", `${isEn ? "Started " : "Başladı "}${formatArchiveDate(job.startedAt)} · ${isGenerating ? (isEn ? "Background" : "Arxa planda") : isError ? (isEn ? "Error" : "Xəta") : "v1"}`);
           const statusEl = element("div", `archive-row-status ${isGenerating ? "is-generating" : isError ? "is-error" : ""}`);
           const dot = element("span", "archive-status-dot");
-          statusEl.append(dot, document.createTextNode(isGenerating ? "Hazırlanır" : isError ? "Xəta" : "Hazırdır"));
+          statusEl.append(dot, document.createTextNode(isGenerating ? (isEn ? "Generating" : "Hazırlanır") : isError ? (isEn ? "Error" : "Xəta") : (isEn ? "Ready" : "Hazırdır")));
           metaLine.append(dateVer, statusEl);
 
           const actionsWrap = element("div", "archive-row-actions");
           if (isError) {
-            const retryBtn = button("Yoxla", "bg-job-retry-btn", (e) => {
+            const retryBtn = button(isEn ? "Retry" : "Yoxla", "bg-job-retry-btn", (e) => {
               e.stopPropagation();
               job.status = "generating";
               job.error = null;
@@ -6461,7 +6691,7 @@ function renderStrategyList() {
               resumeBackgroundJobs();
               render();
             });
-            const deleteBtn = button("Sil", "bg-job-delete-btn", (e) => {
+            const deleteBtn = button(isEn ? "Delete" : "Sil", "bg-job-delete-btn", (e) => {
               e.stopPropagation();
               removeBackgroundJob(job.id);
               render();
@@ -6486,12 +6716,12 @@ function renderStrategyList() {
         });
       }
 
-      let records = state.savedStrategies.filter((record) => !query || `${record.title} ${record.strategy?.summary || record.brief}`.toLocaleLowerCase("az").includes(query));
+      let records = state.savedStrategies.filter((record) => !query || `${record.title} ${record.strategy?.summary || record.brief}`.toLocaleLowerCase(isEn ? "en" : "az").includes(query));
 
-      if (currentFilter === "Son") {
+      if (currentFilterKey === "recent") {
         const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
         records = records.filter((r) => new Date(r.updatedAt || r.createdAt || 0).getTime() >= sevenDaysAgo);
-      } else if (currentFilter === "Yadda saxlanmış") {
+      } else if (currentFilterKey === "saved") {
         records = records.filter((r) => Boolean(r.id));
       }
 
@@ -6501,19 +6731,21 @@ function renderStrategyList() {
           return (a.updatedAt || a.createdAt || "").localeCompare(b.updatedAt || b.createdAt || "");
         }
         if (currentSort === "alphabetical") {
-          return (a.title || "").localeCompare(b.title || "", "az");
+          return (a.title || "").localeCompare(b.title || "", isEn ? "en" : "az");
         }
         return (b.updatedAt || b.createdAt || "").localeCompare(a.updatedAt || a.createdAt || "");
       });
 
-      if (!records.length && (!matchingBgJobs.length || currentFilter === "Yadda saxlanmış")) {
+      if (!records.length && (!matchingBgJobs.length || currentFilterKey === "saved")) {
         const noRes = element("div", "archive-no-results");
         noRes.append(
-          element("h3", "", "Nəticə tapılmadı"),
-          element("p", "", query ? `“${search.value.trim()}” üçün uyğun strategiya yoxdur.` : "Bu filter üçün uyğun strategiya yoxdur."),
-          button("Filterləri təmizlə", "archive-clear-filters-btn", () => {
+          element("h3", "", isEn ? "No results found" : "Nəticə tapılmadı"),
+          element("p", "", query
+            ? (isEn ? `No strategies found matching “${search.value.trim()}”.` : `“${search.value.trim()}” üçün uyğun strategiya yoxdur.`)
+            : (isEn ? "No strategies match this filter." : "Bu filter üçün uyğun strategiya yoxdur.")),
+          button(isEn ? "Clear filters" : "Filterləri təmizlə", "archive-clear-filters-btn", () => {
             search.value = "";
-            currentFilter = "Hamısı";
+            currentFilterKey = "all";
             [...tabs.children].forEach((item, i) => item.classList.toggle("is-active", i === 0));
             drawRows();
             search.focus();
@@ -6550,17 +6782,17 @@ function renderStrategyList() {
         // Footer: Date · Version + Status + Context Menu
         const rowFooter = element("div", "archive-row-footer");
         const metaLine = element("div", "archive-row-meta-line");
-        metaLine.setAttribute("title", `${formatDate(record.updatedAt)} · Versiya ${record.versionCount || 1}`);
+        metaLine.setAttribute("title", `${formatDate(record.updatedAt)} · ${isEn ? "Version " : "Versiya "}${record.versionCount || 1}`);
 
         const dateVer = element("span", "archive-row-date-ver", `${formatArchiveDate(record.updatedAt)} · v${record.versionCount || 1}`);
         const status = element("div", "archive-row-status");
         const dot = element("span", "archive-status-dot");
-        status.append(dot, document.createTextNode("Hazırdır"));
+        status.append(dot, document.createTextNode(isEn ? "Ready" : "Hazırdır"));
         metaLine.append(dateVer, status);
 
         const actionsWrap = element("div", "archive-row-actions");
         const moreBtn = button("", "archive-more-btn");
-        moreBtn.setAttribute("aria-label", "Strategiya əməliyyatları");
+        moreBtn.setAttribute("aria-label", isEn ? "Strategy actions" : "Strategiya əməliyyatları");
         moreBtn.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`;
 
         const contextMenu = createStrategyRowContextMenu(record);
@@ -6641,6 +6873,7 @@ function updatePlannerBadge() {
 }
 
 function renderPlannerView() {
+  const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-list");
   workspace.replaceChildren();
 
@@ -6651,28 +6884,32 @@ function renderPlannerView() {
   const headerText = element("div", "planner-header-text");
   headerText.append(
     element("span", "section-kicker", "WORKSPACE"),
-    element("h1", "", "Planlaşdırılanlar"),
-    element("p", "", "Strategiyalardan əlavə etdiyin və şəxsi tapşırıqlarının icra planı.")
+    element("h1", "", t("planner.title")),
+    element("p", "", t("planner.subtitle"))
   );
 
   headerRow.append(headerText);
   view.appendChild(headerRow);
 
-  // Persistent task composer — its visual placement is handled in CSS so the
-  // existing add-task behaviour and keyboard submission remain unchanged.
+  // Persistent task composer
   const composer = element("form", "planner-composer-card");
   const taskInput = element("input", "planner-composer-input");
   taskInput.type = "text";
-  taskInput.placeholder = "Yeni tapşırıq əlavə et...";
+  taskInput.placeholder = t("planner.inputPlaceholder");
   taskInput.required = true;
 
   const composerBottom = element("div", "planner-composer-bottom");
 
-  const selectPill = element("div", "planner-time-select-pill");
-  const selectLabel = element("span", "planner-select-label", "Bu gün");
-  const groupSelect = document.createElement("select");
-  groupSelect.className = "planner-select-native";
-  const plannerGroupOptions = [
+  const plannerGroupOptions = isEn ? [
+    "Today",
+    "Next 48 Hours",
+    "Next 72 Hours",
+    "Next 7 Days",
+    "Next 14 Days",
+    "Next 30 Days",
+    "Next 60 Days",
+    "General Tasks",
+  ] : [
     "Bu gün",
     "Növbəti 48 saat",
     "Növbəti 72 saat",
@@ -6682,6 +6919,11 @@ function renderPlannerView() {
     "Növbəti 60 gün",
     "Ümumi",
   ];
+
+  const selectPill = element("div", "planner-time-select-pill");
+  const selectLabel = element("span", "planner-select-label", plannerGroupOptions[0]);
+  const groupSelect = document.createElement("select");
+  groupSelect.className = "planner-select-native";
   plannerGroupOptions.forEach((opt) => {
     const option = document.createElement("option");
     option.value = opt;
@@ -6718,7 +6960,7 @@ function renderPlannerView() {
 
   const submitBtn = button("", "planner-submit-btn");
   submitBtn.type = "submit";
-  submitBtn.setAttribute("aria-label", "Tapşırığı əlavə et");
+  submitBtn.setAttribute("aria-label", isEn ? "Add task" : "Tapşırığı əlavə et");
   submitBtn.innerHTML = `
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M12 19V5"/><path d="m6 11 6-6 6 6"/>
@@ -6746,10 +6988,10 @@ function renderPlannerView() {
         updatePlannerBadge();
         taskInput.value = "";
         drawPlannerList();
-        showToast("Tapşırıq əlavə edildi ✓", "success");
+        showToast(isEn ? "Task added ✓" : "Tapşırıq əlavə edildi ✓", "success");
       }
     } catch (err) {
-      showToast(err.message || "Xəta baş verdi", "error");
+      showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
     } finally {
       submitBtn.disabled = false;
     }
@@ -6767,15 +7009,15 @@ function renderPlannerView() {
   `;
   const searchInput = element("input", "planner-search-input");
   searchInput.type = "search";
-  searchInput.placeholder = "Tapşırıqlarda axtar…";
-  searchInput.setAttribute("aria-label", "Tapşırıqlarda axtar");
+  searchInput.placeholder = isEn ? "Search tasks…" : "Tapşırıqlarda axtar…";
+  searchInput.setAttribute("aria-label", isEn ? "Search tasks" : "Tapşırıqlarda axtar");
   searchBar.appendChild(searchInput);
   const filterRow = element("div", "planner-filter-row");
   const filterPills = element("div", "planner-filter-pills");
   const filterOptions = [
-    { key: "all", label: "Hamısı" },
-    { key: "active", label: "Aktiv" },
-    { key: "completed", label: "Tamamlanmış" },
+    { key: "all", label: t("common.all") },
+    { key: "active", label: isEn ? "Active" : "Aktiv" },
+    { key: "completed", label: isEn ? "Completed" : "Tamamlanmış" },
   ];
   filterOptions.forEach((opt) => {
     const btn = button(opt.label, `planner-filter-pill${state.plannerFilter === opt.key ? " is-active" : ""}`, () => {
@@ -6794,7 +7036,7 @@ function renderPlannerView() {
   view.appendChild(listContainer);
 
   const drawPlannerList = () => {
-    const query = searchInput.value.trim().toLocaleLowerCase("az");
+    const query = searchInput.value.trim().toLocaleLowerCase(isEn ? "en" : "az");
     let tasks = state.plannerTasks;
 
     if (state.plannerFilter === "active") tasks = tasks.filter((t) => !t.completed);
@@ -6802,9 +7044,9 @@ function renderPlannerView() {
 
     if (query) {
       tasks = tasks.filter((t) =>
-        t.text.toLocaleLowerCase("az").includes(query) ||
-        (t.strategyTitle && t.strategyTitle.toLocaleLowerCase("az").includes(query)) ||
-        (t.groupLabel && t.groupLabel.toLocaleLowerCase("az").includes(query))
+        t.text.toLocaleLowerCase(isEn ? "en" : "az").includes(query) ||
+        (t.strategyTitle && t.strategyTitle.toLocaleLowerCase(isEn ? "en" : "az").includes(query)) ||
+        (t.groupLabel && t.groupLabel.toLocaleLowerCase(isEn ? "en" : "az").includes(query))
       );
     }
 
@@ -6813,15 +7055,25 @@ function renderPlannerView() {
     if (!tasks.length) {
       const empty = element("div", "planner-empty-state");
       empty.append(
-        element("h2", "", "Tapşırıq tapılmadı"),
-        element("p", "", "Filteri dəyiş və ya yeni tapşırıq əlavə et.")
+        element("h2", "", isEn ? "No tasks found" : "Tapşırıq tapılmadı"),
+        element("p", "", isEn ? "Change the filter or add a new task." : "Filteri dəyiş və ya yeni tapşırıq əlavə et.")
       );
       listContainer.appendChild(empty);
       return;
     }
 
     // Group by groupLabel
-    const groupOrder = [
+    const groupOrder = isEn ? [
+      "Today",
+      "Next 48 hours",
+      "Next 72 hours",
+      "Next 7 days",
+      "This week",
+      "Next 14 days",
+      "Next 30 days",
+      "Next 60 days",
+      "General",
+    ] : [
       "Bu gün",
       "Növbəti 48 saat",
       "Növbəti 72 saat",
@@ -6832,9 +7084,23 @@ function renderPlannerView() {
       "Növbəti 60 gün",
       "Ümumi",
     ];
+    const localizePlannerGroup = (label) => {
+      if (!label) return isEn ? "General" : "Ümumi";
+      const raw = String(label).trim().toLowerCase();
+      if (raw === "bu gün" || raw === "today") return isEn ? "Today" : "Bu gün";
+      if (raw === "növbəti 48 saat" || raw === "next 48 hours") return isEn ? "Next 48 hours" : "Növbəti 48 saat";
+      if (raw === "növbəti 72 saat" || raw === "next 72 hours") return isEn ? "Next 72 hours" : "Növbəti 72 saat";
+      if (raw === "növbəti 7 gün" || raw === "next 7 days") return isEn ? "Next 7 days" : "Növbəti 7 gün";
+      if (raw === "bu həftə" || raw === "this week") return isEn ? "This week" : "Bu həftə";
+      if (raw === "növbəti 14 gün" || raw === "next 14 days") return isEn ? "Next 14 days" : "Növbəti 14 gün";
+      if (raw === "növbəti 30 gün" || raw === "next 30 days") return isEn ? "Next 30 days" : "Növbəti 30 gün";
+      if (raw === "növbəti 60 gün" || raw === "next 60 days") return isEn ? "Next 60 days" : "Növbəti 60 gün";
+      if (raw === "ümumi" || raw === "general") return isEn ? "General" : "Ümumi";
+      return label;
+    };
     const groups = {};
     tasks.forEach((task) => {
-      const g = task.groupLabel || "Ümumi";
+      const g = localizePlannerGroup(task.groupLabel);
       if (!groups[g]) groups[g] = [];
       groups[g].push(task);
     });
@@ -6850,7 +7116,7 @@ function renderPlannerView() {
       if (!groupTasks.length) return;
 
       const groupEl = element("div", "planner-group");
-      const isCollapsible = groupName === "Ümumi";
+      const isCollapsible = groupName === "Ümumi" || groupName === "General";
       const isCollapsed = isCollapsible && state.plannerCollapsedGroups.has(groupName);
       const groupHeader = isCollapsible
         ? button("", "planner-group-header is-collapsible")
@@ -6859,12 +7125,12 @@ function renderPlannerView() {
       const groupTitle = element("div", "planner-group-title");
       groupTitle.append(
         element("h3", "planner-group-name", groupName.toUpperCase()),
-        element("span", "planner-group-badge", `${activeCount} aktiv`)
+        element("span", "planner-group-badge", `${activeCount} ${isEn ? "Active" : "aktiv"}`)
       );
       groupHeader.appendChild(groupTitle);
       if (isCollapsible) {
         groupHeader.setAttribute("aria-expanded", String(!isCollapsed));
-        groupHeader.setAttribute("aria-label", `Ümumi tapşırıqları ${isCollapsed ? "aç" : "bağla"}`);
+        groupHeader.setAttribute("aria-label", isEn ? `${isCollapsed ? "Expand" : "Collapse"} general tasks` : `Ümumi tapşırıqları ${isCollapsed ? "aç" : "bağla"}`);
         groupHeader.insertAdjacentHTML("beforeend", `
           <svg class="planner-group-chevron" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="6 9 12 15 18 9"/>
@@ -6922,7 +7188,7 @@ function renderPlannerView() {
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
               </svg>
-              <span class="planner-dropdown-source-copy"><small>Mənbə</small><strong>${task.strategyTitle}</strong></span>
+              <span class="planner-dropdown-source-copy"><small>${isEn ? "Source" : "Mənbə"}</small><strong>${task.strategyTitle}</strong></span>
             `;
             dropdown.appendChild(sourceItem);
           }
@@ -6933,7 +7199,7 @@ function renderPlannerView() {
                 <circle cx="12" cy="12" r="10"/>
                 <polyline points="12 6 12 12 16 14"/>
               </svg>
-              <span class="planner-dropdown-source-copy"><small>Əlavə edilib</small><strong>${formatDate(task.createdAt)}</strong></span>
+              <span class="planner-dropdown-source-copy"><small>${isEn ? "Added" : "Əlavə edilib"}</small><strong>${formatDate(task.createdAt)}</strong></span>
             `;
             dropdown.appendChild(timeItem);
           }
@@ -6941,7 +7207,7 @@ function renderPlannerView() {
             ev.stopPropagation();
             dropdown.remove();
             card.classList.remove("has-open-menu");
-            if (!window.confirm("Bu tapşırığı silmək istədiyinizdən əminsiniz?")) {
+            if (!window.confirm(isEn ? "Are you sure you want to delete this task?" : "Bu tapşırığı silmək istədiyinizdən əminsiniz?")) {
               return;
             }
             card.style.opacity = "0.4";
@@ -6950,23 +7216,23 @@ function renderPlannerView() {
               state.plannerTasks = state.plannerTasks.filter((t) => t.id !== task.id);
               updatePlannerBadge();
               drawPlannerList();
-              showToast("Tapşırıq silindi ✓", "info");
+              showToast(isEn ? "Task deleted ✓" : "Tapşırıq silindi ✓", "info");
             } catch (err) {
               card.style.opacity = "1";
-              showToast(err.message || "Silmək mümkün olmadı", "error");
+              showToast(err.message || (isEn ? "Unable to delete" : "Silmək mümkün olmadı"), "error");
             }
           });
           deleteItem.innerHTML = `
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
             </svg>
-            <span>Sil</span>
+            <span>${isEn ? "Delete" : "Sil"}</span>
           `;
           dropdown.appendChild(deleteItem);
           menuWrap.appendChild(dropdown);
         });
 
-        menuBtn.setAttribute("aria-label", "Əməliyyatlar");
+        menuBtn.setAttribute("aria-label", isEn ? "Actions" : "Əməliyyatlar");
         menuBtn.innerHTML = `
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <circle cx="5" cy="12" r="1.8"/>
@@ -6992,7 +7258,7 @@ function renderPlannerView() {
             task.completed = checkbox.checked;
             card.classList.toggle("is-done", task.completed);
             updatePlannerBadge();
-            showToast(err.message || "Yeniləmək mümkün olmadı", "error");
+            showToast(err.message || (isEn ? "Unable to update task" : "Yeniləmək mümkün olmadı"), "error");
           }
         });
 
@@ -7094,17 +7360,18 @@ async function loadUsageStats() {
   }
 
   const dailyBreakdown = [];
+  const isEn = getLanguage() === "en";
   for (let i = 29; i >= 0; i--) {
     const dayStart = todayStart - i * DAY_MS;
     const dayEnd = dayStart + DAY_MS;
     const d = new Date(dayStart);
-    const dateStr = d.toLocaleDateString("az-AZ", { month: "short", day: "numeric" });
+    const dateStr = d.toLocaleDateString(isEn ? "en-US" : "az-AZ", { month: "short", day: "numeric" });
     const isoDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     const dayBuild = buildEvents.filter((e) => e.timestamp >= dayStart && e.timestamp < dayEnd).length;
     const dayAsk = askEvents.filter((e) => e.timestamp >= dayStart && e.timestamp < dayEnd).length;
     dailyBreakdown.push({
       date: isoDate,
-      label: i === 0 ? "Bugün" : dateStr,
+      label: i === 0 ? (isEn ? "Today" : "Bugün") : dateStr,
       build: dayBuild,
       ask: dayAsk,
       total: dayBuild + dayAsk,
@@ -7114,8 +7381,8 @@ async function loadUsageStats() {
   state.usageStats = {
     plan: {
       isUnlimited: true,
-      planTitle: "Limitsiz İstifadə Planı",
-      statusText: "Bütün AI Modelləri Aktivdir",
+      planTitle: isEn ? "Unlimited Usage Plan" : "Limitsiz İstifadə Planı",
+      statusText: isEn ? "All AI Models Active" : "Bütün AI Modelləri Aktivdir",
     },
     statsByPeriod,
     dailyBreakdown,
@@ -7130,6 +7397,7 @@ async function loadUsageStats() {
 }
 
 function renderLimitsView() {
+  const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-limits");
   workspace.replaceChildren();
 
@@ -7151,8 +7419,8 @@ function renderLimitsView() {
   const headerRow = element("div", "limits-header-row");
   const headerText = element("div", "limits-header-text");
   headerText.append(
-    element("h1", "", "İstifadə"),
-    element("p", "", "Workspace daxilində AI istifadənizi və fəallığınızı izləyin.")
+    element("h1", "", t("limits.title")),
+    element("p", "", t("limits.subtitle"))
   );
 
   const headerControls = element("div", "limits-header-controls");
@@ -7160,10 +7428,10 @@ function renderLimitsView() {
   // Desktop Period Segmented Filter
   const filterPills = element("div", "limits-segmented-control");
   const PERIOD_OPTIONS = [
-    { id: "today", label: "Bugün" },
-    { id: "7d", label: "7 gün" },
-    { id: "14d", label: "14 gün" },
-    { id: "30d", label: "30 gün" },
+    { id: "today", label: isEn ? "Today" : "Bugün" },
+    { id: "7d", label: isEn ? "Last 7 Days" : "7 gün" },
+    { id: "14d", label: isEn ? "Last 14 Days" : "14 gün" },
+    { id: "30d", label: isEn ? "Last 30 Days" : "30 gün" },
   ];
 
   PERIOD_OPTIONS.forEach(({ id, label }) => {
@@ -7178,7 +7446,7 @@ function renderLimitsView() {
   const mobileSelectWrap = element("div", "limits-mobile-select-wrap");
   const mobileSelect = document.createElement("select");
   mobileSelect.className = "limits-mobile-select";
-  mobileSelect.setAttribute("aria-label", "Dövr seçimi");
+  mobileSelect.setAttribute("aria-label", isEn ? "Select period" : "Dövr seçimi");
   PERIOD_OPTIONS.forEach(({ id, label }) => {
     const opt = document.createElement("option");
     opt.value = id;
@@ -7203,9 +7471,9 @@ function renderLimitsView() {
     refreshBtn.classList.add("is-loading");
     await loadUsageStats();
     if (state.view === "limits") renderLimitsView();
-    showToast("Statistikalar yeniləndi ✓", "info");
+    showToast(isEn ? "Usage statistics refreshed ✓" : "Statistikalar yeniləndi ✓", "info");
   });
-  refreshBtn.setAttribute("title", "Statistikanı yenilə");
+  refreshBtn.setAttribute("title", isEn ? "Refresh statistics" : "Statistikanı yenilə");
   refreshBtn.innerHTML = `
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="23 4 23 10 17 10"/>
@@ -7230,18 +7498,18 @@ function renderLimitsView() {
         </div>
         <div>
           <h4>Build</h4>
-          <span class="limits-mode-sub">Strateji generasiya və dəqiqləşdirmə</span>
+          <span class="limits-mode-sub">${isEn ? "Strategic roadmap generation & refinement" : "Strateji generasiya və dəqiqləşdirmə"}</span>
         </div>
       </div>
-      <span class="limits-tag tag-build">Limitsiz</span>
+      <span class="limits-tag tag-build">${isEn ? "Unlimited" : "Limitsiz"}</span>
     </div>
     <div class="limits-mode-value-wrap">
       <span class="limits-mode-big-num">${stats.build.total}</span>
-      <span class="limits-mode-unit">əməliyyat</span>
+      <span class="limits-mode-unit">${isEn ? "strategy operations" : "əməliyyat"}</span>
     </div>
     <div class="limits-mode-meta-pills">
-      <span class="limits-meta-pill"><strong>${stats.build.strategiesCreated}</strong> yeni strategiya</span>
-      <span class="limits-meta-pill"><strong>${stats.build.refinements}</strong> dəqiqləşdirmə</span>
+      <span class="limits-meta-pill"><strong>${stats.build.strategiesCreated}</strong> ${isEn ? "strategies built" : "yeni strategiya"}</span>
+      <span class="limits-meta-pill"><strong>${stats.build.refinements}</strong> ${isEn ? "refinements" : "dəqiqləşdirmə"}</span>
     </div>
   `;
 
@@ -7255,18 +7523,18 @@ function renderLimitsView() {
         </div>
         <div>
           <h4>Ask</h4>
-          <span class="limits-mode-sub">İnteraktiv sual-cavab və analiz</span>
+          <span class="limits-mode-sub">${isEn ? "Interactive strategic Q&A and analysis" : "İnteraktiv sual-cavab və analiz"}</span>
         </div>
       </div>
-      <span class="limits-tag tag-ask">Limitsiz</span>
+      <span class="limits-tag tag-ask">${isEn ? "Unlimited" : "Limitsiz"}</span>
     </div>
     <div class="limits-mode-value-wrap">
       <span class="limits-mode-big-num">${stats.ask.total}</span>
-      <span class="limits-mode-unit">əməliyyat</span>
+      <span class="limits-mode-unit">${isEn ? "consultations" : "əməliyyat"}</span>
     </div>
     <div class="limits-mode-meta-pills">
-      <span class="limits-meta-pill"><strong>${stats.ask.questions}</strong> sual</span>
-      <span class="limits-meta-pill"><strong>${stats.ask.responses}</strong> AI cavabı</span>
+      <span class="limits-meta-pill"><strong>${stats.ask.questions}</strong> ${isEn ? "questions asked" : "sual"}</span>
+      <span class="limits-meta-pill"><strong>${stats.ask.responses}</strong> ${isEn ? "AI responses" : "AI cavabı"}</span>
     </div>
   `;
 
@@ -7276,11 +7544,18 @@ function renderLimitsView() {
   // 4. Activity Timeline Chart Card
   const chartSection = element("div", "limits-chart-card");
   const chartHeader = element("div", "limits-chart-header");
-  const periodTitle = period === "today" ? "Bugün" : period === "7d" ? "Son 7 gün" : period === "14d" ? "Son 14 gün" : "Son 30 gün";
+  const periodTitle = period === "today"
+    ? (isEn ? "Today" : "Bugün")
+    : period === "7d"
+      ? (isEn ? "Past 7 days" : "Son 7 gün")
+      : period === "14d"
+        ? (isEn ? "Past 14 days" : "Son 14 gün")
+        : (isEn ? "Past 30 days" : "Son 30 gün");
+
   chartHeader.innerHTML = `
     <div>
-      <h3>Fəallığınız</h3>
-      <p>${escapeHtml(periodTitle)} üzrə sorğu və generasiyaların vizual bölgüsü.</p>
+      <h3>${isEn ? "Activity Timeline" : "Fəallığınız"}</h3>
+      <p>${escapeHtml(isEn ? `Visual distribution of strategic operations over ${periodTitle.toLowerCase()}.` : `${periodTitle} üzrə sorğu və generasiyaların vizual bölgüsü.`)}</p>
     </div>
     <div class="limits-chart-legend">
       <div class="legend-item"><span class="legend-dot dot-build"></span><span>Build</span></div>
@@ -7332,14 +7607,14 @@ function renderLimitsView() {
       `;
     }
 
-    const labelText = escapeHtml(dayItem.label.replace("Bu gün", "Bugün"));
+    const labelText = escapeHtml(isEn ? dayItem.label.replace("Bugün", "Today") : dayItem.label.replace("Bu gün", "Bugün"));
 
     col.innerHTML = `
       <div class="limits-chart-tooltip">
         <strong>${labelText}</strong>
         <div class="tooltip-row"><span class="t-dot dot-build"></span> Build: ${dayItem.build || 0}</div>
         <div class="tooltip-row"><span class="t-dot dot-ask"></span> Ask: ${dayItem.ask || 0}</div>
-        <div class="tooltip-row t-total">Cəmi: ${dayItem.total || 0}</div>
+        <div class="tooltip-row t-total">${isEn ? "Total" : "Cəmi"}: ${dayItem.total || 0}</div>
       </div>
       ${barsTrackHtml}
       <span class="limits-col-label${showLabel ? "" : " is-hidden-label"}">${showLabel ? labelText : "&nbsp;"}</span>
@@ -7366,8 +7641,8 @@ function renderLimitsView() {
         </svg>
       </div>
       <div>
-        <h3>Tez-tez verilən suallar</h3>
-        <p>İstifadə, rejimlər və fəallıq statistikaları haqqında faydalı məlumatlar.</p>
+        <h3>${isEn ? "Frequently Asked Questions" : "Tez-tez verilən suallar"}</h3>
+        <p>${isEn ? "Key facts about usage, modes, and activity metrics." : "İstifadə, rejimlər və fəallıq statistikaları haqqında faydalı məlumatlar."}</p>
       </div>
     </div>
     <div class="limits-faq-main-toggle" aria-hidden="true">
@@ -7379,7 +7654,28 @@ function renderLimitsView() {
   faqSection.appendChild(faqHeader);
 
   const faqList = element("div", "limits-faq-list");
-  const FAQ_ITEMS = [
+  const FAQ_ITEMS = isEn ? [
+    {
+      q: "What is the difference between Build and Ask modes?",
+      a: "<strong>Build mode</strong> crafts comprehensive go-to-market strategies, competitor mappings, target audiences, and execution roadmaps. <strong>Ask mode</strong> provides real-time strategic Q&A, deep analysis, and tactical advice."
+    },
+    {
+      q: "How are activity metrics and timelines computed?",
+      a: "The system automatically tracks your Build and Ask operations across the selected timeframe (Today, 7 days, 14 days, 30 days) and plots them dynamically."
+    },
+    {
+      q: "Are there any usage or rate limits on Marketify AI?",
+      a: "All strategic intelligence models and workflows are fully enabled for uninterrupted high-velocity marketing execution."
+    },
+    {
+      q: "Where are my strategies and conversations stored?",
+      a: "All generated strategies and chat histories are securely stored in your personal workspace. You can access them anytime via the <strong>Archive</strong> and <strong>Planner</strong> tabs in the sidebar."
+    },
+    {
+      q: "When and how are these statistics updated?",
+      a: "Usage statistics update automatically with each new generation or conversation. You can also click the <strong>Refresh</strong> button at the top to instantly reload latest stats."
+    }
+  ] : [
     {
       q: "Build və Ask rejimləri arasındakı fərq nədir?",
       a: "<strong>Build rejimi</strong> strukturlaşdırılmış marketinq strategiyaları, bazar analizi, hədəf auditoriya xəritələri və icra planları hazırlayır. <strong>Ask rejimi</strong> isə operativ sual-cavab, araşdırmalar və analitik dəqiqləşdirmələr üçün optimallaşdırılıb."
@@ -7428,141 +7724,16 @@ function renderLimitsView() {
   workspace.appendChild(view);
 }
 
-const LEGAL_DOCS = {
-  terms: {
-    title: "İstifadə Şərtləri",
-    subtitle: "Son yenilənmə tarixi: Avqust 2026",
-    html: `
-      <div class="legal-highlight-box">
-        <strong>✦ Süni İntellekt və API İnfrastrukturu</strong>
-        Marketify AI strateji analizlərin, marketinq materiallarının və digər nəticələrin generasiyası üçün süni intellekt, böyük dil modelləri (LLM), API infrastrukturları və digər üçüncü tərəf texnologiyalarından istifadə edə bilər. İstifadə olunan modellər, provayderlər və texniki infrastruktur xidmətin inkişafı ilə əlaqədar dəyişdirilə bilər.
-      </div>
-
-      <h3>1. Ümumi Müddəalar və Xidmətin Təyinatı</h3>
-      <p>Marketify AI platformasına (“Marketify”, “Platforma”, “Xidmət”) xoş gəlmisiniz. Bu İstifadə Şərtləri (“Şərtlər”) Platformaya girişinizi və ondan istifadənizi tənzimləyir. Platformaya daxil olmaqla və ya ondan istifadə etməklə bu Şərtləri oxuduğunuzu, başa düşdüyünüzü və onlara əməl etməyə razı olduğunuzu təsdiq edirsiniz. Şərtlərlə razı deyilsinizsə, Platformadan istifadə etməməlisiniz.</p>
-
-      <p>Marketify süni intellekt texnologiyalarından istifadə etməklə marketinq, biznes strategiyası, bazar analizi, ideya inkişafı, planlaşdırma və əlaqəli sahələr üzrə məzmun və analitik nəticələr yaratmağa kömək edən proqram təminatı platformasıdır.</p>
-
-      <p>Platformanın təqdim etdiyi nəticələr avtomatlaşdırılmış süni intellekt sistemləri tərəfindən generasiya edilir və peşəkar hüquqi, maliyyə, vergi, investisiya və ya digər ixtisaslaşdırılmış məsləhətin əvəzi hesab edilmir.</p>
-
-      <h3>2. Süni İntellekt Emalı və Üçüncü Tərəf Xidmətləri</h3>
-      <p>Platformaya daxil etdiyiniz sorğular, biznes brifləri, mətnlər, fayllar və digər məlumatlar Xidmətin funksiyalarını təmin etmək məqsədilə süni intellekt modelləri, API-lər, hosting, məlumat bazası və digər texniki infrastrukturlar vasitəsilə emal edilə bilər.</p>
-
-      <p>Marketify konkret süni intellekt modelinin, API provayderinin və ya digər üçüncü tərəf xidmətinin daimi mövcudluğuna zəmanət vermir. Marketify istifadə olunan modelləri, provayderləri və texniki infrastrukturu tətbiq olunan qanunvericiliyin tələb etdiyi hallar istisna olmaqla dəyişdirmək hüququnu özündə saxlayır.</p>
-
-      <h3>3. Süni İntellekt Nəticələrinin Dəqiqliyi</h3>
-      <p>Süni intellekt sistemlərinin xüsusiyyətlərinə görə Platforma tərəfindən generasiya olunan nəticələr yanlış, natamam, qeyri-dəqiq və ya köhnəlmiş məlumatlar ehtiva edə bilər. Sistem bəzi hallarda mövcud olmayan faktları, statistik məlumatları, mənbələri və ya digər məlumatları səhvən təqdim edə bilər.</p>
-
-      <p>Marketify generasiya edilən nəticələrin dəqiqliyinə, tamlığına, aktuallığına, etibarlılığına və ya konkret məqsədə uyğunluğuna zəmanət vermir. İstifadəçi mühüm məlumatları müstəqil və etibarlı mənbələrdən yoxlamalıdır.</p>
-
-      <h3>4. Əqli Mülkiyyət və İstifadəçi Məzmunu</h3>
-      <p><strong>İstifadəçi Məzmunu:</strong> Platformaya daxil etdiyiniz biznes məlumatları, ideyalar, briflər, mətnlər, fayllar və digər materiallar üzərində mövcud hüquqlarınız sizdə qalır.</p>
-
-      <p>Marketify-a məlumat təqdim etməklə həmin məlumatların Xidmətin funksiyalarını yerinə yetirmək üçün zəruri həcmdə emal edilməsinə icazə verirsiniz. Platformaya təqdim etdiyiniz məlumatlardan istifadə etmək və onların emalına icazə vermək üçün zəruri hüquq və səlahiyyətlərə malik olduğunuza görə məsuliyyət daşıyırsınız.</p>
-
-      <p><strong>Generasiya Edilən Məzmun:</strong> Qanunvericiliyin və tətbiq olunan üçüncü tərəf şərtlərinin icazə verdiyi həddə Marketify vasitəsilə sizin üçün generasiya edilmiş strategiya, fəaliyyət planı, mətn və digər nəticələrdən kommersiya və qeyri-kommersiya məqsədləri üçün istifadə edə bilərsiniz.</p>
-
-      <p>Süni intellekt sistemlərinin xüsusiyyətlərinə görə eyni və ya oxşar nəticələr digər istifadəçilər üçün də generasiya edilə bilər. Marketify generasiya edilmiş məzmunun unikal, eksklüziv və ya müəllif hüquqları ilə qoruna bilən olmasına zəmanət vermir.</p>
-
-      <h3>5. Biznes Qərarları və Tövsiyə Xarakteri</h3>
-      <p>Marketify tərəfindən generasiya edilən strategiyalar, proqnozlar, bazar təhlilləri, büdcə təklifləri, fəaliyyət planları və digər nəticələr məlumatlandırıcı və yardımçı xarakter daşıyır.</p>
-
-      <p>Marketify müəyyən satış, gəlir, mənfəət, investisiya nəticəsinə, marketinq kampaniyasının uğuruna və ya digər konkret biznes nəticəsinə zəmanət vermir. Platformanın təqdim etdiyi məlumatlara əsaslanan qərarların qəbul edilməsi və həyata keçirilməsi istifadəçinin müstəqil qərarı və məsuliyyətidir.</p>
-
-      <h3>6. Qadağan Olunmuş İstifadə</h3>
-      <p>Platformadan qanunsuz fəaliyyət, fırıldaqçılıq, aldatma, üçüncü şəxslərin hüquqlarının pozulması, zərərli proqramların yayılması, sistemlərə icazəsiz giriş, təhlükəsizlik mexanizmlərinin aşılması və ya Platformanın normal fəaliyyətinə müdaxilə məqsədilə istifadə etmək qadağandır.</p>
-
-      <p>Marketify bu Şərtlərin pozulduğunu əsaslı şəkildə müəyyən etdikdə istifadəçinin Platformaya girişini məhdudlaşdırmaq, müvəqqəti dayandırmaq və ya ləğv etmək hüququnu özündə saxlayır.</p>
-
-      <h3>7. Xidmətin Mövcudluğu və Dəyişdirilməsi</h3>
-      <p>Marketify Platformanın fasiləsiz, səhvsiz və ya hər zaman əlçatan olacağına zəmanət vermir. Texniki xidmət, yeniləmələr, server problemləri, üçüncü tərəf API-lərində nasazlıqlar və Marketify-ın ağlabatan nəzarətindən kənar digər hallar Xidmətin müvəqqəti əlçatmaz olmasına və ya müəyyən funksiyaların işləməməsinə səbəb ola bilər.</p>
-
-      <p>Marketify Platformanın funksiyalarını, interfeysini, süni intellekt modellərini, istifadə limitlərini və digər texniki xüsusiyyətlərini dəyişdirmək, əlavə etmək və ya dayandırmaq hüququnu özündə saxlayır.</p>
-
-      <h3>8. Zəmanətlərin Məhdudlaşdırılması</h3>
-      <p>Qanunvericiliyin icazə verdiyi maksimum həddə Platforma və onun funksiyaları “olduğu kimi” və “mövcud olduğu şəkildə” təqdim edilir.</p>
-
-      <p>Marketify Platformanın konkret məqsədə uyğunluğu, fasiləsiz işləməsi, bütün səhvlərdən azad olması və ya generasiya edilən nəticələrin konkret kommersiya və ya biznes nəticəsi yaradacağı barədə açıq və ya nəzərdə tutulan zəmanət vermir.</p>
-
-      <h3>9. Məsuliyyətin Məhdudlaşdırılması</h3>
-      <p>Qanunvericiliyin icazə verdiyi maksimum həddə Marketify Platformadan istifadə, Platformadan istifadə edə bilməmə və ya generasiya edilmiş nəticələrə əsaslanan qərarlar nəticəsində yaranan dolayı, təsadüfi, xüsusi və ya nəticə etibarilə meydana çıxan zərərlərə, o cümlədən itirilmiş mənfəət, gəlir, biznes imkanı, məlumat və ya reputasiya itkisinə görə məsuliyyət daşımır.</p>
-
-      <p>Bu müddəa tətbiq olunan qanunvericiliklə məhdudlaşdırılması və ya istisna edilməsi mümkün olmayan məsuliyyət hallarını aradan qaldırmır.</p>
-
-      <h3>10. Hesab və Təhlükəsizlik</h3>
-      <p>Hesab funksiyası təqdim edildiyi halda istifadəçi öz giriş məlumatlarının məxfiliyini və təhlükəsizliyini qorumağa görə məsuliyyət daşıyır. İcazəsiz giriş və ya hesab təhlükəsizliyinin pozulmasından şübhələndikdə istifadəçi Marketify-a mümkün qədər tez məlumat verməlidir.</p>
-
-      <h3>11. Məxfilik və Fərdi Məlumatlar</h3>
-      <p>Fərdi məlumatların toplanması, istifadəsi, saxlanması və digər emal əməliyyatları Marketify-ın qüvvədə olan Məxfilik Siyasətinə və tətbiq olunan qanunvericiliyə uyğun həyata keçirilir.</p>
-
-      <p>İstifadəçilər Platformaya xidmətin göstərilməsi üçün zəruri olmayan həssas, məxfi və ya üçüncü şəxslərə aid məlumatları daxil etməməlidirlər.</p>
-
-      <h3>12. Şərtlərin Dəyişdirilməsi</h3>
-      <p>Marketify Platformanın inkişafı, hüquqi tələblər, təhlükəsizlik məsələləri və ya xidmət modelində dəyişikliklərlə əlaqədar bu Şərtləri vaxtaşırı yeniləyə bilər. Əhəmiyyətli dəyişikliklər barədə tətbiq olunan qanunvericiliyin tələb etdiyi hallarda istifadəçilərə uyğun vasitələrlə məlumat verilə bilər.</p>
-
-      <p>Yenilənmiş Şərtlər göstərilən qüvvəyə minmə tarixindən tətbiq edilir.</p>
-
-      <h3>13. Şərtlərin Ayrı-ayrılıqda Qüvvədə Qalması</h3>
-      <p>Bu Şərtlərin hər hansı müddəasının etibarsız və ya icraedilməz hesab edilməsi digər müddəaların etibarlılığına təsir göstərmir.</p>
-
-      <h3>14. Tətbiq Olunan Qanunvericilik</h3>
-      <p>Bu Şərtlər Azərbaycan Respublikasının qanunvericiliyinə uyğun olaraq şərh və tətbiq edilir. İstehlakçıların və digər şəxslərin tətbiq olunan qanunvericiliklə məhdudlaşdırılması mümkün olmayan hüquqları bu Şərtlərlə aradan qaldırılmır.</p>
-
-      <div class="legal-highlight-box">
-        <strong>Vacib qeyd</strong>
-        Marketify səhv edə bilər. Vacib məlumatları və Platformanın təqdim etdiyi nəticələri müstəqil və etibarlı mənbələrdən yoxlayın.
-      </div>
-    `,
+const LEGAL_DOCS = new Proxy({}, {
+  get(target, prop) {
+    const lang = getLanguage();
+    const docs = LEGAL_DOCS_I18N[lang] || LEGAL_DOCS_I18N.az;
+    return docs[prop] || docs.terms;
   },
-  privacy: {
-    title: "Məxfilik Siyasəti və Fərdi Məlumatların Emalı Qaydaları",
-    subtitle: "Son yenilənmə tarixi: Avqust 2026",
-    html: `
-      <p>Bu Məxfilik Siyasəti (bundan sonra — <strong>«Siyasət»</strong>) <strong>Innova Group Azerbaijan</strong> tərəfindən idarə olunan <strong>Marketify AI</strong> platformasında (bundan sonra — <strong>«Platforma»</strong>, <strong>«Xidmət»</strong> və ya <strong>«Məlumat Sahibi/İdarəçi»</strong>) fərdi və konfidensial məlumatların toplanması, emalı, saxlanması və mühafizəsi qaydalarını müəyyən edir.</p>
-      <p>Platformadan istifadə etməklə İstifadəçi Azərbaycan Respublikasının «Fərdi məlumatlar haqqında» Qanununa uyğun olaraq, öz fərdi məlumatlarının bu Siyasətdə göstərilən şərtlər daxilində toplanmasına və emalına tam razılığını bildirmiş olur.</p>
-
-      <h3>1. Əsas Prinsiplər və Qeyri-Kommersiya Xarakteri</h3>
-      <p>1.1. Platforma qeyri-kommersiya təyinatlı fəaliyyət göstərir və toplanan məlumatlardan birbaşa və ya dolayısı ilə kommersiya, reklam və ya mənfəət əldə etmək məqsədilə istifadə etmir.</p>
-      <p>1.2. Məlumatların emalı qanunilik, konfidensiallıq, məqsədəuyğunluq və yalnız xidmətin texniki-funksional tələbləri ilə məhdudlaşma prinsiplərinə əsaslanır.</p>
-
-      <h3>2. Toplanan Məlumatların Kateqoriyaları</h3>
-      <p>Platforma xidmətlərin təmənnasız göstərilməsi və sistem təhlükəsizliyinin təmin edilməsi məqsədilə aşağıdakı kateqoriyalar üzrə məlumatları emal edir:</p>
-      <p>2.1. <strong>İdentifikasiya və Giriş Məlumatları:</strong> İstifadəçinin adı, soyadı, istifadəçi adı, elektron poçt ünvanı və təhlükəsiz şifrələnmiş (kriptoqrafik heşlənmiş) autentifikasiya identifikatorları.</p>
-      <p>2.2. <strong>Biznes və Məzmun Konteksti:</strong> İstifadəçi tərəfindən sistemə daxil edilən marketinq brifləri, aydınlaşdırma sorğularına cavablar, generasiya olunmuş analitik nəticələr, söhbət tarixçəsi, planlaşdırılan tapşırıqlar və arxiv qeydləri.</p>
-      <p>2.3. <strong>Texniki və Təhlükəsizlik Göstəriciləri:</strong> İstifadəçinin brauzer sessiya açarları, IP ünvanları, sistem hadisələrinin qeydiyyat jurnalları (server logları) və giriş vaxtı göstəriciləri.</p>
-
-      <h3>3. Fərdiləşdirilmiş Təcrübə, Həssas Məlumatlar və İstifadəçinin Mülahizə Öhdəliyi</h3>
-      <p>3.1. <strong>Könüllü Razılıq və Fərdiləşdirmə:</strong> Platformada süni intellekt cavablarının daha dəqiq, kontekstə uyğun və effektiv formalaşdırılması məqsədilə «Fərdiləşdirilmiş təcrübə» funksiyası tətbiq olunur. Bu funksiya yalnız İstifadəçinin birmənalı və könüllü razılığı (opt-in) əsasında aktivləşdirilir və istənilən vaxt sistem parametrlərindən söndürülə bilər.</p>
-      <p>3.2. <strong>Həssas Məlumatların Yaddaşda Saxlanılmaması:</strong> Fərdiləşdirmə mexanizmi çərçivəsində İstifadəçinin həssas və birbaşa identifikasiyaedici şəxsi məlumatları, o cümlədən mobil telefon nömrəsi, dəqiq yaşayış ünvanı məlumatları, şəxsiyyəti təsdiq edən sənədin fərdi identifikasiya nömrəsi (FİN kod), seriya və nömrəsi, habelə bank və ödəniş rekvizitləri qəti şəkildə fərdiləşdirmə yaddaşında saxlanılmır və profil kontekstinə daxil edilmir. Fərdiləşdirmə yalnız qeyri-həssas, ümumi üslub və marketinq konteksti parametrlərini əhatə edir.</p>
-      <p>3.3. <strong>İstifadəçinin Mülahizəsi və Paylaşmamaq Məsuliyyəti:</strong> Qanunvericilikdə və ya xidmətin qeydiyyat formasında birbaşa tələb olunan məcburi texniki hallar (məsələn, hesabın yaradılması üçün e-poçt ünvanı) istisna olmaqla, sorğulara daxil edilən hər hansı məlumatın həcmi və xarakteri üzrə yekun mülahizə tam şəkildə İstifadəçinin öz üzərindədir. İstifadəçilər platformanın heç bir interfeysində, sorğu və ya brif daxiletmə sahələrində həssas fərdi məlumatlarını, dövlət qeydiyyat nömrələrini, bank rekvizitlərini və ya üçüncü şəxslərin gizli məlumatlarını heç bir halda paylaşmamalı və sistemə daxil etməməlidirlər. İstifadəçinin bu tələbə zidd olaraq öz təşəbbüsü ilə paylaşdığı həssas məlumatlara görə Platforma heç bir maddi və ya hüquqi məsuliyyət daşımır.</p>
-
-      <h3>4. Süni İntellekt API İnteqrasiyası və Məlumatların Transsərhəd Emalı</h3>
-      <p>4.1. Platforma strateji təhlil və mətn generasiyası funksiyalarını yerinə yetirmək üçün etibarlı qlobal süni intellekt provayderlərinin rəsmi Tətbiqi Proqramlaşdırma İnterfeyslərindən (API) istifadə edir.</p>
-      <p>4.2. Sorğular təhlükəsiz TLS/HTTPS şifrələmə protokolları vasitəsilə ötürülür və yalnız cari generasiya sessiyasının tələblərini icra etmək üçün emal olunur.</p>
-      <p>4.3. <strong>Model Təlimindən İmtiyaz:</strong> İstifadəçinin daxil etdiyi biznes sorğuları, fərdi məlumatları və ya fərdiləşdirmə parametrləri üçüncü tərəf süni intellekt modellərinin açıq təlimi (public training) üçün istifadə edilmir.</p>
-      <p>4.4. <strong>Məlumatların Satılmaması Təminatı:</strong> Innova Group Azerbaijan heç bir halda istifadəçilərin şəxsi identifikasiya məlumatlarını, əlaqə vasitələrini və ya biznes kontekstini reklam şirkətlərinə, marketinq agentliklərinə və ya digər kommersiya qurumlarına satmır, icarəyə vermir və ötürmür.</p>
-
-      <h3>5. Məlumatların Saxlanması, İnfrastruktur və Təhlükəsizlik</h3>
-      <p>5.1. Məlumatların bütövlüyü və konfidensiallığı müasir bulud saxlanc infrastrukturları (Cloudflare R2), operativ keşləmə mexanizmləri (Redis) və gücləndirilmiş server mühiti vasitəsilə təmin edilir.</p>
-      <p>5.2. Məlumat bazalarına icazəsiz girişin, məlumat sızmasının və ya dəyişdirilməsinin qarşısını almaq üçün Azərbaycan Respublikasının «İnformasiya, informasiyalaşdırma və informasiyanın mühafizəsi haqqında» Qanununun tələblərinə uyğun təşkilati və proqram-texniki mühafizə tədbirləri tətbiq olunur.</p>
-
-      <h3>6. İstifadəçinin Hüquqları və Məlumatların Silinməsi</h3>
-      <p>Azərbaycan Respublikasının «Fərdi məlumatlar haqqında» Qanununa əsasən, İstifadəçi aşağıdakı hüquqlara malikdir:</p>
-      <p>6.1. Öz fərdi məlumatlarının emal edilib-edilməməsi barədə məlumat almaq və onların tərkibi ilə tanış olmaq;</p>
-      <p>6.2. Saxlanılan marketinq strategiyalarını, söhbət tarixçəsini, planlaşdırılan tapşırıqları və fərdiləşdirmə yaddaşını platformanın daxili interfeysi vasitəsilə istənilən vaxt tamamilə və bərpa olunmaz şəkildə silmək;</p>
-      <p>6.3. «Fərdiləşdirilmiş təcrübə» funksiyasına verdiyi razılığı istədiyi an geri çağırmaq və sistemdəki profilinin tam ləğv edilməsini (unudulma hüququnu) tələb etmək.</p>
-
-      <h3>7. Siyasətin Dəyişdirilməsi</h3>
-      <p>7.1. Innova Group Azerbaijan qanunvericilikdəki dəyişikliklər və ya platformanın texniki təkamülü ilə əlaqədar bu Siyasətə birtərəfli qaydada dəyişikliklər etmək hüququnu özündə saxlayır.</p>
-      <p>7.2. Yenilənmiş Siyasət Platformada dərc edildiyi andan qüvvəyə minir.</p>
-
-      <h3>8. Əlaqə və Müraciətlər</h3>
-      <p>Fərdi məlumatların emalı, məxfilik hüquqlarının həyata keçirilməsi və ya bu Siyasətlə bağlı müraciətlər üçün İstifadəçilər Platformanın rəsmi əks-əlaqə kanalları və rəqəmsal dəstək interfeysi vasitəsilə əlaqə saxlaya bilərlər.</p>
-    `,
-  },
-};
+});
 
 function openPersonalizationConsentModal(onAccept) {
+  const isEn = getLanguage() === "en";
   const overlay = document.querySelector("#legalModalOverlay");
   if (!overlay) return;
 
@@ -7575,15 +7746,15 @@ function openPersonalizationConsentModal(onAccept) {
 
   const header = element("header", "legal-modal-header");
   const titleGroup = element("div", "legal-modal-title-group");
-  const title = element("h2", "", "Fərdiləşdirilmiş təcrübəni aktivləşdir?");
+  const title = element("h2", "", isEn ? "Enable personalized experience?" : "Fərdiləşdirilmiş təcrübəni aktivləşdir?");
   title.id = "personalizationConsentTitle";
   titleGroup.append(
     title,
-    element("p", "", "Daha uyğun cavablar üçün brend məlumatlarından istifadə et.")
+    element("p", "", isEn ? "Leverage brand knowledge for contextual AI responses." : "Daha uyğun cavablar üçün brend məlumatlarından istifadə et.")
   );
 
   const closeBtn = button("✕", "legal-modal-close", closeLegalModal);
-  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
   header.append(titleGroup, closeBtn);
 
   const body = element("div", "legal-modal-body personalization-consent-body");
@@ -7591,19 +7762,23 @@ function openPersonalizationConsentModal(onAccept) {
     element(
       "p",
       "",
-      "Aktiv olduqda Marketify cavabları və strategiyaları brend profilin, seçdiyin üslub və yaddaş qeydlərin əsasında fərdiləşdirəcək."
+      isEn
+        ? "When enabled, Marketify adapts strategies, frameworks, and analyses based on your brand profile, tone of voice, and memory notes."
+        : "Aktiv olduqda Marketify cavabları və strategiyaları brend profilin, seçdiyin üslub və yaddaş qeydlərin əsasında fərdiləşdirəcək."
     ),
     element(
       "p",
       "",
-      "Bu funksiya könüllüdür və istənilən vaxt Parametrlər bölməsindən söndürülə bilər."
+      isEn
+        ? "This feature is optional and can be turned off anytime in Settings."
+        : "Bu funksiya könüllüdür və istənilən vaxt Parametrlər bölməsindən söndürülə bilər."
     )
   );
 
   const privacyLink = element(
     "a",
     "personalization-consent-privacy-link",
-    "Məxfilik Siyasətini oxu →"
+    isEn ? "Read Privacy Policy →" : "Məxfilik Siyasətini oxu →"
   );
   privacyLink.href = "#privacy";
   privacyLink.addEventListener("click", (event) => {
@@ -7613,8 +7788,8 @@ function openPersonalizationConsentModal(onAccept) {
   body.appendChild(privacyLink);
 
   const footer = element("div", "legal-modal-footer personalization-consent-footer");
-  const cancelBtn = button("İndi yox", "secondary-button", closeLegalModal);
-  const acceptBtn = button("Razıyam, aktiv et", "primary-button", () => {
+  const cancelBtn = button(isEn ? "Not now" : "İndi yox", "secondary-button", closeLegalModal);
+  const acceptBtn = button(isEn ? "Agree & enable" : "Razıyam, aktiv et", "primary-button", () => {
     closeLegalModal();
     if (typeof onAccept === "function") onAccept();
   });
@@ -7628,6 +7803,7 @@ function openPersonalizationConsentModal(onAccept) {
 }
 
 function openLegalModal(type) {
+  const isEn = getLanguage() === "en";
   const overlay = document.querySelector("#legalModalOverlay");
   if (!overlay) return;
   const doc = LEGAL_DOCS[type] || LEGAL_DOCS.terms;
@@ -7640,7 +7816,7 @@ function openLegalModal(type) {
   titleGroup.append(element("h2", "", doc.title), element("p", "", doc.subtitle));
 
   const closeBtn = button("✕", "legal-modal-close", closeLegalModal);
-  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
 
   header.append(titleGroup, closeBtn);
 
@@ -7648,7 +7824,7 @@ function openLegalModal(type) {
   body.innerHTML = doc.html;
 
   const footer = element("div", "legal-modal-footer");
-  footer.appendChild(button("Bağla", "primary-button", closeLegalModal));
+  footer.appendChild(button(isEn ? "Close" : "Bağla", "primary-button", closeLegalModal));
 
   card.append(header, body, footer);
   overlay.appendChild(card);
@@ -7670,6 +7846,7 @@ window.addEventListener("marketify:open-legal", (event) => {
 });
 
 function openDeleteAccountModal() {
+  const isEn = getLanguage() === "en";
   const overlay = document.querySelector("#legalModalOverlay");
   if (!overlay) return;
 
@@ -7679,16 +7856,46 @@ function openDeleteAccountModal() {
   const header = element("header", "legal-modal-header");
   const titleGroup = element("div", "legal-modal-title-group");
   titleGroup.append(
-    element("h2", "", "Hesabın silinməsini təsdiqləyirsiniz?"),
-    element("p", "", "14 günlük təhlükəsizlik və gözləmə müddəti")
+    element("h2", "", isEn ? "Confirm Account Deletion" : "Hesabın silinməsini təsdiqləyirsiniz?"),
+    element("p", "", isEn ? "14-day security grace period" : "14 günlük təhlükəsizlik və gözləmə müddəti")
   );
 
   const closeBtn = button("✕", "legal-modal-close", closeLegalModal);
-  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
   header.append(titleGroup, closeBtn);
 
   const body = element("div", "legal-modal-body delete-account-modal-body");
-  body.innerHTML = `
+  body.innerHTML = isEn ? `
+    <div class="delete-account-callout">
+      <div class="delete-callout-icon">⚠️</div>
+      <div class="delete-callout-copy">
+        <strong>Your account will not be erased immediately.</strong> A 14-day security grace period applies.
+      </div>
+    </div>
+    <div class="delete-rules-container">
+      <div class="delete-rule-item">
+        <span class="delete-rule-bullet">1</span>
+        <div>
+          <strong>Immediate Deactivation:</strong>
+          <p>Your current session will end immediately and your account will enter a protected 14-day deactivation state.</p>
+        </div>
+      </div>
+      <div class="delete-rule-item">
+        <span class="delete-rule-bullet">2</span>
+        <div>
+          <strong>Effortless 14-Day Restoration:</strong>
+          <p>If you change your mind, simply sign in within 14 days to cancel deletion and restore your full workspace.</p>
+        </div>
+      </div>
+      <div class="delete-rule-item">
+        <span class="delete-rule-bullet">3</span>
+        <div>
+          <strong>Permanent Erasure After 14 Days:</strong>
+          <p>If you do not sign in within 14 days, all strategies, chat histories, planner tasks, and account data will be permanently wiped.</p>
+        </div>
+      </div>
+    </div>
+  ` : `
     <div class="delete-account-callout">
       <div class="delete-callout-icon">⚠️</div>
       <div class="delete-callout-copy">
@@ -7721,20 +7928,20 @@ function openDeleteAccountModal() {
   `;
 
   const footer = element("div", "legal-modal-footer delete-modal-footer");
-  const cancelBtn = button("İmtina et", "secondary-button", closeLegalModal);
-  const confirmBtn = button("Bəli, silinmə sorğusu göndər", "danger-button delete-confirm-btn", async () => {
+  const cancelBtn = button(isEn ? "Cancel" : "İmtina et", "secondary-button", closeLegalModal);
+  const confirmBtn = button(isEn ? "Yes, submit deletion request" : "Bəli, silinmə sorğusu göndər", "danger-button delete-confirm-btn", async () => {
     confirmBtn.disabled = true;
-    confirmBtn.textContent = "Silinmə tələb edilir…";
+    confirmBtn.textContent = isEn ? "Requesting deletion…" : "Silinmə tələb edilir…";
     try {
       await authRequest("/api/auth/account/delete-request", { method: "POST" });
       closeLegalModal();
       state.currentUser = null;
-      showToast("Hesabınız 14 günlük silinmə rejiminə keçirildi. 14 gün ərzində daxil olmasanız, hesabınız birdəfəlik silinəcək.", "info");
+      showToast(isEn ? "Your account has entered the 14-day deletion grace period." : "Hesabınız 14 günlük silinmə rejiminə keçirildi. 14 gün ərzində daxil olmasanız, hesabınız birdəfəlik silinəcək.", "info");
       window.dispatchEvent(new CustomEvent("marketify:auth-required"));
     } catch (err) {
-      showToast(err.message || "Xəta baş verdi.", "error");
+      showToast(err.message || (isEn ? "An error occurred." : "Xəta baş verdi."), "error");
       confirmBtn.disabled = false;
-      confirmBtn.textContent = "Bəli, silinmə sorğusu göndər";
+      confirmBtn.textContent = isEn ? "Yes, submit deletion request" : "Bəli, silinmə sorğusu göndər";
     }
   });
 
@@ -7746,6 +7953,7 @@ function openDeleteAccountModal() {
 }
 
 function openLegalReportModal({ messageContent = "", model = "" } = {}) {
+  const isEn = getLanguage() === "en";
   const overlay = document.querySelector("#legalModalOverlay");
   if (!overlay) return;
 
@@ -7755,12 +7963,12 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
   const header = element("header", "legal-modal-header");
   const titleGroup = element("div", "legal-modal-title-group");
   titleGroup.append(
-    element("h2", "", "Hüquqi problem bildir"),
-    element("p", "", "Süni intellekt cavabı ilə bağlı hüquqi narahatlıq və ya pozuntu bildirin")
+    element("h2", "", isEn ? "Report Legal / Policy Issue" : "Hüquqi problem bildir"),
+    element("p", "", isEn ? "Report a legal concern, policy violation, or content issue with an AI response" : "Süni intellekt cavabı ilə bağlı hüquqi narahatlıq və ya pozuntu bildirin")
   );
 
   const closeBtn = button("✕", "legal-modal-close", closeLegalModal);
-  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
   header.append(titleGroup, closeBtn);
 
   const body = element("div", "legal-modal-body legal-report-modal-body");
@@ -7775,7 +7983,9 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
       </svg>
     </div>
     <div class="legal-report-notice-text">
-      Süni intellekt cavablarında qeyri-dəqiqlik və ya səhvlər ola bilər və onlar peşəkar məsləhət kimi qəbul edilməməlidir. Ətraflı məlumat üçün <button type="button" class="legal-report-terms-link" id="legalReportTermsLink">İstifadə şərtləri</button> ilə tanış olun.
+      ${isEn
+        ? 'AI responses may contain inaccuracies and should not be construed as professional legal or financial advice. For more details, review our <button type="button" class="legal-report-terms-link" id="legalReportTermsLink">Terms of Service</button>.'
+        : 'Süni intellekt cavablarında qeyri-dəqiqlik və ya səhvlər ola bilər və onlar peşəkar məsləhət kimi qəbul edilməməlidir. Ətraflı məlumat üçün <button type="button" class="legal-report-terms-link" id="legalReportTermsLink">İstifadə şərtləri</button> ilə tanış olun.'}
     </div>
   `;
   noticeBox.querySelector("#legalReportTermsLink")?.addEventListener("click", (e) => {
@@ -7790,8 +8000,8 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
   if (messageContent) {
     const previewBox = element("div", "legal-report-context-box");
     const previewHeader = element("div", "legal-report-context-header");
-    const previewLabel = element("span", "legal-report-context-label", "İstinad edilən cavab");
-    const modelBadge = element("span", "legal-report-model-pill", model ? `Model: ${model}` : "AI Cavabı");
+    const previewLabel = element("span", "legal-report-context-label", isEn ? "Referenced Response" : "İstinad edilən cavab");
+    const modelBadge = element("span", "legal-report-model-pill", model ? `Model: ${model}` : (isEn ? "AI Response" : "AI Cavabı"));
     previewHeader.append(previewLabel, modelBadge);
 
     const previewText = element("div", "legal-report-context-preview");
@@ -7802,7 +8012,7 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
 
   const typeField = element("div", "legal-report-field");
   const typeLabel = element("label", "legal-report-label");
-  typeLabel.innerHTML = `<span>Problem növü</span> <span class="required-star">*</span>`;
+  typeLabel.innerHTML = `<span>${isEn ? "Issue Category" : "Problem növü"}</span> <span class="required-star">*</span>`;
 
   const typeSelect = document.createElement("select");
   typeSelect.className = "legal-report-select";
@@ -7810,12 +8020,18 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
 
   const defaultOption = document.createElement("option");
   defaultOption.value = "";
-  defaultOption.textContent = "Problem növünü seçin…";
+  defaultOption.textContent = isEn ? "Select an issue category…" : "Problem növünü seçin…";
   defaultOption.disabled = true;
   defaultOption.selected = true;
   typeSelect.appendChild(defaultOption);
 
-  const issueTypes = [
+  const issueTypes = isEn ? [
+    "Copyright or intellectual property infringement",
+    "Personal data and privacy violation",
+    "Inaccurate, harmful, or dangerous legal advice",
+    "Trademark or brand right violation",
+    "Other legal or compliance issue",
+  ] : [
     "Müəllif hüquqları və əqli mülkiyyət pozuntusu",
     "Fərdi məlumatlar və məxfilik pozuntusu",
     "Yanlış, zərərli və ya təhlükəli hüquqi məlumat",
@@ -7834,32 +8050,32 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
 
   const descField = element("div", "legal-report-field");
   const descLabel = element("label", "legal-report-label");
-  descLabel.innerHTML = `<span>Problem haqqında təsvir</span> <span class="required-star">*</span>`;
+  descLabel.innerHTML = `<span>${isEn ? "Detailed Description" : "Problem haqqında təsvir"}</span> <span class="required-star">*</span>`;
 
   const descTextarea = document.createElement("textarea");
   descTextarea.className = "legal-report-textarea";
   descTextarea.rows = 4;
   descTextarea.maxLength = 4000;
   descTextarea.required = true;
-  descTextarea.placeholder = "Problemin mahiyyətini və narahatlığınızı ətraflı izah edin…";
+  descTextarea.placeholder = isEn ? "Explain the nature of the issue and your concern in detail…" : "Problemin mahiyyətini və narahatlığınızı ətraflı izah edin…";
 
-  const descHint = element("span", "legal-report-hint", "Müraciətiniz hüquqi məxfilik qaydalarına uyğun araşdırılacaqdır.");
+  const descHint = element("span", "legal-report-hint", isEn ? "Your inquiry will be reviewed under strict legal confidentiality." : "Müraciətiniz hüquqi məxfilik qaydalarına uyğun araşdırılacaqdır.");
   descField.append(descLabel, descTextarea, descHint);
   form.appendChild(descField);
 
   const emailField = element("div", "legal-report-field");
   const emailLabel = element("label", "legal-report-label");
-  emailLabel.innerHTML = `<span>Əlaqə üçün e-poçt ünvanınız</span> <span class="optional-tag">(istəyə bağlı)</span>`;
+  emailLabel.innerHTML = `<span>${isEn ? "Your Contact Email" : "Əlaqə üçün e-poçt ünvanınız"}</span> <span class="optional-tag">(${isEn ? "optional" : "istəyə bağlı"})</span>`;
 
   const emailInput = document.createElement("input");
   emailInput.type = "email";
   emailInput.className = "legal-report-input";
   emailInput.maxLength = 250;
-  emailInput.placeholder = "adiniz@example.com";
+  emailInput.placeholder = "you@example.com";
   if (state.currentUser && state.currentUser.email) {
     emailInput.value = state.currentUser.email;
   }
-  const emailHint = element("span", "legal-report-hint", "Müraciətinizlə bağlı sizə geri dönüş edə bilməyimiz üçün.");
+  const emailHint = element("span", "legal-report-hint", isEn ? "Allows our compliance team to respond regarding your report." : "Müraciətinizlə bağlı sizə geri dönüş edə bilməyimiz üçün.");
   emailField.append(emailLabel, emailInput, emailHint);
   form.appendChild(emailField);
 
@@ -7870,10 +8086,10 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
   body.appendChild(form);
 
   const footer = element("div", "legal-modal-footer legal-report-modal-footer");
-  const cancelBtn = button("İmtina et", "secondary-button", closeLegalModal);
+  const cancelBtn = button(isEn ? "Cancel" : "İmtina et", "secondary-button", closeLegalModal);
   cancelBtn.type = "button";
 
-  const submitBtn = button("Bildirişi göndər", "primary-button legal-report-submit-btn");
+  const submitBtn = button(isEn ? "Submit Report" : "Bildirişi göndər", "primary-button legal-report-submit-btn");
   submitBtn.type = "button";
 
   const doSubmit = async (e) => {
@@ -7886,14 +8102,14 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
     const userEmail = emailInput.value.trim();
 
     if (!selectedType) {
-      errorBox.textContent = "Zəhmət olmasa problem növünü seçin.";
+      errorBox.textContent = isEn ? "Please select an issue category." : "Zəhmət olmasa problem növünü seçin.";
       errorBox.style.display = "block";
       typeSelect.focus();
       return;
     }
 
     if (!description || description.length < 5) {
-      errorBox.textContent = "Zəhmət olmasa problem haqqında ən azı 5 simvoldan ibarət ətraflı məlumat daxil edin.";
+      errorBox.textContent = isEn ? "Please provide a detailed description (at least 5 characters)." : "Zəhmət olmasa problem haqqında ən azı 5 simvoldan ibarət ətraflı məlumat daxil edin.";
       errorBox.style.display = "block";
       descTextarea.focus();
       return;
@@ -7901,7 +8117,7 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
 
     submitBtn.disabled = true;
     cancelBtn.disabled = true;
-    submitBtn.textContent = "Göndərilir…";
+    submitBtn.textContent = isEn ? "Submitting…" : "Göndərilir…";
 
     try {
       const res = await fetch("/api/legal-report", {
@@ -7919,17 +8135,17 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Müraciət göndərilərkən xəta baş verdi.");
+        throw new Error(data.error || (isEn ? "An error occurred while submitting the report." : "Müraciət göndərilərkən xəta baş verdi."));
       }
 
       closeLegalModal();
-      showToast("Hüquqi probleminizlə bağlı müraciət qeydə alındı və nəzərdən keçirilmək üçün yönləndirildi. Təşəkkür edirik!", "success");
+      showToast(isEn ? "Your legal notice has been recorded and submitted for compliance review. Thank you!" : "Hüquqi probleminizlə bağlı müraciət qeydə alındı və nəzərdən keçirilmək üçün yönləndirildi. Təşəkkür edirik!", "success");
     } catch (err) {
-      errorBox.textContent = err.message || "Xəta baş verdi. Zəhmət olmasa bir az sonra yenidən cəhd edin.";
+      errorBox.textContent = err.message || (isEn ? "An error occurred. Please try again shortly." : "Xəta baş verdi. Zəhmət olmasa bir az sonra yenidən cəhd edin.");
       errorBox.style.display = "block";
       submitBtn.disabled = false;
       cancelBtn.disabled = false;
-      submitBtn.textContent = "Bildirişi göndər";
+      submitBtn.textContent = isEn ? "Submit Report" : "Bildirişi göndər";
     }
   };
 
@@ -7946,6 +8162,7 @@ function openLegalReportModal({ messageContent = "", model = "" } = {}) {
 
 function checkSensitiveData(txt) {
   if (!txt) return null;
+  const isEn = getLanguage() === "en";
   const t = txt.trim();
   const phonePats = [
     /(?:\+994|00994|994)?[\s.-]?(?:0?(?:10|50|51|55|60|70|77|99|12|18|20|21|22|23|24|25|26|36))[\s.-]?[0-9]{3}[\s.-]?[0-9]{2}[\s.-]?[0-9]{2}/i,
@@ -7954,7 +8171,7 @@ function checkSensitiveData(txt) {
     /\b0[1-9][0-9]{8}\b/,
   ];
   for (const r of phonePats) {
-    if (r.test(t)) return "Yaddaşda telefon və ya mobil nömrələrin saxlanılmasına icazə verilmir.";
+    if (r.test(t)) return isEn ? "Storing phone numbers in memory is not permitted." : "Yaddaşda telefon və ya mobil nömrələrin saxlanılmasına icazə verilmir.";
   }
   const addrPats = [
     /(?:yaşayış\s*ünvanı|ev\s*ünvanı|ev\s*ünvanım|yaşayış\s*yeri|evimin\s*ünvanı|qeydiyyat\s*ünvanı)/i,
@@ -7965,7 +8182,7 @@ function checkSensitiveData(txt) {
     /(?:yaşayıram|yaşayırıq)\s*:\s*.+/i,
   ];
   for (const r of addrPats) {
-    if (r.test(t)) return "Yaddaşda dəqiq yaşayış və ya ev ünvanlarının saxlanılmasına icazə verilmir.";
+    if (r.test(t)) return isEn ? "Storing residential addresses in memory is not permitted." : "Yaddaşda dəqiq yaşayış və ya ev ünvanlarının saxlanılmasına icazə verilmir.";
   }
   const payPats = [
     /\b(?:\d{4}[ -]?){3}\d{4}\b/,
@@ -7974,25 +8191,85 @@ function checkSensitiveData(txt) {
     /(?:kart\s*nömrəsi|hesab\s*nömrəsi|kredit\s*kartı|bank\s*kartı)[\s:]*[0-9]{8,20}/i,
   ];
   for (const r of payPats) {
-    if (r.test(t)) return "Yaddaşda bank kartı, CVV və ya hesab məlumatlarının saxlanılmasına icazə verilmir.";
+    if (r.test(t)) return isEn ? "Storing payment card or bank account details in memory is not permitted." : "Yaddaşda bank kartı, CVV və ya hesab məlumatlarının saxlanılmasına icazə verilmir.";
   }
   const idPats = [
     /(?:fin(?:\s*kodu?m?)?|f[iİ]n|şv(?:\s*seriya(?:sı)?)?|şəxsiyyət\s*vəsiqəsi|pasport(?:\s*nömrəsi)?|pin(?:\s*code|\s*kodu?m?)?|ssn)[\s:=]*[a-zA-Z0-9]{6,10}/i,
     /\b(?:AZE|AA)\s*[0-9]{7,8}\b/i,
   ];
   for (const r of idPats) {
-    if (r.test(t)) return "Yaddaşda FİN kod, şəxsiyyət vəsiqəsi və ya pasport məlumatlarının saxlanılmasına icazə verilmir.";
+    if (r.test(t)) return isEn ? "Storing government ID, passport, or PIN codes in memory is not permitted." : "Yaddaşda FİN kod, şəxsiyyət vəsiqəsi və ya pasport məlumatlarının saxlanılmasına icazə verilmir.";
   }
   const secPats = [
     /(?:şifrə(?:m)?|parol(?:um)?|password|api[_-]?key|secret[_-]?key|token|auth[_-]?token)[\s:=]+[\S]{4,}/i,
   ];
   for (const r of secPats) {
-    if (r.test(t)) return "Yaddaşda şifrə, API açarı və ya məxfi tokenlərin saxlanılmasına icazə verilmir.";
+    if (r.test(t)) return isEn ? "Storing passwords, API keys, or confidential tokens in memory is not permitted." : "Yaddaşda şifrə, API açarı və ya məxfi tokenlərin saxlanılmasına icazə verilmir.";
   }
   return null;
 }
 
-const IMPORT_MEMORY_PROMPT = `Marketify AI-a keçid üçün mənim haqqımda mövcud biznes və marketinq kontekstini ixrac et.
+function getImportMemoryPrompt() {
+  const isEn = getLanguage() === "en";
+  if (isEn) {
+    return `Export my existing business and marketing context for migration to Marketify AI.
+
+Review our past conversations, stored memory, and reliable facts known about me. Select ONLY persistent knowledge that will help Marketify AI generate more tailored marketing strategies, copy, campaigns, and business recommendations.
+
+Whenever possible, preserve my exact phrasing, terminology, preferences, and explicit instructions without altering their meaning.
+
+Only use facts you reliably know. Do not guess, invent, or extrapolate missing data.
+
+Export the information using the following JSON structure:
+
+{
+  "brandName": "Brand or project name",
+  "industry": "Industry or business sector",
+  "primaryMarket": "Core market and geographic scope",
+  "targetAudience": "Target audience description",
+  "tone": "professional",
+  "customInstructions": "Special marketing and strategic communication instructions Marketify AI should follow in future responses",
+  "memories": [
+    {
+      "category": "business",
+      "text": "Specific and enduring business or marketing fact"
+    }
+  ]
+}
+
+Include in memory items:
+- Enduring facts about brand, business, products, and services;
+- Industry, business model, and primary market;
+- Known target audience and ideal customer profiles;
+- Marketing, content, advertising, and communication preferences;
+- Brand tone, language, and stylistic preferences;
+- Enduring business rules and constraints;
+- Active business objectives and projects that affect future Marketify outputs;
+- Any other persistent business context helpful for strategy generation.
+
+Do NOT include:
+- Private personal details with no marketing relevance;
+- One-off conversations, ephemeral questions, or transient events;
+- Outdated or deprecated information;
+- Passwords, API keys, credentials, phone numbers, exact residential addresses, or financial data;
+- Sensitive personal data like health, political beliefs, religious views, ethnicity, or sexual orientation.
+
+Rules:
+1. Output MUST be valid, syntactically clean JSON only. No markdown fences, intro, explanation, or trailing notes.
+2. "tone" must be strictly one of: "professional", "creative", "concise", "friendly", "data_driven".
+3. Default to "tone": "professional" if style is unspecified.
+4. "category" must be strictly one of: "business", "audience", "preference", "constraint", "general".
+5. Each "memories" item should express a single clear fact, preference, or constraint.
+6. Do not repeat duplicate or near-identical memory items.
+7. Use empty string ("") for unknown root fields.
+8. If no memory items apply, return "memories": [].
+9. In "customInstructions", summarize how Marketify AI should tailor future outputs.
+10. Ensure all keys and strings are double-quoted with no trailing commas.
+
+Return JSON only.`;
+  }
+
+  return `Marketify AI-a keçid üçün mənim haqqımda mövcud biznes və marketinq kontekstini ixrac et.
 
 Keçmiş söhbətlərimizi, mövcud yaddaşı və mənim haqqımda etibarlı şəkildə bildiyin məlumatları nəzərdən keçir. Yalnız Marketify AI-ın gələcəkdə daha uyğun marketinq strategiyaları, kontent, kampaniyalar və biznes tövsiyələri verməsinə kömək edəcək davamlı məlumatları seç.
 
@@ -8047,6 +8324,16 @@ Qaydalar:
 10. Bütün key və string-lər double quote ilə yazılmalı və trailing comma istifadə edilməməlidir.
 
 Yalnız JSON qaytar.`;
+}
+
+const IMPORT_MEMORY_PROMPT = new Proxy({}, {
+  get() {
+    return getImportMemoryPrompt();
+  },
+  toString() {
+    return getImportMemoryPrompt();
+  },
+});
 
 function parseImportedMemoryText(raw) {
   if (!raw || typeof raw !== "string") {
@@ -8208,6 +8495,7 @@ function parseImportedMemoryText(raw) {
 }
 
 function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {}) {
+  const isEn = getLanguage() === "en";
   const overlay = document.querySelector("#legalModalOverlay");
   if (!overlay) return;
 
@@ -8220,16 +8508,18 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
 
   const titleGroup = element("div", "legal-modal-title-group");
   titleGroup.append(
-    element("h2", "", "Yaddaşın köçürülməsi"),
+    element("h2", "", isEn ? "Memory & Brand Migration" : "Yaddaşın köçürülməsi"),
     element(
       "p",
       "",
-      "Başqa AI xidmətindəki yaddaş və brend məlumatlarını Marketify-a köçür."
+      isEn
+        ? "Import brand knowledge and strategic context from other AI assistants into Marketify."
+        : "Başqa AI xidmətindəki yaddaş və brend məlumatlarını Marketify-a köçür."
     )
   );
 
   const closeBtn = button("✕", "legal-modal-close", closeLegalModal);
-  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
 
   header.append(titleGroup, closeBtn);
 
@@ -8241,7 +8531,13 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
   const step1 = element("section", "import-step");
 
   const step1Header = element("div", "import-step-heading");
-  step1Header.innerHTML = `
+  step1Header.innerHTML = isEn ? `
+    <span class="import-step-number">1</span>
+    <div>
+      <strong>Export Knowledge from Another AI</strong>
+      <p>Copy and send this structured export prompt to ChatGPT, Claude, or Gemini.</p>
+    </div>
+  ` : `
     <span class="import-step-number">1</span>
     <div>
       <strong>Promptu AI xidmətinə göndər</strong>
@@ -8249,38 +8545,39 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
     </div>
   `;
 
+  const currentPromptText = getImportMemoryPrompt();
   const promptBox = element("div", "import-prompt-box");
 
   const promptPreview = element("div", "import-prompt-preview");
-  promptPreview.textContent = IMPORT_MEMORY_PROMPT;
+  promptPreview.textContent = currentPromptText;
 
   const copyBtn = button(
-    "Promptu kopyala",
+    isEn ? "Copy prompt" : "Promptu kopyala",
     "secondary-button import-copy-btn",
     async () => {
       try {
         if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(IMPORT_MEMORY_PROMPT);
+          await navigator.clipboard.writeText(currentPromptText);
         } else {
           const ta = document.createElement("textarea");
-          ta.value = IMPORT_MEMORY_PROMPT;
+          ta.value = currentPromptText;
           document.body.appendChild(ta);
           ta.select();
           document.execCommand("copy");
           ta.remove();
         }
 
-        copyBtn.textContent = "Kopyalandı ✓";
+        copyBtn.textContent = isEn ? "Copied ✓" : "Kopyalandı ✓";
         copyBtn.classList.add("is-copied");
 
         setTimeout(() => {
-          copyBtn.textContent = "Promptu kopyala";
+          copyBtn.textContent = isEn ? "Copy prompt" : "Promptu kopyala";
           copyBtn.classList.remove("is-copied");
         }, 1800);
 
-        showToast("Prompt kopyalandı.");
+        showToast(isEn ? "Prompt copied to clipboard." : "Prompt kopyalandı.");
       } catch {
-        showToast("Promptu kopyalamaq mümkün olmadı.", "error");
+        showToast(isEn ? "Unable to copy prompt." : "Promptu kopyalamaq mümkün olmadı.", "error");
       }
     }
   );
@@ -8296,7 +8593,13 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
   const step2 = element("section", "import-step");
 
   const step2Header = element("div", "import-step-heading");
-  step2Header.innerHTML = `
+  step2Header.innerHTML = isEn ? `
+    <span class="import-step-number">2</span>
+    <div>
+      <strong>Paste AI Output</strong>
+      <p>Paste the structured JSON or response generated by your AI assistant below.</p>
+    </div>
+  ` : `
     <span class="import-step-number">2</span>
     <div>
       <strong>Cavabı bura yapışdır</strong>
@@ -8310,7 +8613,13 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
   );
 
   textarea.rows = 5;
-  textarea.placeholder = `AI cavabını buraya yapışdır...
+  textarea.placeholder = isEn ? `Paste the AI JSON output here...
+
+{
+  "brandName": "Marketify AI",
+  "industry": "B2B SaaS",
+  "memories": [...]
+}` : `AI cavabını buraya yapışdır...
 
 {
   "brandName": "Marketify AI",
@@ -8326,7 +8635,13 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
   const step3 = element("section", "import-step import-step-review");
 
   const step3Header = element("div", "import-step-heading");
-  step3Header.innerHTML = `
+  step3Header.innerHTML = isEn ? `
+    <span class="import-step-number">3</span>
+    <div>
+      <strong>Review & Finalize Import</strong>
+      <p>Review the extracted brand facts and choose how to merge them into your workspace.</p>
+    </div>
+  ` : `
     <span class="import-step-number">3</span>
     <div>
       <strong>Nəticəni yoxla</strong>
@@ -8375,7 +8690,7 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
     text.innerHTML = `
       <strong>
         ${escapeHtml(title)}
-        ${recommended ? '<span class="import-recommended">Tövsiyə olunur</span>' : ""}
+        ${recommended ? `<span class="import-recommended">${isEn ? "Recommended" : "Tövsiyə olunur"}</span>` : ""}
       </strong>
       <p>${escapeHtml(description)}</p>
     `;
@@ -8403,7 +8718,9 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
       const empty = element(
         "div",
         "import-preview-empty",
-        "Cavabı yapışdırdıqdan sonra aşkarlanan məlumatlar burada görünəcək."
+        isEn
+          ? "Discovered knowledge attributes and memory items will appear here once pasted."
+          : "Cavabı yapışdırdıqdan sonra aşkarlanan məlumatlar burada görünəcək."
       );
 
       previewContainer.appendChild(empty);
@@ -8428,7 +8745,10 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
     if (!hasProfile && !hasMemories) {
       const warning = element("div", "import-warning-box");
 
-      warning.innerHTML = `
+      warning.innerHTML = isEn ? `
+        <strong>No valid knowledge detected</strong>
+        <p>Make sure you copied the complete JSON response from your AI assistant.</p>
+      ` : `
         <strong>Məlumat aşkarlanmadı</strong>
         <p>AI cavabının tam şəkildə kopyalandığından əmin ol.</p>
       `;
@@ -8443,7 +8763,9 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
 
       notice.innerHTML = `
         <span>
-          ${currentParsedData.sensitiveExcluded} həssas məlumat təhlükəsizlik səbəbilə idxaldan çıxarıldı.
+          ${isEn
+            ? `${currentParsedData.sensitiveExcluded} sensitive data items were excluded for security reasons.`
+            : `${currentParsedData.sensitiveExcluded} həssas məlumat təhlükəsizlik səbəbilə idxaldan çıxarıldı.`}
         </span>
       `;
 
@@ -8455,12 +8777,18 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
       const profileBox = element("div", "import-review-section");
 
       profileBox.appendChild(
-        element("strong", "import-section-subtitle", "Brend və profil")
+        element("strong", "import-section-subtitle", isEn ? "Brand & Profile Knowledge" : "Brend və profil")
       );
 
       const chipGrid = element("div", "import-chips-grid");
 
-      const toneNames = {
+      const toneNames = isEn ? {
+        professional: "Professional",
+        creative: "Creative",
+        concise: "Concise",
+        friendly: "Friendly",
+        data_driven: "Data-Driven",
+      } : {
         professional: "Peşəkar",
         creative: "Yaradıcı",
         concise: "Qısa və konkret",
@@ -8470,32 +8798,32 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
 
       if (currentParsedData.brandName) {
         chipGrid.appendChild(
-          createImportChip("Brend", currentParsedData.brandName)
+          createImportChip(isEn ? "Brand" : "Brend", currentParsedData.brandName)
         );
       }
 
       if (currentParsedData.industry) {
         chipGrid.appendChild(
-          createImportChip("Sahə", currentParsedData.industry)
+          createImportChip(isEn ? "Industry" : "Sahə", currentParsedData.industry)
         );
       }
 
       if (currentParsedData.primaryMarket) {
         chipGrid.appendChild(
-          createImportChip("Bazar", currentParsedData.primaryMarket)
+          createImportChip(isEn ? "Market" : "Bazar", currentParsedData.primaryMarket)
         );
       }
 
       if (currentParsedData.targetAudience) {
         chipGrid.appendChild(
-          createImportChip("Auditoriya", currentParsedData.targetAudience)
+          createImportChip(isEn ? "Audience" : "Auditoriya", currentParsedData.targetAudience)
         );
       }
 
       if (currentParsedData.tone) {
         chipGrid.appendChild(
           createImportChip(
-            "Üslub",
+            isEn ? "Tone" : "Üslub",
             toneNames[currentParsedData.tone] || currentParsedData.tone
           )
         );
@@ -8504,7 +8832,7 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
       if (currentParsedData.customInstructions) {
         chipGrid.appendChild(
           createImportChip(
-            "Təlimat",
+            isEn ? "Instructions" : "Təlimat",
             currentParsedData.customInstructions
           )
         );
@@ -8524,18 +8852,24 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
         element(
           "strong",
           "import-section-subtitle",
-          `Yaddaş qeydləri · ${currentParsedData.memories.length}`
+          isEn ? `Memory Notes · ${currentParsedData.memories.length}` : `Yaddaş qeydləri · ${currentParsedData.memories.length}`
         ),
         element(
           "span",
           "import-hint-text",
-          "İstəmədiyin qeydlərin seçimini sil."
+          isEn ? "Deselect any items you wish to omit." : "İstəmədiyin qeydlərin seçimini sil."
         )
       );
 
       const list = element("div", "import-memories-list");
 
-      const categoryNames = {
+      const categoryNames = isEn ? {
+        business: "Business",
+        audience: "Audience",
+        preference: "Preference",
+        constraint: "Constraint",
+        general: "Note",
+      } : {
         business: "Biznes",
         audience: "Auditoriya",
         preference: "Üstünlük",
@@ -8558,7 +8892,7 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
         const tag = element(
           "span",
           `memory-category-tag tag-${mem.category || "general"}`,
-          categoryNames[mem.category] || "Qeyd"
+          categoryNames[mem.category] || (isEn ? "Note" : "Qeyd")
         );
 
         const text = element("span", "import-memory-text", mem.text);
@@ -8575,7 +8909,7 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
     const settingsBox = element("div", "import-review-section import-options-box");
 
     settingsBox.appendChild(
-      element("strong", "import-section-subtitle", "İdxal üsulu")
+      element("strong", "import-section-subtitle", isEn ? "Import Mode" : "İdxal üsulu")
     );
 
     const modeWrap = element("div", "import-mode-selector");
@@ -8583,14 +8917,14 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
     modeWrap.append(
       createModeOption({
         value: "merge",
-        title: "Mövcud yaddaşla birləşdir",
-        description: "Cari məlumatlar qalır, yeni faktlar əlavə olunur.",
+        title: isEn ? "Merge with existing memory" : "Mövcud yaddaşla birləşdir",
+        description: isEn ? "Preserves current notes while appending newly discovered facts." : "Cari məlumatlar qalır, yeni faktlar əlavə olunur.",
         recommended: true,
       }),
       createModeOption({
         value: "replace",
-        title: "Yaddaşı əvəzlə",
-        description: "Cari yaddaş silinir və yalnız bu məlumatlar saxlanılır.",
+        title: isEn ? "Replace existing memory" : "Yaddaşı əvəzlə",
+        description: isEn ? "Clears previous notes and sets newly imported data." : "Cari yaddaş silinir və yalnız bu məlumatlar saxlanılır.",
       })
     );
 
@@ -8610,7 +8944,7 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
       element(
         "span",
         "",
-        "Fərdiləşdirilmiş təcrübəni aktiv et"
+        isEn ? "Enable personalized experience automatically" : "Fərdiləşdirilmiş təcrübəni aktiv et"
       )
     );
 
@@ -8633,13 +8967,13 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
   );
 
   const cancelBtn = button(
-    "Ləğv et",
+    isEn ? "Cancel" : "Ləğv et",
     "secondary-button",
     closeLegalModal
   );
 
   const confirmBtn = button(
-    "Təsdiqlə",
+    isEn ? "Confirm Import" : "Təsdiqlə",
     "primary-button import-confirm-btn",
     async () => {
       if (!currentParsedData) {
@@ -8647,7 +8981,7 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
       }
 
       if (!currentParsedData) {
-        showToast("Əvvəlcə AI cavabını yapışdır.", "error");
+        showToast(isEn ? "Please paste AI output first." : "Əvvəlcə AI cavabını yapışdır.", "error");
         return;
       }
 
@@ -8667,7 +9001,7 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
 
       if (!hasProfileData && !selectedMemories.length) {
         showToast(
-          "İdxal ediləcək məlumat seçilməyib.",
+          isEn ? "No items selected to import." : "İdxal ediləcək məlumat seçilməyib.",
           "error"
         );
         return;
@@ -8691,7 +9025,7 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
 
       const importMemory = async () => {
         confirmBtn.disabled = true;
-        confirmBtn.textContent = "İdxal edilir…";
+        confirmBtn.textContent = isEn ? "Importing…" : "İdxal edilir…";
 
         try {
           const res = await authRequest(
@@ -8711,17 +9045,18 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
           }
 
           showToast(
-            `Yaddaş idxal edildi · ${res.importedCount || selectedMemories.length
-            } fakt`
+            isEn
+              ? `Memory imported · ${res.importedCount || selectedMemories.length} facts`
+              : `Yaddaş idxal edildi · ${res.importedCount || selectedMemories.length} fakt`
           );
         } catch (err) {
           showToast(
-            err.message || "İdxal zamanı xəta baş verdi.",
+            err.message || (isEn ? "An error occurred during import." : "İdxal zamanı xəta baş verdi."),
             "error"
           );
 
           confirmBtn.disabled = false;
-          confirmBtn.textContent = "Yaddaşı köçür";
+          confirmBtn.textContent = isEn ? "Confirm Import" : "Yaddaşı köçür";
         }
       };
 
@@ -8746,7 +9081,8 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
 }
 
 window.addEventListener("marketify:account-restored", () => {
-  showToast("Xoş gəldiniz! 14 günlük silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.", "success");
+  const isEn = getLanguage() === "en";
+  showToast(isEn ? "Welcome back! The 14-day deletion request was canceled and your account has been restored." : "Xoş gəldiniz! 14 günlük silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.", "success");
 });
 
 function navigateHome() {
@@ -8907,7 +9243,6 @@ function handleKeyboardShortcut(event) {
 }
 
 // Capture phase gives app shortcuts the earliest possible chance to run.
-// Some browsers reserve Meta+N for a new window and may not dispatch it to the page.
 window.addEventListener("keydown", handleKeyboardShortcut, true);
 
 // Prevent accidental file drop outside dropzone from navigating away from the app
@@ -8923,6 +9258,7 @@ window.addEventListener("drop", (e) => {
 });
 
 function checkSupportBanner() {
+  const isEn = getLanguage() === "en";
   const STORAGE_KEY = "marketify_support_notice_dismissed";
   if (localStorage.getItem(STORAGE_KEY) === "dismissed") return;
   if (document.querySelector("#supportNoticeToast")) return;
@@ -8938,7 +9274,7 @@ function checkSupportBanner() {
   const badge = element("div", "support-notice-badge");
   badge.innerHTML = `
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-    <span>Texniki dəstək</span>
+    <span>${isEn ? "Technical Support" : "Texniki dəstək"}</span>
   `;
 
   let autoDismissTimer;
@@ -8955,31 +9291,33 @@ function checkSupportBanner() {
   };
 
   const closeBtn = button("✕", "support-notice-close", dismiss);
-  closeBtn.setAttribute("aria-label", "Bağla");
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
   header.append(badge, closeBtn);
 
   const title = element(
     "p",
     "support-notice-title",
-    "Texniki çətinliklə qarşılaşdığınız halda bizə məlumat verin"
+    isEn ? "Encountering technical challenges? Let us know" : "Texniki çətinliklə qarşılaşdığınız halda bizə məlumat verin"
   );
 
   const body = element(
     "p",
     "support-notice-body",
-    "Hər hansı bir xəta, gözlənilməz davranış və ya istifadə zamanı yaranan texniki problem barədə aşağıdakı ünvana yazaraq bizə bildirə bilərsiniz. Komandamız ən qısa zamanda sizə dəstək göstərəcək."
+    isEn
+      ? "If you run into any bug, unexpected behavior, or need assistance while using Marketify, reach out via the address below. Our engineering team will assist promptly."
+      : "Hər hansı bir xəta, gözlənilməz davranış və ya istifadə zamanı yaranan texniki problem barədə aşağıdakı ünvana yazaraq bizə bildirə bilərsiniz. Komandamız ən qısa zamanda sizə dəstək göstərəcək."
   );
 
   const emailLink = element("a", "support-notice-email");
   emailLink.href = "mailto:marketifysupport@googlegroups.com";
   emailLink.textContent = "marketifysupport@googlegroups.com";
-  emailLink.setAttribute("aria-label", "Dəstək e-poçtu");
+  emailLink.setAttribute("aria-label", isEn ? "Support email" : "Dəstək e-poçtu");
 
   const actions = element("div", "support-notice-actions");
-  const dontShowBtn = button("Bir daha göstərmə", "secondary-button support-notice-dontshow-btn", dismissPermanently);
+  const dontShowBtn = button(isEn ? "Don't show again" : "Bir daha göstərmə", "secondary-button support-notice-dontshow-btn", dismissPermanently);
   dontShowBtn.type = "button";
 
-  const mailBtn = button("Mail yaz →", "primary-button support-notice-mail-btn", () => {
+  const mailBtn = button(isEn ? "Send Email →" : "Mail yaz →", "primary-button support-notice-mail-btn", () => {
     window.location.href = "mailto:marketifysupport@googlegroups.com";
   });
   mailBtn.type = "button";
@@ -9012,6 +9350,14 @@ function checkSupportBanner() {
     progressBar.style.animationPlayState = "running";
   });
 }
+
+// Global marketify:language-change handler to re-render components on language switch
+window.addEventListener("marketify:language-change", () => {
+  syncMode();
+  syncNav();
+  renderRecentList();
+  render();
+});
 
 // Render the workspace immediately while authentication and saved data load in the background.
 if (!new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/verify-email"]).has(window.location.pathname)) {

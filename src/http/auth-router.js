@@ -60,6 +60,7 @@ export function publicUser(user) {
       autoContext: settings.autoContext !== false,
       strategyPersonalization: settings.strategyPersonalization !== false,
       defaultMode: settings.defaultMode === "ask" ? "ask" : "build",
+      language: settings.language === "en" ? "en" : "az",
     },
     createdAt: user.createdAt,
   };

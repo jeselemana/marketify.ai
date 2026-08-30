@@ -201,6 +201,7 @@ export class FileUserRepository {
           autoContext: true,
           strategyPersonalization: true,
           defaultMode: "build",
+          language: "az",
         },
         passwordChangedAt: now,
         lastLoginAt: now,
