@@ -6603,14 +6603,14 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   position: relative;
   width: 40px;
   height: 40px;
-  z-index: 70;
+  z-index: 5;
 }
 
 .ask-context-slot {
   position: relative;
   width: 40px;
   height: 40px;
-  z-index: 70;
+  z-index: 5;
 }
 
 .ask-context-trigger {
@@ -6861,7 +6861,7 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   flex-shrink: 0;
   align-self: center;
   position: relative;
-  z-index: 70;
+  z-index: 5;
 }
 
 .ask-composer-body {
@@ -7694,7 +7694,7 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
 
   .mobile-overlay {
     position: fixed;
-    z-index: 25;
+    z-index: 85;
     inset: 0;
     display: block;
     background: var(--theme-overlay, rgba(23, 32, 51, 0.28));
@@ -10808,9 +10808,15 @@ body {
     overflow: hidden;
   }
 
-  /* Keep the open drawer above the mobile header controls. */
+  /* Keep the open drawer above the mobile header and all composer controls. */
   .sidebar {
-    z-index: 60;
+    z-index: 90;
+  }
+
+  body.sidebar-open .ask-composer-area,
+  body.sidebar-open .planner-composer-card,
+  body.sidebar-open .refinement-dock {
+    pointer-events: none;
   }
 
   .mobile-header {
@@ -10837,7 +10843,7 @@ body {
     border-radius: 13px;
     background: rgba(var(--theme-surface-rgb, 255, 255, 255), 0.9);
     border: 1px solid var(--border-subtle, rgba(20, 27, 42, 0.08));
-    box-shadow: 0 4px 14px var(--theme-shadow-soft, rgba(31, 41, 55, 0.05));
+    box-shadow: 0 1px 2px var(--theme-shadow-soft, rgba(31, 41, 55, 0.04));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -10954,10 +10960,7 @@ body {
   .workspace-centered:has(.intake-view),
   .workspace-ask.is-empty,
   .workspace-ask:has(.ask-shell.is-empty) {
-    background:
-      radial-gradient(ellipse 90% 65% at 50% 44%, rgba(var(--theme-blue-rgb, 186, 220, 255), 0.65) 0%, rgba(var(--theme-blue-rgb, 219, 234, 254), 0.42) 35%, rgba(var(--theme-blue-rgb, 239, 246, 255), 0.18) 58%, transparent 75%),
-      radial-gradient(ellipse 55% 45% at 50% 42%, rgba(var(--theme-blue-rgb, 147, 197, 253), 0.38) 0%, transparent 60%),
-      var(--bg-canvas);
+    background: var(--bg-canvas);
   }
 
   .workspace-centered .intake-view {
@@ -11039,7 +11042,7 @@ body {
     border: 1px solid var(--theme-border, rgba(20, 27, 42, 0.09));
     border-radius: 14px;
     background: rgba(var(--theme-surface-rgb, 255, 255, 255), 0.78);
-    box-shadow: 0 4px 14px var(--theme-shadow-soft, rgba(31, 41, 55, 0.035));
+    box-shadow: 0 1px 2px var(--theme-shadow-soft, rgba(31, 41, 55, 0.03));
     color: var(--theme-ink, rgba(48, 56, 70, 0.78));
     font-size: 12.5px;
     font-weight: 500;
@@ -11066,7 +11069,13 @@ body {
     padding: 8px 10px;
     overflow: hidden;
     border-radius: 22px;
-    box-shadow: 0 12px 34px var(--theme-shadow-soft, rgba(31, 41, 55, 0.09));
+    border: 1px solid var(--border-subtle, rgba(20, 27, 42, 0.09));
+    box-shadow: 0 2px 8px var(--theme-shadow-soft, rgba(15, 23, 42, 0.04)), 0 1px 2px var(--theme-shadow-soft, rgba(15, 23, 42, 0.02));
+  }
+
+  .workspace-centered .composer-card:focus-within {
+    border-color: var(--theme-blue-border, rgba(79, 110, 232, 0.45));
+    box-shadow: 0 2px 8px var(--theme-shadow-soft, rgba(15, 23, 42, 0.06)), 0 0 0 2px rgba(79, 110, 232, 0.12);
   }
 
   .workspace-centered .composer-input {
@@ -11148,10 +11157,7 @@ body {
     flex-direction: column;
     padding: 0 16px max(10px, env(safe-area-inset-bottom));
     box-sizing: border-box;
-    background:
-      radial-gradient(ellipse 90% 65% at 50% 44%, rgba(var(--theme-blue-rgb, 186, 220, 255), 0.65) 0%, rgba(var(--theme-blue-rgb, 219, 234, 254), 0.42) 35%, rgba(var(--theme-blue-rgb, 239, 246, 255), 0.18) 58%, transparent 75%),
-      radial-gradient(ellipse 55% 45% at 50% 42%, rgba(var(--theme-blue-rgb, 147, 197, 253), 0.38) 0%, transparent 60%),
-      var(--bg-canvas);
+    background: var(--bg-canvas);
   }
 
   .workspace-ask.has-messages,
@@ -11280,8 +11286,8 @@ body {
   .ask-shell.has-messages .ask-composer-area {
     position: sticky;
     margin-top: auto;
-    padding-top: 14px;
-    background: linear-gradient(to bottom, transparent, var(--bg-canvas) 18%);
+    padding-top: 10px;
+    background: linear-gradient(to bottom, transparent, var(--bg-canvas) 24%);
   }
 
   .ask-suggestions {
@@ -11296,6 +11302,14 @@ body {
     display: flex;
     gap: 6px;
     padding: 8px;
+    border: 1px solid var(--border-subtle, rgba(20, 27, 42, 0.09));
+    box-shadow: 0 2px 8px var(--theme-shadow-soft, rgba(15, 23, 42, 0.04)), 0 1px 2px var(--theme-shadow-soft, rgba(15, 23, 42, 0.02));
+  }
+
+  .ask-composer:focus-within,
+  .workspace-intake .ask-composer:where(:not(.is-dragover)):focus-within {
+    border-color: var(--theme-blue-border, rgba(79, 110, 232, 0.45));
+    box-shadow: 0 2px 8px var(--theme-shadow-soft, rgba(15, 23, 42, 0.06)), 0 0 0 2px rgba(79, 110, 232, 0.12);
   }
 
   .ask-context-menu,
@@ -12324,6 +12338,7 @@ body.sidebar-open .planner-composer-card {
     padding: 7px 8px 7px 13px;
     min-height: 48px;
     border-radius: 14px;
+    box-shadow: 0 2px 8px var(--theme-shadow-soft, rgba(15, 23, 42, 0.05)), 0 1px 2px var(--theme-shadow-soft, rgba(15, 23, 42, 0.02));
   }
 
   .planner-composer-input {
@@ -16031,9 +16046,7 @@ body.sidebar-open .planner-composer-card {
   [data-theme="dark"] .workspace-centered:has(.intake-view),
   [data-theme="dark"] .workspace-ask.is-empty,
   [data-theme="dark"] .workspace:has(.ask-shell.is-empty) {
-    background:
-      radial-gradient(ellipse 90% 240px at 50% 100%, rgba(49, 70, 180, 0.2) 0%, rgba(49, 70, 180, 0.07) 48%, transparent 80%),
-      var(--bg-canvas);
+    background: var(--bg-canvas);
   }
 }
 

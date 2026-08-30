@@ -590,6 +590,7 @@ function errorBanner() {
 }
 
 function openSidebar() {
+  document.querySelectorAll("details.ask-context-menu").forEach((el) => { el.open = false; });
   sidebar.classList.add("is-open");
   document.body.classList.add("sidebar-open");
   mobileOverlay.hidden = false;
