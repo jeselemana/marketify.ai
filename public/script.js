@@ -9350,6 +9350,46 @@ function checkSupportBanner() {
   });
 }
 
+function initAnnouncementBar() {
+  const bar = document.querySelector("#announcementBar");
+  if (!bar) return;
+
+  const STORAGE_KEY = "marketify_v3_announcement_closed";
+  try {
+    if (localStorage.getItem(STORAGE_KEY) === "true") {
+      bar.hidden = true;
+      return;
+    }
+  } catch {}
+
+  const closeBtn = document.querySelector("#announcementCloseBtn");
+  const messageEl = document.querySelector("#announcementMessage");
+
+  const updateText = () => {
+    if (messageEl) messageEl.textContent = t("announcement.message");
+    if (closeBtn) closeBtn.setAttribute("aria-label", t("announcement.closeAria"));
+  };
+
+  updateText();
+
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      bar.classList.add("is-dismissing");
+      try {
+        localStorage.setItem(STORAGE_KEY, "true");
+      } catch {}
+      setTimeout(() => {
+        bar.hidden = true;
+        bar.classList.remove("is-dismissing");
+      }, 240);
+    });
+  }
+
+  window.addEventListener("marketify:language-change", updateText);
+}
+
+initAnnouncementBar();
+
 // Global marketify:language-change handler to re-render components on language switch
 window.addEventListener("marketify:language-change", () => {
   syncMode();

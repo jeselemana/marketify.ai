@@ -157,6 +157,22 @@
       <div class="keyboard-shortcuts-overlay" id="keyboardShortcutsOverlay" hidden></div>
 
       <div class="app-main">
+        <aside class="announcement-bar" id="announcementBar" role="region" aria-label="Elan">
+          <div class="announcement-bar-content">
+            <div class="announcement-indicator" aria-hidden="true">
+              <span class="announcement-ping"></span>
+              <span class="announcement-dot"></span>
+            </div>
+            <p class="announcement-message" id="announcementMessage">Marketify v3.0 istifadənizdədir</p>
+          </div>
+          <button class="announcement-close-btn" id="announcementCloseBtn" type="button" aria-label="Elanı bağla" title="Bağla">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </aside>
+
         <header class="mobile-header">
           <button class="icon-button" id="mobileMenuButton" type="button" aria-label="Menyunu aç" aria-expanded="false">
             <span aria-hidden="true">☰</span>

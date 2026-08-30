@@ -610,6 +610,13 @@ export const TRANSLATIONS = {
       yesterday: "dünən",
       daysAgo: "{count} gün əvvəl",
     },
+
+    // ── Announcement Bar ─────────────────────────────────────────────────────
+    announcement: {
+      badge: "v3.0",
+      message: "Marketify v3.0 istifadənizdədir",
+      closeAria: "Elanı bağla",
+    },
   },
 
   en: {
@@ -1213,6 +1220,13 @@ export const TRANSLATIONS = {
       hoursAgo: "{count}h ago",
       yesterday: "yesterday",
       daysAgo: "{count}d ago",
+    },
+
+    // ── Announcement Bar ─────────────────────────────────────────────────────
+    announcement: {
+      badge: "v3.0",
+      message: "Marketify v3.0 is now available",
+      closeAria: "Dismiss announcement",
     },
   },
 };
