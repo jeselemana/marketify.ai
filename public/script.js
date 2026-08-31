@@ -698,8 +698,7 @@ function syncNav() {
     workspaceMeta.textContent = state.currentUser ? t("brand.personalAccount") : t("brand.guestAccount");
   }
 
-  const isEn = getLanguage() === "en";
-  document.title = isEn ? "Marketify AI — AI Marketing Strategy Workspace" : "Marketify AI — Strategiya workspace-i";
+  document.title = "Marketify AI & Workspace | Build. Ask. Act.";
 
   renderRecentList();
   syncLanguageControls();
