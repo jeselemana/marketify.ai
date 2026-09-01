@@ -1036,7 +1036,7 @@ body.sidebar-open .app-main {
   margin: 0;
   color: var(--text-primary);
   font-size: clamp(30px, 3.4vw, 36px);
-  font-weight: 550;
+  font-weight: 450;
   letter-spacing: -0.035em;
   line-height: 1.18;
   text-align: center;
@@ -5868,7 +5868,7 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   margin: 0;
   color: var(--text-primary);
   font-size: clamp(30px, 3.4vw, 36px);
-  font-weight: 550;
+  font-weight: 450;
   letter-spacing: -0.035em;
   line-height: 1.18;
   text-align: center;
@@ -11184,7 +11184,7 @@ body {
     max-width: 440px;
     margin-inline: auto;
     font-size: clamp(28px, 7.8vw, 34px);
-    font-weight: 600;
+    font-weight: 450;
     letter-spacing: -0.035em;
     line-height: 1.2;
     text-wrap: wrap;
@@ -11423,7 +11423,7 @@ body {
     max-width: 440px;
     margin-inline: auto;
     font-size: clamp(28px, 7.8vw, 34px);
-    font-weight: 600;
+    font-weight: 450;
     letter-spacing: -0.035em;
     line-height: 1.2;
     text-wrap: wrap;
@@ -11433,7 +11433,7 @@ body {
     max-width: 440px;
     margin-inline: auto;
     font-size: clamp(26px, 7.5vw, 32px);
-    font-weight: 600;
+    font-weight: 450;
     letter-spacing: -0.035em;
     line-height: 1.22;
     text-wrap: wrap;
@@ -11641,7 +11641,7 @@ body {
   .workspace-centered .intake-title,
   .ask-title {
     font-size: clamp(27px, 7.5vw, 32px);
-    font-weight: 600;
+    font-weight: 450;
   }
 }
 
@@ -11666,7 +11666,7 @@ body {
   .workspace-centered .intake-title,
   .ask-title {
     font-size: clamp(25px, 7vw, 30px);
-    font-weight: 600;
+    font-weight: 450;
   }
 
   .workspace-centered .intake-description,

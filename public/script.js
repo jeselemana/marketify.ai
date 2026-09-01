@@ -850,13 +850,14 @@ const BUILD_CTA_LIST_AZ = [
 ];
 
 const BUILD_CTA_LIST_EN = [
-  "Let's build your next strategy.",
-  "What is your primary marketing goal?",
-  "Let's scale your customer acquisition.",
-  "Describe your product, campaign, or business objective.",
-  "Let's launch your new product to market.",
-  "Plan your next high-converting marketing campaign.",
-  "Build a differentiated go-to-market plan.",
+  "Ready to dominate your market?",
+  "Let's build something people actually buy.",
+  "Turn that crazy idea into a real plan.",
+  "What are we conquering today?",
+  "Time to outsmart the competition.",
+  "Drop the goal. We'll build the roadmap.",
+  "Let's build a strategy that prints results.",
+  "Ready to scale or just window shopping?",
 ];
 
 const ASK_CTA_LIST_AZ = [
@@ -870,13 +871,14 @@ const ASK_CTA_LIST_AZ = [
 ];
 
 const ASK_CTA_LIST_EN = [
-  "What marketing challenge are you tackling?",
-  "Ask your strategic marketing question.",
-  "Which channel or metric should we analyze?",
-  "Benchmark competitors and market trends.",
-  "Stress-test your business or campaign idea.",
-  "What is your growth priority today?",
-  "How can we optimize your marketing funnel?",
+  "Ask away. We don't judge.",
+  "Got a marketing crisis? Let's fix it.",
+  "Hit me with your toughest question.",
+  "What's keeping your CMO up at night?",
+  "Need a second brain? Fire away.",
+  "Roast your idea or ask anything.",
+  "What metric is giving you a headache?",
+  "Ask anything. No fluff, pure strategy.",
 ];
 
 function getBuildCta() {
