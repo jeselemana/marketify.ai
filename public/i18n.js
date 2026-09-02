@@ -1379,7 +1379,7 @@ export const LEGAL_DOCS_I18N = {
           <p><strong>5.1. Məhdud İstifadə Bəyannaməsi:</strong> Helmer Workspace platformasının Google API-lərindən əldə edilmiş məlumatlardan istifadəsi və onları hər hansı digər tətbiqə ötürməsi, Məhdud İstifadə (Limited Use) tələbləri də daxil olmaqla, <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a> şərtlərinə tam şəkildə uyğundur.</p>
           <p><strong>5.2. Süni İntellekt Modellərinin Təlimində İstifadə Qadağası:</strong> Google API-ləri vasitəsilə əldə edilən istifadəçi məlumatları (o cümlədən ad, e-poçt və profil göstəriciləri) ümumiləşdirilmiş və ya üçüncü tərəf süni intellekt (AI) və maşın öyrənməsi (ML) modellərinin, o cümlədən böyük dil modellərinin (LLM) təlimi (training, fine-tuning) və ya inkişaf etdirilməsi üçün qəti şəkildə İSTİFADƏ EDİLMİR.</p>
           <p><strong>5.3. Məlumatların Satılmaması və Reklam Qadağası:</strong> Google istifadəçi məlumatları heç bir halda reklam şəbəkələrinə, məlumat brokerlərinə satılmır, icarəyə verilmir və hədəfli və ya fərdiləşdirilmiş reklam nümayişi üçün istifadə olunmur.</p>
-          <p><strong>5.4. İcazələrin Geri Çağırılması və Məlumatların Silinməsi:</strong> İstifadəçilər platformaya verilmiş Google icazələrini istənilən vaxt birbaşa öz <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Təhlükəsizlik Parametrləri (Üçüncü tərəf tətbiqləri və xidmətləri)</a> səhifəsindən ləğv edə bilərlər. Həmçinin istifadəçilər platformadakı hesabını və toplanmış bütün məlumatlarını tətbiqin ayarlar bölməsindən birbaşa və ya support@helmerworkspace.com / elemanajes@gmail.com ünvanına müraciət edərək tamamilə sildirə bilərlər.</p>
+          <p><strong>5.4. İcazələrin Geri Çağırılması və Məlumatların Silinməsi:</strong> İstifadəçilər platformaya verilmiş Google icazələrini istənilən vaxt birbaşa öz <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Təhlükəsizlik Parametrləri (Üçüncü tərəf tətbiqləri və xidmətləri)</a> səhifəsindən ləğv edə bilərlər. Həmçinin istifadəçilər platformadakı hesabını və toplanmış bütün məlumatlarını tətbiqin ayarlar bölməsindən birbaşa və ya helmerworkspace@googlegroups.com ünvanına müraciət edərək tamamilə sildirə bilərlər.</p>
         </div>
 
         <div class="legal-doc-section">
@@ -1404,7 +1404,7 @@ export const LEGAL_DOCS_I18N = {
 
         <div class="legal-doc-section">
           <h3>9. Əlaqə və Müraciətlər</h3>
-          <p>Fərdi məlumatların emalı, məxfilik hüquqlarının həyata keçirilməsi və ya bu Siyasətlə bağlı müraciətlər üçün İstifadəçilər Platformanın rəsmi əlaqə vasitələri (e-poçt: support@helmerworkspace.com və ya elemanajes@gmail.com) və rəqəmsal dəstək interfeysi vasitəsilə əlaqə saxlaya bilərlər. Təşkilat: Innova Group Azerbaijan, Bakı, Azərbaycan. Veb-sayt: https://helmerworkspace.com</p>
+          <p>Fərdi məlumatların emalı, məxfilik hüquqlarının həyata keçirilməsi və ya bu Siyasətlə bağlı müraciətlər üçün İstifadəçilər Platformanın rəsmi əlaqə vasitələri (e-poçt: helmerworkspace@googlegroups.com) və rəqəmsal dəstək interfeysi vasitəsilə əlaqə saxlaya bilərlər. Təşkilat: Innova Group Azerbaijan, Bakı, Azərbaycan. Veb-sayt: https://helmerworkspace.com</p>
         </div>
       `,
     },
@@ -1557,7 +1557,7 @@ export const LEGAL_DOCS_I18N = {
           <p><strong>5.1. Limited Use Disclosure:</strong> Helmer Workspace's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
           <p><strong>5.2. Prohibition on AI/ML Model Training:</strong> Google user data received via Google APIs (including profile information and email address) is never used to train, retrain, fine-tune, or improve generalized artificial intelligence (AI) or machine learning (ML) models, including large language models (LLMs).</p>
           <p><strong>5.3. Prohibition on Data Sale & Advertising:</strong> Google user data is never sold, rented, leased, or transferred to third-party data brokers or advertising platforms, nor is it used for serving personalized, targeted, or retargeted advertisements.</p>
-          <p><strong>5.4. Access Revocation & Data Deletion:</strong> Users may revoke Helmer Workspace's access to their Google account at any time via their <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Security Settings (Third-party apps & services)</a>. Users can also delete their account and associated data directly through the platform interface or by contacting support@helmerworkspace.com or elemanajes@gmail.com.</p>
+          <p><strong>5.4. Access Revocation & Data Deletion:</strong> Users may revoke Helmer Workspace's access to their Google account at any time via their <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Security Settings (Third-party apps & services)</a>. Users can also delete their account and associated data directly through the platform interface or by contacting helmerworkspace@googlegroups.com.</p>
         </div>
 
         <div class="legal-doc-section">
@@ -1582,7 +1582,7 @@ export const LEGAL_DOCS_I18N = {
 
         <div class="legal-doc-section">
           <h3>9. Contact & Inquiries</h3>
-          <p>For inquiries regarding personal data processing, privacy rights, or this Policy, Users may reach out through the Platform’s official contact channels (email: support@helmerworkspace.com or elemanajes@gmail.com) and digital support interface. Organization: Innova Group Azerbaijan, Baku, Azerbaijan. Website: https://helmerworkspace.com</p>
+          <p>For inquiries regarding personal data processing, privacy rights, or this Policy, Users may reach out through the Platform’s official contact channels (email: helmerworkspace@googlegroups.com) and digital support interface. Organization: Innova Group Azerbaijan, Baku, Azerbaijan. Website: https://helmerworkspace.com</p>
         </div>
 
         <div class="legal-doc-precedence">
