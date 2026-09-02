@@ -125,6 +125,20 @@ app.use((req, res, next) => {
   if (!source && process.env.NODE_ENV !== "production") return next();
   return res.status(403).json({ error: "Sorğunun mənbəyi təsdiqlənmədi.", code: "CSRF_ORIGIN_REJECTED" });
 });
+
+// 🔍 SEO & Webmaster Discovery Endpoints
+app.get("/robots.txt", (req, res) => {
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  return res.sendFile(path.join(__dirname, "public", "robots.txt"));
+});
+
+app.get("/sitemap.xml", (req, res) => {
+  res.setHeader("Content-Type", "application/xml; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  return res.sendFile(path.join(__dirname, "public", "sitemap.xml"));
+});
+
 app.use(express.static("public", { index: false }));
 
 const openai = process.env.OPENAI_API_KEY

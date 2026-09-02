@@ -1,0 +1,20 @@
+# https://helmerworkspace.com/robots.txt
+# Robots exclusion file for Helmer Workspace
+
+User-agent: *
+Allow: /
+Allow: /privacy
+Allow: /terms
+
+# Block private, authenticated, internal and API endpoints
+Disallow: /api/
+Disallow: /admin
+Disallow: /index_admin.html
+Disallow: /dashboard/
+Disallow: /dashboard
+
+# Sitemap index
+Sitemap: https://helmerworkspace.com/sitemap.xml
+
+# Canonical Host
+Host: https://helmerworkspace.com
