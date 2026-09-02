@@ -41,7 +41,7 @@ test("Excel export creates separate worksheets for strategy, execution, and metr
 
 test("pdf printable document escapes untrusted content and renders all key sections", () => {
   const html = createPdfPrintDocument(strategy);
-  assert.match(html, /Marketify/);
+  assert.match(html, /Helmer/);
   assert.match(html, /&lt;script&gt;alert/);
   assert.match(html, /01\. Strateji Prioritetlər/);
   assert.match(html, /03\. İcra Mərhələləri/);

@@ -28,7 +28,7 @@ const AUTH_PATHS = new Set([
 let pendingReturnPath = "/workspace";
 
 function openLegalDoc(type) {
-  window.dispatchEvent(new CustomEvent("marketify:open-legal", { detail: { type } }));
+  window.dispatchEvent(new CustomEvent("helmer:open-legal", { detail: { type } }));
 }
 
 function legalNoticeElement() {
@@ -92,7 +92,7 @@ async function request(path, options = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401 && data.code === "AUTH_REQUIRED" && path !== "/api/auth/me") {
-      window.dispatchEvent(new CustomEvent("marketify:auth-required"));
+      window.dispatchEvent(new CustomEvent("helmer:auth-required"));
     }
     const error = new Error(data.error || t("common.genericError"));
     error.code = data.code;
@@ -114,12 +114,12 @@ function shell(title, subtitle) {
   const layout = document.createElement("div");
   layout.className = "auth-layout";
   layout.innerHTML = `
-    <section class="auth-story" aria-label="Marketify">
+    <section class="auth-story" aria-label="Helmer">
       <div class="auth-story-bg-glow"></div>
       <div class="auth-story-header">
         <a class="auth-brand" href="/login">
           <div class="auth-brand-info">
-            <strong>Marketify</strong>
+            <strong>Helmer</strong>
           </div>
         </a>
       </div>
@@ -141,7 +141,7 @@ function shell(title, subtitle) {
         <div class="auth-mobile-header">
           <a class="auth-brand" href="/login">
             <div class="auth-brand-info">
-              <strong>Marketify</strong>
+              <strong>Helmer</strong>
             </div>
           </a>
         </div>
@@ -281,7 +281,7 @@ async function handleGoogleCredential(response) {
     });
 
     if (data.restoredFromPendingDeletion) {
-      window.dispatchEvent(new CustomEvent("marketify:account-restored"));
+      window.dispatchEvent(new CustomEvent("helmer:account-restored"));
     }
     await completeAuthentication(data.user);
   } catch (error) {
@@ -302,7 +302,7 @@ function googleButtonOptions() {
   };
 }
 
-window.addEventListener("marketify:theme-change", () => {
+window.addEventListener("helmer:theme-change", () => {
   const target = document.querySelector(".google-auth-button");
   if (target && window.google?.accounts?.id) {
     try { window.google.accounts.id.renderButton(target, googleButtonOptions()); } catch {}
@@ -353,7 +353,7 @@ function googleSignInButton() {
 }
 
 function renderLogin() {
-  document.title = `${t("auth.login.title")} — Marketify`;
+  document.title = `${t("auth.login.title")} — Helmer Workspace`;
 
   const content = shell(
     t("auth.login.title"),
@@ -426,7 +426,7 @@ function renderLogin() {
       });
 
       if (data.restoredFromPendingDeletion) {
-        window.dispatchEvent(new CustomEvent("marketify:account-restored"));
+        window.dispatchEvent(new CustomEvent("helmer:account-restored"));
       }
       await completeAuthentication(data.user);
     } catch (error) {
@@ -446,7 +446,7 @@ function renderLogin() {
 }
 
 function renderSignup() {
-  document.title = `${t("auth.signup.title")} — Marketify`;
+  document.title = `${t("auth.signup.title")} — Helmer Workspace`;
   const isEn = getLanguage() === "en";
   const content = shell(t("auth.signup.title"), t("auth.signup.subtitle"));
   const { form, submit } = formBase(t("auth.signup.submitBtn"));
@@ -546,7 +546,7 @@ function renderSignup() {
 }
 
 function renderEmailVerification() {
-  document.title = `${t("auth.verifyEmail.title")} — Marketify`;
+  document.title = `${t("auth.verifyEmail.title")} — Helmer Workspace`;
   const isEn = getLanguage() === "en";
   const email = new URLSearchParams(location.search).get("email") || "";
   const deliveryPending = new URLSearchParams(location.search).get("delivery") === "pending";
@@ -632,7 +632,7 @@ function renderEmailVerification() {
 }
 
 function renderForgot() {
-  document.title = `${t("auth.forgotPassword.title")} — Marketify`;
+  document.title = `${t("auth.forgotPassword.title")} — Helmer Workspace`;
   const isEn = getLanguage() === "en";
   const content = shell(t("auth.forgotPassword.title"), t("auth.forgotPassword.subtitle"));
   const { form, submit } = formBase(t("auth.forgotPassword.submitBtn"));
@@ -661,7 +661,7 @@ function renderForgot() {
 }
 
 function renderReset() {
-  document.title = `${t("auth.resetPassword.title")} — Marketify`;
+  document.title = `${t("auth.resetPassword.title")} — Helmer Workspace`;
   const isEn = getLanguage() === "en";
   const content = shell(t("auth.resetPassword.title"), t("auth.resetPassword.subtitle"));
   const token = new URLSearchParams(location.search).get("token") || "";
@@ -700,12 +700,12 @@ function renderReset() {
 
 function renderOnboarding(user) {
   const isEn = getLanguage() === "en";
-  document.title = `${isEn ? "Set up Marketify" : "Marketify-ni hazırla"} — Marketify`;
+  document.title = `${isEn ? "Set up Helmer" : "Helmer-i hazırla"} — Helmer Workspace`;
   document.body.classList.add("auth-active");
   const firstName = user.fullName.split(" ")[0];
   const content = shell(
     isEn ? `Welcome, ${firstName}` : `Salam, ${firstName}`,
-    isEn ? "Choose your primary focus to tailor Marketify to your workflow." : "Marketify-ni işinə uyğunlaşdırmaq üçün əsas fokusunu seç."
+    isEn ? "Choose your primary focus to tailor Helmer to your workflow." : "Helmer-i işinə uyğunlaşdırmaq üçün əsas fokusunu seç."
   );
   const form = document.createElement("form");
   form.className = "onboarding-form";
@@ -767,12 +767,12 @@ export async function initializeAuthentication(onAuthenticated) {
       ? "/workspace"
       : safeInternalPath(`${location.pathname}${location.search}${location.hash}`);
   window.addEventListener("popstate", renderRoute);
-  window.addEventListener("marketify:auth-required", () => {
+  window.addEventListener("helmer:auth-required", () => {
     pendingReturnPath = safeInternalPath(`${location.pathname}${location.search}${location.hash}`);
     route(`/login?returnTo=${encodeURIComponent(pendingReturnPath)}`, true);
     renderRoute();
   });
-  window.addEventListener("marketify:language-change", () => {
+  window.addEventListener("helmer:language-change", () => {
     if (AUTH_PATHS.has(location.pathname)) {
       renderRoute();
     }

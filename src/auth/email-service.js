@@ -28,10 +28,10 @@ export class PasswordResetEmailService {
       headers: {
         Authorization: `Bearer ${this.env.RESEND_API_KEY}`,
         "Content-Type": "application/json",
-        "User-Agent": "marketify-ai/1.0",
+        "User-Agent": "helmer/1.0",
       },
       body: JSON.stringify({
-        from: this.env.EMAIL_FROM || "Marketify <onboarding@resend.dev>",
+        from: this.env.EMAIL_FROM || "Helmer <onboarding@resend.dev>",
         to: [to],
         subject,
         text,
@@ -49,7 +49,7 @@ export class PasswordResetEmailService {
     if (this.env.RESEND_API_KEY) return this.sendWithResend({ to, subject, text, html, replyTo });
     if (this.transport) {
       await this.transport.sendMail({
-        from: this.env.EMAIL_FROM || "Marketify <no-reply@marketify-ai.com>",
+        from: this.env.EMAIL_FROM || "Helmer <no-reply@helmerworkspace.com>",
         to,
         subject,
         text,
@@ -68,16 +68,16 @@ export class PasswordResetEmailService {
   }
 
   async sendEmailVerificationCode({ email, fullName, code }) {
-    const subject = "Marketify e-poçt təsdiqi";
-    const text = `Salam ${fullName},\n\nMarketify hesabını təsdiqləmək üçün kodun: ${code}\n\nKod 10 dəqiqə ərzində etibarlıdır. Bu sorğunu sən etməmisənsə, mesajı nəzərə alma.`;
-    const html = `<!doctype html><html><body style="margin:0;background:#f5f6f8;color:#171b24;font-family:Inter,Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:40px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:auto;background:#fff;border:1px solid #e4e7ec;border-radius:16px"><tr><td style="padding:34px"><div style="font-weight:700;margin-bottom:32px">Marketify</div><h1 style="margin:0 0 12px;font-size:25px">E-poçtunu təsdiqlə</h1><p style="margin:0 0 24px;color:#667085;line-height:1.65">Salam ${escapeHtml(fullName)}, hesabını aktivləşdirmək üçün aşağıdakı kodu daxil et.</p><div style="font-size:32px;letter-spacing:8px;font-weight:700;background:#f3f4f6;border-radius:10px;padding:16px;text-align:center">${escapeHtml(code)}</div><p style="margin:24px 0 0;color:#98a2b3;font-size:12px;line-height:1.6">Kod 10 dəqiqə ərzində etibarlıdır. Sorğunu sən etməmisənsə, mesajı nəzərə alma.</p></td></tr></table></td></tr></table></body></html>`;
+    const subject = "Helmer e-poçt təsdiqi";
+    const text = `Salam ${fullName},\n\nHelmer hesabını təsdiqləmək üçün kodun: ${code}\n\nKod 10 dəqiqə ərzində etibarlıdır. Bu sorğunu sən etməmisənsə, mesajı nəzərə alma.`;
+    const html = `<!doctype html><html><body style="margin:0;background:#f5f6f8;color:#171b24;font-family:Inter,Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:40px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:auto;background:#fff;border:1px solid #e4e7ec;border-radius:16px"><tr><td style="padding:34px"><div style="font-weight:700;margin-bottom:32px">Helmer</div><h1 style="margin:0 0 12px;font-size:25px">E-poçtunu təsdiqlə</h1><p style="margin:0 0 24px;color:#667085;line-height:1.65">Salam ${escapeHtml(fullName)}, hesabını aktivləşdirmək üçün aşağıdakı kodu daxil et.</p><div style="font-size:32px;letter-spacing:8px;font-weight:700;background:#f3f4f6;border-radius:10px;padding:16px;text-align:center">${escapeHtml(code)}</div><p style="margin:24px 0 0;color:#98a2b3;font-size:12px;line-height:1.6">Kod 10 dəqiqə ərzində etibarlıdır. Sorğunu sən etməmisənsə, mesajı nəzərə alma.</p></td></tr></table></td></tr></table></body></html>`;
     await this.deliver({ to: email, subject, text, html });
   }
 
   async sendPasswordResetEmail({ email, fullName, resetUrl }) {
-    const subject = "Marketify şifrəsini yenilə";
-    const text = `Salam ${fullName},\n\nMarketify şifrəsini yeniləmək üçün bu keçiddən istifadə et:\n${resetUrl}\n\nKeçid 20 dəqiqə ərzində etibarlıdır və yalnız bir dəfə işləyir. Bu sorğunu sən etməmisənsə, mesajı nəzərə alma.`;
-    const html = `<!doctype html><html><body style="margin:0;background:#f5f6f8;color:#171b24;font-family:Inter,Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:40px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:auto;background:#fff;border:1px solid #e4e7ec;border-radius:16px"><tr><td style="padding:34px"><div style="font-weight:700;margin-bottom:32px">Marketify</div><h1 style="margin:0 0 12px;font-size:25px;letter-spacing:-.5px">Şifrəni yenilə</h1><p style="margin:0 0 24px;color:#667085;line-height:1.65">Salam ${escapeHtml(fullName)}, Marketify hesabının şifrəsini yeniləmək üçün aşağıdakı düymədən istifadə et.</p><a href="${escapeHtml(resetUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;font-size:14px;font-weight:600">Şifrəni yenilə</a><p style="margin:24px 0 0;color:#98a2b3;font-size:12px;line-height:1.6">Bu keçid 20 dəqiqə ərzində etibarlıdır və yalnız bir dəfə işləyir. Sorğunu sən etməmisənsə, bu mesajı nəzərə alma.</p></td></tr></table></td></tr></table></body></html>`;
+    const subject = "Helmer şifrəsini yenilə";
+    const text = `Salam ${fullName},\n\nHelmer şifrəsini yeniləmək üçün bu keçiddən istifadə et:\n${resetUrl}\n\nKeçid 20 dəqiqə ərzində etibarlıdır və yalnız bir dəfə işləyir. Bu sorğunu sən etməmisənsə, mesajı nəzərə alma.`;
+    const html = `<!doctype html><html><body style="margin:0;background:#f5f6f8;color:#171b24;font-family:Inter,Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:40px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:auto;background:#fff;border:1px solid #e4e7ec;border-radius:16px"><tr><td style="padding:34px"><div style="font-weight:700;margin-bottom:32px">Helmer</div><h1 style="margin:0 0 12px;font-size:25px;letter-spacing:-.5px">Şifrəni yenilə</h1><p style="margin:0 0 24px;color:#667085;line-height:1.65">Salam ${escapeHtml(fullName)}, Helmer hesabının şifrəsini yeniləmək üçün aşağıdakı düymədən istifadə et.</p><a href="${escapeHtml(resetUrl)}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;font-size:14px;font-weight:600">Şifrəni yenilə</a><p style="margin:24px 0 0;color:#98a2b3;font-size:12px;line-height:1.6">Bu keçid 20 dəqiqə ərzində etibarlıdır və yalnız bir dəfə işləyir. Sorğunu sən etməmisənsə, bu mesajı nəzərə alma.</p></td></tr></table></td></tr></table></body></html>`;
     await this.deliver({ to: email, subject, text, html });
   }
 
@@ -94,8 +94,8 @@ export class PasswordResetEmailService {
     ip,
   }) {
     const recipient = this.env.LEGAL_REPORT_EMAIL || "elemanajes@gmail.com";
-    const subject = `[Marketify AI] Hüquqi Problem Bildirişi: ${issueType || "Ümumi"}`;
-    const text = `Marketify AI - Yeni Hüquqi Problem Bildirişi\n\n`
+    const subject = `[Helmer] Hüquqi Problem Bildirişi: ${issueType || "Ümumi"}`;
+    const text = `Helmer - Yeni Hüquqi Problem Bildirişi\n\n`
       + `Tarix: ${timestamp}\n`
       + `Problem Növü: ${issueType || "Qeyd edilməyib"}\n`
       + `İstifadəçi: ${userName || "Anonim"} (${userEmail || "Qeyd edilməyib"})\n`
@@ -131,7 +131,7 @@ export class PasswordResetEmailService {
   <div class="container">
     <div class="header">
       <div class="badge">Hüquqi Bildiriş</div>
-      <h1 class="title">Marketify AI Hüquqi Problem Bildirişi</h1>
+      <h1 class="title">Helmer Hüquqi Problem Bildirişi</h1>
     </div>
     <div class="content">
       <table class="meta-table">
@@ -151,7 +151,7 @@ export class PasswordResetEmailService {
       <div class="card-box ai-box">${escapeHtml(messageContent || "(Cavab mətni yoxdur)")}</div>
     </div>
     <div class="footer">
-      Bu bildiriş Marketify AI cavab generasiyası ekranından avtomatik göndərilmişdir.
+      Bu bildiriş Helmer cavab generasiyası ekranından avtomatik göndərilmişdir.
     </div>
   </div>
 </body>
@@ -159,7 +159,7 @@ export class PasswordResetEmailService {
 
     if (this.transport) {
       await this.transport.sendMail({
-        from: this.env.EMAIL_FROM || "Marketify Legal <no-reply@marketify-ai.com>",
+        from: this.env.EMAIL_FROM || "Helmer Legal <no-reply@helmerworkspace.com>",
         to: recipient,
         replyTo: userEmail || undefined,
         subject,

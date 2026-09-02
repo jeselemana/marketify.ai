@@ -34,7 +34,7 @@ test("strategy router GET /:id returns single strategy, validates id, and enforc
   const { FileStrategyRepository } = await import("../src/repositories/file-strategy-repository.js");
   const { createStrategyRouter, strategyErrorHandler } = await import("../src/http/strategy-router.js");
 
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-router-test-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-router-test-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
 
   const repository = new FileStrategyRepository(path.join(directory, "strategies.json"));
@@ -129,7 +129,7 @@ test("strategy router POST /generate returns existing saved strategy if clientSa
   const { FileStrategyRepository } = await import("../src/repositories/file-strategy-repository.js");
   const { createStrategyRouter, strategyErrorHandler } = await import("../src/http/strategy-router.js");
 
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-idempotent-test-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-idempotent-test-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
 
   const repository = new FileStrategyRepository(path.join(directory, "strategies.json"));

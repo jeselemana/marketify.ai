@@ -465,7 +465,7 @@ export function strategyErrorHandler(error, req, res, next) {
     message: error.message,
   });
   return res.status(error.status && error.status < 600 ? error.status : 500).json({
-    error: error.message || "Marketify hazırda sorğunu tamamlaya bilmədi. Məlumatların qorunub — yenidən cəhd et.",
+    error: error.message || "Helmer hazırda sorğunu tamamlaya bilmədi. Məlumatların qorunub — yenidən cəhd et.",
     code: error.code || "STRATEGY_ERROR",
     model: error.model,
   });

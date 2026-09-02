@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { hashOpaqueToken } from "../auth/password.js";
 
-export const SESSION_COOKIE = "marketify_session";
-export const GUEST_COOKIE = "marketify_guest";
+export const SESSION_COOKIE = "helmer_session";
+export const GUEST_COOKIE = "helmer_guest";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export function parseCookies(header = "") {

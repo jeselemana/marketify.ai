@@ -6,7 +6,7 @@ import path from "node:path";
 import { PasswordResetEmailService } from "../src/auth/email-service.js";
 
 test("sendLegalReportEmail forwards to elemanajes@gmail.com with all required fields in outbox", async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-legal-report-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-legal-report-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
 
   const service = new PasswordResetEmailService({ dataDir: directory, env: { NODE_ENV: "test" } });
@@ -44,7 +44,7 @@ test("sendLegalReportEmail forwards to elemanajes@gmail.com with all required fi
 });
 
 test("sendLegalReportEmail works without user email (anonymous user)", async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-legal-report-anon-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-legal-report-anon-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
 
   const service = new PasswordResetEmailService({ dataDir: directory, env: { NODE_ENV: "test" } });
@@ -69,7 +69,7 @@ test("sendLegalReportEmail works without user email (anonymous user)", async (t)
 });
 
 test("legal reports persist correctly with id, timestamp, and status", async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-legal-reports-store-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-legal-reports-store-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
 
   const reportsPath = path.join(directory, "legal_reports.json");

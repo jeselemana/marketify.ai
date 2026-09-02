@@ -11,7 +11,7 @@ import { calculateQualityScore } from "../src/services/learning/quality-score.js
 import { sanitizeTrainingText } from "../src/services/learning/sanitizer.js";
 
 async function fixture(t) {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-learning-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-learning-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const repository = new FileAiLearningRepository(path.join(directory, "ai-learning-v1.json"), null, { mirrorToR2: false });
   return { repository, service: new LearningLoopService(repository) };
@@ -76,7 +76,7 @@ test("interaction, signal, candidate review, pagination, filters and approved-on
   const sample = JSON.parse(exported.trim());
   assert.equal(sample.messages[0].role, "user");
   assert.equal(sample.messages[1].role, "assistant");
-  assert.equal(sample.metadata.source, "marketify");
+  assert.equal(sample.metadata.source, "helmer");
 
   const askOnly = await service.listInteractions({ mode: "ask" }, 1, 1);
   assert.equal(askOnly.total, 2);

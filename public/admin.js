@@ -291,7 +291,7 @@ function renderLegalReports() {
 
     const dateStr = formatDate(rep.createdAt);
     const userDisplay = rep.userName || "Anonim istifadəçi";
-    const emailDisplay = rep.userEmail ? `<a href="mailto:${escapeHtml(rep.userEmail)}?subject=Marketify AI Hüquqi Müraciətiniz Barədə [${escapeHtml(rep.id || "")}]" class="legal-email-link" title="E-poçt göndər">✉️ ${escapeHtml(rep.userEmail)}</a>` : '<span class="text-muted">E-poçt qeyd olunmayıb</span>';
+    const emailDisplay = rep.userEmail ? `<a href="mailto:${escapeHtml(rep.userEmail)}?subject=Helmer Hüquqi Müraciətiniz Barədə [${escapeHtml(rep.id || "")}]" class="legal-email-link" title="E-poçt göndər">✉️ ${escapeHtml(rep.userEmail)}</a>` : '<span class="text-muted">E-poçt qeyd olunmayıb</span>';
     const modelBadge = rep.model ? `<span class="model-badge">${escapeHtml(rep.model)}</span>` : "";
 
     card.innerHTML = `
@@ -335,7 +335,7 @@ function renderLegalReports() {
 
         <div class="action-buttons">
           ${rep.userEmail ? `
-            <a href="mailto:${escapeHtml(rep.userEmail)}?subject=Marketify AI Hüquqi Müraciətiniz [${escapeHtml(rep.id || "")}]" class="btn btn-email">
+            <a href="mailto:${escapeHtml(rep.userEmail)}?subject=Helmer Hüquqi Müraciətiniz [${escapeHtml(rep.id || "")}]" class="btn btn-email">
               ✉️ Cavab yaz
             </a>
           ` : ""}
@@ -385,7 +385,7 @@ function renderLegalReports() {
     // Copy listener
     const copyBtn = card.querySelector(".btn-copy");
     copyBtn?.addEventListener("click", () => {
-      const copyText = `[Marketify AI Hüquqi Müraciət #${rep.id}]\nTarix: ${dateStr}\nNöv: ${rep.issueType}\nİstifadəçi: ${userDisplay} (${rep.userEmail || "email yoxdur"})\nModel: ${rep.model || "Məlum deyil"}\n\nTəsvir:\n${rep.description}\n\nAI Cavabı:\n${rep.messageContent || "(yoxdur)"}`;
+      const copyText = `[Helmer Hüquqi Müraciət #${rep.id}]\nTarix: ${dateStr}\nNöv: ${rep.issueType}\nİstifadəçi: ${userDisplay} (${rep.userEmail || "email yoxdur"})\nModel: ${rep.model || "Məlum deyil"}\n\nTəsvir:\n${rep.description}\n\nAI Cavabı:\n${rep.messageContent || "(yoxdur)"}`;
       navigator.clipboard.writeText(copyText).then(() => {
         copyBtn.textContent = "✓ Kopyalandı";
         setTimeout(() => copyBtn.textContent = "📋 Kopyala", 1500);

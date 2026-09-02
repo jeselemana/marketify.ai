@@ -41,7 +41,7 @@ export function createAiLearningAdminRouter(service) {
   router.get("/export", asyncRoute(async (req, res) => {
     const content = await service.exportApproved(req.query.format || "openai-chat-jsonl");
     res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="marketify-training-${new Date().toISOString().slice(0, 10)}.jsonl"`);
+    res.setHeader("Content-Disposition", `attachment; filename="helmer-training-${new Date().toISOString().slice(0, 10)}.jsonl"`);
     return res.send(content);
   }));
   router.use((error, req, res, next) => {

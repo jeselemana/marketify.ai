@@ -1,9 +1,9 @@
 /**
- * Marketify AI — Centralized Localization & Internationalization (i18n)
+ * Helmer — Centralized Localization & Internationalization (i18n)
  * Supports Azerbaijani ('az') and English ('en') with zero machine translation.
  */
 
-const STORAGE_KEY = "marketify_language";
+const STORAGE_KEY = "helmer_language";
 const DEFAULT_LANGUAGE = "az";
 const SUPPORTED_LANGUAGES = new Set(["az", "en"]);
 
@@ -11,12 +11,12 @@ export const TRANSLATIONS = {
   az: {
     // ── Global & Brand ────────────────────────────────────────────────────────
     brand: {
-      name: "Marketify AI",
+      name: "Helmer",
       tagline: "Biznes məqsədini strukturlaşdırılmış strategiyaya çevirir.",
-      workspaceName: "Marketify workspace",
+      workspaceName: "Helmer",
       personalAccount: "Şəxsi hesab",
       guestAccount: "Qonaq hesabı",
-      homeAriaLabel: "Marketify AI ana səhifə",
+      homeAriaLabel: "Helmer ana səhifə",
     },
 
     // ── Navigation & Rail ─────────────────────────────────────────────────────
@@ -81,7 +81,7 @@ export const TRANSLATIONS = {
     intake: {
       kicker: "STRATEGIYA QURUCUSU",
       title: "Biznes məqsədini strategiyaya çevir.",
-      subtitle: "Konteksti daxil et. Marketify çatışmayan məqamları dəqiqləşdirir və icraya hazır plan qurur.",
+      subtitle: "Konteksti daxil et. Helmer çatışmayan məqamları dəqiqləşdirir və icraya hazır plan qurur.",
       placeholder: "Məsələn: Bakıda yeni premium coffee shop açırıq. 6 aylıq bazara giriş strategiyası və rəqəmsal marketinq planı lazımdır...",
       submitButton: "Strategiyanı qur",
       submitThinking: "Düşünür…",
@@ -99,7 +99,7 @@ export const TRANSLATIONS = {
     clarification: {
       kicker: "DƏQİQLƏŞDİRMƏ",
       title: "Daha dəqiq strategiya üçün bir neçə sual",
-      subtitle: "Marketify konteksti analiz etdi. Aşağıdakı sualları cavablandırmaqla daha uyğun və tətbiq oluna bilən nəticə əldə edəcəksən.",
+      subtitle: "Helmer konteksti analiz etdi. Aşağıdakı sualları cavablandırmaqla daha uyğun və tətbiq oluna bilən nəticə əldə edəcəksən.",
       questionCounter: "Sual {current} / {total}",
       skipQuestion: "Bu sualı ötür",
       skipAll: "Dərhal strategiyanı qur",
@@ -318,7 +318,7 @@ export const TRANSLATIONS = {
       },
       languageSelector: {
         title: "İnterfeys dili",
-        intro: "Marketify AI üçün istifadə etmək istədiyiniz dili seçin.",
+        intro: "Helmer üçün istifadə etmək istədiyiniz dili seçin.",
         az: "Azərbaycan dili",
         en: "English",
         toastChanged: "İnterfeys dili dəyişdirildi.",
@@ -338,21 +338,21 @@ export const TRANSLATIONS = {
       },
       experience: {
         title: "Fərdiləşdirilmiş təcrübə",
-        intro: "Brendinizi, sahənizi və cavab üslubunuzu təyin edərək Marketify AI-ın sizin biznesinizə tam uyğunlaşmasını təmin edin.",
+        intro: "Brendinizi, sahənizi və cavab üslubunuzu təyin edərək Helmer-in sizin biznesinizə tam uyğunlaşmasını təmin edin.",
         masterTitle: "Fərdiləşdirilmiş cavablar və strategiyalar",
         masterDesc: "Aktiv olduqda Ask söhbətləri və Build rejimi aşağıdakı brend profili, üslub və yaddaş qeydləri əsasında cavab verir.",
         masterToggleTitle: "Fərdiləşdirilmiş cavablar və strategiyalar",
         masterToggleIntro: "Aktiv olduqda Ask söhbətləri və Build rejimi aşağıdakı brend profili, üslub və yaddaş qeydləri əsasında cavab verir.",
         importTitle: "Yaddaş köçür",
-        importDesc: "ChatGPT, Claude və ya Gemini-dakı yaddaşınızı və brend məlumatlarınızı Marketify-a birbaşa köçürün.",
+        importDesc: "ChatGPT, Claude və ya Gemini-dakı yaddaşınızı və brend məlumatlarınızı Helmer-ə birbaşa köçürün.",
         importCardTitle: "Yaddaş köçür",
-        importCardIntro: "ChatGPT, Claude və ya Gemini-dakı yaddaşınızı və brend məlumatlarınızı Marketify-a birbaşa köçürün.",
+        importCardIntro: "ChatGPT, Claude və ya Gemini-dakı yaddaşınızı və brend məlumatlarınızı Helmer-ə birbaşa köçürün.",
         importBtn: "Yaddaşı köçür",
         profileTitle: "Biznes və brend profili",
         profileDesc: "Hər dəfə şirkətiniz haqqında təkrar məlumat verməmək üçün əsas detalları daxil edin.",
         profileIntro: "Hər dəfə şirkətiniz haqqında təkrar məlumat verməmək üçün əsas detalları daxil edin.",
         brandName: "Brend / Layihə adı",
-        brandNamePlaceholder: "Məs: Marketify AI",
+        brandNamePlaceholder: "Məs: Helmer",
         industry: "Fəaliyyət sahəsi / Sənaye",
         industryPlaceholder: "Məs: B2B SaaS, E-ticarət, Kosmetika",
         primaryMarket: "Əsas bazar / Coğrafiya",
@@ -386,14 +386,14 @@ export const TRANSLATIONS = {
         },
         customInstructions: "Xüsusi təlimatlar",
         instructionsTitle: "Xüsusi təlimatlar",
-        instructionsDesc: "Marketify-ın sizin üçün cavab hazırlayarkən riayət etməli olduğu xüsusi qaydalar.",
+        instructionsDesc: "Helmer-in sizin üçün cavab hazırlayarkən riayət etməli olduğu xüsusi qaydalar.",
         customTitle: "Xüsusi təlimatlar",
-        customIntro: "Marketify-ın sizin üçün cavab hazırlayarkən riayət etməli olduğu xüsusi qaydalar.",
+        customIntro: "Helmer-in sizin üçün cavab hazırlayarkən riayət etməli olduğu xüsusi qaydalar.",
         customLabel: "Təlimat mətni",
         customPlaceholder: "Məsələn: Təkliflərdə həmişə büdcəyə qənaətcil rəqəmsal kanalları önə çək. Cavablarda addım-addım icra planı və ölçülə bilən KPI cədvəli təqdim et...",
         memoryTitle: "Memory Hub",
-        memoryDesc: "Marketify-ın biznesiniz haqqında yadda saxladığı məlumatları idarə edin.",
-        memoryIntro: "Marketify-ın biznesiniz haqqında yadda saxladığı məlumatları idarə edin.",
+        memoryDesc: "Helmer-in biznesiniz haqqında yadda saxladığı məlumatları idarə edin.",
+        memoryIntro: "Helmer-in biznesiniz haqqında yadda saxladığı məlumatları idarə edin.",
         memoryBadge: "{count} qeyd",
         memoryFilters: {
           all: "Hamısı",
@@ -426,17 +426,17 @@ export const TRANSLATIONS = {
         scopeBuildTitle: "Build",
         scopeBuildDesc: "Yeni strategiya yaradarkən və dəqiqləşdirərkən yuxarıdakı brend profili və ton nəzərə alınır.",
         defaultModeTitle: "İlkin açılış rejimi",
-        defaultModeDesc: "Marketify açıldıqda hansı rejimdə başlamasını seçin.",
-        defaultModeIntro: "Marketify açıldıqda hansı rejimdə başlamasını seçin.",
+        defaultModeDesc: "Helmer açıldıqda hansı rejimdə başlamasını seçin.",
+        defaultModeIntro: "Helmer açıldıqda hansı rejimdə başlamasını seçin.",
         saveBtn: "Dəyişiklikləri saxla",
         modes: {
           build: {
             name: "Build",
-            desc: "Marketify açıldıqda birbaşa strukturlaşdırılmış strategiya hazırlamaq rejimini aktiv edin.",
+            desc: "Helmer açıldıqda birbaşa strukturlaşdırılmış strategiya hazırlamaq rejimini aktiv edin.",
           },
           ask: {
             name: "Ask",
-            desc: "Marketify açıldıqda birbaşa AI ilə interaktiv söhbət və operativ sual-cavab rejimini aktiv edin.",
+            desc: "Helmer açıldıqda birbaşa AI ilə interaktiv söhbət və operativ sual-cavab rejimini aktiv edin.",
           },
         },
       },
@@ -451,7 +451,7 @@ export const TRANSLATIONS = {
         updatingPassword: "Yenilənir…",
         passwordUpdatedToast: "Şifrəniz uğurla yeniləndi.",
         signOutTitle: "Bu cihazdan çıx",
-        signOutDesc: "Marketify sessiyanı təhlükəsiz şəkildə bağlayacaq.",
+        signOutDesc: "Helmer sessiyanı təhlükəsiz şəkildə bağlayacaq.",
         signOutBtn: "Çıxış et",
         logoutBtn: "Çıxış et",
         deleteAccountTitle: "Hesabı sil",
@@ -516,7 +516,7 @@ export const TRANSLATIONS = {
         googleBtn: "Google ilə qeydiyyat",
         hasAccountPrompt: "Artıq hesabın var?",
         loginLink: "Daxil ol",
-        termsAgreementPre: "Davam etməklə Marketify-in ",
+        termsAgreementPre: "Davam etməklə Helmer-in ",
         termsLink: "istifadə şərtlərini",
         and: " və ",
         privacyLink: "məxfilik siyasətini",
@@ -577,7 +577,7 @@ export const TRANSLATIONS = {
 
     // ── Common UI / Toasts / Errors ──────────────────────────────────────────
     common: {
-      disclaimer: "Marketify səhv edə bilər.",
+      disclaimer: "Helmer səhv edə bilər.",
       save: "Yadda saxla",
       cancel: "Ləğv et",
       delete: "Sil",
@@ -614,7 +614,7 @@ export const TRANSLATIONS = {
     // ── Announcement Bar ─────────────────────────────────────────────────────
     announcement: {
       badge: "v3.0",
-      message: "Marketify v3.0 istifadənizdədir",
+      message: "Helmer v3.0 istifadənizdədir",
       closeAria: "Elanı bağla",
     },
   },
@@ -622,12 +622,12 @@ export const TRANSLATIONS = {
   en: {
     // ── Global & Brand ────────────────────────────────────────────────────────
     brand: {
-      name: "Marketify AI",
+      name: "Helmer",
       tagline: "Transform business goals into execution-ready marketing strategies.",
-      workspaceName: "Marketify Workspace",
+      workspaceName: "Helmer",
       personalAccount: "Personal Account",
       guestAccount: "Guest Workspace",
-      homeAriaLabel: "Marketify AI Homepage",
+      homeAriaLabel: "Helmer Homepage",
     },
 
     // ── Navigation & Rail ─────────────────────────────────────────────────────
@@ -692,7 +692,7 @@ export const TRANSLATIONS = {
     intake: {
       kicker: "STRATEGY BUILDER",
       title: "Turn your business goal into an execution strategy.",
-      subtitle: "Describe your product or goal. Marketify identifies strategic gaps and crafts an execution-ready roadmap.",
+      subtitle: "Describe your product or goal. Helmer identifies strategic gaps and crafts an execution-ready roadmap.",
       placeholder: "e.g. Launching a B2B SaaS analytics tool for e-commerce brands in North America. Need a 6-month go-to-market plan, acquisition channels, and KPI targets...",
       submitButton: "Build Strategy",
       submitThinking: "Thinking…",
@@ -916,7 +916,7 @@ export const TRANSLATIONS = {
       title: "Settings",
       subtitle: "Manage your account, brand intelligence, and security preferences.",
       guestTitle: "Save Your Progress",
-      guestSubtitle: "You can use Marketify as a guest. Creating a free account syncs your strategies across all devices.",
+      guestSubtitle: "You can use Helmer as a guest. Creating a free account syncs your strategies across all devices.",
       guestPanelTitle: "Account is Optional",
       guestPanelIntro: "Your work is currently saved locally in this browser. Create a free account to access it anywhere.",
       guestSignupBtn: "Create Free Account",
@@ -929,7 +929,7 @@ export const TRANSLATIONS = {
       },
       languageSelector: {
         title: "Interface Language",
-        intro: "Choose your preferred language for Marketify AI.",
+        intro: "Choose your preferred language for Helmer.",
         az: "Azərbaycan dili",
         en: "English",
         toastChanged: "Interface language updated.",
@@ -949,21 +949,21 @@ export const TRANSLATIONS = {
       },
       experience: {
         title: "Personalized Intelligence",
-        intro: "Define your brand identity, market positioning, and response style so Marketify tailors every recommendation to your business.",
+        intro: "Define your brand identity, market positioning, and response style so Helmer tailors every recommendation to your business.",
         masterTitle: "Personalized AI Intelligence",
-        masterDesc: "When enabled, Marketify tailors strategies and responses to your brand profile, voice tone, and stored memories.",
+        masterDesc: "When enabled, Helmer tailors strategies and responses to your brand profile, voice tone, and stored memories.",
         masterToggleTitle: "Personalized AI Intelligence",
-        masterToggleIntro: "When enabled, Marketify tailors strategies and responses to your brand profile, voice tone, and stored memories.",
+        masterToggleIntro: "When enabled, Helmer tailors strategies and responses to your brand profile, voice tone, and stored memories.",
         importTitle: "Import Knowledge & Memory",
-        importDesc: "Import brand knowledge and strategic context from other AI assistants directly into Marketify.",
+        importDesc: "Import brand knowledge and strategic context from other AI assistants directly into Helmer.",
         importCardTitle: "Import Knowledge & Memory",
-        importCardIntro: "Import brand knowledge and strategic context from other AI assistants directly into Marketify.",
+        importCardIntro: "Import brand knowledge and strategic context from other AI assistants directly into Helmer.",
         importBtn: "Import Memory",
         profileTitle: "Business & Brand Profile",
         profileDesc: "Enter core business details so you never have to repeat context in future prompts.",
         profileIntro: "Enter core business details so you never have to repeat context in future prompts.",
         brandName: "Brand / Company Name",
-        brandNamePlaceholder: "e.g. Marketify AI",
+        brandNamePlaceholder: "e.g. Helmer",
         industry: "Industry / Vertical",
         industryPlaceholder: "e.g. B2B SaaS, E-commerce, FinTech",
         primaryMarket: "Primary Market / Geography",
@@ -997,14 +997,14 @@ export const TRANSLATIONS = {
         },
         customInstructions: "Custom Instructions",
         instructionsTitle: "Custom Instructions",
-        instructionsDesc: "Specific directives and strategic rules Marketify AI must follow in all responses.",
+        instructionsDesc: "Specific directives and strategic rules Helmer must follow in all responses.",
         customTitle: "Custom Instructions",
-        customIntro: "Specific rules and instructions Marketify should follow when drafting responses for you.",
+        customIntro: "Specific rules and instructions Helmer should follow when drafting responses for you.",
         customLabel: "Instruction Text",
         customPlaceholder: "e.g. Always prioritize cost-effective organic channels and provide actionable KPI tables with step-by-step 30-60-90 day milestones...",
         memoryTitle: "Memory Hub",
         memoryDesc: "Manage persistent business facts and strategic preferences stored across your workspace.",
-        memoryIntro: "Manage verified business facts and strategic preferences Marketify remembers about your business.",
+        memoryIntro: "Manage verified business facts and strategic preferences Helmer remembers about your business.",
         memoryBadge: "{count} items",
         memoryFilters: {
           all: "All",
@@ -1037,8 +1037,8 @@ export const TRANSLATIONS = {
         scopeBuildTitle: "Strategy Builder",
         scopeBuildDesc: "Applies your brand profile and tone when creating and refining strategies.",
         defaultModeTitle: "Default Workspace View",
-        defaultModeDesc: "Select whether Marketify opens in Strategy Builder or Ask mode by default.",
-        defaultModeIntro: "Choose which mode activates when you open Marketify.",
+        defaultModeDesc: "Select whether Helmer opens in Strategy Builder or Ask mode by default.",
+        defaultModeIntro: "Choose which mode activates when you open Helmer.",
         saveBtn: "Save Changes",
         modes: {
           build: {
@@ -1096,7 +1096,7 @@ export const TRANSLATIONS = {
         issueEmail: "Contact Email (optional)",
         submitReportBtn: "Submit Report",
         submittingReport: "Submitting…",
-        reportSuccessToast: "Your report has been submitted. Thank you for helping keep Marketify safe.",
+        reportSuccessToast: "Your report has been submitted. Thank you for helping keep Helmer safe.",
       },
     },
 
@@ -1127,7 +1127,7 @@ export const TRANSLATIONS = {
         googleBtn: "Sign up with Google",
         hasAccountPrompt: "Already have an account?",
         loginLink: "Sign in",
-        termsAgreementPre: "By continuing, you agree to Marketify's ",
+        termsAgreementPre: "By continuing, you agree to Helmer's ",
         termsLink: "Terms of Service",
         and: " and ",
         privacyLink: "Privacy Policy",
@@ -1188,7 +1188,7 @@ export const TRANSLATIONS = {
 
     // ── Common UI / Toasts / Errors ──────────────────────────────────────────
     common: {
-      disclaimer: "Marketify AI may produce inaccurate information. Verify important strategic decisions.",
+      disclaimer: "Helmer may produce inaccurate information. Verify important strategic decisions.",
       save: "Save",
       cancel: "Cancel",
       delete: "Delete",
@@ -1225,7 +1225,7 @@ export const TRANSLATIONS = {
     // ── Announcement Bar ─────────────────────────────────────────────────────
     announcement: {
       badge: "v3.0",
-      message: "Marketify v3.0 is now available",
+      message: "Helmer v3.0 is now available",
       closeAria: "Dismiss announcement",
     },
   },
@@ -1238,84 +1238,84 @@ export const LEGAL_DOCS_I18N = {
   az: {
     terms: {
       title: "İstifadə Şərtləri",
-      subtitle: "Marketify AI platformasının istifadə qaydaları və hüquqi şərtləri",
+      subtitle: "Helmer Workspace platformasının istifadə qaydaları və hüquqi şərtləri",
       html: `
         <div class="legal-highlight-box">
           <strong>✦ Süni İntellekt və API İnfrastrukturu</strong>
-          <p>Marketify AI strateji analizlərin, marketinq materiallarının və digər nəticələrin generasiyası üçün süni intellekt, böyük dil modelləri (LLM), API infrastrukturları və digər üçüncü tərəf texnologiyalarından istifadə edə bilər. İstifadə olunan modellər, provayderlər və texniki infrastruktur xidmətin inkişafı ilə əlaqədar dəyişdirilə bilər.</p>
+          <p>Helmer Workspace strateji analizlərin, marketinq materiallarının və digər nəticələrin generasiyası üçün süni intellekt, böyük dil modelləri (LLM), API infrastrukturları və digər üçüncü tərəf texnologiyalarından istifadə edə bilər. İstifadə olunan modellər, provayderlər və texniki infrastruktur xidmətin inkişafı ilə əlaqədar dəyişdirilə bilər.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>1. Ümumi Müddəalar və Xidmətin Təyinatı</h3>
-          <p>Marketify AI platformasına (“Marketify”, “Platforma”, “Xidmət”) xoş gəlmisiniz. Bu İstifadə Şərtləri (“Şərtlər”) Platformaya girişinizi və ondan istifadənizi tənzimləyir. Platformaya daxil olmaqla və ya ondan istifadə etməklə bu Şərtləri oxuduğunuzu, başa düşdüyünüzü və onlara əməl etməyə razı olduğunuzu təsdiq edirsiniz. Şərtlərlə razı deyilsinizsə, Platformadan istifadə etməməlisiniz.</p>
-          <p>Marketify süni intellekt texnologiyalarından istifadə etməklə marketinq, biznes strategiyası, bazar analizi, ideya inkişafı, planlaşdırma və əlaqəli sahələr üzrə məzmun və analitik nəticələr yaratmağa kömək edən proqram təminatı platformasıdır.</p>
+          <p>Helmer Workspace platformasına (“Helmer Workspace”, “Platforma”, “Xidmət”) xoş gəlmisiniz. Bu İstifadə Şərtləri (“Şərtlər”) Platformaya girişinizi və ondan istifadənizi tənzimləyir. Platformaya daxil olmaqla və ya ondan istifadə etməklə bu Şərtləri oxuduğunuzu, başa düşdüyünüzü və onlara əməl etməyə razı olduğunuzu təsdiq edirsiniz. Şərtlərlə razı deyilsinizsə, Platformadan istifadə etməməlisiniz.</p>
+          <p>Helmer Workspace süni intellekt texnologiyalarından istifadə etməklə marketinq, biznes strategiyası, bazar analizi, ideya inkişafı, planlaşdırma və əlaqəli sahələr üzrə məzmun və analitik nəticələr yaratmağa kömək edən proqram təminatı platformasıdır.</p>
           <p>Platformanın təqdim etdiyi nəticələr avtomatlaşdırılmış süni intellekt sistemləri tərəfindən generasiya edilir və peşəkar hüquqi, maliyyə, vergi, investisiya və ya digər ixtisaslaşdırılmış məsləhətin əvəzi hesab edilmir.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>2. Süni İntellekt Emalı və Üçüncü Tərəf Xidmətləri</h3>
           <p>Platformaya daxil etdiyiniz sorğular, biznes brifləri, mətnlər, fayllar və digər məlumatlar Xidmətin funksiyalarını təmin etmək məqsədilə süni intellekt modelləri, API-lər, hosting, məlumat bazası və digər texniki infrastrukturlar vasitəsilə emal edilə bilər.</p>
-          <p>Marketify konkret süni intellekt modelinin, API provayderinin və ya digər üçüncü tərəf xidmətinin daimi mövcudluğuna zəmanət vermir. Marketify istifadə olunan modelləri, provayderləri və texniki infrastrukturu tətbiq olunan qanunvericiliyin tələb etdiyi hallar istisna olmaqla dəyişdirmək hüququnu özündə saxlayır.</p>
+          <p>Helmer Workspace konkret süni intellekt modelinin, API provayderinin və ya digər üçüncü tərəf xidmətinin daimi mövcudluğuna zəmanət vermir. Helmer Workspace istifadə olunan modelləri, provayderləri və texniki infrastrukturu tətbiq olunan qanunvericiliyin tələb etdiyi hallar istisna olmaqla dəyişdirmək hüququnu özündə saxlayır.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>3. Süni İntellekt Nəticələrinin Dəqiqliyi</h3>
           <p>Süni intellekt sistemlərinin xüsusiyyətlərinə görə Platforma tərəfindən generasiya olunan nəticələr yanlış, natamam, qeyri-dəqiq və ya köhnəlmiş məlumatlar ehtiva edə bilər. Sistem bəzi hallarda mövcud olmayan faktları, statistik məlumatları, mənbələri və ya digər məlumatları səhvən təqdim edə bilər.</p>
-          <p>Marketify generasiya edilən nəticələrin dəqiqliyinə, tamlığına, aktuallığına, etibarlılığına və ya konkret məqsədə uyğunluğuna zəmanət vermir. İstifadəçi mühüm məlumatları müstəqil və etibarlı mənbələrdən yoxlamalıdır.</p>
+          <p>Helmer Workspace generasiya edilən nəticələrin dəqiqliyinə, tamlığına, aktuallığına, etibarlılığına və ya konkret məqsədə uyğunluğuna zəmanət vermir. İstifadəçi mühüm məlumatları müstəqil və etibarlı mənbələrdən yoxlamalıdır.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>4. Əqli Mülkiyyət və İstifadəçi Məzmunu</h3>
           <p><strong>İstifadəçi Məzmunu:</strong> Platformaya daxil etdiyiniz biznes məlumatları, ideyalar, briflər, mətnlər, fayllar və digər materiallar üzərində mövcud hüquqlarınız sizdə qalır.</p>
-          <p>Marketify-a məlumat təqdim etməklə həmin məlumatların Xidmətin funksiyalarını yerinə yetirmək üçün zəruri həcmdə emal edilməsinə icazə verirsiniz. Platformaya təqdim etdiyiniz məlumatlardan istifadə etmək və onların emalına icazə vermək üçün zəruri hüquq və səlahiyyətlərə malik olduğunuza görə məsuliyyət daşıyırsınız.</p>
-          <p><strong>Generasiya Edilən Məzmun:</strong> Qanunvericiliyin və tətbiq olunan üçüncü tərəf şərtlərinin icazə verdiyi həddə Marketify vasitəsilə sizin üçün generasiya edilmiş strategiya, fəaliyyət planı, mətn və digər nəticələrdən kommersiya və qeyri-kommersiya məqsədləri üçün istifadə edə bilərsiniz.</p>
-          <p>Süni intellekt sistemlərinin xüsusiyyətlərinə görə eyni və ya oxşar nəticələr digər istifadəçilər üçün də generasiya edilə bilər. Marketify generasiya edilmiş məzmunun unikal, eksklüziv və ya müəllif hüquqları ilə qoruna bilən olmasına zəmanət vermir.</p>
+          <p>Helmer Workspace-ə məlumat təqdim etməklə həmin məlumatların Xidmətin funksiyalarını yerinə yetirmək üçün zəruri həcmdə emal edilməsinə icazə verirsiniz. Platformaya təqdim etdiyiniz məlumatlardan istifadə etmək və onların emalına icazə vermək üçün zəruri hüquq və səlahiyyətlərə malik olduğunuza görə məsuliyyət daşıyırsınız.</p>
+          <p><strong>Generasiya Edilən Məzmun:</strong> Qanunvericiliyin və tətbiq olunan üçüncü tərəf şərtlərinin icazə verdiyi həddə Helmer Workspace vasitəsilə sizin üçün generasiya edilmiş strategiya, fəaliyyət planı, mətn və digər nəticələrdən kommersiya və qeyri-kommersiya məqsədləri üçün istifadə edə bilərsiniz.</p>
+          <p>Süni intellekt sistemlərinin xüsusiyyətlərinə görə eyni və ya oxşar nəticələr digər istifadəçilər üçün də generasiya edilə bilər. Helmer Workspace generasiya edilmiş məzmunun unikal, eksklüziv və ya müəllif hüquqları ilə qoruna bilən olmasına zəmanət vermir.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>5. Biznes Qərarları və Tövsiyə Xarakteri</h3>
-          <p>Marketify tərəfindən generasiya edilən strategiyalar, proqnozlar, bazar təhlilləri, büdcə təklifləri, fəaliyyət planları və digər nəticələr məlumatlandırıcı və yardımçı xarakter daşıyır.</p>
-          <p>Marketify müəyyən satış, gəlir, mənfəət, investisiya nəticəsinə, marketinq kampaniyasının uğuruna və ya digər konkret biznes nəticəsinə zəmanət vermir. Platformanın təqdim etdiyi məlumatlara əsaslanan qərarların qəbul edilməsi və həyata keçirilməsi istifadəçinin müstəqil qərarı və məsuliyyətidir.</p>
+          <p>Helmer Workspace tərəfindən generasiya edilən strategiyalar, proqnozlar, bazar təhlilləri, büdcə təklifləri, fəaliyyət planları və digər nəticələr məlumatlandırıcı və yardımçı xarakter daşıyır.</p>
+          <p>Helmer Workspace müəyyən satış, gəlir, mənfəət, investisiya nəticəsinə, marketinq kampaniyasının uğuruna və ya digər konkret biznes nəticəsinə zəmanət vermir. Platformanın təqdim etdiyi məlumatlara əsaslanan qərarların qəbul edilməsi və həyata keçirilməsi istifadəçinin müstəqil qərarı və məsuliyyətidir.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>6. Qadağan Olunmuş İstifadə</h3>
           <p>Platformadan qanunsuz fəaliyyət, fırıldaqçılıq, aldatma, üçüncü şəxslərin hüquqlarının pozulması, zərərli proqramların yayılması, sistemlərə icazəsiz giriş, təhlükəsizlik mexanizmlərinin aşılması və ya Platformanın normal fəaliyyətinə müdaxilə məqsədilə istifadə etmək qadağandır.</p>
-          <p>Marketify bu Şərtlərin pozulduğunu əsaslı şəkildə müəyyən etdikdə istifadəçinin Platformaya girişini məhdudlaşdırmaq, müvəqqəti dayandırmaq və ya ləğv etmək hüququnu özündə saxlayır.</p>
+          <p>Helmer Workspace bu Şərtlərin pozulduğunu əsaslı şəkildə müəyyən etdikdə istifadəçinin Platformaya girişini məhdudlaşdırmaq, müvəqqəti dayandırmaq və ya ləğv etmək hüququnu özündə saxlayır.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>7. Xidmətin Mövcudluğu və Dəyişdirilməsi</h3>
-          <p>Marketify Platformanın fasiləsiz, səhvsiz və ya hər zaman əlçatan olacağına zəmanət vermir. Texniki xidmət, yeniləmələr, server problemləri, üçüncü tərəf API-lərində nasazlıqlar və Marketify-ın ağlabatan nəzarətindən kənar digər hallar Xidmətin müvəqqəti əlçatmaz olmasına və ya müəyyən funksiyaların işləməməsinə səbəb ola bilər.</p>
-          <p>Marketify Platformanın funksiyalarını, interfeysini, süni intellekt modellərini, istifadə limitlərini və digər texniki xüsusiyyətlərini dəyişdirmək, əlavə etmək və ya dayandırmaq hüququnu özündə saxlayır.</p>
+          <p>Helmer Workspace Platformanın fasiləsiz, səhvsiz və ya hər zaman əlçatan olacağına zəmanət vermir. Texniki xidmət, yeniləmələr, server problemləri, üçüncü tərəf API-lərində nasazlıqlar və Helmer Workspace-in ağlabatan nəzarətindən kənar digər hallar Xidmətin müvəqqəti əlçatmaz olmasına və ya müəyyən funksiyaların işləməməsinə səbəb ola bilər.</p>
+          <p>Helmer Workspace Platformanın funksiyalarını, interfeysini, süni intellekt modellərini, istifadə limitlərini və digər texniki xüsusiyyətlərini dəyişdirmək, əlavə etmək və ya dayandırmaq hüququnu özündə saxlayır.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>8. Zəmanətlərin Məhdudlaşdırılması</h3>
           <p>Qanunvericiliyin icazə verdiyi maksimum həddə Platforma və onun funksiyaları “olduğu kimi” və “mövcud olduğu şəkildə” təqdim edilir.</p>
-          <p>Marketify Platformanın konkret məqsədə uyğunluğu, fasiləsiz işləməsi, bütün səhvlərdən azad olması və ya generasiya edilən nəticələrin konkret kommersiya və ya biznes nəticəsi yaradacağı barədə açıq və ya nəzərdə tutulan zəmanət vermir.</p>
+          <p>Helmer Workspace Platformanın konkret məqsədə uyğunluğu, fasiləsiz işləməsi, bütün səhvlərdən azad olması və ya generasiya edilən nəticələrin konkret kommersiya və ya biznes nəticəsi yaradacağı barədə açıq və ya nəzərdə tutulan zəmanət vermir.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>9. Məsuliyyətin Məhdudlaşdırılması</h3>
-          <p>Qanunvericiliyin icazə verdiyi maksimum həddə Marketify Platformadan istifadə, Platformadan istifadə edə bilməmə və ya generasiya edilmiş nəticələrə əsaslanan qərarlar nəticəsində yaranan dolayı, təsadüfi, xüsusi və ya nəticə etibarilə meydana çıxan zərərlərə, o cümlədən itirilmiş mənfəət, gəlir, biznes imkanı, məlumat və ya reputasiya itkisinə görə məsuliyyət daşımır.</p>
+          <p>Qanunvericiliyin icazə verdiyi maksimum həddə Helmer Workspace Platformadan istifadə, Platformadan istifadə edə bilməmə və ya generasiya edilmiş nəticələrə əsaslanan qərarlar nəticəsində yaranan dolayı, təsadüfi, xüsusi və ya nəticə etibarilə meydana çıxan zərərlərə, o cümlədən itirilmiş mənfəət, gəlir, biznes imkanı, məlumat və ya reputasiya itkisinə görə məsuliyyət daşımır.</p>
           <p>Bu müddəa tətbiq olunan qanunvericiliklə məhdudlaşdırılması və ya istisna edilməsi mümkün olmayan məsuliyyət hallarını aradan qaldırmır.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>10. Hesab və Təhlükəsizlik</h3>
-          <p>Hesab funksiyası təqdim edildiyi halda istifadəçi öz giriş məlumatlarının məxfiliyini və təhlükəsizliyini qorumağa görə məsuliyyət daşıyır. İcazəsiz giriş və ya hesab təhlükəsizliyinin pozulmasından şübhələndikdə istifadəçi Marketify-a mümkün qədər tez məlumat verməlidir.</p>
+          <p>Hesab funksiyası təqdim edildiyi halda istifadəçi öz giriş məlumatlarının məxfiliyini və təhlükəsizliyini qorumağa görə məsuliyyət daşıyır. İcazəsiz giriş və ya hesab təhlükəsizliyinin pozulmasından şübhələndikdə istifadəçi Helmer Workspace-ə mümkün qədər tez məlumat verməlidir.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>11. Məxfilik və Fərdi Məlumatlar</h3>
-          <p>Fərdi məlumatların toplanması, istifadəsi, saxlanması və digər emal əməliyyatları Marketify-ın qüvvədə olan Məxfilik Siyasətinə və tətbiq olunan qanunvericiliyə uyğun həyata keçirilir.</p>
+          <p>Fərdi məlumatların toplanması, istifadəsi, saxlanması və digər emal əməliyyatları Helmer Workspace-in qüvvədə olan Məxfilik Siyasətinə və tətbiq olunan qanunvericiliyə uyğun həyata keçirilir.</p>
           <p>İstifadəçilər Platformaya xidmətin göstərilməsi üçün zəruri olmayan həssas, məxfi və ya üçüncü şəxslərə aid məlumatları daxil etməməlidirlər.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>12. Şərtlərin Dəyişdirilməsi</h3>
-          <p>Marketify Platformanın inkişafı, hüquqi tələblər, təhlükəsizlik məsələləri və ya xidmət modelində dəyişikliklərlə əlaqədar bu Şərtləri vaxtaşırı yeniləyə bilər. Əhəmiyyətli dəyişikliklər barədə tətbiq olunan qanunvericiliyin tələb etdiyi hallarda istifadəçilərə uyğun vasitələrlə məlumat verilə bilər.</p>
+          <p>Helmer Workspace Platformanın inkişafı, hüquqi tələblər, təhlükəsizlik məsələləri və ya xidmət modelində dəyişikliklərlə əlaqədar bu Şərtləri vaxtaşırı yeniləyə bilər. Əhəmiyyətli dəyişikliklər barədə tətbiq olunan qanunvericiliyin tələb etdiyi hallarda istifadəçilərə uyğun vasitələrlə məlumat verilə bilər.</p>
           <p>Yenilənmiş Şərtlər göstərilən qüvvəyə minmə tarixindən tətbiq edilir.</p>
         </div>
 
@@ -1331,7 +1331,7 @@ export const LEGAL_DOCS_I18N = {
 
         <div class="legal-doc-note">
           <strong>Vacib qeyd</strong>
-          <p>Marketify səhv edə bilər. Vacib məlumatları və Platformanın təqdim etdiyi nəticələri müstəqil və etibarlı mənbələrdən yoxlayın.</p>
+          <p>Helmer Workspace səhv edə bilər. Vacib məlumatları və Platformanın təqdim etdiyi nəticələri müstəqil və etibarlı mənbələrdən yoxlayın.</p>
         </div>
       `,
     },
@@ -1340,7 +1340,7 @@ export const LEGAL_DOCS_I18N = {
       subtitle: "Fərdi və konfidensial məlumatların toplanması, emalı və mühafizəsi qaydaları",
       html: `
         <div class="legal-doc-section">
-          <p>Bu Məxfilik Siyasəti (bundan sonra — «Siyasət») Innova Group Azerbaijan tərəfindən idarə olunan Marketify AI platformasında (bundan sonra — «Platforma», «Xidmət» və ya «Məlumat Sahibi/İdarəçi») fərdi və konfidensial məlumatların toplanması, emalı, saxlanması və mühafizəsi qaydalarını müəyyən edir.</p>
+          <p>Bu Məxfilik Siyasəti (bundan sonra — «Siyasət») Innova Group Azerbaijan tərəfindən idarə olunan Helmer Workspace platformasında (bundan sonra — «Platforma», «Xidmət» və ya «Məlumat Sahibi/İdarəçi») fərdi və konfidensial məlumatların toplanması, emalı, saxlanması və mühafizəsi qaydalarını müəyyən edir.</p>
           <p>Platformadan istifadə etməklə İstifadəçi Azərbaycan Respublikasının «Fərdi məlumatlar haqqında» Qanununa uyğun olaraq, öz fərdi məlumatlarının bu Siyasətdə göstərilən şərtlər daxilində toplanmasına və emalına tam razılığını bildirmiş olur.</p>
         </div>
 
@@ -1403,84 +1403,84 @@ export const LEGAL_DOCS_I18N = {
   en: {
     terms: {
       title: "Terms of Service",
-      subtitle: "Terms and conditions governing access to and use of Marketify AI",
+      subtitle: "Terms and conditions governing access to and use of Helmer Workspace",
       html: `
         <div class="legal-highlight-box">
           <strong>✦ Artificial Intelligence & API Infrastructure</strong>
-          <p>Marketify AI may utilize artificial intelligence, large language models (LLMs), API infrastructures, and other third-party technologies to generate strategic analyses, marketing materials, and other outputs. The models, providers, and technical infrastructure employed may evolve and change in connection with ongoing service development.</p>
+          <p>Helmer Workspace may utilize artificial intelligence, large language models (LLMs), API infrastructures, and other third-party technologies to generate strategic analyses, marketing materials, and other outputs. The models, providers, and technical infrastructure employed may evolve and change in connection with ongoing service development.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>1. General Provisions & Purpose of Service</h3>
-          <p>Welcome to Marketify AI ("Marketify", "Platform", "Service"). These Terms of Service ("Terms") govern your access to and use of the Platform. By accessing or using the Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms. If you do not agree with these Terms, you must not access or use the Platform.</p>
-          <p>Marketify is a software platform that leverages artificial intelligence technologies to assist in creating content and analytical insights across marketing, business strategy, market research, ideation, execution planning, and related disciplines.</p>
+          <p>Welcome to Helmer Workspace ("Helmer Workspace", "Platform", "Service"). These Terms of Service ("Terms") govern your access to and use of the Platform. By accessing or using the Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms. If you do not agree with these Terms, you must not access or use the Platform.</p>
+          <p>Helmer Workspace is a software platform that leverages artificial intelligence technologies to assist in creating content and analytical insights across marketing, business strategy, market research, ideation, execution planning, and related disciplines.</p>
           <p>Outputs provided by the Platform are generated by automated artificial intelligence systems and do not constitute professional legal, financial, tax, investment, or other specialized advice.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>2. AI Processing & Third-Party Services</h3>
           <p>Queries, business briefs, text, files, and other materials you input into the Platform may be processed through AI models, APIs, hosting environments, databases, and related technical infrastructures to deliver the Service's functionality.</p>
-          <p>Marketify does not guarantee the continuous or uninterrupted availability of any specific AI model, API provider, or third-party service. Marketify reserves the right to modify or replace underlying models, providers, and technical infrastructure, except where prohibited by applicable law.</p>
+          <p>Helmer Workspace does not guarantee the continuous or uninterrupted availability of any specific AI model, API provider, or third-party service. Helmer Workspace reserves the right to modify or replace underlying models, providers, and technical infrastructure, except where prohibited by applicable law.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>3. Accuracy of AI Outputs</h3>
           <p>Due to the inherent characteristics of artificial intelligence systems, outputs generated by the Platform may contain inaccurate, incomplete, misleading, or outdated information. In certain instances, the system may erroneously present non-existent facts, statistics, citations, or data.</p>
-          <p>Marketify makes no warranties or representations regarding the accuracy, completeness, timeliness, reliability, or fitness for a particular purpose of any generated output. Users are advised to independently verify critical information from trusted sources.</p>
+          <p>Helmer Workspace makes no warranties or representations regarding the accuracy, completeness, timeliness, reliability, or fitness for a particular purpose of any generated output. Users are advised to independently verify critical information from trusted sources.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>4. Intellectual Property & User Content</h3>
           <p><strong>User Content:</strong> You retain all existing rights and ownership over the business data, concepts, briefs, text, files, and other materials you input into the Platform.</p>
-          <p>By submitting materials to Marketify, you grant the Platform permission to process such data to the extent necessary to deliver the Service. You represent and warrant that you possess all necessary rights and authorizations to submit and permit processing of such information.</p>
-          <p><strong>Generated Content:</strong> To the maximum extent permitted by applicable law and third-party terms, you may utilize the strategies, action roadmaps, copy, and analytical outputs generated for you through Marketify for commercial and non-commercial purposes.</p>
-          <p>Due to the operational nature of AI systems, identical or similar outputs may be generated for other users. Marketify does not warrant that generated content is unique, exclusive, or protectable under copyright law.</p>
+          <p>By submitting materials to Helmer Workspace, you grant the Platform permission to process such data to the extent necessary to deliver the Service. You represent and warrant that you possess all necessary rights and authorizations to submit and permit processing of such information.</p>
+          <p><strong>Generated Content:</strong> To the maximum extent permitted by applicable law and third-party terms, you may utilize the strategies, action roadmaps, copy, and analytical outputs generated for you through Helmer Workspace for commercial and non-commercial purposes.</p>
+          <p>Due to the operational nature of AI systems, identical or similar outputs may be generated for other users. Helmer Workspace does not warrant that generated content is unique, exclusive, or protectable under copyright law.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>5. Business Decisions & Advisory Nature</h3>
-          <p>Strategies, forecasts, market analyses, budget suggestions, action plans, and other outputs generated by Marketify are strictly informational and advisory in nature.</p>
-          <p>Marketify does not guarantee specific sales figures, revenue, profit margins, investment returns, campaign success, or any particular business outcome. Any decision made or implemented based on information provided by the Platform is the sole discretion and responsibility of the user.</p>
+          <p>Strategies, forecasts, market analyses, budget suggestions, action plans, and other outputs generated by Helmer Workspace are strictly informational and advisory in nature.</p>
+          <p>Helmer Workspace does not guarantee specific sales figures, revenue, profit margins, investment returns, campaign success, or any particular business outcome. Any decision made or implemented based on information provided by the Platform is the sole discretion and responsibility of the user.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>6. Prohibited Use</h3>
           <p>You agree not to use the Platform for unlawful activities, fraud, deception, infringement of third-party rights, dissemination of malicious software, unauthorized system access, circumvention of security controls, or disruption of Platform operations.</p>
-          <p>Marketify reserves the right to restrict, suspend, or terminate access to the Platform if it reasonably determines that these Terms have been violated.</p>
+          <p>Helmer Workspace reserves the right to restrict, suspend, or terminate access to the Platform if it reasonably determines that these Terms have been violated.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>7. Service Availability & Modifications</h3>
-          <p>Marketify does not warrant that the Platform will be uninterrupted, error-free, or continuously accessible. Scheduled maintenance, system updates, server issues, third-party API outages, and circumstances beyond Marketify’s reasonable control may result in temporary unavailability or degraded functionality.</p>
-          <p>Marketify reserves the right to alter, enhance, limit, or discontinue Platform features, interfaces, AI models, usage limits, and other technical capabilities.</p>
+          <p>Helmer Workspace does not warrant that the Platform will be uninterrupted, error-free, or continuously accessible. Scheduled maintenance, system updates, server issues, third-party API outages, and circumstances beyond Helmer Workspace’s reasonable control may result in temporary unavailability or degraded functionality.</p>
+          <p>Helmer Workspace reserves the right to alter, enhance, limit, or discontinue Platform features, interfaces, AI models, usage limits, and other technical capabilities.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>8. Disclaimer of Warranties</h3>
           <p>To the maximum extent permitted by applicable law, the Platform and its features are provided on an "as is" and "as available" basis.</p>
-          <p>Marketify disclaims all warranties, express or implied, including warranties of fitness for a particular purpose, uninterrupted operation, absence of errors, or that generated outputs will achieve any specific commercial or business result.</p>
+          <p>Helmer Workspace disclaims all warranties, express or implied, including warranties of fitness for a particular purpose, uninterrupted operation, absence of errors, or that generated outputs will achieve any specific commercial or business result.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>9. Limitation of Liability</h3>
-          <p>To the maximum extent permitted by applicable law, Marketify shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, revenue, business opportunities, data, or reputation arising out of or in connection with your use of or inability to use the Platform or reliance on generated outputs.</p>
+          <p>To the maximum extent permitted by applicable law, Helmer Workspace shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, revenue, business opportunities, data, or reputation arising out of or in connection with your use of or inability to use the Platform or reliance on generated outputs.</p>
           <p>Nothing in this section excludes or limits liability that cannot be excluded or limited under applicable law.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>10. Accounts & Security</h3>
-          <p>Where account functionality is provided, you are responsible for maintaining the confidentiality and security of your access credentials. You must notify Marketify promptly upon suspecting unauthorized access or a security breach.</p>
+          <p>Where account functionality is provided, you are responsible for maintaining the confidentiality and security of your access credentials. You must notify Helmer Workspace promptly upon suspecting unauthorized access or a security breach.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>11. Privacy & Personal Data</h3>
-          <p>The collection, use, retention, and processing of personal data are conducted in accordance with Marketify’s active Privacy Policy and applicable data protection legislation.</p>
+          <p>The collection, use, retention, and processing of personal data are conducted in accordance with Helmer Workspace’s active Privacy Policy and applicable data protection legislation.</p>
           <p>Users must refrain from submitting sensitive personal data, classified information, or third-party confidential details not required for the provision of the Service.</p>
         </div>
 
         <div class="legal-doc-section">
           <h3>12. Amendments to Terms</h3>
-          <p>Marketify may update these Terms periodically to reflect platform development, legal requirements, security standards, or service model updates. Where required by law, users will be notified of material changes through appropriate channels.</p>
+          <p>Helmer Workspace may update these Terms periodically to reflect platform development, legal requirements, security standards, or service model updates. Where required by law, users will be notified of material changes through appropriate channels.</p>
           <p>Updated Terms take effect as of the specified effective date.</p>
         </div>
 
@@ -1496,7 +1496,7 @@ export const LEGAL_DOCS_I18N = {
 
         <div class="legal-doc-note">
           <strong>Important Notice</strong>
-          <p>Marketify AI may make mistakes. Verify important information and platform-generated outputs from independent and reliable sources.</p>
+          <p>Helmer Workspace may make mistakes. Verify important information and platform-generated outputs from independent and reliable sources.</p>
         </div>
 
         <div class="legal-doc-precedence">
@@ -1509,7 +1509,7 @@ export const LEGAL_DOCS_I18N = {
       subtitle: "Rules and standards for the collection, processing, retention, and protection of personal and confidential data",
       html: `
         <div class="legal-doc-section">
-          <p>This Privacy Policy (hereinafter "Policy") defines the rules for collecting, processing, storing, and protecting personal and confidential data on the Marketify AI platform (hereinafter "Platform", "Service", or "Data Controller"), operated by Innova Group Azerbaijan.</p>
+          <p>This Privacy Policy (hereinafter "Policy") defines the rules for collecting, processing, storing, and protecting personal and confidential data on the Helmer Workspace platform (hereinafter "Platform", "Service", or "Data Controller"), operated by Innova Group Azerbaijan.</p>
           <p>By using the Platform, the User provides full consent to the collection and processing of their personal data within the terms outlined in this Policy, in accordance with the Law of the Republic of Azerbaijan "On Personal Data".</p>
         </div>
 
@@ -1605,7 +1605,7 @@ export function setLanguage(lang, persist = true) {
     document.documentElement.lang = target;
   }
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("marketify:language-change", { detail: { language: target } }));
+    window.dispatchEvent(new CustomEvent("helmer:language-change", { detail: { language: target } }));
   }
   return target;
 }

@@ -11,7 +11,7 @@ import { FileAuthStore } from "../src/auth/auth-store.js";
 import { hashPassword } from "../src/auth/password.js";
 
 test("14-day account deletion: schedule, cancel, and auto-purge with cascading cleanup", async () => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-del-test-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-del-test-"));
   const usersPath = path.join(tmpDir, "users.json");
   const strategiesPath = path.join(tmpDir, "strategies.json");
   const chatsPath = path.join(tmpDir, "chats.json");

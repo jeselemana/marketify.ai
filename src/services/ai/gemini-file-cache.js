@@ -180,7 +180,7 @@ export class GeminiFileCache {
       const cacheResponse = await geminiClient.caches.create({
         model,
         config: {
-          displayName: "marketify_doc_" + fileEntry.fileId.slice(0, 12),
+          displayName: "helmer_doc_" + fileEntry.fileId.slice(0, 12),
           ttl: "3600s",
           contents,
           systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,

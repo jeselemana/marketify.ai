@@ -1,5 +1,5 @@
 {
-  "name": "marketify-ai",
+  "name": "helmer",
   "version": "1.0.0",
   "engines": {
     "node": ">=20.0.0 <=22.x"

@@ -2741,7 +2741,7 @@ body.sidebar-open .app-main {
   animation: bg-beacon-pulse 2s cubic-bezier(0.25, 1, 0.5, 1) infinite;
 }
 
-/* Floating Ask Marketify Chat Button (Bottom-Right, Brief Analysis Only) */
+/* Floating Ask Helmer Chat Button (Bottom-Right, Brief Analysis Only) */
 .loading-ask-floating-wrap {
   position: fixed !important;
   bottom: 24px !important;
@@ -10960,7 +10960,7 @@ body {
   .account-settings-form .settings-field:nth-child(3) { grid-column: auto; }
 }
 
-/* Marketify v3.0 release page — reuses workspace surfaces and controls. */
+/* Helmer v3.0 release page — reuses workspace surfaces and controls. */
 
 /* Native-feeling Build / Ask home layout. Desktop rules stay untouched. */
 @media (max-width: 767px) {
@@ -14383,7 +14383,7 @@ body.sidebar-open .planner-composer-card {
 }
 
 /* ==========================================================================
-   Strategy workspace — contextual Marketify Ask
+   Strategy workspace — contextual Helmer Ask
    ========================================================================== */
 
 .strategy-ask-root {

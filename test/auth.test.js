@@ -27,7 +27,7 @@ test("auth normalization, validation, and Argon2id hashing", async () => {
 });
 
 test("user store migration and uniqueness are deterministic", async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-users-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-users-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   assert.deepEqual(migrateAuthUserStore([]), { schemaVersion: 3, users: [] });
   assert.deepEqual(
@@ -80,7 +80,7 @@ test("guest session creates a stable anonymous workspace owner", async (t) => {
 });
 
 test("signup, session, login, reset, and single-use reset token work end to end", async (t) => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-auth-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-auth-"));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const users = new FileUserRepository(path.join(directory, "users.json"));
   const store = new FileAuthStore(path.join(directory, "sessions.json"));
@@ -156,7 +156,7 @@ test("signup, session, login, reset, and single-use reset token work end to end"
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: cookie },
     body: JSON.stringify({
-      brandName: "Marketify AI",
+      brandName: "Helmer",
       industry: "B2B SaaS",
       primaryMarket: "Azərbaycan",
       targetAudience: "Startaplar və marketoloqlar",
@@ -174,7 +174,7 @@ test("signup, session, login, reset, and single-use reset token work end to end"
   const importJson = await importRes.json();
   assert.equal(importJson.ok, true);
   assert.equal(importJson.importedCount, 2);
-  assert.equal(importJson.user.settings.brandName, "Marketify AI");
+  assert.equal(importJson.user.settings.brandName, "Helmer");
   assert.equal(importJson.user.settings.tone, "creative");
   assert.equal(importJson.user.settings.memories.length, 2);
   assert.equal(importJson.user.settings.personalIntelligence, true);

@@ -29,7 +29,7 @@ test("tokens.css defines both light :root and dark [data-theme=\"dark\"] tokens"
 test("index.html removes theme toggle buttons from UI", async () => {
   const indexHtml = await fs.readFile(path.join(process.cwd(), "public/index.html"), "utf8");
   
-  assert.ok(indexHtml.includes("marketify_theme"));
+  assert.ok(indexHtml.includes("helmer_theme"));
   assert.ok(!indexHtml.includes("railThemeToggleButton"));
   assert.ok(!indexHtml.includes("sidebarThemeToggle"));
   assert.ok(!indexHtml.includes("authThemeToggle"));
@@ -38,7 +38,7 @@ test("index.html removes theme toggle buttons from UI", async () => {
 test("index_admin.html removes admin theme toggle button from UI", async () => {
   const adminHtml = await fs.readFile(path.join(process.cwd(), "public/index_admin.html"), "utf8");
   
-  assert.ok(adminHtml.includes("marketify_theme"));
+  assert.ok(adminHtml.includes("helmer_theme"));
   assert.ok(!adminHtml.includes("adminThemeToggle"));
 });
 
@@ -81,7 +81,7 @@ function themeHarness({ saved, blocked = false, readyState = 'loading' } = {}) {
     dispatchEvent: event => events.push(event),
   };
   const storage = {
-    getItem(key) { assert.equal(key, 'marketify_theme'); if (blocked) throw Error('blocked'); return saved; },
+    getItem(key) { assert.equal(key, 'helmer_theme'); if (blocked) throw Error('blocked'); return saved; },
     setItem(key, value) { if (blocked) throw Error('blocked'); writes.push([key, value]); },
   };
   vm.runInNewContext(themeScript, {
@@ -125,7 +125,7 @@ test('theme script keeps users restricted to Light theme on click or storage eve
   assert.equal(h.document.documentElement.dataset.theme, 'light');
   h.click(toggle);
   assert.equal(h.document.documentElement.dataset.theme, 'light');
-  h.storage('marketify_theme', 'dark');
+  h.storage('helmer_theme', 'dark');
   assert.equal(h.document.documentElement.dataset.theme, 'light');
 });
 

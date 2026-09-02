@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const RESERVED_USERNAMES = new Set([
   "account", "admin", "administrator", "api", "app", "auth", "billing", "dashboard",
-  "help", "login", "logout", "marketify", "register", "root", "security", "settings",
+  "help", "helmer", "login", "logout", "marketify", "register", "root", "security", "settings",
   "signup", "support", "system", "www",
 ]);
 

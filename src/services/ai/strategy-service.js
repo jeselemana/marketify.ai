@@ -80,7 +80,7 @@ export async function generateStrategy({
 
   const result = await routeStructuredGeneration({
     schema: StrategySchema,
-    name: "marketify_strategy",
+    name: "helmer_strategy",
     instructions: `${STRATEGY_PROMPT}${personalizationContext || ""}`,
     input,
     maxOutputTokens: aiConfig.strategyMaxOutputTokens,
@@ -97,7 +97,7 @@ export async function generateStrategy({
 export async function refineStrategy(payload, ownerId, signal, personalizationContext = "", onChunk, onUsage) {
   const result = await routeStructuredGeneration({
     schema: StrategySchema,
-    name: "marketify_refined_strategy",
+    name: "helmer_refined_strategy",
     instructions: `${REFINEMENT_PROMPT}${personalizationContext || ""}`,
     input: buildRefinementInput(payload),
     maxOutputTokens: aiConfig.refinementMaxOutputTokens,

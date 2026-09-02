@@ -353,7 +353,7 @@ export class LearningLoopService {
     const store = await this.repository.readStore();
     return store.candidates.filter((item) => item.status === "approved").map((item) => JSON.stringify({
       messages: [{ role: "user", content: item.sanitizedInput }, { role: "assistant", content: item.preferredOutput }],
-      metadata: { task_type: item.taskType, quality_score: item.qualityScore, source: "marketify", candidate_id: item.id },
+      metadata: { task_type: item.taskType, quality_score: item.qualityScore, source: "helmer", candidate_id: item.id },
     })).join("\n") + (store.candidates.some((item) => item.status === "approved") ? "\n" : "");
   }
 }

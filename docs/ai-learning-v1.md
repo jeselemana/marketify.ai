@@ -2,7 +2,7 @@
 
 ## Architecture
 
-The learning loop is additive and does not change Ask/Build prompts, routing, personalization, or provider selection. `LearningLoopService` owns scoring, sanitization, candidates, aggregation, and export. `FileAiLearningRepository` follows Marketify's current file + optional Redis/R2 storage pattern.
+The learning loop is additive and does not change Ask/Build prompts, routing, personalization, or provider selection. `LearningLoopService` owns scoring, sanitization, candidates, aggregation, and export. `FileAiLearningRepository` follows Helmer's current file + optional Redis/R2 storage pattern.
 
 The store is `data/ai-learning-v1.json` with `schemaVersion: 1` and four logically separated collections:
 

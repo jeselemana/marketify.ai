@@ -124,7 +124,7 @@ test("buildPersonalizationContext compiles full brand profile, tone directives, 
     fullName: "Cesur Elemana",
     settings: {
       personalIntelligence: true,
-      brandName: "Marketify AI",
+      brandName: "Helmer",
       industry: "B2B SaaS & Marketing",
       primaryMarket: "Azərbaycan və Qlobal",
       targetAudience: "Startaplar, agentliklər və biznes sahibləri",
@@ -157,7 +157,7 @@ test("buildPersonalizationContext compiles full brand profile, tone directives, 
   });
 
   assert.match(context, /<user_personalization_context>/);
-  assert.match(context, /Marketify AI/);
+  assert.match(context, /Helmer/);
   assert.match(context, /B2B SaaS & Marketing/);
   assert.match(context, /Azərbaycan və Qlobal/);
   assert.match(context, /Qısa və İcra Yönümlü/);
@@ -219,7 +219,7 @@ test("buildStrategyPersonalizationContext includes only minimal settings profile
       settings: {
         personalIntelligence: true,
         strategyPersonalization: true,
-        brandName: "Marketify AI",
+        brandName: "Helmer",
         industry: "B2B SaaS",
         primaryMarket: "Azərbaycan",
         targetAudience: "Kiçik bizneslər",
@@ -232,7 +232,7 @@ test("buildStrategyPersonalizationContext includes only minimal settings profile
   });
 
   assert.match(context, /<build_profile>/);
-  assert.match(context, /Marketify AI/);
+  assert.match(context, /Helmer/);
   assert.match(context, /B2B SaaS/);
   assert.match(context, /Azərbaycan/);
   assert.match(context, /Kiçik bizneslər/);
@@ -325,7 +325,7 @@ test("AddMemoryItemSchema and UserSettingsSchema reject sensitive personal info"
 
 test("ImportMemoryPayloadSchema validates correctly with merge and replace modes", () => {
   const payload = ImportMemoryPayloadSchema.parse({
-    brandName: "Marketify AI",
+    brandName: "Helmer",
     industry: "B2B SaaS",
     primaryMarket: "Azərbaycan",
     targetAudience: "Startaplar",
@@ -339,7 +339,7 @@ test("ImportMemoryPayloadSchema validates correctly with merge and replace modes
     enablePersonalIntelligence: true,
   });
 
-  assert.equal(payload.brandName, "Marketify AI");
+  assert.equal(payload.brandName, "Helmer");
   assert.equal(payload.industry, "B2B SaaS");
   assert.equal(payload.tone, "creative");
   assert.equal(payload.memories.length, 2);

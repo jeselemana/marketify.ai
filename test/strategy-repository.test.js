@@ -26,7 +26,7 @@ function sampleStrategy(title = "Restaurant growth") {
 }
 
 test("strategy records are owner-scoped and duplicate saves are idempotent", async () => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-test-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-test-"));
   const repository = new FileStrategyRepository(path.join(directory, "strategies.json"));
   const strategy = sampleStrategy();
   const payload = {
@@ -54,7 +54,7 @@ test("strategy records are owner-scoped and duplicate saves are idempotent", asy
 });
 
 test("a saved refinement appends a non-destructive version", async () => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-version-test-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-version-test-"));
   const repository = new FileStrategyRepository(path.join(directory, "strategies.json"));
   const strategy = sampleStrategy();
   const created = await repository.create(
@@ -88,7 +88,7 @@ test("a saved refinement appends a non-destructive version", async () => {
 });
 
 test("repository delete, updateTitle, and duplicate methods work correctly and are owner-scoped", async () => {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-crud-test-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-crud-test-"));
   const repository = new FileStrategyRepository(path.join(directory, "strategies.json"));
   const strategy = sampleStrategy("Original Strategy");
   const created = await repository.create(

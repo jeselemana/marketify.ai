@@ -1,6 +1,6 @@
-# Marketify AI
+# Helmer
 
-Marketify AI is an AI strategy workspace built on the project's existing Express and vanilla JavaScript stack. It turns a business brief into a structured strategy, selectively asks for clarification, supports versioned refinements, saves work to an owner-scoped MVP repository, and exports strategy content locally.
+Helmer is an AI strategy workspace built on the project's existing Express and vanilla JavaScript stack. It turns a business brief into a structured strategy, selectively asks for clarification, supports versioned refinements, saves work to an owner-scoped MVP repository, and exports strategy content locally.
 
 ## Run locally
 
@@ -18,7 +18,7 @@ Marketify AI is an AI strategy workspace built on the project's existing Express
 - `GEMINI_ASK_MODEL` — Gemini model for Ask mode; defaults to `gemini-3.7-flash`.
 - `MAX_CLARIFICATION_ROUNDS` — defaults to `2`.
 - `PORT` — defaults to `5050`.
-- `APP_URL` — the canonical public origin, for example `https://marketify-ai.com`.
+- `APP_URL` — the canonical public origin, for example `https://helmerworkspace.com`.
 - `TRUSTED_ORIGINS` — optional comma-separated additional browser origins.
 - `REDIS_URL` — recommended in production; used as the primary session, password-reset-token, rate-limit, and repository cache store.
 - `RESEND_API_KEY`, `EMAIL_FROM` — Resend HTTP API ilə e-poçt təsdiq kodu və şifrə bərpası göndərişi. `EMAIL_FROM` Resend-də təsdiqlənmiş domenə aid olmalıdır. SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`) alternativ olaraq dəstəklənir.
@@ -26,7 +26,7 @@ Marketify AI is an AI strategy workspace built on the project's existing Express
 
 ## Data and ownership
 
-Marketify uses first-party username/email + password authentication. Passwords are hashed with Argon2id. An opaque, cryptographically random session token is stored only in the `marketify_session` HttpOnly, SameSite cookie; only its SHA-256 digest is used as the server-side session key. Product APIs require an authenticated user and saved strategies are scoped to that immutable user ID.
+Helmer uses first-party username/email + password authentication. Passwords are hashed with Argon2id. An opaque, cryptographically random session token is stored only in the `helmer_session` HttpOnly, SameSite cookie; only its SHA-256 digest is used as the server-side session key. Product APIs require an authenticated user and saved strategies are scoped to that immutable user ID.
 
 The MVP user repository is an atomically written, versioned `data/users.json` store. `src/repositories/auth-store-migrations.js` upgrades the persisted schema without rewriting strategy records. Existing guest-owned strategies are claimed by the new user on the first successful signup/login from that browser. For multi-instance production deploys, attach a persistent disk for `data/users.json` and `data/strategies.json`, and configure Redis for sessions. A later SQL migration can replace the repository implementation without changing the auth/API contract.
 

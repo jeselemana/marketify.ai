@@ -1,6 +1,6 @@
 /* Loaded synchronously in <head>: Light is enforced for all users. Theme configuration is preserved for future reactivation. */
 (() => {
-  const storageKey = document.currentScript?.dataset.storageKey || "marketify_theme";
+  const storageKey = document.currentScript?.dataset.storageKey || "helmer_theme";
   const root = document.documentElement;
   const themeColor = document.querySelector('meta[name="theme-color"]');
   const lightThemeColor = themeColor?.content || "#f8f9fb";
@@ -19,7 +19,7 @@
       try { localStorage.setItem(storageKey, theme); } catch {}
     }
     syncControls();
-    window.dispatchEvent(new CustomEvent("marketify:theme-change", { detail: { theme } }));
+    window.dispatchEvent(new CustomEvent("helmer:theme-change", { detail: { theme } }));
   }
 
   applyTheme("light");

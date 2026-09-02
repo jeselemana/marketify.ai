@@ -327,7 +327,7 @@ const state = {
       const params = new URLSearchParams(window.location.search);
       const requested = params.get("mode");
       if (requested === "ask" || requested === "build") return requested;
-      const saved = localStorage.getItem("marketify_default_mode");
+      const saved = localStorage.getItem("helmer_default_mode");
       if (saved === "ask" || saved === "build") return saved;
     } catch { }
     return "build";
@@ -367,14 +367,14 @@ const state = {
   askPromptHintStrategyId: "",
   askModel: (() => {
     try {
-      const saved = localStorage.getItem("marketify_ask_model");
+      const saved = localStorage.getItem("helmer_ask_model");
       if (saved === "gemini-3.7-flash" || saved === "auto") return saved;
     } catch { }
     return "auto";
   })(),
   askThinking: (() => {
     try {
-      const saved = localStorage.getItem("marketify_ask_thinking");
+      const saved = localStorage.getItem("helmer_ask_thinking");
       if (saved === "true") return true;
       if (saved === "false") return false;
     } catch { }
@@ -401,13 +401,13 @@ let backgroundJobs = loadBackgroundJobs();
 
 function loadBackgroundJobs() {
   try {
-    return JSON.parse(localStorage.getItem("marketify_bg_jobs") || "[]");
+    return JSON.parse(localStorage.getItem("helmer_bg_jobs") || "[]");
   } catch { return []; }
 }
 
 function persistBackgroundJobs() {
   try {
-    localStorage.setItem("marketify_bg_jobs", JSON.stringify(backgroundJobs));
+    localStorage.setItem("helmer_bg_jobs", JSON.stringify(backgroundJobs));
   } catch { }
 }
 
@@ -442,7 +442,7 @@ function setStatus(status) {
 
 function trackEvent(name, metadata = {}) {
   window.dispatchEvent(
-    new CustomEvent("marketify:analytics", {
+    new CustomEvent("helmer:analytics", {
       detail: { name, metadata, timestamp: new Date().toISOString() },
     }),
   );
@@ -485,13 +485,13 @@ function formatDate(value) {
 }
 
 function slugify(value) {
-  return (value || "marketify-strategy")
+  return (value || "helmer-strategy")
     .toLocaleLowerCase("az")
     .normalize("NFKD")
     .replace(/[^a-z0-9\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-")
-    .slice(0, 64) || "marketify-strategy";
+    .slice(0, 64) || "helmer-strategy";
 }
 
 let currentAbortController = null;
@@ -518,7 +518,7 @@ async function api(path, options = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401 && data.code === "AUTH_REQUIRED") {
-      window.dispatchEvent(new CustomEvent("marketify:auth-required"));
+      window.dispatchEvent(new CustomEvent("helmer:auth-required"));
     }
     const safeMessage = data.error || (path === "/api/ask"
       ? (isEn ? "Unable to generate response." : "Cavabı hazırlamaq mümkün olmadı.")
@@ -698,7 +698,7 @@ function syncNav() {
     workspaceMeta.textContent = state.currentUser ? t("brand.personalAccount") : t("brand.guestAccount");
   }
 
-  document.title = "Marketify AI & Workspace | Build. Ask. Act.";
+  document.title = "Helmer Workspace | Build. Ask. Act.";
 
   renderRecentList();
   syncLanguageControls();
@@ -757,7 +757,7 @@ function syncMode() {
 function setMode(mode) {
   if (!['build', 'ask'].includes(mode)) return;
   try {
-    localStorage.setItem("marketify_default_mode", mode);
+    localStorage.setItem("helmer_default_mode", mode);
   } catch { }
   if (state.mode === mode && state.view === "home") return;
   state.mode = mode;
@@ -940,7 +940,7 @@ function renderIntake() {
   textarea.name = "brief";
   textarea.rows = 1;
   textarea.maxLength = 8000;
-  textarea.placeholder = isEn ? "Ask Marketify to Build" : "Marketify ilə strategiya qur";
+  textarea.placeholder = isEn ? "Ask Helmer to Build" : "Helmer ilə strategiya qur";
   textarea.value = state.brief;
 
   const submit = button("", "ask-submit");
@@ -1203,7 +1203,7 @@ async function shareAskResponse(content) {
   const isEn = getLanguage() === "en";
   if (navigator.share) {
     try {
-      await navigator.share({ title: isEn ? "Marketify response" : "Marketify cavabı", text: content });
+      await navigator.share({ title: isEn ? "Helmer response" : "Helmer cavabı", text: content });
       trackEvent("ask_response_shared", { method: "native" });
       return;
     } catch (error) {
@@ -1263,7 +1263,7 @@ function renderAsk() {
           const modelInfo = getAskMessageModelInfo(message.model);
           const isThinkingActive = modelInfo.isGemini ? Boolean(state.askThinking) : modelInfo.isTerra;
           let label = isThinkingActive
-            ? (modelInfo.isGemini ? (isEn ? "Marketify is reasoning…" : "Marketify düşünür") : (isEn ? "Deep Strategic Analysis…" : "Dərin analiz"))
+            ? (modelInfo.isGemini ? (isEn ? "Helmer is reasoning…" : "Helmer düşünür") : (isEn ? "Deep Strategic Analysis…" : "Dərin analiz"))
             : (isEn ? "Synthesizing response…" : "Cavab hazırlanır");
           if (isSearching || message.statusText) {
             label = message.statusText || (isEn ? "Searching the web…" : "Veb axtarışı...");
@@ -1483,7 +1483,7 @@ function renderAsk() {
       const fileData = await readUploadedFileAsData(file);
       state.askPendingFile = fileData;
       state.askModel = "gemini-3.7-flash";
-      try { localStorage.setItem("marketify_ask_model", "gemini-3.7-flash"); } catch { }
+      try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
       state.askError = "";
     } catch (err) {
       state.askError = err.message || (isEn ? "Error reading file." : "Fayl oxunarkən xəta baş verdi.");
@@ -1640,7 +1640,7 @@ function renderAsk() {
   input.name = "message";
   input.rows = 1;
   input.maxLength = 8000;
-  input.placeholder = selectedStrategy?.title || selectedTask?.text || (state.askPendingFile ? (isEn ? "Ask a question about this file…" : "Fayl haqqında sualını yaz…") : (isEn ? "Ask Marketify anything" : "Marketify-dan soruş"));
+  input.placeholder = selectedStrategy?.title || selectedTask?.text || (state.askPendingFile ? (isEn ? "Ask a question about this file…" : "Fayl haqqında sualını yaz…") : (isEn ? "Ask Helmer anything" : "Helmer-dən soruş"));
   input.disabled = state.askLoading;
 
   const submit = button("", "ask-submit");
@@ -1666,7 +1666,7 @@ function renderAsk() {
   const autoOption = button("", `ask-model-option${!isFlashSelected ? " is-active" : ""}`, (e) => {
     e.preventDefault();
     state.askModel = "auto";
-    try { localStorage.setItem("marketify_ask_model", "auto"); } catch { }
+    try { localStorage.setItem("helmer_ask_model", "auto"); } catch { }
     modelSelectorMenu.open = false;
     render();
   });
@@ -1682,7 +1682,7 @@ function renderAsk() {
   const flashOption = button("", `ask-model-option${isFlashSelected ? " is-active" : ""}`, (e) => {
     e.preventDefault();
     state.askModel = "gemini-3.7-flash";
-    try { localStorage.setItem("marketify_ask_model", "gemini-3.7-flash"); } catch { }
+    try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
     modelSelectorMenu.open = false;
     render();
   });
@@ -1713,7 +1713,7 @@ function renderAsk() {
     switchInput.addEventListener("change", (e) => {
       e.stopPropagation();
       state.askThinking = switchInput.checked;
-      try { localStorage.setItem("marketify_ask_thinking", String(state.askThinking)); } catch { }
+      try { localStorage.setItem("helmer_ask_thinking", String(state.askThinking)); } catch { }
       thinkingSub.textContent = state.askThinking ? (isEn ? "Deep analysis active" : "Dərin analiz aktivdir") : (isEn ? "Fast direct response" : "Sürətli birbaşa cavab");
       trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
     });
@@ -1809,7 +1809,7 @@ function renderAsk() {
   });
 
   const helper = element("div", "ask-composer-meta");
-  const disclaimer = element("p", "ask-disclaimer", isEn ? "Marketify can make mistakes." : "Marketify səhv edə bilər.");
+  const disclaimer = element("p", "ask-disclaimer", isEn ? "Helmer can make mistakes." : "Helmer səhv edə bilər.");
   helper.appendChild(disclaimer);
   composerArea.append(form, helper);
   shell.append(thread, composerArea);
@@ -2333,7 +2333,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
 
     if (!response.ok) {
       if (response.status === 401 && activeHomepageIntent) {
-        window.dispatchEvent(new CustomEvent("marketify:auth-required"));
+        window.dispatchEvent(new CustomEvent("helmer:auth-required"));
       }
       const errData = await response.json().catch(() => ({}));
       throw new Error(errData.error || "Cavabı hazırlamaq mümkün olmadı.");
@@ -2508,7 +2508,7 @@ function renderLoading() {
     "loading-intro",
     isAssessment
       ? (isEn ? "Synthesizing your input to tailor strategic recommendations." : "Məlumatları yoxlayıb ən doğru növbəti addımı müəyyənləşdiririk.")
-      : (isEn ? "Generating strategic priorities, channel mix, KPIs, and execution milestones." : "Marketify daxil etdiyin konteksti strukturlaşdırılmış strategiyaya çevirir."),
+      : (isEn ? "Generating strategic priorities, channel mix, KPIs, and execution milestones." : "Helmer daxil etdiyin konteksti strukturlaşdırılmış strategiyaya çevirir."),
   );
 
   const activity = element("div", "loading-activity");
@@ -3018,7 +3018,7 @@ function showAnalysisHistoryModal(isAssessment = true) {
             </svg>
           </span>
           <strong class="history-item-sender">${isEn ? `Clarification Question #${idx + 1}` : `Dəqiqləşdirmə Sualı #${idx + 1}`}</strong>
-          <span class="history-item-tag ai-tag">Marketify AI</span>
+          <span class="history-item-tag ai-tag">Helmer</span>
         </div>
         <div class="history-item-content">
           <p>${escapeHtml(item.question)}</p>
@@ -3089,7 +3089,7 @@ function showLoadingAskModal(initialQuery) {
   const header = element("div", "loading-ask-modal-header");
   const titleGroup = element("div", "loading-ask-modal-title-group");
   const titleRow = element("div", "loading-ask-modal-title-row");
-  const title = element("h3", "", isEn ? "Strategic Marketing Copilot" : "Marketify-dan soruş");
+  const title = element("h3", "", isEn ? "Strategic Marketing Copilot" : "Helmer-dən soruş");
   titleRow.appendChild(title);
 
   const statusSub = element("div", "loading-ask-modal-status");
@@ -3188,7 +3188,7 @@ function showLoadingAskModal(initialQuery) {
     loadingItem.innerHTML = `
       <div class="ask-thread-msg-header">
         <span class="history-item-icon ai-icon">✦</span>
-        <strong>Marketify AI</strong>
+        <strong>Helmer</strong>
       </div>
       <div class="ask-thread-msg-content">
         <div class="loading-processing-dots">
@@ -3322,7 +3322,7 @@ function showLoadingAskModal(initialQuery) {
     welcome.innerHTML = `
       <div class="loading-ask-welcome-spark">✦</div>
       <div class="loading-ask-welcome-text">
-        <strong>${isEn ? "Strategic Marketing Copilot" : "Marketify-dan soruş"}</strong>
+        <strong>${isEn ? "Strategic Marketing Copilot" : "Helmer-dən soruş"}</strong>
         <p>${isEn ? "Explore marketing questions, unit economics, or channel ideas while your strategy brief is being analyzed." : "Brif analizi arxa planda davam edərkən istənilən marketinq sualınızı verə bilərsiniz."}</p>
       </div>
     `;
@@ -3436,7 +3436,7 @@ function renderClarification() {
 
   const context = document.createElement("details");
   context.className = "clarification-context";
-  const contextSummary = element("summary", "", isEn ? "Captured Context & Brief" : "Marketify nə bilir?");
+  const contextSummary = element("summary", "", isEn ? "Captured Context & Brief" : "Helmer nə bilir?");
   const contextBody = element("div", "clarification-context-body");
   const briefRow = element("div", "context-summary-row");
   briefRow.append(element("strong", "", isEn ? "Brief" : "Brif"), element("span", "", state.brief.slice(0, 220)));
@@ -4699,11 +4699,11 @@ function buildStrategyAskAssistant() {
   const panel = element("section", "strategy-ask-panel");
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-modal", "true");
-  panel.setAttribute("aria-label", isEn ? "Strategy Copilot" : "Strategiya üzrə Marketify Ask");
+  panel.setAttribute("aria-label", isEn ? "Strategy Copilot" : "Strategiya üzrə Helmer Ask");
 
   const header = element("header", "strategy-ask-header");
   const heading = element("div", "strategy-ask-heading");
-  const title = element("strong", "", isEn ? "Strategy Copilot" : "Ask Marketify");
+  const title = element("strong", "", isEn ? "Strategy Copilot" : "Ask Helmer");
   const context = element("span", "strategy-ask-context", state.strategy?.title || (isEn ? "Active Strategy" : "Aktiv strategiya"));
   heading.append(title, context);
   const close = button("", "strategy-ask-close", (e) => {
@@ -5055,7 +5055,7 @@ function buildRefinementPanel() {
     }
   });
   askBtn.type = "button";
-  askBtn.setAttribute("aria-label", isEn ? "Ask Marketify about this strategy" : "Bu strategiya haqqında Marketify-dan soruş");
+  askBtn.setAttribute("aria-label", isEn ? "Ask Helmer about this strategy" : "Bu strategiya haqqında Helmer-dən soruş");
   askBtn.setAttribute("aria-expanded", String(state.strategyAskOpen));
   askBtn.innerHTML = `
     <svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h8M8 13h5"/></svg>
@@ -5352,7 +5352,7 @@ function renderRecentList() {
       const empty = element("div", "recent-empty");
       empty.append(
         element("strong", "", isEn ? "Chats will appear here." : "Söhbətlər burada görünəcək."),
-        element("span", "", isEn ? "Your conversations with Marketify Ask are saved here." : "Marketify Ask ilə apardığın söhbətlər burada saxlanılır.")
+        element("span", "", isEn ? "Your conversations with Helmer Ask are saved here." : "Helmer Ask ilə apardığın söhbətlər burada saxlanılır.")
       );
       recentList.appendChild(empty);
       return;
@@ -5426,7 +5426,7 @@ function updateWorkspaceIdentity(user) {
   if (!user) {
     workspaceAvatar.textContent = "M";
     railWorkspaceAvatar.textContent = "M";
-    workspaceName.textContent = "Marketify workspace";
+    workspaceName.textContent = "Helmer";
     workspaceMeta.textContent = isEn ? "Guest session · account recommended" : "Hesabsız istifadə · hesab yaratmaq tövsiyə olunur";
     return;
   }
@@ -5472,7 +5472,7 @@ function buildLanguageSelectorSection() {
 
   const info = element("div", "settings-lang-info");
   const label = element("span", "settings-lang-label", t("settings.languageSelector.title") || (isEn ? "Interface Language" : "İnterfeys dili"));
-  const hint = element("span", "settings-lang-hint", t("settings.languageSelector.intro") || (isEn ? "Choose your preferred language for Marketify AI." : "Marketify AI üçün istifadə etmək istədiyiniz dili seçin."));
+  const hint = element("span", "settings-lang-hint", t("settings.languageSelector.intro") || (isEn ? "Choose your preferred language for Helmer." : "Helmer üçün istifadə etmək istədiyiniz dili seçin."));
   info.append(label, hint);
 
   const dropdown = element("details", "settings-lang-dropdown");
@@ -5538,7 +5538,7 @@ function renderSettings() {
     element("h1", "", state.currentUser ? (isEn ? "Settings" : "Parametrlər") : (isEn ? "Preserve your progress" : "Gedişatını qoruyun")),
     element("p", "", state.currentUser
       ? (isEn ? "Manage your account preferences, intelligence, and security." : "Hesab məlumatlarını və giriş təhlükəsizliyini idarə et.")
-      : (isEn ? "You can use Marketify as a guest. Creating an account syncs your strategies across devices." : "Hesabsız istifadə edə bilərsən. Hesab yaratdıqda bu cihazdakı strategiyaların profilinə köçürüləcək və başqa cihazlardan da əlçatan olacaq."))
+      : (isEn ? "You can use Helmer as a guest. Creating an account syncs your strategies across devices." : "Hesabsız istifadə edə bilərsən. Hesab yaratdıqda bu cihazdakı strategiyaların profilinə köçürüləcək və başqa cihazlardan da əlçatan olacaq."))
   );
 
   if (!state.currentUser) {
@@ -5730,7 +5730,7 @@ function renderSettings() {
     // 1. Business Profile (Primary - Open by default)
     const profileGrid = element("div", "experience-grid-fields");
     profileGrid.append(
-      settingsField(t("settings.experience.brandName"), "brandName", userSettings.brandName || "", "text", "organization", isEn ? "e.g. Marketify AI" : "Məs: Marketify AI"),
+      settingsField(t("settings.experience.brandName"), "brandName", userSettings.brandName || "", "text", "organization", isEn ? "e.g. Helmer" : "Məs: Helmer"),
       settingsField(t("settings.experience.industry"), "industry", userSettings.industry || "", "text", "off", isEn ? "e.g. B2B SaaS, E-commerce" : "Məs: B2B SaaS, E-ticarət, Kosmetika"),
       settingsField(t("settings.experience.primaryMarket"), "primaryMarket", userSettings.primaryMarket || "", "text", "off", isEn ? "e.g. Global, North America, Azerbaijan" : "Məs: Azərbaycan (Bakı və regionlar)"),
       settingsField(t("settings.experience.targetAudience"), "targetAudience", userSettings.targetAudience || "", "text", "off", isEn ? "e.g. Tech founders, Growth marketers" : "Məs: 20-35 yaş gənclər, startaplar"),
@@ -6079,13 +6079,13 @@ function renderSettings() {
         id: "build",
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
         name: "Build",
-        desc: isEn ? "Start directly in structured strategy generation mode on platform launch." : "Marketify açıldıqda və ya yeni sessiyada birbaşa strukturlaşdırılmış strategiya hazırlamaq rejimini aktiv edin.",
+        desc: isEn ? "Start directly in structured strategy generation mode on platform launch." : "Helmer açıldıqda və ya yeni sessiyada birbaşa strukturlaşdırılmış strategiya hazırlamaq rejimini aktiv edin.",
       },
       {
         id: "ask",
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
         name: "Ask",
-        desc: isEn ? "Start directly in interactive AI assistant and ad-hoc strategic Q&A mode on launch." : "Marketify açıldıqda və ya yeni sessiyada birbaşa AI ilə interaktiv söhbət və operativ sual-cavab rejimini aktiv edin.",
+        desc: isEn ? "Start directly in interactive AI assistant and ad-hoc strategic Q&A mode on launch." : "Helmer açıldıqda və ya yeni sessiyada birbaşa AI ilə interaktiv söhbət və operativ sual-cavab rejimini aktiv edin.",
       },
     ];
 
@@ -6152,7 +6152,7 @@ function renderSettings() {
         });
         updateWorkspaceIdentity(data.user);
         try {
-          localStorage.setItem("marketify_default_mode", currentDefaultMode);
+          localStorage.setItem("helmer_default_mode", currentDefaultMode);
         } catch { }
         state.mode = currentDefaultMode;
         syncMode();
@@ -6268,8 +6268,8 @@ function renderSettings() {
 
     const apiNotice = element("div", "legal-highlight-box");
     apiNotice.innerHTML = isEn
-      ? "<strong>✦ Third-Party AI API Infrastructure</strong>Marketify AI uses industry-leading artificial intelligence models and secure API infrastructure to generate strategic analyses and insights."
-      : "<strong>✦ 3-cü Tərəf Süni İntellekt API İnteqrasiyası</strong>Marketify AI xidməti biznes analizləri və strategiya generasiyası üçün qabaqcıl süni intellekt API provayderlərinin rəsmi infrastrukturundan istifadə edir.";
+      ? "<strong>✦ Third-Party AI API Infrastructure</strong>Helmer uses industry-leading artificial intelligence models and secure API infrastructure to generate strategic analyses and insights."
+      : "<strong>✦ 3-cü Tərəf Süni İntellekt API İnteqrasiyası</strong>Helmer xidməti biznes analizləri və strategiya generasiyası üçün qabaqcıl süni intellekt API provayderlərinin rəsmi infrastrukturundan istifadə edir.";
     panel.appendChild(apiNotice);
 
     const docsList = element("div", "settings-legal-list");
@@ -7271,10 +7271,10 @@ function renderPlannerView() {
       document.querySelectorAll(".planner-task-card.has-open-menu").forEach((c) => c.classList.remove("has-open-menu"));
     }
   };
-  if (window._marketifyPlannerDocClick) {
-    document.removeEventListener("click", window._marketifyPlannerDocClick);
+  if (window._helmerPlannerDocClick) {
+    document.removeEventListener("click", window._helmerPlannerDocClick);
   }
-  window._marketifyPlannerDocClick = onDocClick;
+  window._helmerPlannerDocClick = onDocClick;
   document.addEventListener("click", onDocClick);
 
   searchInput.addEventListener("input", drawPlannerList);
@@ -7658,7 +7658,7 @@ function renderLimitsView() {
       a: "The system automatically tracks your Build and Ask operations across the selected timeframe (Today, 7 days, 14 days, 30 days) and plots them dynamically."
     },
     {
-      q: "Are there any usage or rate limits on Marketify AI?",
+      q: "Are there any usage or rate limits on Helmer?",
       a: "All strategic intelligence models and workflows are fully enabled for uninterrupted high-velocity marketing execution."
     },
     {
@@ -7679,7 +7679,7 @@ function renderLimitsView() {
       a: "Sistem seçdiyiniz dövr (Bugün, 7 gün, 14 gün, 30 gün) üzrə Build və Ask əməliyyatlarınızı avtomatik qeydə alır və dinamika qrafikində anlıq əks etdirir."
     },
     {
-      q: "Marketify AI-də istifadə və ya kvota limiti varmı?",
+      q: "Helmer-də istifadə və ya kvota limiti varmı?",
       a: "Bütün modellər üzrə sorğu və strategiya generasiyası fasiləsiz iş axını üçün tam açıqdır. Sistem sabit və rahat iş üçün optimallaşdırılmışdır."
     },
     {
@@ -7757,8 +7757,8 @@ function openPersonalizationConsentModal(onAccept) {
       "p",
       "",
       isEn
-        ? "When enabled, Marketify adapts strategies, frameworks, and analyses based on your brand profile, tone of voice, and memory notes."
-        : "Aktiv olduqda Marketify cavabları və strategiyaları brend profilin, seçdiyin üslub və yaddaş qeydlərin əsasında fərdiləşdirəcək."
+        ? "When enabled, Helmer adapts strategies, frameworks, and analyses based on your brand profile, tone of voice, and memory notes."
+        : "Aktiv olduqda Helmer cavabları və strategiyaları brend profilin, seçdiyin üslub və yaddaş qeydlərin əsasında fərdiləşdirəcək."
     ),
     element(
       "p",
@@ -7835,7 +7835,7 @@ function closeLegalModal() {
   document.body.style.overflow = "";
 }
 
-window.addEventListener("marketify:open-legal", (event) => {
+window.addEventListener("helmer:open-legal", (event) => {
   openLegalModal(event.detail?.type || "terms");
 });
 
@@ -7931,7 +7931,7 @@ function openDeleteAccountModal() {
       closeLegalModal();
       state.currentUser = null;
       showToast(isEn ? "Your account has entered the 14-day deletion grace period." : "Hesabınız 14 günlük silinmə rejiminə keçirildi. 14 gün ərzində daxil olmasanız, hesabınız birdəfəlik silinəcək.", "info");
-      window.dispatchEvent(new CustomEvent("marketify:auth-required"));
+      window.dispatchEvent(new CustomEvent("helmer:auth-required"));
     } catch (err) {
       showToast(err.message || (isEn ? "An error occurred." : "Xəta baş verdi."), "error");
       confirmBtn.disabled = false;
@@ -8206,9 +8206,9 @@ function checkSensitiveData(txt) {
 function getImportMemoryPrompt() {
   const isEn = getLanguage() === "en";
   if (isEn) {
-    return `Export my existing business and marketing context for migration to Marketify AI.
+    return `Export my existing business and marketing context for migration to Helmer.
 
-Review our past conversations, stored memory, and reliable facts known about me. Select ONLY persistent knowledge that will help Marketify AI generate more tailored marketing strategies, copy, campaigns, and business recommendations.
+Review our past conversations, stored memory, and reliable facts known about me. Select ONLY persistent knowledge that will help Helmer generate more tailored marketing strategies, copy, campaigns, and business recommendations.
 
 Whenever possible, preserve my exact phrasing, terminology, preferences, and explicit instructions without altering their meaning.
 
@@ -8222,7 +8222,7 @@ Export the information using the following JSON structure:
   "primaryMarket": "Core market and geographic scope",
   "targetAudience": "Target audience description",
   "tone": "professional",
-  "customInstructions": "Special marketing and strategic communication instructions Marketify AI should follow in future responses",
+  "customInstructions": "Special marketing and strategic communication instructions Helmer should follow in future responses",
   "memories": [
     {
       "category": "business",
@@ -8238,7 +8238,7 @@ Include in memory items:
 - Marketing, content, advertising, and communication preferences;
 - Brand tone, language, and stylistic preferences;
 - Enduring business rules and constraints;
-- Active business objectives and projects that affect future Marketify outputs;
+- Active business objectives and projects that affect future Helmer outputs;
 - Any other persistent business context helpful for strategy generation.
 
 Do NOT include:
@@ -8257,15 +8257,15 @@ Rules:
 6. Do not repeat duplicate or near-identical memory items.
 7. Use empty string ("") for unknown root fields.
 8. If no memory items apply, return "memories": [].
-9. In "customInstructions", summarize how Marketify AI should tailor future outputs.
+9. In "customInstructions", summarize how Helmer should tailor future outputs.
 10. Ensure all keys and strings are double-quoted with no trailing commas.
 
 Return JSON only.`;
   }
 
-  return `Marketify AI-a keçid üçün mənim haqqımda mövcud biznes və marketinq kontekstini ixrac et.
+  return `Helmer-a keçid üçün mənim haqqımda mövcud biznes və marketinq kontekstini ixrac et.
 
-Keçmiş söhbətlərimizi, mövcud yaddaşı və mənim haqqımda etibarlı şəkildə bildiyin məlumatları nəzərdən keçir. Yalnız Marketify AI-ın gələcəkdə daha uyğun marketinq strategiyaları, kontent, kampaniyalar və biznes tövsiyələri verməsinə kömək edəcək davamlı məlumatları seç.
+Keçmiş söhbətlərimizi, mövcud yaddaşı və mənim haqqımda etibarlı şəkildə bildiyin məlumatları nəzərdən keçir. Yalnız Helmer-ın gələcəkdə daha uyğun marketinq strategiyaları, kontent, kampaniyalar və biznes tövsiyələri verməsinə kömək edəcək davamlı məlumatları seç.
 
 Mümkün olduqda mənim öz ifadələrimi, terminologiyamı, seçimlərimi və verdiyim konkret təlimatları mənasını dəyişmədən qoru.
 
@@ -8279,7 +8279,7 @@ Məlumatları aşağıdakı JSON strukturunda ixrac et:
   "primaryMarket": "Əsas bazar və coğrafiya",
   "targetAudience": "Hədəf auditoriya təsviri",
   "tone": "professional",
-  "customInstructions": "Marketify AI-ın gələcək cavablarında nəzərə almalı olduğu xüsusi marketinq və kommunikasiya təlimatları",
+  "customInstructions": "Helmer-ın gələcək cavablarında nəzərə almalı olduğu xüsusi marketinq və kommunikasiya təlimatları",
   "memories": [
     {
       "category": "business",
@@ -8295,8 +8295,8 @@ Yaddaş qeydlərinə əsasən bunları daxil et:
 - marketinq, kontent, reklam və kommunikasiya üstünlükləri;
 - brend tonu, dil və üslub seçimləri;
 - davamlı biznes qaydaları və məhdudiyyətlər;
-- gələcək Marketify cavablarına təsir edə biləcək aktiv biznes məqsədləri və layihələr;
-- Marketify AI-ın daha uyğun nəticə verməsinə kömək edəcək digər davamlı biznes konteksti.
+- gələcək Helmer cavablarına təsir edə biləcək aktiv biznes məqsədləri və layihələr;
+- Helmer-ın daha uyğun nəticə verməsinə kömək edəcək digər davamlı biznes konteksti.
 
 Daxil etmə:
 - biznes və marketinq üçün praktik əhəmiyyəti olmayan şəxsi məlumatları;
@@ -8314,7 +8314,7 @@ Qaydalar:
 6. Eyni və ya çox oxşar yaddaş faktlarını təkrarlama.
 7. Məlum olmayan əsas sahələr üçün boş string ("") istifadə et.
 8. Uyğun yaddaş faktı yoxdursa "memories": [] qaytar.
-9. "customInstructions" daxilində faktları sadalamaq əvəzinə Marketify AI-ın gələcək cavablarını necə uyğunlaşdırmalı olduğunu qısa şəkildə ifadə et.
+9. "customInstructions" daxilində faktları sadalamaq əvəzinə Helmer-ın gələcək cavablarını necə uyğunlaşdırmalı olduğunu qısa şəkildə ifadə et.
 10. Bütün key və string-lər double quote ilə yazılmalı və trailing comma istifadə edilməməlidir.
 
 Yalnız JSON qaytar.`;
@@ -8507,8 +8507,8 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
       "p",
       "",
       isEn
-        ? "Import brand knowledge and strategic context from other AI assistants into Marketify."
-        : "Başqa AI xidmətindəki yaddaş və brend məlumatlarını Marketify-a köçür."
+        ? "Import brand knowledge and strategic context from other AI assistants into Helmer."
+        : "Başqa AI xidmətindəki yaddaş və brend məlumatlarını Helmer-a köçür."
     )
   );
 
@@ -8610,13 +8610,13 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
   textarea.placeholder = isEn ? `Paste the AI JSON output here...
 
 {
-  "brandName": "Marketify AI",
+  "brandName": "Helmer",
   "industry": "B2B SaaS",
   "memories": [...]
 }` : `AI cavabını buraya yapışdır...
 
 {
-  "brandName": "Marketify AI",
+  "brandName": "Helmer",
   "industry": "B2B SaaS",
   "memories": [...]
 }`;
@@ -9074,7 +9074,7 @@ function openImportMemoryModal({ userSettings = {}, onImportSuccess = null } = {
   document.body.style.overflow = "hidden";
 }
 
-window.addEventListener("marketify:account-restored", () => {
+window.addEventListener("helmer:account-restored", () => {
   const isEn = getLanguage() === "en";
   showToast(isEn ? "Welcome back! The 14-day deletion request was canceled and your account has been restored." : "Xoş gəldiniz! 14 günlük silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.", "success");
 });
@@ -9259,7 +9259,7 @@ window.addEventListener("drop", (e) => {
 
 function checkSupportBanner() {
   const isEn = getLanguage() === "en";
-  const STORAGE_KEY = "marketify_support_notice_dismissed";
+  const STORAGE_KEY = "helmer_support_notice_dismissed";
   if (localStorage.getItem(STORAGE_KEY) === "dismissed") return;
   if (document.querySelector("#supportNoticeToast")) return;
 
@@ -9304,13 +9304,13 @@ function checkSupportBanner() {
     "p",
     "support-notice-body",
     isEn
-      ? "If you run into any bug, unexpected behavior, or need assistance while using Marketify, reach out via the address below. Our engineering team will assist promptly."
+      ? "If you run into any bug, unexpected behavior, or need assistance while using Helmer, reach out via the address below. Our engineering team will assist promptly."
       : "Hər hansı bir xəta, gözlənilməz davranış və ya istifadə zamanı yaranan texniki problem barədə aşağıdakı ünvana yazaraq bizə bildirə bilərsiniz. Komandamız ən qısa zamanda sizə dəstək göstərəcək."
   );
 
   const emailLink = element("a", "support-notice-email");
-  emailLink.href = "mailto:marketifysupport@googlegroups.com";
-  emailLink.textContent = "marketifysupport@googlegroups.com";
+  emailLink.href = "mailto:helmerworkspace@googlegroups.com";
+  emailLink.textContent = "helmerworkspace@googlegroups.com";
   emailLink.setAttribute("aria-label", isEn ? "Support email" : "Dəstək e-poçtu");
 
   const actions = element("div", "support-notice-actions");
@@ -9318,7 +9318,7 @@ function checkSupportBanner() {
   dontShowBtn.type = "button";
 
   const mailBtn = button(isEn ? "Send Email →" : "Mail yaz →", "primary-button support-notice-mail-btn", () => {
-    window.location.href = "mailto:marketifysupport@googlegroups.com";
+    window.location.href = "mailto:helmerworkspace@googlegroups.com";
   });
   mailBtn.type = "button";
 
@@ -9355,7 +9355,7 @@ function initAnnouncementBar() {
   const bar = document.querySelector("#announcementBar");
   if (!bar) return;
 
-  const STORAGE_KEY = "marketify_v3_announcement_closed";
+  const STORAGE_KEY = "helmer_v3_announcement_closed";
   try {
     if (localStorage.getItem(STORAGE_KEY) === "true") {
       bar.hidden = true;
@@ -9386,13 +9386,13 @@ function initAnnouncementBar() {
     });
   }
 
-  window.addEventListener("marketify:language-change", updateText);
+  window.addEventListener("helmer:language-change", updateText);
 }
 
 initAnnouncementBar();
 
-// Global marketify:language-change handler to re-render components on language switch
-window.addEventListener("marketify:language-change", () => {
+// Global helmer:language-change handler to re-render components on language switch
+window.addEventListener("helmer:language-change", () => {
   syncMode();
   syncNav();
   renderRecentList();
@@ -9407,10 +9407,10 @@ if (!new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/veri
 initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
   const preferredMode = user?.settings?.defaultMode || (() => {
-    try { return localStorage.getItem("marketify_default_mode"); } catch { return null; }
+    try { return localStorage.getItem("helmer_default_mode"); } catch { return null; }
   })();
   if (preferredMode === "ask" || preferredMode === "build") {
-    try { localStorage.setItem("marketify_default_mode", preferredMode); } catch { }
+    try { localStorage.setItem("helmer_default_mode", preferredMode); } catch { }
     state.mode = preferredMode;
     syncMode();
     syncNav();

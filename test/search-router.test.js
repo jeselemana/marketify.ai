@@ -81,8 +81,8 @@ test("shouldEnableSearch returns true for trends, current dates, and news", () =
 
 test("shouldEnableSearch returns true for URLs, domains, and explicit search intent", () => {
   const searchPrompts = [
-    "Bu saytı analiz et: https://marketify.ai",
-    "marketify.az saytından məlumatları tap",
+    "Bu saytı analiz et: https://helmerworkspace.com",
+    "helmerworkspace.com saytından məlumatları tap",
     "Google-da axtar gör rəqiblərimiz nə təklif edir",
     "İnternetdə araşdır və mənbələri göstər",
     "Bakıda yerləşən ən yaxşı rəqəmsal agentliklərin ünvanı və əlaqə nömrəsi",

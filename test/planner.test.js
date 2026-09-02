@@ -6,7 +6,7 @@ import os from "node:os";
 import { FilePlannerRepository } from "../src/repositories/file-planner-repository.js";
 
 test("planner repository persists tasks, handles completion, deletion, and owner claiming", async () => {
-  const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "marketify-planner-test-"));
+  const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-planner-test-"));
   const filePath = path.join(temporaryDirectory, "planner.json");
   const repository = new FilePlannerRepository(filePath);
 

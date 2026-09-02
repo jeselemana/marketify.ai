@@ -4,7 +4,7 @@ Light remains the default, regardless of the operating system preference. The su
 
 ## Implementation
 
-- `public/theme.js` runs synchronously before CSS in every HTML entry point. It restores `marketify_theme` from local storage onto the document's `data-theme` attribute, updates browser chrome and accessible control state, and synchronizes open tabs. Storage failures fall back safely to Light; switching still works in memory.
+- `public/theme.js` runs synchronously before CSS in every HTML entry point. It restores `helmer_theme` from local storage onto the document's `data-theme` attribute, updates browser chrome and accessible control state, and synchronizes open tabs. Storage failures fall back safely to Light; switching still works in memory.
 - `public/tokens.css` preserves the original Light tokens. The opt-in Dark block defines surfaces, text, semantic status colors, and shadows. The original blue brand fills remain unchanged. Dark surfaces use neutral graphite, softer borders and shadows, and a localized blue halo around the empty workspace composer (at the bottom on mobile).
 - Existing hardcoded colors use semantic compatibility variables with the exact original values as fallbacks. These `--theme-*` variables are only defined in Dark, so the original Light cascade, geometry, and animations remain intact. New components should use the shared semantic tokens directly.
 - `public/theme.css` styles only new switches and dark native controls, autofill, and text selection. Most component adaptation is in the original declarations, so dynamic content, pseudo-elements, responsive rules, menus, and animation keyframes inherit the theme naturally.

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-const COOKIE_NAME = "marketify_guest";
+const COOKIE_NAME = "helmer_guest";
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
 function parseCookies(header = "") {
