@@ -6,5 +6,16 @@
       <changefreq>monthly</changefreq>
       <priority>1.00</priority>
    </url>
-
-   </urlset>
+   <url>
+      <loc>https://helmerworkspace.com/privacy</loc>
+      <lastmod>2026-09-02</lastmod>
+      <changefreq>monthly</changefreq>
+      <priority>0.80</priority>
+   </url>
+   <url>
+      <loc>https://helmerworkspace.com/terms</loc>
+      <lastmod>2026-09-02</lastmod>
+      <changefreq>monthly</changefreq>
+      <priority>0.80</priority>
+   </url>
+</urlset>

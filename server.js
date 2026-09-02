@@ -1563,6 +1563,17 @@ app.use(authErrorHandler);
 app.use(strategyErrorHandler);
 app.use("/api", (req, res) => res.status(404).json({ error: "API yolu tapılmadı.", code: "NOT_FOUND" }));
 
+// 📜 Standalone Legal & Google Compliance Pages
+app.get(["/privacy", "/privacy-policy"], (req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  return res.sendFile(path.join(__dirname, "public", "privacy.html"));
+});
+
+app.get(["/terms", "/terms-of-service"], (req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  return res.sendFile(path.join(__dirname, "public", "terms.html"));
+});
+
 // 🌐 Frontend üçün fallback
 app.get("*", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");

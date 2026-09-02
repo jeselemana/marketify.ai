@@ -35,29 +35,25 @@ function legalNoticeElement() {
   const terms = document.createElement("p");
   terms.className = "auth-terms";
 
-  const termsBtn = document.createElement("button");
-  termsBtn.type = "button";
-  termsBtn.className = "auth-legal-link";
-  termsBtn.textContent = t("auth.signup.termsLink");
-  termsBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    openLegalDoc("terms");
-  });
+  const termsLink = document.createElement("a");
+  termsLink.href = "/terms";
+  termsLink.target = "_blank";
+  termsLink.rel = "noopener noreferrer";
+  termsLink.className = "auth-legal-link";
+  termsLink.textContent = t("auth.signup.termsLink");
 
-  const privacyBtn = document.createElement("button");
-  privacyBtn.type = "button";
-  privacyBtn.className = "auth-legal-link";
-  privacyBtn.textContent = t("auth.signup.privacyLink");
-  privacyBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    openLegalDoc("privacy");
-  });
+  const privacyLink = document.createElement("a");
+  privacyLink.href = "/privacy";
+  privacyLink.target = "_blank";
+  privacyLink.rel = "noopener noreferrer";
+  privacyLink.className = "auth-legal-link";
+  privacyLink.textContent = t("auth.signup.privacyLink");
 
   terms.append(
     t("auth.signup.termsAgreementPre"),
-    termsBtn,
+    termsLink,
     t("auth.signup.and"),
-    privacyBtn,
+    privacyLink,
     t("auth.signup.termsAgreementPost")
   );
   return terms;

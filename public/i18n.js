@@ -1354,8 +1354,9 @@ export const LEGAL_DOCS_I18N = {
           <h3>2. Toplanan Məlumatların Kateqoriyaları</h3>
           <p>Platforma xidmətlərin təmənnasız göstərilməsi və sistem təhlükəsizliyinin təmin edilməsi məqsədilə aşağıdakı kateqoriyalar üzrə məlumatları emal edir:</p>
           <p><strong>2.1. İdentifikasiya və Giriş Məlumatları:</strong> İstifadəçinin adı, soyadı, istifadəçi adı, elektron poçt ünvanı və təhlükəsiz şifrələnmiş (kriptoqrafik heşlənmiş) autentifikasiya identifikatorları.</p>
-          <p><strong>2.2. Biznes və Məzmun Konteksti:</strong> İstifadəçi tərəfindən sistemə daxil edilən marketinq brifləri, aydınlaşdırma sorğularına cavablar, generasiya olunmuş analitik nəticələr, söhbət tarixçəsi, planlaşdırılan tapşırıqlar və arxiv qeydləri.</p>
-          <p><strong>2.3. Texniki və Təhlükəsizlik Göstəriciləri:</strong> İstifadəçinin brauzer sessiya açarları, IP ünvanları, sistem hadisələrinin qeydiyyat jurnalları (server logları) və giriş vaxtı göstəriciləri.</p>
+          <p><strong>2.2. Google İstifadəçi Məlumatları (Google OAuth 2.0):</strong> İstifadəçi Platformaya Google hesabı vasitəsilə («Sign in with Google») daxil olduqda, Google tərəfindən yalnız əsas profil məlumatları (istifadəçinin adı, soyadı, e-poçt ünvanı və profil şəklinin URL-i) təqdim olunur. İstifadəçinin Google şifrələrinə, kontaktlarına, Google Drive və ya digər şəxsi sənədlərinə heç bir halda çıxış əldə olunmur və saxlanılmır. Bu məlumatlar yalnız istifadəçi profilini identifikasiya etmək, autentifikasiyanı tamamlamaq və təhlükəsiz sessiyanı idarə etmək üçün istifadə edilir.</p>
+          <p><strong>2.3. Biznes və Məzmun Konteksti:</strong> İstifadəçi tərəfindən sistemə daxil edilən marketinq brifləri, aydınlaşdırma sorğularına cavablar, generasiya olunmuş analitik nəticələr, söhbət tarixçəsi, planlaşdırılan tapşırıqlar və arxiv qeydləri.</p>
+          <p><strong>2.4. Texniki və Təhlükəsizlik Göstəriciləri:</strong> İstifadəçinin brauzer sessiya açarları, IP ünvanları, sistem hadisələrinin qeydiyyat jurnalları (server logları) və giriş vaxtı göstəriciləri.</p>
         </div>
 
         <div class="legal-doc-section">
@@ -1374,28 +1375,36 @@ export const LEGAL_DOCS_I18N = {
         </div>
 
         <div class="legal-doc-section">
-          <h3>5. Məlumatların Saxlanması, İnfrastruktur və Təhlükəsizlik</h3>
-          <p>5.1. Məlumatların bütövlüyü və konfidensiallığı müasir bulud saxlanc infrastrukturları (Cloudflare R2), operativ keşləmə mexanizmləri (Redis) və gücləndirilmiş server mühiti vasitəsilə təmin edilir.</p>
-          <p>5.2. Məlumat bazalarına icazəsiz girişin, məlumat sızmasının və ya dəyişdirilməsinin qarşısını almaq üçün Azərbaycan Respublikasının «İnformasiya, informasiyalaşdırma və informasiyanın mühafizəsi haqqında» Qanununun tələblərinə uyğun təşkilati və proqram-texniki mühafizə tədbirləri tətbiq olunur.</p>
+          <h3>5. Google API Xidmətləri İstifadəçi Məlumatları Siyasətinə Uyğunluq (Limited Use Tələbi)</h3>
+          <p><strong>5.1. Məhdud İstifadə Bəyannaməsi:</strong> Helmer Workspace platformasının Google API-lərindən əldə edilmiş məlumatlardan istifadəsi və onları hər hansı digər tətbiqə ötürməsi, Məhdud İstifadə (Limited Use) tələbləri də daxil olmaqla, <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a> şərtlərinə tam şəkildə uyğundur.</p>
+          <p><strong>5.2. Süni İntellekt Modellərinin Təlimində İstifadə Qadağası:</strong> Google API-ləri vasitəsilə əldə edilən istifadəçi məlumatları (o cümlədən ad, e-poçt və profil göstəriciləri) ümumiləşdirilmiş və ya üçüncü tərəf süni intellekt (AI) və maşın öyrənməsi (ML) modellərinin, o cümlədən böyük dil modellərinin (LLM) təlimi (training, fine-tuning) və ya inkişaf etdirilməsi üçün qəti şəkildə İSTİFADƏ EDİLMİR.</p>
+          <p><strong>5.3. Məlumatların Satılmaması və Reklam Qadağası:</strong> Google istifadəçi məlumatları heç bir halda reklam şəbəkələrinə, məlumat brokerlərinə satılmır, icarəyə verilmir və hədəfli və ya fərdiləşdirilmiş reklam nümayişi üçün istifadə olunmur.</p>
+          <p><strong>5.4. İcazələrin Geri Çağırılması və Məlumatların Silinməsi:</strong> İstifadəçilər platformaya verilmiş Google icazələrini istənilən vaxt birbaşa öz <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Təhlükəsizlik Parametrləri (Üçüncü tərəf tətbiqləri və xidmətləri)</a> səhifəsindən ləğv edə bilərlər. Həmçinin istifadəçilər platformadakı hesabını və toplanmış bütün məlumatlarını tətbiqin ayarlar bölməsindən birbaşa və ya support@helmerworkspace.com / elemanajes@gmail.com ünvanına müraciət edərək tamamilə sildirə bilərlər.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>6. İstifadəçinin Hüquqları və Məlumatların Silinməsi</h3>
+          <h3>6. Məlumatların Saxlanması, İnfrastruktur və Təhlükəsizlik</h3>
+          <p>6.1. Məlumatların bütövlüyü və konfidensiallığı müasir bulud saxlanc infrastrukturları (Cloudflare R2), operativ keşləmə mexanizmləri (Redis) və gücləndirilmiş server mühiti vasitəsilə təmin edilir.</p>
+          <p>6.2. Məlumat bazalarına icazəsiz girişin, məlumat sızmasının və ya dəyişdirilməsinin qarşısını almaq üçün Azərbaycan Respublikasının «İnformasiya, informasiyalaşdırma və informasiyanın mühafizəsi haqqında» Qanununun tələblərinə uyğun təşkilati və proqram-texniki mühafizə tədbirləri tətbiq olunur.</p>
+        </div>
+
+        <div class="legal-doc-section">
+          <h3>7. İstifadəçinin Hüquqları və Məlumatların Silinməsi</h3>
           <p>Azərbaycan Respublikasının «Fərdi məlumatlar haqqında» Qanununa əsasən, İstifadəçi aşağıdakı hüquqlara malikdir:</p>
-          <p>6.1. Öz fərdi məlumatlarının emal edilib-edilməməsi barədə məlumat almaq və onların tərkibi ilə tanış olmaq;</p>
-          <p>6.2. Saxlanılan marketinq strategiyalarını, söhbət tarixçəsini, planlaşdırılan tapşırıqları və fərdiləşdirmə yaddaşını platformanın daxili interfeysi vasitəsilə istənilən vaxt tamamilə və bərpa olunmaz şəkildə silmək;</p>
-          <p>6.3. «Fərdiləşdirilmiş təcrübə» funksiyasına verdiyi razılığı istədiyi an geri çağırmaq və sistemdəki profilinin tam ləğv edilməsini (unudulma hüququnu) tələb etmək.</p>
+          <p>7.1. Öz fərdi məlumatlarının emal edilib-edilməməsi barədə məlumat almaq və onların tərkibi ilə tanış olmaq;</p>
+          <p>7.2. Saxlanılan marketinq strategiyalarını, söhbət tarixçəsini, planlaşdırılan tapşırıqları və fərdiləşdirmə yaddaşını platformanın daxili interfeysi vasitəsilə istənilən vaxt tamamilə və bərpa olunmaz şəkildə silmək;</p>
+          <p>7.3. «Fərdiləşdirilmiş təcrübə» funksiyasına verdiyi razılığı istədiyi an geri çağırmaq və sistemdəki profilinin tam ləğv edilməsini (unudulma hüququnu) tələb etmək.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>7. Siyasətin Dəyişdirilməsi</h3>
-          <p>7.1. Innova Group Azerbaijan qanunvericilikdəki dəyişikliklər və ya platformanın texniki təkamülü ilə əlaqədar bu Siyasətə birtərəfli qaydada dəyişikliklər etmək hüququnu özündə saxlayır.</p>
-          <p>7.2. Yenilənmiş Siyasət Platformada dərc edildiyi andan qüvvəyə minir.</p>
+          <h3>8. Siyasətin Dəyişdirilməsi</h3>
+          <p>8.1. Innova Group Azerbaijan qanunvericilikdəki dəyişikliklər və ya platformanın texniki təkamülü ilə əlaqədar bu Siyasətə birtərəfli qaydada dəyişikliklər etmək hüququnu özündə saxlayır.</p>
+          <p>8.2. Yenilənmiş Siyasət Platformada dərc edildiyi andan qüvvəyə minir.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>8. Əlaqə və Müraciətlər</h3>
-          <p>Fərdi məlumatların emalı, məxfilik hüquqlarının həyata keçirilməsi və ya bu Siyasətlə bağlı müraciətlər üçün İstifadəçilər Platformanın rəsmi əks-əlaqə kanalları və rəqəmsal dəstək interfeysi vasitəsilə əlaqə saxlaya bilərlər.</p>
+          <h3>9. Əlaqə və Müraciətlər</h3>
+          <p>Fərdi məlumatların emalı, məxfilik hüquqlarının həyata keçirilməsi və ya bu Siyasətlə bağlı müraciətlər üçün İstifadəçilər Platformanın rəsmi əlaqə vasitələri (e-poçt: support@helmerworkspace.com və ya elemanajes@gmail.com) və rəqəmsal dəstək interfeysi vasitəsilə əlaqə saxlaya bilərlər. Təşkilat: Innova Group Azerbaijan, Bakı, Azərbaycan. Veb-sayt: https://helmerworkspace.com</p>
         </div>
       `,
     },
@@ -1523,8 +1532,9 @@ export const LEGAL_DOCS_I18N = {
           <h3>2. Categories of Collected Data</h3>
           <p>To provide free services and maintain system security, the Platform processes data across the following categories:</p>
           <p><strong>2.1. Identification & Authentication Data:</strong> User's first name, last name, username, email address, and securely hashed cryptographic authentication identifiers.</p>
-          <p><strong>2.2. Business & Content Context:</strong> User-submitted marketing briefs, clarification responses, generated analytical outputs, conversation history, planner tasks, and archive records.</p>
-          <p><strong>2.3. Technical & Security Telemetry:</strong> Browser session tokens, IP addresses, system audit event logs (server logs), and timestamp records.</p>
+          <p><strong>2.2. Google User Data (Google OAuth 2.0):</strong> When a User signs in using Google («Sign in with Google» / Google OAuth 2.0), the Platform accesses only basic profile information provided by Google (User's full name, email address, and profile picture URL). The Platform never accesses, requests, or stores Google passwords, contacts, Google Drive files, or other private Google account services. This data is utilized solely to authenticate the User, manage active user sessions, and maintain the account profile.</p>
+          <p><strong>2.3. Business & Content Context:</strong> User-submitted marketing briefs, clarification responses, generated analytical outputs, conversation history, planner tasks, and archive records.</p>
+          <p><strong>2.4. Technical & Security Telemetry:</strong> Browser session tokens, IP addresses, system audit event logs (server logs), and timestamp records.</p>
         </div>
 
         <div class="legal-doc-section">
@@ -1543,13 +1553,21 @@ export const LEGAL_DOCS_I18N = {
         </div>
 
         <div class="legal-doc-section">
-          <h3>5. Data Storage, Infrastructure & Security</h3>
+          <h3>5. Google API Services User Data Policy Compliance (Limited Use Requirements)</h3>
+          <p><strong>5.1. Limited Use Disclosure:</strong> Helmer Workspace's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+          <p><strong>5.2. Prohibition on AI/ML Model Training:</strong> Google user data received via Google APIs (including profile information and email address) is never used to train, retrain, fine-tune, or improve generalized artificial intelligence (AI) or machine learning (ML) models, including large language models (LLMs).</p>
+          <p><strong>5.3. Prohibition on Data Sale & Advertising:</strong> Google user data is never sold, rented, leased, or transferred to third-party data brokers or advertising platforms, nor is it used for serving personalized, targeted, or retargeted advertisements.</p>
+          <p><strong>5.4. Access Revocation & Data Deletion:</strong> Users may revoke Helmer Workspace's access to their Google account at any time via their <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Security Settings (Third-party apps & services)</a>. Users can also delete their account and associated data directly through the platform interface or by contacting support@helmerworkspace.com or elemanajes@gmail.com.</p>
+        </div>
+
+        <div class="legal-doc-section">
+          <h3>6. Data Storage, Infrastructure & Security</h3>
           <p>5.1. Data integrity and confidentiality are safeguarded using modern cloud storage infrastructure (Cloudflare R2), high-speed caching mechanisms (Redis), and hardened server environments.</p>
           <p>5.2. Organizational and technical security measures are deployed in compliance with the Law of the Republic of Azerbaijan "On Information, Informatization, and Information Protection" to prevent unauthorized database access, data leaks, or tampering.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>6. User Rights & Data Deletion</h3>
+          <h3>7. User Rights & Data Deletion</h3>
           <p>Under the Law of the Republic of Azerbaijan "On Personal Data", Users have the right to:</p>
           <p>6.1. Obtain confirmation and information regarding whether their personal data is being processed, including its composition;</p>
           <p>6.2. Permanently and irreversibly delete stored marketing strategies, chat histories, planner tasks, and personalization memory directly through the platform interface at any time;</p>
@@ -1557,14 +1575,14 @@ export const LEGAL_DOCS_I18N = {
         </div>
 
         <div class="legal-doc-section">
-          <h3>7. Policy Modifications</h3>
+          <h3>8. Policy Modifications</h3>
           <p>7.1. Innova Group Azerbaijan reserves the right to unilaterally update this Policy in response to statutory changes or technical evolutions of the Platform.</p>
           <p>7.2. The updated Policy takes effect immediately upon publication on the Platform.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>8. Contact & Inquiries</h3>
-          <p>For inquiries regarding personal data processing, privacy rights, or this Policy, Users may reach out through the Platform’s official feedback channels and digital support interface.</p>
+          <h3>9. Contact & Inquiries</h3>
+          <p>For inquiries regarding personal data processing, privacy rights, or this Policy, Users may reach out through the Platform’s official contact channels (email: support@helmerworkspace.com or elemanajes@gmail.com) and digital support interface. Organization: Innova Group Azerbaijan, Baku, Azerbaijan. Website: https://helmerworkspace.com</p>
         </div>
 
         <div class="legal-doc-precedence">
