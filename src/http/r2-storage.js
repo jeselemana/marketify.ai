@@ -75,3 +75,51 @@ export async function saveJSONToR2(fileName, data) {
     return false;
   }
 }
+
+// Cloudflare R2 bağlantısını və oxuma/yazma qabiliyyətini yoxlamaq
+export async function testR2Connection() {
+  if (!isR2Configured()) {
+    return {
+      configured: false,
+      reason: "Missing R2_ENDPOINT, R2_ACCESS_KEY_ID, or R2_SECRET_ACCESS_KEY",
+    };
+  }
+  const s3 = getS3Client();
+  if (!s3) return { configured: false, reason: "Failed to initialize S3 client" };
+
+  try {
+    const pingKey = "data/_ping.json";
+    const payload = { ping: true, time: new Date().toISOString() };
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: getBucket(),
+        Key: pingKey,
+        Body: JSON.stringify(payload),
+        ContentType: "application/json",
+      })
+    );
+    const getRes = await s3.send(
+      new GetObjectCommand({
+        Bucket: getBucket(),
+        Key: pingKey,
+      })
+    );
+    const str = await getRes.Body.transformToString();
+    const parsed = JSON.parse(str || "{}");
+    return {
+      configured: true,
+      accessible: true,
+      bucket: getBucket(),
+      pingSuccess: parsed.ping === true,
+      timestamp: parsed.time,
+    };
+  } catch (err) {
+    return {
+      configured: true,
+      accessible: false,
+      bucket: getBucket(),
+      error: err.message,
+      code: err.name || err.Code || err.$metadata?.httpStatusCode,
+    };
+  }
+}

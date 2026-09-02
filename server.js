@@ -1,4 +1,4 @@
-import { isR2Configured, loadJSONFromR2, saveJSONToR2 } from "./src/http/r2-storage.js";
+import { isR2Configured, loadJSONFromR2, saveJSONToR2, testR2Connection } from "./src/http/r2-storage.js";
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -65,6 +65,10 @@ const APP_PORT = process.env.PORT || 5050;
 const APP_URL = process.env.APP_URL || `http://localhost:${APP_PORT}`;
 const trustedOrigins = new Set([
   APP_URL.replace(/\/$/, ""),
+  "https://helmerworkspace.com",
+  "https://www.helmerworkspace.com",
+  "http://helmerworkspace.com",
+  "http://www.helmerworkspace.com",
   ...String(process.env.TRUSTED_ORIGINS || "")
     .split(",")
     .map((origin) => origin.trim().replace(/\/$/, ""))
@@ -145,6 +149,20 @@ app.get("/manifest.json", (req, res) => {
   return res.sendFile(path.join(__dirname, "public", "manifest.json"));
 });
 
+// 🩺 Health & Storage Diagnostics
+app.get("/api/health", (req, res) => {
+  return res.json({
+    status: "ok",
+    app: "Helmer",
+    storage: {
+      r2Configured: isR2Configured(),
+      redisReady: Boolean(redis?.isReady),
+    },
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get(["/favicon.ico", "/favicon.png", "/MarketifyAINewFavicon.png", "/MarketifyAIpwaicon.png", "/pwa-icon.png"], (req, res) => {
   res.setHeader("Content-Type", "image/png");
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -182,18 +200,28 @@ const adminUsernames = new Set(
     .filter(Boolean)
 );
 
-// Initial sync with Cloudflare R2 / Redis / File on startup
-if (isR2Configured()) {
-  console.log("☁️ Cloudflare R2 storage active.");
-}
-Promise.allSettled([
-  userRepository.readStore(),
-  strategyRepository.readAll(),
-  chatRepository.readAll(),
-  plannerRepository.readAll(),
-]).then(() => {
+async function syncAllStores() {
+  if (isR2Configured()) {
+    console.log("☁️ Cloudflare R2 storage active. Starting initial sync...");
+  }
+  const syncResults = await Promise.allSettled([
+    typeof userRepository.syncFromR2 === "function" ? userRepository.syncFromR2() : userRepository.readStore(),
+    typeof authStore.syncFromR2 === "function" ? authStore.syncFromR2() : (authStore.read ? authStore.read() : Promise.resolve()),
+    strategyRepository.readAll(),
+    chatRepository.readAll(),
+    plannerRepository.readAll(),
+    typeof aiLearningRepository?.readStore === "function" ? aiLearningRepository.readStore() : Promise.resolve(),
+  ]);
+
+  const failed = syncResults.filter((r) => r.status === "rejected");
+  if (failed.length > 0) {
+    console.warn("⚠️ Some store sync operations reported errors:", failed.map((f) => f.reason?.message || f.reason));
+  } else {
+    console.log("✅ All persistent stores synchronized from storage.");
+  }
+
   userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore }).catch(() => {});
-}).catch(() => {});
+}
 
 // Periodic background check for expired account deletion (every 1 hour)
 setInterval(() => {
@@ -219,6 +247,23 @@ app.use("/api/strategy", createStrategyRouter(strategyRepository, learningLoop))
 app.use("/api/planner", createPlannerRouter(plannerRepository));
 app.use("/api/learning/signals", createAiLearningSignalRouter(learningLoop));
 app.use("/admin/api/ai-learning", requireAuth, requireAdmin, createAiLearningAdminRouter(learningLoop));
+app.get("/admin/api/storage-status", requireAuth, requireAdmin, async (req, res) => {
+  const r2Test = await testR2Connection();
+  const userStore = await userRepository.readStore();
+  const authData = typeof authStore.read === "function" ? await authStore.read() : null;
+  return res.json({
+    r2: r2Test,
+    redis: {
+      configured: Boolean(process.env.REDIS_URL),
+      isReady: Boolean(redis?.isReady),
+    },
+    counts: {
+      users: userStore?.users?.length || 0,
+      activeSessions: Object.keys(authData?.sessions || {}).length,
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
 
 const legalReportRateMap = new Map();
 function isLegalReportRateLimited(key) {
@@ -1609,13 +1654,24 @@ app.get("*", (req, res) => {
 });
 
 const PORT = APP_PORT;
-app.listen(PORT, "0.0.0.0", () =>
-  console.log(`✅ Helmer is live on port ${PORT}`)
-);
 
-// 🔁 Render üçün keep-alive
-setInterval(() => {
-  fetch(process.env.APP_URL || "https://helmerworkspace.com").catch(() =>
-    console.log("⚠️ Keep-alive ping alınmadı")
+async function startServer() {
+  try {
+    await syncAllStores();
+  } catch (err) {
+    console.error("⚠️ Initial store sync error during startup:", err);
+  }
+
+  app.listen(PORT, "0.0.0.0", () =>
+    console.log(`✅ Helmer is live on port ${PORT}`)
   );
-}, 10 * 60 * 1000);
+
+  // 🔁 Render üçün keep-alive
+  setInterval(() => {
+    fetch(process.env.APP_URL || "https://helmerworkspace.com").catch(() =>
+      console.log("⚠️ Keep-alive ping alınmadı")
+    );
+  }, 10 * 60 * 1000);
+}
+
+startServer();

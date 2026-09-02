@@ -46,9 +46,12 @@ export function createIdentityMiddleware({ authStore, userRepository }) {
         clearSessionCookie(req, res);
         return next();
       }
-      const user = await userRepository.findById(session.userId);
+      let user = await userRepository.findById(session.userId);
+      if (!user && typeof userRepository.syncFromR2 === "function") {
+        await userRepository.syncFromR2(true).catch(() => {});
+        user = await userRepository.findById(session.userId);
+      }
       if (!user) {
-        await authStore.deleteSession(sessionId);
         clearSessionCookie(req, res);
         return next();
       }

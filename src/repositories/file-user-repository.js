@@ -19,6 +19,9 @@ export class FileUserRepository {
     this.redis = redis;
     this.redisKey = "marketify:store:users";
     this.writeQueue = Promise.resolve();
+    this.cache = null;
+    this.lastR2Sync = 0;
+    this.syncPromise = null;
   }
 
   async ensure() {
@@ -30,65 +33,105 @@ export class FileUserRepository {
     }
   }
 
-  async readStore() {
-    // 1. Try Cloudflare R2 first
-    try {
-      const r2Data = await loadJSONFromR2("users.json");
-      if (r2Data && Array.isArray(r2Data.users) && r2Data.users.length > 0) {
-        const store = migrateAuthUserStore(r2Data);
-        await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-        const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
-        await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
-        await fs.rename(temporaryPath, this.filePath).catch(() => {});
-        if (this.redis?.isReady) {
-          await this.redis.set(this.redisKey, JSON.stringify(store)).catch(() => {});
-        }
-        return store;
-      }
-    } catch (err) {
-      console.error("R2 user read error:", err?.message || err);
-    }
+  async syncFromR2(force = false) {
+    if (this.syncPromise) return this.syncPromise;
 
-    // 2. Try Redis
-    if (this.redis?.isReady) {
+    this.syncPromise = (async () => {
+      let localStore = null;
       try {
-        const raw = await this.redis.get(this.redisKey);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const store = migrateAuthUserStore(parsed);
+        const raw = await fs.readFile(this.filePath, "utf8");
+        localStore = JSON.parse(raw || "{}");
+      } catch {}
+
+      try {
+        const r2Data = await loadJSONFromR2("users.json");
+        const userMap = new Map();
+
+        // 1. R2-dən gələn istifadəçilər
+        if (r2Data && Array.isArray(r2Data.users)) {
+          for (const u of r2Data.users) {
+            if (u?.id) userMap.set(u.id, u);
+          }
+        }
+
+        // 2. Lokal diskdəki istifadəçilərlə birləşdirmək (merge)
+        if (localStore && Array.isArray(localStore.users)) {
+          for (const lu of localStore.users) {
+            if (!lu?.id) continue;
+            const existing = userMap.get(lu.id);
+            if (!existing) {
+              userMap.set(lu.id, lu);
+            } else {
+              const luTime = new Date(lu.updatedAt || lu.createdAt || 0).getTime();
+              const exTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+              userMap.set(lu.id, luTime >= exTime ? { ...existing, ...lu } : { ...lu, ...existing });
+            }
+          }
+        }
+
+        if (userMap.size > 0) {
+          const mergedUsers = Array.from(userMap.values());
+          const store = migrateAuthUserStore({ schemaVersion: 2, users: mergedUsers });
+
           await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-          const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
+          const temporaryPath = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
           await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
           await fs.rename(temporaryPath, this.filePath).catch(() => {});
-          await saveJSONToR2("users.json", store).catch(() => {});
+
+          this.cache = store;
+          this.lastR2Sync = Date.now();
+
+          if (this.redis?.isReady) {
+            await this.redis.set(this.redisKey, JSON.stringify(store)).catch(() => {});
+          }
+
+          if (r2Data?.users && mergedUsers.length > r2Data.users.length) {
+            saveJSONToR2("users.json", store).catch(() => {});
+          }
+
           return store;
         }
       } catch (err) {
-        console.error("Redis user read error:", err?.message || err);
+        console.error("R2 user sync error:", err?.message || err);
       }
-    }
 
-    // 3. Try Local File
-    await this.ensure();
+      if (localStore && Array.isArray(localStore.users)) {
+        this.cache = migrateAuthUserStore(localStore);
+        return this.cache;
+      }
+
+      return this.cache || migrateAuthUserStore(null);
+    })();
+
+    try {
+      return await this.syncPromise;
+    } finally {
+      this.syncPromise = null;
+    }
+  }
+
+  async readStore() {
+    if (this.cache) return this.cache;
+
+    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
     try {
       const raw = await fs.readFile(this.filePath, "utf8");
       const store = migrateAuthUserStore(JSON.parse(raw || "{}"));
-      if (store.users.length > 0) {
-        if (this.redis?.isReady) {
-          await this.redis.set(this.redisKey, JSON.stringify(store)).catch(() => {});
-        }
-        await saveJSONToR2("users.json", store).catch(() => {});
-      }
+      this.cache = store;
       return store;
     } catch (error) {
+      if (error.code === "ENOENT") {
+        return await this.syncFromR2(true);
+      }
       if (error instanceof SyntaxError) throw new Error("User storage contains invalid JSON.");
       throw error;
     }
   }
 
   async writeStore(store) {
+    this.cache = store;
     await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-    const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
+    const temporaryPath = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
     await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
     await fs.rename(temporaryPath, this.filePath);
 
@@ -100,7 +143,9 @@ export class FileUserRepository {
       }
     }
 
-    await saveJSONToR2("users.json", store).catch(() => {});
+    await saveJSONToR2("users.json", store).catch((err) => {
+      console.error("⚠️ Failed to save users to R2:", err?.message || err);
+    });
   }
 
   enqueue(operation) {
@@ -110,7 +155,12 @@ export class FileUserRepository {
 
   async findById(id) {
     const { users } = await this.readStore();
-    return users.find((user) => user.id === id) || null;
+    let user = users.find((item) => item.id === id);
+    if (!user && Date.now() - this.lastR2Sync > 15000) {
+      const freshStore = await this.syncFromR2(true);
+      user = freshStore.users?.find((item) => item.id === id) || null;
+    }
+    return user || null;
   }
 
   async findByUsername(username) {

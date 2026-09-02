@@ -10,44 +10,98 @@ export class FileAuthStore {
   constructor(filePath) {
     this.filePath = filePath;
     this.queue = Promise.resolve();
+    this.cache = null;
+    this.lastR2Sync = 0;
+    this.syncPromise = null;
+  }
+
+  async syncFromR2(force = false) {
+    if (this.syncPromise) return this.syncPromise;
+
+    this.syncPromise = (async () => {
+      let localStore = null;
+      try {
+        const raw = await fs.readFile(this.filePath, "utf8");
+        localStore = JSON.parse(raw || "{}");
+      } catch {}
+
+      try {
+        const r2Data = await loadJSONFromR2("auth-store.json");
+        if (r2Data && typeof r2Data === "object") {
+          const localSessions = localStore?.sessions || {};
+          const r2Sessions = r2Data.sessions || {};
+          const mergedSessions = { ...r2Sessions, ...localSessions };
+          const now = Date.now();
+          for (const [key, value] of Object.entries(mergedSessions)) {
+            if (value.expiresAt <= now) delete mergedSessions[key];
+          }
+
+          const merged = {
+            ...emptyStore(),
+            ...r2Data,
+            ...(localStore || {}),
+            sessions: mergedSessions,
+          };
+
+          await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+          const temporaryPath = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
+          await fs.writeFile(temporaryPath, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
+          await fs.rename(temporaryPath, this.filePath).catch(() => {});
+
+          this.cache = merged;
+          this.lastR2Sync = Date.now();
+
+          // Əgər lokalda R2-dən fərqli sessiya varsa, R2-yə də yaz
+          if (Object.keys(localSessions).length > 0 && Object.keys(mergedSessions).length > Object.keys(r2Sessions).length) {
+            saveJSONToR2("auth-store.json", merged).catch(() => {});
+          }
+
+          return merged;
+        }
+      } catch (err) {
+        console.error("R2 auth-store sync error:", err?.message || err);
+      }
+
+      if (localStore) {
+        this.cache = { ...emptyStore(), ...localStore };
+        return this.cache;
+      }
+      return this.cache || emptyStore();
+    })();
+
+    try {
+      return await this.syncPromise;
+    } finally {
+      this.syncPromise = null;
+    }
   }
 
   async read() {
-    try {
-      const r2Data = await loadJSONFromR2("auth-store.json");
-      if (r2Data && typeof r2Data === "object" && Object.keys(r2Data.sessions || {}).length > 0) {
-        const store = { ...emptyStore(), ...r2Data };
-        await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-        const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
-        await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
-        await fs.rename(temporaryPath, this.filePath).catch(() => {});
-        return store;
-      }
-    } catch (err) {
-      console.error("R2 auth-store read error:", err?.message || err);
-    }
+    if (this.cache) return this.cache;
 
     await fs.mkdir(path.dirname(this.filePath), { recursive: true });
     try {
       const raw = await fs.readFile(this.filePath, "utf8");
       const parsed = JSON.parse(raw || "{}");
-      const store = { ...emptyStore(), ...parsed };
-      if (Object.keys(store.sessions).length > 0) {
-        await saveJSONToR2("auth-store.json", store).catch(() => {});
-      }
-      return store;
+      this.cache = { ...emptyStore(), ...parsed };
+      return this.cache;
     } catch (error) {
-      if (error.code === "ENOENT") return emptyStore();
+      if (error.code === "ENOENT") {
+        return await this.syncFromR2(true);
+      }
       throw error;
     }
   }
 
   async write(store) {
+    this.cache = store;
     await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-    const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
+    const temporaryPath = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
     await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
     await fs.rename(temporaryPath, this.filePath);
-    await saveJSONToR2("auth-store.json", store).catch(() => {});
+    await saveJSONToR2("auth-store.json", store).catch((err) => {
+      console.error("⚠️ Failed to save auth-store to R2:", err?.message || err);
+    });
   }
 
   mutate(callback) {
@@ -82,10 +136,16 @@ export class FileAuthStore {
 
   async getSession(id) {
     const store = await this.read();
-    const session = store.sessions[id];
-    if (!session) return null;
-    if (session.expiresAt <= Date.now()) return null;
-    return session;
+    let session = store.sessions[id];
+    if (session && session.expiresAt > Date.now()) return session;
+
+    // Əgər lokal keşdə tapılmadısa və R2 aktivdirsə, R2-dən yeniləməyi yoxla
+    if (Date.now() - this.lastR2Sync > 15000) {
+      const freshStore = await this.syncFromR2(true);
+      session = freshStore.sessions[id];
+      if (session && session.expiresAt > Date.now()) return session;
+    }
+    return null;
   }
 
   async deleteSession(id) {
