@@ -5424,8 +5424,8 @@ function updateWorkspaceIdentity(user) {
   state.currentUser = user;
   const isEn = getLanguage() === "en";
   if (!user) {
-    workspaceAvatar.textContent = "M";
-    railWorkspaceAvatar.textContent = "M";
+    workspaceAvatar.textContent = "H";
+    railWorkspaceAvatar.textContent = "H";
     workspaceName.textContent = "Helmer";
     workspaceMeta.textContent = isEn ? "Guest session · account recommended" : "Hesabsız istifadə · hesab yaratmaq tövsiyə olunur";
     return;
@@ -5435,7 +5435,7 @@ function updateWorkspaceIdentity(user) {
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0]?.toLocaleUpperCase("az"))
-    .join("") || "M";
+    .join("") || "H";
   workspaceAvatar.textContent = initials;
   railWorkspaceAvatar.textContent = initials;
   workspaceName.textContent = user.fullName;

@@ -139,6 +139,20 @@ app.get("/sitemap.xml", (req, res) => {
   return res.sendFile(path.join(__dirname, "public", "sitemap.xml"));
 });
 
+app.get("/manifest.json", (req, res) => {
+  res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  return res.sendFile(path.join(__dirname, "public", "manifest.json"));
+});
+
+app.get(["/favicon.ico", "/favicon.png", "/MarketifyAINewFavicon.png", "/MarketifyAIpwaicon.png", "/pwa-icon.png"], (req, res) => {
+  res.setHeader("Content-Type", "image/png");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  return res.sendFile(path.join(__dirname, "public", "MarketifyAINewFavicon.png"));
+});
+
 app.use(express.static("public", { index: false }));
 
 const openai = process.env.OPENAI_API_KEY
