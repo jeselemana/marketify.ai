@@ -1848,14 +1848,11 @@ function renderAsk() {
     const hasFile = Boolean(state.askPendingFile);
     if (message.length >= 2 || hasFile) {
       submitAskMessage(message, state.askPendingFile);
-      scrollAskToBottom({ behavior: "smooth" });
     }
   });
 
   requestAnimationFrame(() => {
-    if (state.askMessages.length) {
-      scrollAskToBottom({ behavior: state.askLoading ? "smooth" : "auto" });
-    }
+    if (state.askMessages.length) composerArea.scrollIntoView({ block: "end" });
     if (!state.askLoading && window.innerWidth > 767) input.focus();
   });
 }
@@ -2109,41 +2106,6 @@ function updateActiveAskThinkingStatus(message) {
   }
 }
 
-function scrollAskToBottom({ behavior = "smooth", instant = false } = {}) {
-  const mode = instant ? "instant" : behavior;
-  const doScroll = () => {
-    const scrollTarget = Math.max(
-      document.documentElement.scrollHeight,
-      document.body.scrollHeight,
-      document.scrollingElement?.scrollHeight || 0
-    );
-    window.scrollTo({ top: scrollTarget, behavior: mode });
-
-    const composerArea = document.querySelector(".ask-composer-area");
-    if (composerArea) {
-      composerArea.scrollIntoView({ behavior: mode, block: "end" });
-    }
-
-    const thread = document.querySelector(".ask-thread");
-    const lastMsg = thread?.lastElementChild;
-    if (lastMsg) {
-      lastMsg.scrollIntoView({ behavior: mode, block: "end" });
-    }
-
-    const strategyAskBody = document.querySelector(".strategy-ask-body");
-    if (strategyAskBody) {
-      strategyAskBody.scrollTop = strategyAskBody.scrollHeight;
-    }
-  };
-
-  requestAnimationFrame(() => {
-    doScroll();
-    if (!instant) {
-      setTimeout(doScroll, 80);
-    }
-  });
-}
-
 function updateActiveAskMessageContent(message, showCaret = true) {
   const activeBubble = document.querySelector(".ask-message.is-streaming .ask-message-content");
   if (activeBubble) {
@@ -2155,7 +2117,10 @@ function updateActiveAskMessageContent(message, showCaret = true) {
       const caret = element("span", "ask-answer-caret is-streaming");
       activeBubble.appendChild(caret);
     }
-    scrollAskToBottom({ instant: true });
+    const composerArea = document.querySelector(".ask-composer-area");
+    if (composerArea) composerArea.scrollIntoView({ behavior: "instant", block: "end" });
+    const strategyAskBody = document.querySelector(".strategy-ask-body");
+    if (strategyAskBody) strategyAskBody.scrollTop = strategyAskBody.scrollHeight;
   }
 }
 
@@ -2357,7 +2322,6 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   freshAskResponses.add(assistantMsg);
   trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: chosenModel, hasFile: Boolean(fileToAttach) });
   render();
-  scrollAskToBottom({ behavior: "smooth" });
 
   let typewriter = null;
   let accumulatedFullText = "";
@@ -5377,7 +5341,6 @@ async function openSavedChat(chatId) {
     syncMode();
     syncNav();
     render();
-    scrollAskToBottom({ instant: true });
     closeSidebar();
   } catch (error) {
     showToast(isEn ? "Unable to load chat." : "Söhbəti yükləmək mümkün olmadı.", "error");
