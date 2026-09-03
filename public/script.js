@@ -499,11 +499,17 @@ let currentAbortController = null;
 async function api(path, options = {}) {
   let response;
   const isEn = getLanguage() === "en";
+  const currentLang = isEn ? "en" : "az";
   try {
     response = await fetch(path, {
       ...options,
       signal: options.signal,
-      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      headers: {
+        "Content-Type": "application/json",
+        "Accept-Language": currentLang,
+        "X-Helmer-Language": currentLang,
+        ...(options.headers || {}),
+      },
     });
   } catch (error) {
     if (error.name === "AbortError" || options.signal?.aborted) {
@@ -1291,39 +1297,46 @@ function renderAsk() {
               recordLearningSignal(message.interactionId, { copied: true });
               copy.classList.add("is-copied");
               copy.title = isEn ? "Copied" : "Kopyalandı";
-              copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+              copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
               setTimeout(() => {
                 copy.classList.remove("is-copied");
                 copy.title = isEn ? "Copy" : "Kopyala";
-                copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+                copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
               }, 1800);
             }
           });
           copy.type = "button";
           copy.setAttribute("aria-label", isEn ? "Copy response" : "Cavabı kopyala");
           copy.title = isEn ? "Copy" : "Kopyala";
-          copy.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+          copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
 
           actions.append(copy);
 
-          const positive = button("", `ask-response-action${message.feedback === "positive" ? " is-selected" : ""}`, () => {
-            message.feedback = "positive";
-            recordLearningSignal(message.interactionId, { explicitRating: "positive", accepted: true });
+          const positive = button("", `ask-response-action ask-response-positive-btn${message.feedback === "positive" ? " is-selected" : ""}`, () => {
+            const nextFeedback = message.feedback === "positive" ? null : "positive";
+            message.feedback = nextFeedback;
+            if (nextFeedback) {
+              recordLearningSignal(message.interactionId, { explicitRating: "positive", accepted: true });
+            }
             render();
           });
           positive.type = "button";
           positive.title = isEn ? "Helpful response" : "Cavabı bəyən";
           positive.setAttribute("aria-label", isEn ? "Helpful response" : "Cavabı bəyən");
-          positive.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v10"/><path d="M3 10h4v10H3z"/><path d="M7 20h9.3a2 2 0 0 0 1.9-1.4l2.2-7A2 2 0 0 0 18.5 9H14l.7-3.4A2.7 2.7 0 0 0 12 2.3L7 10Z"/></svg>';
-          const negative = button("", `ask-response-action${message.feedback === "negative" ? " is-selected" : ""}`, () => {
-            message.feedback = "negative";
-            recordLearningSignal(message.interactionId, { explicitRating: "negative" });
+          positive.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+
+          const negative = button("", `ask-response-action ask-response-negative-btn${message.feedback === "negative" ? " is-selected" : ""}`, () => {
+            const nextFeedback = message.feedback === "negative" ? null : "negative";
+            message.feedback = nextFeedback;
+            if (nextFeedback) {
+              recordLearningSignal(message.interactionId, { explicitRating: "negative" });
+            }
             render();
           });
           negative.type = "button";
           negative.title = isEn ? "Unhelpful response" : "Cavabı bəyənmə";
           negative.setAttribute("aria-label", isEn ? "Unhelpful response" : "Cavabı bəyənmə");
-          negative.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 14V4"/><path d="M3 4h4v10H3z"/><path d="M7 4h9.3a2 2 0 0 1 1.9 1.4l2.2 7A2 2 0 0 1 18.5 15H14l.7 3.4a2.7 2.7 0 0 1-2.7 3.3L7 14Z"/></svg>';
+          negative.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>';
           actions.append(positive, negative);
 
           const moreMenu = document.createElement("details");
@@ -1332,10 +1345,10 @@ function renderAsk() {
           moreTrigger.setAttribute("aria-label", isEn ? "More actions" : "Seçimlər");
           moreTrigger.title = isEn ? "More actions" : "Daha çox";
           moreTrigger.innerHTML = `
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-              <circle cx="5" cy="12" r="1.8"></circle>
-              <circle cx="12" cy="12" r="1.8"></circle>
-              <circle cx="19" cy="12" r="1.8"></circle>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <circle cx="5" cy="12" r="2"></circle>
+              <circle cx="12" cy="12" r="2"></circle>
+              <circle cx="19" cy="12" r="2"></circle>
             </svg>
           `;
 
@@ -1835,11 +1848,14 @@ function renderAsk() {
     const hasFile = Boolean(state.askPendingFile);
     if (message.length >= 2 || hasFile) {
       submitAskMessage(message, state.askPendingFile);
+      scrollAskToBottom({ behavior: "smooth" });
     }
   });
 
   requestAnimationFrame(() => {
-    if (state.askMessages.length) composerArea.scrollIntoView({ block: "end" });
+    if (state.askMessages.length) {
+      scrollAskToBottom({ behavior: state.askLoading ? "smooth" : "auto" });
+    }
     if (!state.askLoading && window.innerWidth > 767) input.focus();
   });
 }
@@ -2093,6 +2109,41 @@ function updateActiveAskThinkingStatus(message) {
   }
 }
 
+function scrollAskToBottom({ behavior = "smooth", instant = false } = {}) {
+  const mode = instant ? "instant" : behavior;
+  const doScroll = () => {
+    const scrollTarget = Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+      document.scrollingElement?.scrollHeight || 0
+    );
+    window.scrollTo({ top: scrollTarget, behavior: mode });
+
+    const composerArea = document.querySelector(".ask-composer-area");
+    if (composerArea) {
+      composerArea.scrollIntoView({ behavior: mode, block: "end" });
+    }
+
+    const thread = document.querySelector(".ask-thread");
+    const lastMsg = thread?.lastElementChild;
+    if (lastMsg) {
+      lastMsg.scrollIntoView({ behavior: mode, block: "end" });
+    }
+
+    const strategyAskBody = document.querySelector(".strategy-ask-body");
+    if (strategyAskBody) {
+      strategyAskBody.scrollTop = strategyAskBody.scrollHeight;
+    }
+  };
+
+  requestAnimationFrame(() => {
+    doScroll();
+    if (!instant) {
+      setTimeout(doScroll, 80);
+    }
+  });
+}
+
 function updateActiveAskMessageContent(message, showCaret = true) {
   const activeBubble = document.querySelector(".ask-message.is-streaming .ask-message-content");
   if (activeBubble) {
@@ -2104,10 +2155,7 @@ function updateActiveAskMessageContent(message, showCaret = true) {
       const caret = element("span", "ask-answer-caret is-streaming");
       activeBubble.appendChild(caret);
     }
-    const composerArea = document.querySelector(".ask-composer-area");
-    if (composerArea) composerArea.scrollIntoView({ behavior: "instant", block: "end" });
-    const strategyAskBody = document.querySelector(".strategy-ask-body");
-    if (strategyAskBody) strategyAskBody.scrollTop = strategyAskBody.scrollHeight;
+    scrollAskToBottom({ instant: true });
   }
 }
 
@@ -2309,6 +2357,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   freshAskResponses.add(assistantMsg);
   trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: chosenModel, hasFile: Boolean(fileToAttach) });
   render();
+  scrollAskToBottom({ behavior: "smooth" });
 
   let typewriter = null;
   let accumulatedFullText = "";
@@ -3356,6 +3405,7 @@ async function startAssessment() {
         brief: state.brief,
         answers: state.answers,
         round: state.round,
+        language: getLanguage(),
       }),
     });
     currentAbortController = null;
@@ -3523,12 +3573,15 @@ async function startGeneration() {
         headers: {
           "Content-Type": "application/json",
           "Accept": "text/event-stream",
+          "Accept-Language": getLanguage() === "en" ? "en" : "az",
+          "X-Helmer-Language": getLanguage(),
         },
         body: JSON.stringify({
           brief: state.brief,
           answers: state.answers,
           assumptions: state.assumptions,
           idempotencyKey: state.clientSaveId,
+          language: getLanguage(),
         }),
         signal: currentAbortController.signal,
       });
@@ -3606,6 +3659,7 @@ async function startGeneration() {
           answers: state.answers,
           assumptions: state.assumptions,
           idempotencyKey: state.clientSaveId,
+          language: getLanguage(),
         }),
       });
       finalStrategy = data.strategy;
@@ -3639,7 +3693,7 @@ async function startGeneration() {
         createdAt: state.updatedAt,
       },
     ];
-    trackEvent("strategy_generated", { clarificationRounds: state.round, model: "gpt-5.6-terra" });
+    trackEvent("strategy_generated", { clarificationRounds: state.round, model: "gemini-3.8-flash" });
     setStatus("ready");
     render();
   } catch (error) {
@@ -4644,7 +4698,7 @@ function buildStrategyAskMessage(message, messageIndex) {
     copy.type = "button";
     copy.title = isEn ? "Copy" : "Kopyala";
     copy.setAttribute("aria-label", isEn ? "Copy response" : "Cavabı kopyala");
-    copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
     actions.appendChild(copy);
 
     if (message.groundingMetadata) {
@@ -5173,6 +5227,7 @@ async function requestRefinement(action, request) {
         strategy: state.strategy,
         action,
         request,
+        language: getLanguage(),
       }),
     });
     const record = data.strategy;
@@ -5322,6 +5377,7 @@ async function openSavedChat(chatId) {
     syncMode();
     syncNav();
     render();
+    scrollAskToBottom({ instant: true });
     closeSidebar();
   } catch (error) {
     showToast(isEn ? "Unable to load chat." : "Söhbəti yükləmək mümkün olmadı.", "error");

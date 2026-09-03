@@ -61,7 +61,7 @@ if (redis) {
 const app = express();
 app.set("trust proxy", 1);
 
-const APP_PORT = process.env.PORT || 5050;
+const APP_PORT = process.env.PORT || 8080;
 const APP_URL = process.env.APP_URL || `http://localhost:${APP_PORT}`;
 const trustedOrigins = new Set([
   APP_URL.replace(/\/$/, ""),
@@ -91,9 +91,25 @@ function currentRequestOrigin(req) {
 
 function isTrustedRequestOrigin(req, origin) {
   const normalized = normalizeOrigin(origin);
-  return Boolean(normalized) && (
-    normalized === normalizeOrigin(currentRequestOrigin(req)) || trustedOrigins.has(normalized)
-  );
+  if (!normalized) return false;
+  if (
+    normalized === normalizeOrigin(currentRequestOrigin(req)) ||
+    trustedOrigins.has(normalized)
+  ) {
+    return true;
+  }
+  try {
+    const parsed = new URL(normalized);
+    if (
+      parsed.hostname.endsWith(".run.app") ||
+      parsed.hostname.endsWith(".workers.dev") ||
+      parsed.hostname === "helmerworkspace.com" ||
+      parsed.hostname.endsWith(".helmerworkspace.com")
+    ) {
+      return true;
+    }
+  } catch {}
+  return false;
 }
 
 app.use((req, res, next) => {
@@ -102,8 +118,8 @@ app.use((req, res, next) => {
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
-   "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
-"Content-Security-Policy": "default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*.googleusercontent.com https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://accounts.google.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+    "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*.googleusercontent.com https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://accounts.google.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
   });
   next();
 });
@@ -112,11 +128,7 @@ app.use(cors((req, callback) => {
   if (!origin || isTrustedRequestOrigin(req, origin)) {
     return callback(null, { credentials: true, origin: origin || false });
   }
-  {
-    const error = new Error("Origin is not allowed.");
-    error.code = "ORIGIN_NOT_ALLOWED";
-    return callback(error);
-  }
+  return callback(null, { credentials: false, origin: false });
 }));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ limit: "25mb", extended: true }));
@@ -650,7 +662,7 @@ async function generateOpenAIAskStreamResponse({
   } catch (responsesErr) {
     // Once a response has started, switching providers would duplicate text in
     // the user's live bubble. Surface the interrupted stream instead.
-    if (accumulated.trim()) throw responsesErr;
+    if (accumulated.trim() || signal?.aborted || responsesErr?.name === "AbortError") throw responsesErr;
     console.warn("OpenAI Responses stream failed, trying chat completions:", responsesErr?.message);
   }
 
@@ -1399,7 +1411,11 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       if (typeof res.flushHeaders === "function") res.flushHeaders();
 
       const abortController = new AbortController();
-      req.on("close", () => abortController.abort());
+      res.on("close", () => {
+        if (!res.writableEnded) {
+          abortController.abort();
+        }
+      });
 
       if (isGemini && enableSearch) {
         res.write(`data: ${JSON.stringify({ status: "searching", statusText: "Vebdə axtarıram", model: activeModel })}\n\n`);
@@ -1482,8 +1498,14 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           latencyMs: Date.now() - learningStartedAt, requestStatus: "error",
           errorType: streamErr?.code || streamErr?.name || "ASK_STREAM_ERROR",
         }), "Ask stream failure logging");
-        res.write(`data: ${JSON.stringify({ error: streamErr?.message || "Xəta baş verdi" })}\n\n`);
-        return res.end();
+        if (!res.writableEnded && !res.destroyed) {
+          const isEn = req.headers["accept-language"]?.includes("en");
+          const userFriendlyError = streamErr?.message === "Request was aborted."
+            ? (isEn ? "Request was canceled." : "Sorğu dayandırıldı.")
+            : (streamErr?.message || "Xəta baş verdi");
+          res.write(`data: ${JSON.stringify({ error: userFriendlyError })}\n\n`);
+          return res.end();
+        }
       }
     }
 

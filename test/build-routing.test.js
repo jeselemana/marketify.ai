@@ -200,4 +200,58 @@ test("strategy router POST /generate returns existing saved strategy if clientSa
   assert.equal(response.body?.strategy?.title, "Pre-existing Strategy");
 });
 
+test("build mode defaults to gemini-3.8-flash with High thinking and gpt-5.6-terra fallback", async () => {
+  const { aiConfig } = await import("../src/services/ai/config.js");
+  assert.equal(aiConfig.strategyModel, "gemini-3.8-flash");
+  assert.equal(aiConfig.strategyFallbackModel, "gpt-5.6-terra");
+  assert.equal(aiConfig.strategyThinkingLevel, "HIGH");
+});
+
+test("formatGeminiResponseSchema transforms StrategyAssessmentSchema and StrategySchema for Vertex AI", async () => {
+  const { formatGeminiResponseSchema } = await import("../src/services/ai/llm-router.js");
+  const { StrategyAssessmentSchema, StrategySchema } = await import("../src/domain/strategy.js");
+
+  const assessmentSchema = formatGeminiResponseSchema(StrategyAssessmentSchema, "strategy_assessment");
+  assert.equal(assessmentSchema.type, "object");
+  assert.equal(Array.isArray(assessmentSchema.required), true);
+  assert.equal("$ref" in assessmentSchema, false);
+  assert.equal("definitions" in assessmentSchema, false);
+  assert.equal(assessmentSchema.properties.status.type, "string");
+
+  const strategySchema = formatGeminiResponseSchema(StrategySchema, "helmer_strategy");
+  assert.equal(strategySchema.type, "object");
+  assert.equal(Array.isArray(strategySchema.required), true);
+  assert.equal("$ref" in strategySchema, false);
+  assert.equal("definitions" in strategySchema, false);
+  assert.equal(strategySchema.properties.title.type, "string");
+  assert.equal(strategySchema.properties.sections.type, "array");
+  assert.equal(strategySchema.properties.sections.items.type, "object");
+  assert.equal(strategySchema.properties.actionPlan.items.properties.actions.type, "array");
+});
+
+test("strategy schemas accept optional language property and preserve model separation", async () => {
+  const { AssessRequestSchema, GenerateRequestSchema, RefineRequestSchema } = await import("../src/domain/strategy.js");
+
+  const enAssess = AssessRequestSchema.parse({
+    brief: "Bakıda yeni açılan premium qadın geyim butiki üçün 3 aylıq böyümə planı",
+    language: "en",
+  });
+  assert.equal(enAssess.language, "en");
+  assert.equal("model" in enAssess, false);
+
+  const azAssess = AssessRequestSchema.parse({
+    brief: "Bakıda yeni açılan premium qadın geyim butiki üçün 3 aylıq böyümə planı",
+    language: "az",
+  });
+  assert.equal(azAssess.language, "az");
+
+  const enGen = GenerateRequestSchema.parse({
+    brief: "Bakıda yeni açılan premium qadın geyim butiki üçün 3 aylıq böyümə planı",
+    idempotencyKey: "test-idempotency-key-en",
+    language: "en",
+  });
+  assert.equal(enGen.language, "en");
+});
+
+
 

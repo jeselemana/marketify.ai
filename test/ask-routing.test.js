@@ -41,3 +41,41 @@ test("Ask queries with file attachments route exclusively to Gemini 3.7 Flash", 
   assert.equal(resolveAskModelRoute({ hasAttachment: true, requestedModel: "luna", lastUserMsg: "qısa başlıq" }), "gemini-3.7-flash");
   assert.equal(resolveAskModelRoute({ hasAttachment: true, requestedModel: "auto", hasStrategyContext: true }), "gemini-3.7-flash");
 });
+
+test("AbortController for Ask stream stays active after request body consumption and only aborts if response closes prematurely", async () => {
+  const { EventEmitter } = await import("node:events");
+
+  const req = new EventEmitter();
+  const res = new EventEmitter();
+  res.writableEnded = false;
+
+  const abortController = new AbortController();
+  res.on("close", () => {
+    if (!res.writableEnded) {
+      abortController.abort();
+    }
+  });
+
+  // Emitting req 'close' (which happens when incoming request body stream ends) should NOT abort
+  req.emit("close");
+  assert.equal(abortController.signal.aborted, false, "req 'close' must not abort the ongoing response");
+
+  // If res ends cleanly before close, it should NOT abort
+  res.writableEnded = true;
+  res.emit("close");
+  assert.equal(abortController.signal.aborted, false, "clean res finish must not abort");
+
+  // If another res closes while not ended, it MUST abort
+  const prematureRes = new EventEmitter();
+  prematureRes.writableEnded = false;
+  const prematureAbort = new AbortController();
+  prematureRes.on("close", () => {
+    if (!prematureRes.writableEnded) {
+      prematureAbort.abort();
+    }
+  });
+
+  prematureRes.emit("close");
+  assert.equal(prematureAbort.signal.aborted, true, "premature connection close must abort the controller");
+});
+

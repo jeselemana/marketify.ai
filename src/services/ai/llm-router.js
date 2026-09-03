@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { zodTextFormat } from "openai/helpers/zod";
-import { getOpenAIClient } from "./client.js";
-import { aiConfig, hasOpenAIConfiguration } from "./config.js";
+import { zodTextFormat, zodResponseFormat } from "openai/helpers/zod";
+import { getGeminiClient, getOpenAIClient } from "./client.js";
+import { aiConfig, hasGeminiConfiguration, hasOpenAIConfiguration } from "./config.js";
 
 export class LLMProviderError extends Error {
   constructor(message, { code = "AI_PROVIDER_ERROR", status = 502, model, provider, details = null } = {}) {
@@ -36,7 +36,40 @@ function normalizeStructuredOutput(parsed, name) {
   return parsed;
 }
 
-export async function streamOpenAIContent({ model = aiConfig.strategyModel, instructions, input, onChunk, onUsage, ownerId, signal, maxOutputTokens = aiConfig.strategyMaxOutputTokens, reasoning = "medium" }) {
+export function formatGeminiResponseSchema(schema, name) {
+  const jsonFormat = zodResponseFormat(schema, name);
+  const rawSchema = jsonFormat.json_schema?.schema || jsonFormat;
+  const definitions = rawSchema.definitions || {};
+
+  function resolve(obj) {
+    if (!obj || typeof obj !== "object") return obj;
+    if (Array.isArray(obj)) return obj.map(resolve);
+    if ("$ref" in obj) {
+      const refKey = String(obj["$ref"]).replace("#/definitions/", "");
+      if (definitions[refKey]) {
+        return resolve(JSON.parse(JSON.stringify(definitions[refKey])));
+      }
+    }
+    const res = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (k === "properties" && v && typeof v === "object") {
+        res.properties = {};
+        for (const [propName, propVal] of Object.entries(v)) {
+          res.properties[propName] = resolve(propVal);
+        }
+      } else if (k === "items" && v && typeof v === "object") {
+        res.items = resolve(v);
+      } else if (["type", "required", "enum", "description", "nullable"].includes(k)) {
+        res[k] = Array.isArray(v) ? [...v] : v;
+      }
+    }
+    return res;
+  }
+
+  return resolve(rawSchema);
+}
+
+export async function streamOpenAIContent({ model = aiConfig.strategyFallbackModel || "gpt-5.6-terra", instructions, input, onChunk, onUsage, ownerId, signal, maxOutputTokens = aiConfig.strategyMaxOutputTokens, reasoning = "medium" }) {
   if (!hasOpenAIConfiguration()) {
     throw new LLMProviderError("OpenAI xidməti hələ konfiqurasiya edilməyib. OPENAI_API_KEY əlavə et və yenidən yoxla.", { code: "AI_NOT_CONFIGURED", status: 503, model, provider: "openai" });
   }
@@ -70,11 +103,91 @@ export async function streamOpenAIContent({ model = aiConfig.strategyModel, inst
 }
 
 export async function routeStructuredGeneration({ schema, name, instructions, input, maxOutputTokens, reasoning = "medium", ownerId, signal, onChunk, onUsage }) {
+  const primaryModel = aiConfig.strategyModel;
+  const fallbackModel = aiConfig.strategyFallbackModel || "gpt-5.6-terra";
+
+  // 1. Primary: Try Gemini 3.8 Flash via Vertex AI
+  if (hasGeminiConfiguration()) {
+    try {
+      const gemini = getGeminiClient();
+      const geminiSchema = formatGeminiResponseSchema(schema, name);
+
+      const response = await gemini.models.generateContent(
+        {
+          model: primaryModel,
+          contents: input,
+          config: {
+            systemInstruction: instructions || undefined,
+            responseMimeType: "application/json",
+            responseSchema: geminiSchema,
+            maxOutputTokens: maxOutputTokens || aiConfig.strategyMaxOutputTokens,
+            thinkingConfig: {
+              thinkingLevel: aiConfig.strategyThinkingLevel || "HIGH",
+            },
+          },
+        },
+        signal ? { signal } : undefined,
+      );
+
+      const rawText = response.text?.trim() || "";
+      if (!rawText) {
+        throw new LLMProviderError("Gemini 3.8 Flash boş cavab qaytardı.", {
+          code: "AI_INVALID_OUTPUT",
+          status: 502,
+          model: primaryModel,
+          provider: "google",
+          details: response,
+        });
+      }
+
+      let parsedJson;
+      try {
+        parsedJson = JSON.parse(rawText);
+      } catch (parseError) {
+        throw new LLMProviderError("Gemini 3.8 Flash JSON formatı etibarsızdır.", {
+          code: "AI_INVALID_OUTPUT",
+          status: 502,
+          model: primaryModel,
+          provider: "google",
+          details: parseError,
+        });
+      }
+
+      const data = schema.parse(normalizeStructuredOutput(parsedJson, name));
+      const finalRawText = JSON.stringify(data);
+
+      let usage = null;
+      if (response.usageMetadata) {
+        usage = {
+          prompt_tokens: response.usageMetadata.promptTokenCount || null,
+          completion_tokens: response.usageMetadata.candidatesTokenCount || null,
+          total_tokens: response.usageMetadata.totalTokenCount || null,
+        };
+      }
+
+      onChunk?.({ chunk: finalRawText, finishReason: "STOP", model: primaryModel });
+      onUsage?.({ usage, model: primaryModel, provider: "google" });
+
+      return {
+        data,
+        model: primaryModel,
+        provider: "google",
+        usage,
+        finishReason: "STOP",
+        rawText: finalRawText,
+      };
+    } catch (geminiError) {
+      if (geminiError.name === "AbortError" || signal?.aborted) throw geminiError;
+      console.warn(`[Build Route] ${primaryModel} xətası baş verdi, fallback modelinə (${fallbackModel}) yönləndirilir:`, geminiError.message || geminiError);
+    }
+  }
+
+  // 2. Fallback: Terra (gpt-5.6-terra via OpenAI)
   if (!hasOpenAIConfiguration()) {
     throw new LLMProviderError("OpenAI xidməti hələ konfiqurasiya edilməyib. OPENAI_API_KEY əlavə et və yenidən yoxla.", {
       code: "AI_NOT_CONFIGURED",
       status: 503,
-      model: aiConfig.strategyModel,
+      model: fallbackModel,
       provider: "openai",
     });
   }
@@ -82,7 +195,7 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
   try {
     const response = await getOpenAIClient().responses.parse(
       {
-        model: aiConfig.strategyModel,
+        model: fallbackModel,
         instructions,
         input,
         text: { format: zodTextFormat(schema, name) },
@@ -97,7 +210,7 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
       throw new LLMProviderError("OpenAI cavabı doğrulana bilmədi.", {
         code: "AI_INVALID_OUTPUT",
         status: 502,
-        model: aiConfig.strategyModel,
+        model: fallbackModel,
         provider: "openai",
         details: response,
       });
@@ -105,12 +218,12 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
 
     const data = schema.parse(normalizeStructuredOutput(response.output_parsed, name));
     const rawText = JSON.stringify(data);
-    onChunk?.({ chunk: rawText, finishReason: "STOP", model: aiConfig.strategyModel });
-    onUsage?.({ usage: response.usage || null, model: aiConfig.strategyModel, provider: "openai" });
+    onChunk?.({ chunk: rawText, finishReason: "STOP", model: fallbackModel });
+    onUsage?.({ usage: response.usage || null, model: fallbackModel, provider: "openai" });
 
     return {
       data,
-      model: aiConfig.strategyModel,
+      model: fallbackModel,
       provider: "openai",
       usage: response.usage || null,
       finishReason: "STOP",
@@ -125,7 +238,7 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
       throw new LLMProviderError("GPT-5.6 Terra xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
         code: "AI_RATE_LIMITED",
         status: 429,
-        model: aiConfig.strategyModel,
+        model: fallbackModel,
         provider: "openai",
         details: error,
       });
@@ -134,7 +247,7 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
     throw new LLMProviderError(`OpenAI generasiya xətası: ${error.message}`, {
       code: error.code || "AI_PROVIDER_ERROR",
       status: httpStatus >= 500 ? 503 : httpStatus,
-      model: aiConfig.strategyModel,
+      model: fallbackModel,
       provider: "openai",
       details: error,
     });

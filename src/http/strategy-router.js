@@ -51,11 +51,23 @@ function publicRecord(record) {
   return safe;
 }
 
+function resolveLanguage(req, payloadLang) {
+  if (payloadLang === "en" || payloadLang === "az") return payloadLang;
+  const headerLang = req?.headers?.["x-helmer-language"] || req?.headers?.["x-language"];
+  if (headerLang === "en" || headerLang === "az") return headerLang;
+  if (req?.user?.settings?.language === "en" || req?.user?.settings?.language === "az") {
+    return req.user.settings.language;
+  }
+  const accept = String(req?.headers?.["accept-language"] || "").toLowerCase();
+  if (accept.startsWith("en") || accept.includes("en-") || accept.includes("en,")) return "en";
+  return "az";
+}
+
 async function runTrackedBuild({ learningLoop, ownerId, taskType, userPrompt, relevantContext, execute }) {
   if (!learningLoop) return { result: await execute(() => {}), interactionId: null };
   const interactionId = learningLoop.createInteractionId();
   const startedAt = Date.now();
-  let providerMeta = { provider: "openai", model: aiConfig.strategyModel, usage: null };
+  let providerMeta = { provider: "google", model: aiConfig.strategyModel, usage: null };
   try {
     const result = await execute((meta) => { providerMeta = { ...providerMeta, ...meta }; });
     logWithoutBlocking(learningLoop.recordInteraction({
@@ -84,17 +96,18 @@ export function createStrategyRouter(repository, learningLoop = null) {
     "/assess",
     asyncRoute(async (req, res) => {
       const abortController = new AbortController();
-      req.on("close", () => {
+      res.on("close", () => {
         if (!res.writableEnded) abortController.abort();
       });
       const payload = parse(AssessRequestSchema, req.body);
+      const language = resolveLanguage(req, payload.language);
       const personalizationContext = buildStrategyPersonalizationContext({
         user: req.user,
       });
       const tracked = await runTrackedBuild({
         learningLoop, ownerId: req.ownerId, taskType: "build_assess", userPrompt: payload.brief,
-        relevantContext: { personalizationApplied: Boolean(personalizationContext) },
-        execute: (onUsage) => assessBrief({ ...payload, ownerId: req.ownerId, personalizationContext, signal: abortController.signal, onUsage }),
+        relevantContext: { personalizationApplied: Boolean(personalizationContext), language },
+        execute: (onUsage) => assessBrief({ ...payload, language, ownerId: req.ownerId, personalizationContext, signal: abortController.signal, onUsage }),
       });
       const assessment = tracked.result;
       if (!res.writableEnded) {
@@ -103,7 +116,7 @@ export function createStrategyRouter(repository, learningLoop = null) {
     }),
   );
 
-  async function getOrCreateGeneration({ payload, ownerId, user, onChunk = null, allowAbortSignal = null }) {
+  async function getOrCreateGeneration({ payload, ownerId, user, req, onChunk = null, allowAbortSignal = null }) {
     const requestKey = `${ownerId}:${payload.idempotencyKey}`;
 
     // 1. Check if already saved in repository
@@ -117,6 +130,7 @@ export function createStrategyRouter(repository, learningLoop = null) {
     let generation = activeGenerations.get(requestKey);
     if (!generation) {
       generation = (async () => {
+        const language = resolveLanguage(req, payload.language);
         const personalizationContext = buildStrategyPersonalizationContext({
           user,
         });
@@ -125,10 +139,11 @@ export function createStrategyRouter(repository, learningLoop = null) {
           ownerId,
           taskType: "build_generate",
           userPrompt: payload.brief,
-          relevantContext: { personalizationApplied: Boolean(personalizationContext) },
+          relevantContext: { personalizationApplied: Boolean(personalizationContext), language },
           execute: (onUsage) =>
             generateStrategy({
               ...payload,
+              language,
               ownerId,
               personalizationContext,
               signal: allowAbortSignal,
@@ -183,6 +198,7 @@ export function createStrategyRouter(repository, learningLoop = null) {
         payload,
         ownerId: req.ownerId,
         user: req.user,
+        req,
       });
       const strategy = tracked.result;
       if (!res.writableEnded) {
@@ -212,6 +228,7 @@ export function createStrategyRouter(repository, learningLoop = null) {
           payload,
           ownerId: req.ownerId,
           user: req.user,
+          req,
           onChunk: ({ chunk, finishReason, model }) => sendEvent({ chunk, finishReason, model }),
         });
         const strategy = tracked.result;
@@ -247,17 +264,18 @@ export function createStrategyRouter(repository, learningLoop = null) {
     "/refine",
     asyncRoute(async (req, res) => {
       const abortController = new AbortController();
-      req.on("close", () => {
+      res.on("close", () => {
         if (!res.writableEnded) abortController.abort();
       });
       const payload = parse(RefineRequestSchema, req.body);
+      const language = resolveLanguage(req, payload.language);
       const personalizationContext = buildStrategyPersonalizationContext({
         user: req.user,
       });
       const tracked = await runTrackedBuild({
         learningLoop, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
-        relevantContext: { personalizationApplied: Boolean(personalizationContext) },
-        execute: (onUsage) => refineStrategy(payload, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
+        relevantContext: { personalizationApplied: Boolean(personalizationContext), language },
+        execute: (onUsage) => refineStrategy({ ...payload, language }, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
       });
       const strategy = tracked.result;
       if (!res.writableEnded) {
@@ -279,7 +297,7 @@ export function createStrategyRouter(repository, learningLoop = null) {
             ownerId: req.ownerId,
             modificationRequest: latestVersion.changeRequest,
             response: latestVersion.data,
-            modelProvider: "openai",
+            modelProvider: aiConfig.strategyModel.startsWith("gemini") ? "google" : "openai",
             modelName: aiConfig.strategyModel,
             finalAccepted: true,
           }) : null);
@@ -308,13 +326,14 @@ export function createStrategyRouter(repository, learningLoop = null) {
         answers: existing.clarification.answers,
         strategy: existing.strategy,
       });
+      const language = resolveLanguage(req, payload.language);
       const personalizationContext = buildStrategyPersonalizationContext({
         user: req.user,
       });
       const tracked = await runTrackedBuild({
         learningLoop, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
-        relevantContext: { resourceId: existing.id, personalizationApplied: Boolean(personalizationContext) },
-        execute: (onUsage) => refineStrategy(payload, req.ownerId, undefined, personalizationContext, undefined, onUsage),
+        relevantContext: { resourceId: existing.id, personalizationApplied: Boolean(personalizationContext), language },
+        execute: (onUsage) => refineStrategy({ ...payload, language }, req.ownerId, undefined, personalizationContext, undefined, onUsage),
       });
       const strategy = tracked.result;
       const changeRequest = payload.action === "custom" ? payload.request : payload.action;

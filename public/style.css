@@ -6065,70 +6065,142 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   border-bottom: 0;
 }
 
-/* 💫 Minimalist & Premium Ask Response Actions */
+/* 💫 High-Contrast & International Ask Response Actions */
 .ask-message-actions {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   margin-top: 10px;
-  padding: 2px;
+  padding: 2px 0;
   opacity: 1;
 }
 
 .ask-response-action {
   display: inline-flex;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
   background: transparent;
   border: 1px solid transparent;
-  color: var(--text-tertiary, #94a3b8);
+  color: #475467;
   cursor: pointer;
   box-shadow: none;
-  transition: all 130ms ease;
+  transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease, transform 120ms ease;
   user-select: none;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .ask-response-action {
+  color: #cbd5e1;
 }
 
 .ask-response-action:hover {
-  background: var(--theme-wash, rgba(20, 27, 42, 0.06));
-  border-color: transparent;
-  color: var(--text-primary, #0f172a);
+  background: rgba(15, 23, 42, 0.065);
+  border-color: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+}
+
+[data-theme="dark"] .ask-response-action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
 }
 
 .ask-response-action:active {
-  background: var(--theme-wash, rgba(20, 27, 42, 0.1));
-  transform: scale(0.93);
+  background: rgba(15, 23, 42, 0.11);
+  transform: scale(0.92);
+}
+
+[data-theme="dark"] .ask-response-action:active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.ask-response-action:focus-visible {
+  outline: 2px solid var(--accent, #4f6ee8);
+  outline-offset: 1px;
 }
 
 .ask-response-action.is-copied {
   background: rgba(22, 163, 74, 0.1);
-  border-color: transparent;
-  color: var(--theme-success-ink, #16a34a);
+  border-color: rgba(22, 163, 74, 0.22);
+  color: #16a34a;
 }
 
-.ask-response-action.is-selected {
-  color: var(--theme-blue-ink, #2563eb);
-  background: var(--theme-blue-surface, #eff6ff);
-  border-color: var(--theme-blue-border, #bfdbfe);
+[data-theme="dark"] .ask-response-action.is-copied {
+  background: rgba(74, 222, 128, 0.14);
+  border-color: rgba(74, 222, 128, 0.28);
+  color: #4ade80;
 }
 
 .ask-response-action.is-copied svg {
-  stroke: var(--theme-success-ink, #16a34a);
+  stroke: currentColor;
+}
+
+.ask-response-action.is-selected {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.25);
+}
+
+[data-theme="dark"] .ask-response-action.is-selected {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.14);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.ask-response-positive-btn.is-selected {
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.1);
+  border-color: rgba(22, 163, 74, 0.24);
+}
+
+.ask-response-positive-btn.is-selected svg {
+  fill: rgba(22, 163, 74, 0.18);
+}
+
+[data-theme="dark"] .ask-response-positive-btn.is-selected {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.14);
+  border-color: rgba(74, 222, 128, 0.28);
+}
+
+[data-theme="dark"] .ask-response-positive-btn.is-selected svg {
+  fill: rgba(74, 222, 128, 0.2);
+}
+
+.ask-response-negative-btn.is-selected {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.24);
+}
+
+.ask-response-negative-btn.is-selected svg {
+  fill: rgba(220, 38, 38, 0.18);
+}
+
+[data-theme="dark"] .ask-response-negative-btn.is-selected {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.14);
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+[data-theme="dark"] .ask-response-negative-btn.is-selected svg {
+  fill: rgba(248, 113, 113, 0.2);
 }
 
 .ask-response-action svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 1.7;
+  stroke-width: 1.85;
   color: inherit;
-  transition: transform 120ms ease;
+  transition: transform 120ms ease, fill 120ms ease, stroke 120ms ease;
 }
 
 /* ⋯ Ask Response More Options Popover */
@@ -6146,15 +6218,22 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
 }
 
 .ask-response-more-btn svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   fill: currentColor;
   stroke: none;
 }
 
 .ask-response-more-menu[open] .ask-response-more-btn {
-  background: var(--theme-wash, rgba(20, 27, 42, 0.08));
-  color: var(--text-primary, #0f172a);
+  background: rgba(15, 23, 42, 0.08);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+}
+
+[data-theme="dark"] .ask-response-more-menu[open] .ask-response-more-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
 }
 
 .ask-response-more-popover {

@@ -4,7 +4,9 @@ function positiveInteger(value, fallback) {
 }
 
 export const aiConfig = Object.freeze({
-  strategyModel: process.env.OPENAI_STRATEGY_MODEL || "gpt-5.6-terra",
+  strategyModel: process.env.GEMINI_STRATEGY_MODEL || process.env.STRATEGY_MODEL || "gemini-3.8-flash",
+  strategyFallbackModel: process.env.OPENAI_STRATEGY_MODEL || "gpt-5.6-terra",
+  strategyThinkingLevel: process.env.GEMINI_STRATEGY_THINKING_LEVEL || "HIGH",
   askModel: process.env.OPENAI_ASK_MODEL || "gpt-5.6-luna",
   askComplexModel: process.env.OPENAI_ASK_COMPLEX_MODEL || "gpt-5.6-terra",
   askGeminiModel: process.env.GEMINI_ASK_MODEL || "gemini-3.7-flash",
