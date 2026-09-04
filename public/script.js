@@ -282,14 +282,33 @@ const LOADING_ASK_PLACEHOLDERS = new Proxy([], {
 let loadingAskPlaceholderTimer = null;
 let refinementPlaceholderTimer = null;
 
+function getCookie(name) {
+  try {
+    const match = document.cookie.match(new RegExp("(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, "\\$1") + "=([^;]*)"));
+    return match ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setCookie(name, value, maxAgeSeconds = 31536000) {
+  try {
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax${secure}`;
+  } catch { }
+}
+
 const state = {
   mode: (() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const requested = params.get("mode");
       if (requested === "ask" || requested === "build") return requested;
-      const saved = localStorage.getItem("helmer_default_mode");
-      if (saved === "ask" || saved === "build") return saved;
+      const session = sessionStorage.getItem("helmer_session_mode");
+      if (session === "ask" || session === "build") return session;
+      const cookieMode = getCookie("helmer_default_mode");
+      if (cookieMode === "ask" || cookieMode === "build") return cookieMode;
+      try { localStorage.removeItem("helmer_default_mode"); } catch { }
     } catch { }
     return "build";
   })(),
@@ -708,13 +727,21 @@ function syncMode() {
 
   if (railModeToggleButton) {
     const isEn = getLanguage() === "en";
+    const nextMode = isBuild ? "ask" : "build";
+    const nextModeLabel = isBuild ? "Ask" : "Build";
+    const dblClickHint = isEn
+      ? `Double-click: Save ${nextModeLabel} as default`
+      : `İkiqat klik: ${nextModeLabel} default et`;
+
     railModeToggleButton.setAttribute(
       "data-tooltip",
-      `${isBuild ? (isEn ? "Mode: Build (Switch to Ask)" : "Rejim: Build (Ask-a keç)") : (isEn ? "Mode: Ask (Switch to Build)" : "Rejim: Ask (Build-ə keç)")}${shortcutSuffix("⌘ ⇧ A", "Ctrl ⇧ A")}`,
+      `${isBuild ? (isEn ? "Mode: Build (Switch to Ask)" : "Rejim: Build (Ask-a keç)") : (isEn ? "Mode: Ask (Switch to Build)" : "Rejim: Ask (Build-ə keç)")} • ${dblClickHint}${shortcutSuffix("⌘ ⇧ A", "Ctrl ⇧ A")}`,
     );
     railModeToggleButton.setAttribute(
       "aria-label",
-      isBuild ? (isEn ? "Switch to Ask mode" : "Ask rejiminə keç") : (isEn ? "Switch to Build mode" : "Build rejiminə keç"),
+      isBuild
+        ? (isEn ? `Switch to Ask mode (${dblClickHint})` : `Ask rejiminə keç (${dblClickHint})`)
+        : (isEn ? `Switch to Build mode (${dblClickHint})` : `Build rejiminə keç (${dblClickHint})`),
     );
   }
 
@@ -722,11 +749,82 @@ function syncMode() {
   document.body.dataset.isHome = String(isHome);
 }
 
-function setMode(mode) {
+function getDefaultWorkspaceMode() {
+  if (state.currentUser?.settings?.defaultMode) {
+    return state.currentUser.settings.defaultMode;
+  }
+  const cookieMode = getCookie("helmer_default_mode");
+  if (cookieMode === "ask" || cookieMode === "build") return cookieMode;
+  return "build";
+}
+
+let lastDefaultSavedTime = 0;
+
+async function setDefaultWorkspaceMode(mode) {
+  if (!['build', 'ask'].includes(mode)) return;
+  lastDefaultSavedTime = Date.now();
+
+  // Save to persistent cookie and session (eliminating volatile localStorage)
+  setCookie("helmer_default_mode", mode);
+  try {
+    sessionStorage.setItem("helmer_session_mode", mode);
+    localStorage.removeItem("helmer_default_mode");
+  } catch { }
+
+  setMode(mode, { persistDefault: true });
+
+  if (railModeToggleButton) {
+    railModeToggleButton.classList.remove("is-default-saved");
+    void railModeToggleButton.offsetWidth;
+    railModeToggleButton.classList.add("is-default-saved");
+    setTimeout(() => {
+      railModeToggleButton.classList.remove("is-default-saved");
+    }, 700);
+  }
+
+  // Persist directly to Cloudflare R2 / users database on backend
+  if (state.currentUser) {
+    try {
+      const currentSettings = state.currentUser.settings || {};
+      const payload = {
+        ...currentSettings,
+        defaultMode: mode,
+      };
+      const data = await authRequest("/api/auth/settings", {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      if (data?.user) {
+        updateWorkspaceIdentity(data.user);
+      } else if (state.currentUser.settings) {
+        state.currentUser.settings.defaultMode = mode;
+      }
+    } catch (err) {
+      console.warn("Could not persist default mode to account settings:", err);
+    }
+  }
+
+  const isEn = getLanguage() === "en";
+  const modeLabel = mode === "ask" ? "Ask" : "Build";
+  showToast(
+    isEn
+      ? `Default workspace mode saved: ${modeLabel}`
+      : `Default workspace rejimi "${modeLabel}" olaraq yadda saxlanıldı`,
+    "success"
+  );
+}
+
+function setMode(mode, { persistDefault = false } = {}) {
   if (!['build', 'ask'].includes(mode)) return;
   try {
-    localStorage.setItem("helmer_default_mode", mode);
+    sessionStorage.setItem("helmer_session_mode", mode);
   } catch { }
+  if (persistDefault) {
+    setCookie("helmer_default_mode", mode);
+    try {
+      localStorage.removeItem("helmer_default_mode");
+    } catch { }
+  }
   if (state.mode === mode && state.view === "home") return;
   state.mode = mode;
   state.view = "home";
@@ -6161,8 +6259,9 @@ function renderSettings() {
           body: JSON.stringify(payload),
         });
         updateWorkspaceIdentity(data.user);
+        setCookie("helmer_default_mode", currentDefaultMode);
         try {
-          localStorage.setItem("helmer_default_mode", currentDefaultMode);
+          localStorage.removeItem("helmer_default_mode");
         } catch { }
         state.mode = currentDefaultMode;
         syncMode();
@@ -9200,7 +9299,43 @@ buildModeButton?.addEventListener("click", () => setMode("build"));
 askModeButton?.addEventListener("click", () => setMode("ask"));
 sidebarBuildModeButton?.addEventListener("click", () => setMode("build"));
 sidebarAskModeButton?.addEventListener("click", () => setMode("ask"));
-railModeToggleButton?.addEventListener("click", () => setMode(state.mode === "build" ? "ask" : "build"));
+let railModeClickTimeout = null;
+let railModeLastClick = 0;
+
+railModeToggleButton?.addEventListener("click", () => {
+  const now = Date.now();
+  const diff = now - railModeLastClick;
+  railModeLastClick = now;
+
+  if (diff < 320) {
+    if (railModeClickTimeout) {
+      clearTimeout(railModeClickTimeout);
+      railModeClickTimeout = null;
+    }
+    const nextMode = state.mode === "build" ? "ask" : "build";
+    setDefaultWorkspaceMode(nextMode);
+    return;
+  }
+
+  railModeClickTimeout = setTimeout(() => {
+    railModeClickTimeout = null;
+    const nextMode = state.mode === "build" ? "ask" : "build";
+    setMode(nextMode);
+  }, 260);
+});
+
+railModeToggleButton?.addEventListener("dblclick", (event) => {
+  event.preventDefault();
+  if (railModeClickTimeout) {
+    clearTimeout(railModeClickTimeout);
+    railModeClickTimeout = null;
+  }
+  const now = Date.now();
+  if (now - lastDefaultSavedTime < 400) return;
+  const nextMode = state.mode === "build" ? "ask" : "build";
+  setDefaultWorkspaceMode(nextMode);
+});
+
 function handleKeyboardShortcut(event) {
   if (event.key === "Escape") {
     closeSidebar();
@@ -9416,12 +9551,17 @@ if (!new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/veri
 
 initializeAuthentication(async (user) => {
   updateWorkspaceIdentity(user);
-  const preferredMode = user?.settings?.defaultMode || (() => {
-    try { return localStorage.getItem("helmer_default_mode"); } catch { return null; }
-  })();
+  const preferredMode = user?.settings?.defaultMode || getCookie("helmer_default_mode");
   if (preferredMode === "ask" || preferredMode === "build") {
-    try { localStorage.setItem("helmer_default_mode", preferredMode); } catch { }
-    state.mode = preferredMode;
+    setCookie("helmer_default_mode", preferredMode);
+    try { localStorage.removeItem("helmer_default_mode"); } catch { }
+  }
+  const sessionMode = (() => {
+    try { return sessionStorage.getItem("helmer_session_mode"); } catch { return null; }
+  })();
+  const activeMode = sessionMode || preferredMode;
+  if (activeMode === "ask" || activeMode === "build") {
+    state.mode = activeMode;
     syncMode();
     syncNav();
   }

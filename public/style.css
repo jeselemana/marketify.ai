@@ -255,6 +255,27 @@ body.sidebar-open .rail-profile-button {
   background: var(--bg-hover);
 }
 
+.rail-mode-toggle.is-default-saved {
+  animation: railDefaultSavedPulse 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rail-mode-toggle.is-default-saved .rail-toggle-track {
+  box-shadow: 0 0 0 3px var(--accent-light, rgba(37, 99, 235, 0.35));
+  border-color: var(--accent, #2563eb);
+}
+
+@keyframes railDefaultSavedPulse {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 .rail-toggle-track {
   position: relative;
   display: inline-flex;
