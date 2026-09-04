@@ -9,9 +9,10 @@ set -euo pipefail
 # ==============================================================================
 
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-$(gcloud config get-value project 2>/dev/null || true)}"
-REGION="${GOOGLE_CLOUD_REGION:-us-central1}"
-SERVICE_NAME="helmer"
-IMAGE_NAME="gcr.io/${PROJECT_ID}/${SERVICE_NAME}:latest"
+REGION="${GOOGLE_CLOUD_REGION:-europe-west3}"
+SERVICE_NAME="${SERVICE_NAME:-marketify-ai}"
+COMMIT_TAG="$(git rev-parse --short HEAD 2>/dev/null || echo 'latest')"
+IMAGE_NAME="gcr.io/${PROJECT_ID}/${SERVICE_NAME}:${COMMIT_TAG}"
 
 echo "=== 1. Təhlükəsizlik yoxlanışı ==="
 if [ ! -f ".dockerignore" ] || ! grep -q "\.env\*" .dockerignore; then
