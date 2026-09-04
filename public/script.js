@@ -1,4 +1,5 @@
 import { createDocumentExport, createExcelExport, createSpreadsheetExport, exportStrategyToPDF } from "./exporters.js";
+import { readUploadedFileAsData as readFileAsData } from "./file-utils.js";
 import { authRequest, initializeAuthentication, logout } from "./auth.js?v=1.1";
 import { PRESET_PROMPTS, getPresetPrompts } from "./preset-prompts.js";
 import {
@@ -178,47 +179,7 @@ function getFileIconSvg(mimeType = "", fileName = "") {
 }
 
 async function readUploadedFileAsData(file) {
-  if (!file) return null;
-  const isEn = getLanguage() === "en";
-  const maxBytes = 20 * 1024 * 1024; // 20MB
-  if (file.size > maxBytes) {
-    throw new Error(isEn ? "File size must not exceed 20MB." : "Faylın həcmi 20MB-dan çox ola bilməz.");
-  }
-
-  const isTextLike = (file.type && file.type.startsWith("text/")) ||
-    ["txt", "md", "csv", "json", "js", "ts", "py", "html", "css", "sql", "xml", "yaml", "yml"].includes(
-      file.name.split(".").pop()?.toLowerCase() || ""
-    );
-
-  let textContent;
-  if (isTextLike) {
-    textContent = await new Promise((resolve) => {
-      const textReader = new FileReader();
-      textReader.onload = () => resolve(String(textReader.result || ""));
-      textReader.onerror = () => resolve("");
-      textReader.readAsText(file);
-    });
-  }
-
-  const base64Data = await new Promise((resolve, reject) => {
-    const dataReader = new FileReader();
-    dataReader.onload = () => {
-      const res = String(dataReader.result || "");
-      const raw = res.replace(/^data:[^;]+;base64,/, "");
-      resolve(raw);
-    };
-    dataReader.onerror = () => reject(new Error(isEn ? "Failed to read file." : "Fayl oxuna bilmədi."));
-    dataReader.readAsDataURL(file);
-  });
-
-  return {
-    name: file.name,
-    size: file.size,
-    type: file.type || "application/octet-stream",
-    mimeType: file.type || "application/octet-stream",
-    data: base64Data,
-    textContent,
-  };
+  return readFileAsData(file, { isEn: getLanguage() === "en" });
 }
 
 const STATUS_LABELS_AZ = {
@@ -359,6 +320,7 @@ const state = {
   plannerFilter: "all",
   plannerCollapsedGroups: new Set(["Ümumi"]),
   askMessages: [],
+  askDraft: "",
   askLoading: false,
   askError: "",
   askPendingFile: null,
@@ -784,6 +746,8 @@ function startNewChat() {
   state.view = "home";
   state.askChatId = null;
   state.askMessages = [];
+  state.askDraft = "";
+  state.askPendingFile = null;
   state.askStrategyId = "";
   state.askTaskId = "";
   state.askPromptHintStrategyId = "";
@@ -1474,10 +1438,21 @@ function renderAsk() {
 
   if (state.askError) {
     const error = element("div", "ask-error");
-    error.append(
+    const errorBody = element("div", "ask-error-body");
+    errorBody.append(
       element("strong", "", state.askError),
       element("span", "", navigator.onLine ? (isEn ? "Please try again in a few seconds." : "Bir neçə saniyə sonra yenidən yoxla.") : (isEn ? "Check your internet connection." : "İnternet bağlantını yoxla.")),
     );
+    const dismissBtn = button("", "ask-error-dismiss", (e) => {
+      e.preventDefault();
+      state.askError = "";
+      error.remove();
+    });
+    dismissBtn.type = "button";
+    dismissBtn.title = isEn ? "Dismiss" : "Bağla";
+    dismissBtn.setAttribute("aria-label", isEn ? "Dismiss" : "Bağla");
+    dismissBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+    error.append(errorBody, dismissBtn);
     thread.appendChild(error);
   }
 
@@ -1490,18 +1465,23 @@ function renderAsk() {
 
   const handleFileSelection = async (file) => {
     if (!file) return;
+    if (input && typeof input.value === "string") {
+      state.askDraft = input.value;
+    }
+    state.askError = "";
     try {
-      state.askLoading = true;
-      render();
       const fileData = await readUploadedFileAsData(file);
       state.askPendingFile = fileData;
       state.askModel = "gemini-3.7-flash";
       try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
       state.askError = "";
     } catch (err) {
+      console.error("Failed to read attached file:", err);
       state.askError = err.message || (isEn ? "Error reading file." : "Fayl oxunarkən xəta baş verdi.");
     } finally {
-      state.askLoading = false;
+      if (fileInput) {
+        try { fileInput.value = ""; } catch { }
+      }
       render();
     }
   };
@@ -1509,7 +1489,6 @@ function renderAsk() {
   fileInput.addEventListener("change", () => {
     const file = fileInput.files?.[0];
     if (file) handleFileSelection(file);
-    fileInput.value = "";
   });
 
   const contextMenu = document.createElement("details");
@@ -1655,6 +1634,9 @@ function renderAsk() {
   input.maxLength = 8000;
   input.placeholder = selectedStrategy?.title || selectedTask?.text || (state.askPendingFile ? (isEn ? "Ask a question about this file…" : "Fayl haqqında sualını yaz…") : (isEn ? "Ask Helmer anything" : "Helmer-dən soruş"));
   input.disabled = state.askLoading;
+  if (state.askDraft) {
+    input.value = state.askDraft;
+  }
 
   const submit = button("", "ask-submit");
   submit.type = "submit";
@@ -1771,6 +1753,9 @@ function renderAsk() {
     const chipRemove = button("", "ask-pending-file-remove", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (input && typeof input.value === "string") {
+        state.askDraft = input.value;
+      }
       state.askPendingFile = null;
       render();
     });
@@ -1835,7 +1820,11 @@ function renderAsk() {
     const hasFile = Boolean(state.askPendingFile);
     submit.disabled = (!hasText && !hasFile) || state.askLoading;
   };
-  input.addEventListener("input", resizeInput);
+  input.addEventListener("input", () => {
+    state.askDraft = input.value;
+    if (state.askError) state.askError = "";
+    resizeInput();
+  });
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
@@ -1847,11 +1836,13 @@ function renderAsk() {
     const message = input.value.trim();
     const hasFile = Boolean(state.askPendingFile);
     if (message.length >= 2 || hasFile) {
+      state.askDraft = "";
       submitAskMessage(message, state.askPendingFile);
     }
   });
 
   requestAnimationFrame(() => {
+    if (state.askDraft) resizeInput();
     if (state.askMessages.length) composerArea.scrollIntoView({ block: "end" });
     if (!state.askLoading && window.innerWidth > 767) input.focus();
   });
