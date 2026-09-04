@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs/promises";
 import { isComplexAskQuery, resolveAskModelRoute } from "../src/services/ai/ask-routing.js";
+import { FileChatRepository } from "../src/repositories/file-chat-repository.js";
 
 test("small Ask queries route to GPT-5.6 Luna", () => {
   assert.equal(resolveAskModelRoute({ lastUserMsg: "Instagram üçün 3 qısa başlıq yaz" }), "luna");
@@ -78,4 +82,44 @@ test("AbortController for Ask stream stays active after request body consumption
   prematureRes.emit("close");
   assert.equal(prematureAbort.signal.aborted, true, "premature connection close must abort the controller");
 });
+
+test("SEC-12: FileChatRepository enforces UUID format, cross-tenant isolation, and collision defense", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-sec12-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const chats = new FileChatRepository(path.join(directory, "chats.json"));
+
+  // 1. Invalid or non-UUID id is replaced with a generated UUID
+  const chat1 = await chats.saveChat({
+    id: "malicious_injected_id_123",
+    ownerId: "user_alice",
+    title: "Alice Chat",
+    messages: [{ role: "user", content: "Salam" }],
+  });
+  assert.notEqual(chat1.id, "malicious_injected_id_123");
+  assert.match(chat1.id, /^[0-9a-f-]{36}$/i);
+
+  // 2. Owner isolation: Bob cannot read Alice's chat
+  const bobFetch = await chats.getById(chat1.id, "user_bob");
+  assert.equal(bobFetch, null);
+
+  const aliceFetch = await chats.getById(chat1.id, "user_alice");
+  assert.ok(aliceFetch);
+  assert.equal(aliceFetch.title, "Alice Chat");
+
+  // 3. Collision defense: Bob cannot hijack or collide with Alice's existing chatId
+  const bobAttempt = await chats.saveChat({
+    id: chat1.id,
+    ownerId: "user_bob",
+    title: "Bob Spoofed Chat",
+    messages: [{ role: "user", content: "Hacked" }],
+  });
+  assert.notEqual(bobAttempt.id, chat1.id, "Bob's chat ID must not collide with Alice's existing chat ID");
+  assert.match(bobAttempt.id, /^[0-9a-f-]{36}$/i);
+
+  // Alice's chat remains unchanged
+  const aliceAfter = await chats.getById(chat1.id, "user_alice");
+  assert.equal(aliceAfter.title, "Alice Chat");
+  assert.equal(aliceAfter.messages[0].content, "Salam");
+});
+
 

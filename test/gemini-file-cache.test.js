@@ -67,3 +67,26 @@ test("GeminiFileCache cleans up expired entries after TTL", async () => {
   cache.cleanup();
   assert.equal(cache.getFile(id), null);
 });
+
+test("GeminiFileCache ignores caller-supplied fileId and enforces LRU maxEntries", () => {
+  const cache = new GeminiFileCache({ maxEntries: 2 });
+
+  // 1. Caller-supplied fileId is ignored
+  const id1 = cache.storeFile({ fileId: "malicious_injected_id", textContent: "file one" });
+  assert.notEqual(id1, "malicious_injected_id");
+  assert.ok(id1.startsWith("gfc_"));
+
+  const id2 = cache.storeFile({ textContent: "file two" });
+  assert.ok(cache.getFile(id1));
+  assert.ok(cache.getFile(id2));
+
+  // Access id1 so id2 becomes the least recently used
+  cache.getFile(id1);
+
+  // 2. Adding a 3rd file evicts the LRU entry (id2)
+  const id3 = cache.storeFile({ textContent: "file three" });
+  assert.ok(cache.getFile(id1));
+  assert.equal(cache.getFile(id2), null); // Evicted!
+  assert.ok(cache.getFile(id3));
+});
+

@@ -291,6 +291,16 @@ function isLegalReportRateLimited(key) {
   return record.count > maxAttempts;
 }
 
+// Periodic cleanup for legalReportRateMap to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of legalReportRateMap.entries()) {
+    if (now > record.resetAt) {
+      legalReportRateMap.delete(key);
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
 async function loadLegalReportsFromStore() {
   if (isR2Configured()) {
     const r2Reports = await loadJSONFromR2("legal_reports.json", null);
@@ -322,7 +332,7 @@ async function saveLegalReportsToStore(reports) {
 
 app.post("/api/legal-report", async (req, res) => {
   try {
-    const ip = req.ip || req.get("x-forwarded-for") || req.socket.remoteAddress || "127.0.0.1";
+    const ip = req.ip || req.socket?.remoteAddress || "127.0.0.1";
     const rateKey = `${ip}:${req.ownerId || "guest"}`;
     if (isLegalReportRateLimited(rateKey)) {
       return res.status(429).json({
@@ -603,7 +613,11 @@ app.get("/api/ask/chats", async (req, res) => {
 
 app.get("/api/ask/chats/:id", async (req, res) => {
   try {
-    const chat = await chatRepository.getById(req.params.id, req.ownerId);
+    const { id } = req.params;
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      return res.status(400).json({ error: "Söhbət ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
+    }
+    const chat = await chatRepository.getById(id, req.ownerId);
     if (!chat) return res.status(404).json({ error: "Söhbət tapılmadı." });
     return res.json({ chat });
   } catch (error) {
@@ -614,7 +628,11 @@ app.get("/api/ask/chats/:id", async (req, res) => {
 
 app.delete("/api/ask/chats/:id", async (req, res) => {
   try {
-    const ok = await chatRepository.delete(req.params.id, req.ownerId);
+    const { id } = req.params;
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      return res.status(400).json({ error: "Söhbət ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
+    }
+    const ok = await chatRepository.delete(id, req.ownerId);
     return res.json({ ok });
   } catch (error) {
     console.error("Ask chat delete error:", error);
@@ -748,15 +766,23 @@ const GEMINI_SAFETY_SETTINGS = [
 ];
 
 function getClientIp(req) {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.trim()) {
-    const first = forwarded.split(",")[0].trim();
-    if (first) return first;
-  }
   return req.ip || req.socket?.remoteAddress || "127.0.0.1";
 }
 
 const askRequestWindows = new Map();
+
+// Periodic cleanup for askRequestWindows to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, history] of askRequestWindows.entries()) {
+    const valid = (history || []).filter((timestamp) => now - timestamp < 10 * 60 * 1000);
+    if (valid.length === 0) {
+      askRequestWindows.delete(key);
+    } else {
+      askRequestWindows.set(key, valid);
+    }
+  }
+}, 5 * 60 * 1000).unref();
 
 function askRateLimit(limit = 60, windowMs = 10 * 60 * 1000) {
   return (req, res, next) => {
@@ -1296,6 +1322,17 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     const chatId = typeof req.body.chatId === "string" ? req.body.chatId.trim() : "";
     let selectedStrategy = null;
     let selectedTask = null;
+    let existingChat = null;
+
+    if (chatId) {
+      if (!/^[0-9a-f-]{36}$/i.test(chatId)) {
+        return res.status(400).json({ error: "Söhbət ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
+      }
+      existingChat = await chatRepository.getById(chatId, req.ownerId);
+      if (!existingChat) {
+        return res.status(404).json({ error: "Söhbət tapılmadı və ya sizə aid deyil.", code: "NOT_FOUND" });
+      }
+    }
     if (strategyId) {
       if (!/^[0-9a-f-]{36}$/i.test(strategyId)) {
         return res.status(400).json({ error: "Strategiya seçimi düzgün deyil." });

@@ -1,4 +1,11 @@
 import express from "express";
+import { z } from "zod";
+
+const UpdateTaskSchema = z.object({
+  text: z.string().trim().min(1, "Tapşırıq mətni boş ola bilməz.").max(1000).optional(),
+  completed: z.boolean().optional(),
+  groupLabel: z.string().trim().max(100).optional(),
+}).strict();
 
 export function createPlannerRouter(plannerRepository) {
   const router = express.Router();
@@ -52,7 +59,18 @@ export function createPlannerRouter(plannerRepository) {
   router.patch("/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const updated = await plannerRepository.update(id, req.ownerId, req.body);
+      if (!/^[0-9a-f-]{36}$/i.test(id)) {
+        return res.status(400).json({ error: "Tapşırıq ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
+      }
+      const parsed = UpdateTaskSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || "Məlumatları yoxlayın.",
+          code: "VALIDATION_ERROR",
+          details: parsed.error.issues,
+        });
+      }
+      const updated = await plannerRepository.update(id, req.ownerId, parsed.data);
       if (!updated) {
         return res.status(404).json({ error: "Tapşırıq tapılmadı." });
       }
@@ -76,6 +94,9 @@ export function createPlannerRouter(plannerRepository) {
   router.delete("/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      if (!/^[0-9a-f-]{36}$/i.test(id)) {
+        return res.status(400).json({ error: "Tapşırıq ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
+      }
       const ok = await plannerRepository.delete(id, req.ownerId);
       return res.json({ ok });
     } catch (error) {

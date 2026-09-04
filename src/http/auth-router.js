@@ -417,7 +417,11 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   router.patch("/account", asyncRoute(async (req, res) => {
     if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
     const payload = parseBody(AccountUpdateSchema, req.body);
-    const updated = await userRepository.update(req.user.id, payload);
+    const emailChanged = normalizeEmail(payload.email) !== normalizeEmail(req.user.email);
+    const updated = await userRepository.update(req.user.id, {
+      ...payload,
+      ...(emailChanged ? { emailVerifiedAt: null } : {}),
+    });
     return res.json({ user: publicUser(updated) });
   }));
 

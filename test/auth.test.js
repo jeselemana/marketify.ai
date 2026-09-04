@@ -6,9 +6,9 @@ import fs from "node:fs/promises";
 import express from "express";
 import { hashOpaqueToken, hashPassword, verifyPassword } from "../src/auth/password.js";
 import { FileAuthStore } from "../src/auth/auth-store.js";
-import { SignupSchema, normalizeEmail, normalizeUsername } from "../src/auth/validation.js";
+import { SignupSchema, AccountUpdateSchema, normalizeEmail, normalizeUsername } from "../src/auth/validation.js";
 import { createIdentityMiddleware, requireAuth } from "../src/http/auth-middleware.js";
-import { guestSession } from "../src/http/session.js";
+import { guestSession, resolveGuestSecret } from "../src/http/session.js";
 import { authErrorHandler, createAuthRouter } from "../src/http/auth-router.js";
 import { migrateAuthUserStore } from "../src/repositories/auth-store-migrations.js";
 import { FileUserRepository } from "../src/repositories/file-user-repository.js";
@@ -332,3 +332,88 @@ test("signup, session, login, reset, and single-use reset token work end to end"
   });
   assert.ok([401, 503].includes(invalidGoogleCred.status));
 });
+
+test("SEC-07: resolveGuestSecret enforces SESSION_SECRET in production mode", () => {
+  // 1. In production mode without secret -> throws fatal error
+  assert.throws(
+    () => resolveGuestSecret({ NODE_ENV: "production" }),
+    /Fatal: SESSION_SECRET or AUTH_SECRET environment variable is required in production mode/,
+  );
+  assert.throws(
+    () => resolveGuestSecret({ NODE_ENV: "production", SESSION_SECRET: "   " }),
+    /Fatal: SESSION_SECRET or AUTH_SECRET environment variable is required in production mode/,
+  );
+
+  // 2. In production mode with valid secret -> returns secret
+  assert.equal(
+    resolveGuestSecret({ NODE_ENV: "production", SESSION_SECRET: "my_strong_production_secret" }),
+    "my_strong_production_secret",
+  );
+  assert.equal(
+    resolveGuestSecret({ NODE_ENV: "production", AUTH_SECRET: "my_auth_secret" }),
+    "my_auth_secret",
+  );
+
+  // 3. In development/test mode without secret -> returns safe fallback key
+  assert.equal(
+    resolveGuestSecret({ NODE_ENV: "development" }),
+    "helmer_guest_hmac_secret_fallback_key",
+  );
+  assert.equal(
+    resolveGuestSecret({ NODE_ENV: "test" }),
+    "helmer_guest_hmac_secret_fallback_key",
+  );
+});
+
+test("SEC-08: FileUserRepository resets emailVerifiedAt on email change and defends against mass assignment", async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-sec08-"));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const users = new FileUserRepository(path.join(directory, "users.json"));
+
+  // 1. Create a verified user
+  const created = await users.create({
+    fullName: "Verified User",
+    username: "verified_user",
+    email: "original@example.com",
+    passwordHash: "hash_original",
+    emailVerifiedAt: "2026-09-01T12:00:00.000Z",
+  });
+  assert.equal(created.emailVerifiedAt, "2026-09-01T12:00:00.000Z");
+
+  // 2. Updating name or username keeps emailVerifiedAt intact
+  const updatedName = await users.update(created.id, { fullName: "New Full Name" });
+  assert.equal(updatedName.fullName, "New Full Name");
+  assert.equal(updatedName.emailVerifiedAt, "2026-09-01T12:00:00.000Z");
+
+  // 3. Updating email to a new address automatically resets emailVerifiedAt to null
+  const updatedEmail = await users.update(created.id, { email: "newemail@example.com" });
+  assert.equal(updatedEmail.email, "newemail@example.com");
+  assert.equal(updatedEmail.emailVerifiedAt, null);
+
+  // 4. Defense-in-depth: attempts to overwrite immutable/sensitive fields (id, createdAt, passwordHash, role) are blocked
+  const originalId = created.id;
+  const originalCreatedAt = created.createdAt;
+  const tamperAttempt = await users.update(created.id, {
+    id: "usr_tampered_id",
+    createdAt: "1990-01-01T00:00:00.000Z",
+    passwordHash: "malicious_injected_hash",
+    role: "superadmin",
+    fullName: "Tampered Name",
+  });
+  assert.equal(tamperAttempt.id, originalId);
+  assert.equal(tamperAttempt.createdAt, originalCreatedAt);
+  assert.equal(tamperAttempt.passwordHash, "hash_original");
+  assert.equal(tamperAttempt.role, undefined);
+  assert.equal(tamperAttempt.fullName, "Tampered Name");
+
+  // 5. updatePassword works through its dedicated safe method
+  const passwordUpdated = await users.updatePassword(created.id, "new_secure_hash");
+  assert.equal(passwordUpdated.passwordHash, "new_secure_hash");
+
+  // 6. AccountUpdateSchema strict mode rejects unexpected properties
+  const validPayload = { fullName: "Test Name", username: "validname", email: "val@example.com" };
+  assert.equal(AccountUpdateSchema.safeParse(validPayload).success, true);
+  assert.equal(AccountUpdateSchema.safeParse({ ...validPayload, role: "admin" }).success, false);
+  assert.equal(AccountUpdateSchema.safeParse({ ...validPayload, passwordHash: "hacked" }).success, false);
+});
+

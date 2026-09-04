@@ -11,6 +11,7 @@ import crypto from "node:crypto";
 export class GeminiFileCache {
   constructor(options = {}) {
     this.ttlMs = options.ttlMs || 60 * 60 * 1000; // 1 hour default TTL
+    this.maxEntries = options.maxEntries || 100; // Max 100 entries to prevent memory exhaustion
     this.cache = new Map();
     this.hashToId = new Map();
     this.minTokenThresholdForGeminiCache = 32768; // Gemini API requirement for cachedContent
@@ -50,13 +51,24 @@ export class GeminiFileCache {
       const existingId = this.hashToId.get(hash);
       const existing = this.cache.get(existingId);
       if (existing && existing.expiresAt > Date.now()) {
-        // Refresh TTL on reuse
+        // Refresh TTL on reuse and update LRU order
         existing.expiresAt = Date.now() + this.ttlMs;
+        this.cache.delete(existingId);
+        this.cache.set(existingId, existing);
         return existingId;
       }
     }
 
-    const fileId = file.fileId || ("gfc_" + crypto.randomUUID());
+    // LRU eviction: If cache is full, evict the oldest entry
+    if (this.cache.size >= this.maxEntries) {
+      const oldestId = this.cache.keys().next().value;
+      if (oldestId) {
+        this.deleteFile(oldestId);
+      }
+    }
+
+    // Always generate secure server-side fileId using crypto.randomUUID()
+    const fileId = "gfc_" + crypto.randomUUID();
     const name = String(file.name || "fayl").trim();
     const mimeType = String(file.mimeType || file.type || "application/octet-stream").trim();
     const data = file.data ? String(file.data).replace(/^data:[^;]+;base64,/, "").trim() : "";
@@ -94,8 +106,10 @@ export class GeminiFileCache {
       this.deleteFile(fileId);
       return null;
     }
-    // Refresh TTL on read
+    // Refresh TTL on read and update LRU order
     entry.expiresAt = Date.now() + this.ttlMs;
+    this.cache.delete(fileId);
+    this.cache.set(fileId, entry);
     return entry;
   }
 

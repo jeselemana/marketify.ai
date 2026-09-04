@@ -264,24 +264,48 @@ export class FileUserRepository {
     });
   }
 
-  update(id, changes) {
+  update(id, changes, { allowSystemFields = false } = {}) {
     return this.enqueue(async () => {
       const store = await this.readStore();
       const index = store.users.findIndex((user) => user.id === id);
       if (index === -1) return null;
-      const username = changes.username ? normalizeUsername(changes.username).replace(/^@+/, "") : normalizeUsername(store.users[index].username).replace(/^@+/, "");
-      const email = changes.email ? normalizeEmail(changes.email) : normalizeEmail(store.users[index].email);
+
+      // Defense-in-depth: mass assignment protection for immutable/sensitive fields
+      const {
+        id: _ignoredId,
+        createdAt: _ignoredCreatedAt,
+        passwordHash: _ignoredPasswordHash,
+        role: _ignoredRole,
+        ...safeChanges
+      } = changes;
+
+      const effectiveChanges = allowSystemFields ? changes : safeChanges;
+      const current = store.users[index];
+      const username = effectiveChanges.username ? normalizeUsername(effectiveChanges.username).replace(/^@+/, "") : normalizeUsername(current.username).replace(/^@+/, "");
+      const email = effectiveChanges.email ? normalizeEmail(effectiveChanges.email) : normalizeEmail(current.email);
+
       if (store.users.some((user, i) => i !== index && normalizeUsername(user.username).replace(/^@+/, "") === username)) {
         throw new UserConflictError("username");
       }
       if (store.users.some((user, i) => i !== index && normalizeEmail(user.email) === email)) {
         throw new UserConflictError("email");
       }
+
+      // SEC-08: If email is changed, reset emailVerifiedAt to null
+      let emailVerifiedAt = effectiveChanges.emailVerifiedAt !== undefined ? effectiveChanges.emailVerifiedAt : current.emailVerifiedAt;
+      if (effectiveChanges.email && email !== normalizeEmail(current.email)) {
+        emailVerifiedAt = null;
+      }
+
       store.users[index] = {
-        ...store.users[index],
-        ...changes,
+        ...current,
+        ...effectiveChanges,
+        id: allowSystemFields && changes.id ? changes.id : current.id,
+        createdAt: allowSystemFields && changes.createdAt ? changes.createdAt : current.createdAt,
+        passwordHash: allowSystemFields && changes.passwordHash ? changes.passwordHash : current.passwordHash,
         username,
         email,
+        emailVerifiedAt,
         updatedAt: new Date().toISOString(),
       };
       await this.writeStore(store);
@@ -290,8 +314,17 @@ export class FileUserRepository {
   }
 
   updatePassword(id, passwordHash) {
-    const now = new Date().toISOString();
-    return this.update(id, { passwordHash, passwordChangedAt: now });
+    return this.enqueue(async () => {
+      const store = await this.readStore();
+      const index = store.users.findIndex((user) => user.id === id);
+      if (index === -1) return null;
+      const now = new Date().toISOString();
+      store.users[index].passwordHash = passwordHash;
+      store.users[index].passwordChangedAt = now;
+      store.users[index].updatedAt = now;
+      await this.writeStore(store);
+      return store.users[index];
+    });
   }
 
   markLogin(id) {

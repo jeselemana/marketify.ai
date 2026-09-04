@@ -4,7 +4,15 @@ export const GUEST_COOKIE = "helmer_guest";
 const COOKIE_NAME = GUEST_COOKIE;
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
-const GUEST_SECRET = process.env.SESSION_SECRET || process.env.AUTH_SECRET || "helmer_guest_hmac_secret_fallback_key";
+export function resolveGuestSecret(env = process.env) {
+  const secret = env.SESSION_SECRET || env.AUTH_SECRET;
+  if (env.NODE_ENV === "production" && (!secret || !secret.trim())) {
+    throw new Error("Fatal: SESSION_SECRET or AUTH_SECRET environment variable is required in production mode.");
+  }
+  return (secret && secret.trim()) || "helmer_guest_hmac_secret_fallback_key";
+}
+
+const GUEST_SECRET = resolveGuestSecret();
 
 export function parseCookies(header = "") {
   return Object.fromEntries(

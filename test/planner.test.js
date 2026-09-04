@@ -55,7 +55,22 @@ test("planner repository persists tasks, handles completion, deletion, and owner
   userTasks = await repository.list(userOwnerId);
   assert.equal(userTasks.length, 2);
 
-  // 6. Delete a task
+  // 6. Mass assignment protection: attempts to modify id, ownerId, or createdAt are blocked
+  const originalTask = userTasks[0];
+  const originalId = originalTask.id;
+  const originalCreatedAt = originalTask.createdAt;
+  const attemptedTamper = await repository.update(originalId, userOwnerId, {
+    id: "tampered-id-123",
+    ownerId: "attacker-user-id",
+    createdAt: "2020-01-01T00:00:00.000Z",
+    text: "Təhlükəsiz yenilənmiş mətn",
+  });
+  assert.equal(attemptedTamper.id, originalId);
+  assert.equal(attemptedTamper.ownerId, userOwnerId);
+  assert.equal(attemptedTamper.createdAt, originalCreatedAt);
+  assert.equal(attemptedTamper.text, "Təhlükəsiz yenilənmiş mətn");
+
+  // 7. Delete a task
   const deleteOk = await repository.delete(userTasks[0].id, userOwnerId);
   assert.equal(deleteOk, true);
 

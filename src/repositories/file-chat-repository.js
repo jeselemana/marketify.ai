@@ -135,7 +135,9 @@ export class FileChatRepository {
       return records[existingIndex];
     }
 
-    const chatId = id || randomUUID();
+    const validId = id && /^[0-9a-f-]{36}$/i.test(id) ? id : null;
+    const isIdTaken = validId ? records.some((r) => r.id === validId) : false;
+    const chatId = validId && !isIdTaken ? validId : randomUUID();
     const firstUserMsg = messages.find((m) => m.role === "user")?.content || "";
     const cleanTitle = title || (firstUserMsg.length > 50 ? `${firstUserMsg.slice(0, 48)}…` : firstUserMsg) || "Yeni söhbət";
     const newRecord = {

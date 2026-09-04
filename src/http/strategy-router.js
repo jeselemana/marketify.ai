@@ -14,12 +14,20 @@ import { logWithoutBlocking } from "../services/learning/learning-loop-service.j
 const activeGenerations = new Map();
 const requestWindows = new Map();
 
-function getClientIp(req) {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.trim()) {
-    const first = forwarded.split(",")[0].trim();
-    if (first) return first;
+// Periodic cleanup for requestWindows to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, history] of requestWindows.entries()) {
+    const valid = (history || []).filter((timestamp) => now - timestamp < 10 * 60 * 1000);
+    if (valid.length === 0) {
+      requestWindows.delete(key);
+    } else {
+      requestWindows.set(key, valid);
+    }
   }
+}, 5 * 60 * 1000).unref();
+
+function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || "127.0.0.1";
 }
 

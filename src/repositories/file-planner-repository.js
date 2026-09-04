@@ -158,11 +158,16 @@ export class FilePlannerRepository {
     if (index === -1) return null;
 
     const now = new Date().toISOString();
+    const { id: _ignoredId, ownerId: _ignoredOwnerId, createdAt: _ignoredCreatedAt, ...safeChanges } = changes;
+
     records[index] = {
       ...records[index],
-      ...changes,
-      completed: typeof changes.completed === "boolean" ? changes.completed : records[index].completed,
-      completedAt: changes.completed ? (records[index].completedAt || now) : null,
+      ...safeChanges,
+      id: records[index].id,
+      ownerId: records[index].ownerId,
+      createdAt: records[index].createdAt,
+      completed: typeof safeChanges.completed === "boolean" ? safeChanges.completed : records[index].completed,
+      completedAt: safeChanges.completed ? (records[index].completedAt || now) : (safeChanges.completed === false ? null : records[index].completedAt),
       updatedAt: now,
     };
 
