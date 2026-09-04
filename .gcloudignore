@@ -1,0 +1,37 @@
+# This file specifies files that should not be uploaded to Google Cloud Platform
+# during gcloud builds submit, gcloud run deploy, etc.
+
+.gcloudignore
+.git
+.gitignore
+.github
+
+# STRICT: Environment and sensitive credential files
+.env
+.env*
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# Local persistent data and user stores
+data/
+data/*.json
+data/*.tmp
+
+# Node dependencies and logs
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+.DS_Store
+**/.DS_Store
+
+# Tests and documentation
+test/
+docs/
+.openai/
+.node-version
+.cache/

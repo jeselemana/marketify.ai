@@ -14,10 +14,21 @@ import { logWithoutBlocking } from "../services/learning/learning-loop-service.j
 const activeGenerations = new Map();
 const requestWindows = new Map();
 
+function getClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    const first = forwarded.split(",")[0].trim();
+    if (first) return first;
+  }
+  return req.ip || req.socket?.remoteAddress || "127.0.0.1";
+}
+
 function rateLimit(limit, windowMs = 10 * 60 * 1000) {
   return (req, res, next) => {
     const now = Date.now();
-    const key = `${req.ownerId}:${req.baseUrl}`;
+    const clientIp = getClientIp(req);
+    const identifier = req.user?.id ? `user:${req.user.id}` : `ip:${clientIp}`;
+    const key = `strat:${identifier}:${req.baseUrl || "/api/strategy"}`;
     const history = (requestWindows.get(key) || []).filter((timestamp) => now - timestamp < windowMs);
     if (history.length >= limit) {
       return res.status(429).json({

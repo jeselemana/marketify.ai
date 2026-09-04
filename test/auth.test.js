@@ -77,6 +77,10 @@ test("guest session creates a stable anonymous workspace owner", async (t) => {
 
   const returning = await fetch(`${base}/workspace`, { headers: { Cookie: cookie } });
   assert.equal((await returning.json()).ownerId, firstOwner);
+
+  // Forged unsigned cookie must be rejected and replaced with a new generated ID
+  const forged = await fetch(`${base}/workspace`, { headers: { Cookie: "helmer_guest=guest_11111111-2222-3333-4444-555555555555" } });
+  assert.notEqual((await forged.json()).ownerId, "guest_11111111-2222-3333-4444-555555555555");
 });
 
 test("signup, session, login, reset, and single-use reset token work end to end", async (t) => {

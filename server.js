@@ -101,8 +101,6 @@ function isTrustedRequestOrigin(req, origin) {
   try {
     const parsed = new URL(normalized);
     if (
-      parsed.hostname.endsWith(".run.app") ||
-      parsed.hostname.endsWith(".workers.dev") ||
       parsed.hostname === "helmerworkspace.com" ||
       parsed.hostname.endsWith(".helmerworkspace.com")
     ) {
@@ -114,6 +112,7 @@ function isTrustedRequestOrigin(req, origin) {
 
 app.use((req, res, next) => {
   res.set({
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -748,12 +747,22 @@ const GEMINI_SAFETY_SETTINGS = [
   { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_ONLY_HIGH" },
 ];
 
+function getClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    const first = forwarded.split(",")[0].trim();
+    if (first) return first;
+  }
+  return req.ip || req.socket?.remoteAddress || "127.0.0.1";
+}
+
 const askRequestWindows = new Map();
 
 function askRateLimit(limit = 60, windowMs = 10 * 60 * 1000) {
   return (req, res, next) => {
     const now = Date.now();
-    const identifier = req.ownerId || req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip || "unknown";
+    const clientIp = getClientIp(req);
+    const identifier = req.user?.id ? `user:${req.user.id}` : `ip:${clientIp}`;
     const key = `ask:${identifier}`;
     const history = (askRequestWindows.get(key) || []).filter((timestamp) => now - timestamp < windowMs);
     if (history.length >= limit) {

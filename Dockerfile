@@ -28,6 +28,9 @@ RUN apt-get purge -y --auto-remove python3 make g++ \
 # Copy application source code
 COPY . .
 
+# Defense-in-depth: Ensure no sensitive or local user data files remain in the image
+RUN rm -rf .env* data/*.json data/*.tmp
+
 # Expose container port for Cloud Run
 EXPOSE 8080
 

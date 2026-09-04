@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { hashOpaqueToken } from "../auth/password.js";
+import { verifyGuestCookie } from "./session.js";
 
 export const SESSION_COOKIE = "helmer_session";
 export const GUEST_COOKIE = "helmer_guest";
@@ -35,9 +36,7 @@ export function createIdentityMiddleware({ authStore, userRepository }) {
   return async function identity(req, res, next) {
     try {
       const cookies = parseCookies(req.headers.cookie);
-      req.guestOwnerId = /^guest_[0-9a-f-]{36}$/i.test(cookies[GUEST_COOKIE] || "")
-        ? cookies[GUEST_COOKIE]
-        : null;
+      req.guestOwnerId = verifyGuestCookie(cookies[GUEST_COOKIE]);
       const rawToken = cookies[SESSION_COOKIE];
       if (!rawToken || rawToken.length > 200) return next();
       const sessionId = hashOpaqueToken(rawToken);
