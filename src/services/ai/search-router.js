@@ -20,6 +20,10 @@ const SEARCH_INTENT_PATTERN = /(?:google|axtar|axtar[ıi][sş]|web|internet|sayt
 
 const SPECIFIC_ENTITY_LOOKUP_PATTERN = /(?:hans[ıi]\s+[sş]irk[əe]tl[əe]r|hans[ıi]\s+brendl[əe]r|hans[ıi]\s+ma[gğ]azalar|hans[ıi]\s+agentlikl[əe]r|harada\s+yerl[əe][sş]ir|haradan\s+almaq|[əe]laq[əe]\s+n[oö]mr[əe]si|[uü]nvan[ıi])/i;
 
+const AI_AND_TECH_MODELS_PATTERN = /(?:(?:gemini|gpt|claude|llama|deepseek|mistral|qwen|grok|sora|copilot|chatgpt|openai|anthropic|perplexity|midjourney|dall-?e|runway|elevenlabs)\b|(?:yeni\s+(?:[cç][ıi]xan\s+)?(?:dil\s+)?model[a-zəıiöüçşğ]*|yeni\s+versiya[a-zəıiöüçşğ]*|yeni\s+ai|yeni\s+s[uü]ni\s+intellekt|dil\s+model[a-zəıiöüçşğ]*|g[əe]l[əe]c[əe]k\s+(?:model|burax[ıi]l[ıi][sş])[a-zəıiöüçşğ]*|yeni\s+burax[ıi]l[ıi][sş][a-zəıiöüçşğ]*|texniki\s+yenilik[a-zəıiöüçşğ]*|texnoloji\s+yenilik[a-zəıiöüçşğ]*|benchmark[a-zəıiöüçşğ]*|new\s+model|next\s+model|upcoming\s+model|future\s+release|release\s+date)\b|(?:burax[ıi]l[ıi]b|burax[ıi]lacaq|burax[ıi]l[ıi]bm[ıi]|[cç][ıi]x[ıi]b|[cç][ıi]x[ıi]bm[ıi]|[cç][ıi]xacaq|[cç][ıi]xacaqm[ıi]|[cç][ıi]xan|n[əe]\s+vaxt\s+[cç][ıi]x|when\s+(?:will|did)\s+.*(?:release|launch)|announced|launch(?:ed)?)\b)/i;
+
+const FACT_CHECK_AND_VERIFICATION_PATTERN = /(?:r[əe]smi\s+(?:status|olaraq|elan|a[cç][ıi]qlama|m[əe]lumat)|m[oö]vcuddurmu|m[oö]vcud\s+olub|var\s+ya\s+yox|do[gğ]rudurmu|h[əe]qiq[əe]tdirmi|fakt(?:d[ıi]rm[ıi]|lar)?|d[uü]zg[uü]nd[uü]rm[uü]|yaland[ıi]rm[ıi]|is\s+it\s+true|does\s+it\s+exist|is\s+it\s+real|officially\s+released|official\s+status)/i;
+
 /**
  * Evaluates whether a prompt or query should trigger real-time Google search grounding.
  *
@@ -37,19 +41,25 @@ export function shouldEnableSearch(query = "", options = {}) {
   // 2. Explicit search or web retrieval intent
   if (SEARCH_INTENT_PATTERN.test(text)) return true;
 
-  // 3. Competitor research & market share
+  // 3. AI models, new versions, future releases, tech novelties
+  if (AI_AND_TECH_MODELS_PATTERN.test(text)) return true;
+
+  // 4. Fact checking, existence checks, official status verification
+  if (FACT_CHECK_AND_VERIFICATION_PATTERN.test(text)) return true;
+
+  // 5. Competitor research & market share
   if (COMPETITOR_PATTERN.test(text)) return true;
 
-  // 4. Pricing, rates, currency, inflation
+  // 6. Pricing, rates, currency, inflation
   if (PRICE_AND_MARKET_PATTERN.test(text)) return true;
 
-  // 5. Trends, market news, statistics
+  // 7. Trends, market news, statistics
   if (TRENDS_AND_NEWS_PATTERN.test(text)) return true;
 
-  // 6. Real-time time triggers (recent dates, current year/month/days)
+  // 8. Real-time time triggers (recent dates, current year/month/days)
   if (REALTIME_TIME_PATTERN.test(text)) return true;
 
-  // 7. Specific local entity or business provider lookup
+  // 9. Specific local entity or business provider lookup
   if (SPECIFIC_ENTITY_LOOKUP_PATTERN.test(text)) return true;
 
   return false;
@@ -73,8 +83,11 @@ export function evaluateSearchRoute({ prompt = "", messages = [], hasStrategyCon
   if (hasStrategyContext) {
     // When a strategy or task is selected as context, internal terms (competitors, budget, pricing)
     // belong to the strategy document. Only enable live web search if the user explicitly requests
-    // online lookup or provides an external URL.
-    enableSearch = URL_PATTERN.test(lastUserMsg) || SEARCH_INTENT_PATTERN.test(lastUserMsg);
+    // online lookup, provides an external URL, or queries external AI models / real-time facts.
+    enableSearch = URL_PATTERN.test(lastUserMsg) ||
+      SEARCH_INTENT_PATTERN.test(lastUserMsg) ||
+      AI_AND_TECH_MODELS_PATTERN.test(lastUserMsg) ||
+      FACT_CHECK_AND_VERIFICATION_PATTERN.test(lastUserMsg);
   } else {
     enableSearch = shouldEnableSearch(lastUserMsg);
   }

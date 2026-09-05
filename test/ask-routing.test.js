@@ -16,9 +16,11 @@ test("complex Ask queries without search intent route to GPT-5.6 Terra", () => {
   assert.equal(resolveAskModelRoute({ lastUserMsg: "Bunu necə tətbiq edim?", hasStrategyContext: true }), "terra");
 });
 
-test("real-time search and pricing Ask queries in auto mode route to Gemini 3.7 Flash", () => {
+test("real-time search, pricing, and AI model queries in auto mode route to Gemini 3.7 Flash", () => {
   assert.equal(resolveAskModelRoute({ lastUserMsg: "Bakı bazarında hazırkı qiymətlər nə qədərdir?" }), "gemini-3.7-flash");
   assert.equal(resolveAskModelRoute({ lastUserMsg: "Rəqib analizi və 2026 trendləri" }), "gemini-3.7-flash");
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "Gemini 3.8 Flash haqqında nə bilirsən?" }), "gemini-3.7-flash");
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "GPT-6 Astra nə vaxt çıxacaq?" }), "gemini-3.7-flash");
 });
 
 test("only Terra, Luna, and Gemini 3.7 Flash can be selected explicitly", () => {

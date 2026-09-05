@@ -139,4 +139,54 @@ test("evaluateSearchRoute extracts prompt and returns appropriate route decision
   });
   assert.equal(routeWithStrategyContext2.enableSearch, true);
   assert.equal(routeWithStrategyContext2.intent, "grounded_search");
+
+  // Inquiries about new models or fact verification trigger search even with strategy context
+  const routeWithStrategyContext3 = evaluateSearchRoute({
+    prompt: "Gemini 3.8 Flash və GPT-6 Astra haqqında nə bilirsən?",
+    hasStrategyContext: true,
+  });
+  assert.equal(routeWithStrategyContext3.enableSearch, true);
+  assert.equal(routeWithStrategyContext3.intent, "grounded_search");
+});
+
+test("shouldEnableSearch returns true for AI models, versions, and technical releases", () => {
+  const aiPrompts = [
+    "Gemini 3.8 Flash haqqında nə bilirsən?",
+    "GPT-6 Astra nə vaxt çıxacaq?",
+    "Claude 3.7 Sonnet buraxılıb?",
+    "DeepSeek R2 haqqında ətraflı məlumat ver",
+    "OpenAI-ın yeni modeli nə vaxt çıxacaq?",
+    "Yeni AI modelləri və gələcək buraxılışlar",
+    "Llama 4 rəsmi statusu nədir?",
+    "Sora 2 çıxıb?",
+    "Yeni çıxan dil modellərinin benchmark nəticələri",
+    "Texniki yeniliklər və arxitektura fərqləri",
+  ];
+
+  for (const prompt of aiPrompts) {
+    assert.equal(
+      shouldEnableSearch(prompt),
+      true,
+      `Expected "${prompt}" to have search enabled for AI/model inquiry`,
+    );
+  }
+});
+
+test("shouldEnableSearch returns true for fact-checking and official status verification", () => {
+  const factPrompts = [
+    "Hazırda rəsmi olaraq belə bir model varmı?",
+    "Bu məlumat doğrudurmu?",
+    "Həqiqətdirmi ki, yeni versiya təqdim olundu?",
+    "Mövcuddurmu belə bir sistem?",
+    "Rəsmi status nədir?",
+    "Is it true that GPT-6 Astra was announced?",
+  ];
+
+  for (const prompt of factPrompts) {
+    assert.equal(
+      shouldEnableSearch(prompt),
+      true,
+      `Expected "${prompt}" to have search enabled for fact-checking`,
+    );
+  }
 });

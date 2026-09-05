@@ -446,6 +446,7 @@ Answer the user's question directly, clearly, and completely in the language the
 Avoid unnecessary preamble or boilerplate introductory phrases.
 Always complete your thoughts, explanations, and analyses fully without leaving sentences, bullet points, or sections truncated or cut off.
 Never claim to have performed actions, searches, or analysis that you did not perform.
+When answering queries regarding new AI models, model names or unreleased versions (e.g., Gemini 3.8 Flash, GPT-6 Astra, new Claude/Llama/DeepSeek releases), upcoming product releases, technical innovations, current events, real-time facts, or unfamiliar entities, never rely on internal training cutoff to conclude that something does not exist; verify live facts, news, and official announcements.
 If reference context (such as a saved strategy or task) is provided, thoroughly analyze it to address the user's specific request while preserving depth and structural completeness.
 If the user wants to build a complete business or marketing strategy, explain that the Build mode is optimized for the structured strategy workflow, while still answering their immediate question.`;
 
@@ -856,8 +857,26 @@ async function generateGeminiAskStreamResponse({
     ? "\n\nThe user has provided an uploaded file or document as analysis context. Carefully read, understand, and analyze all attached file content, documents, images, tables, code, or data. Answer the user's specific questions based on the file content with high accuracy, clarity, and depth. Provide actionable insights and strategic recommendations based on the provided material."
     : "";
 
-  const searchGuidance = enableSearch
-    ? "\n\nLive Google Search Grounding is active for this query. You have real-time internet search capability. Search the web and use the latest grounded search results to provide accurate, up-to-date facts, current prices, and real-time market data. Never say that you cannot browse the internet or that live search is disabled."
+  const hasSearchCapability = Boolean(enableSearch || model === ASK_GEMINI_MODEL || (typeof model === "string" && model.includes("gemini")));
+
+  const searchGuidance = hasSearchCapability
+    ? `\n\n[MANDATORY REAL-TIME SEARCH & TOOL GROUNDING DIRECTIVE]:
+Google Search Grounding tool is actively configured and available for this conversation. You have real-time internet search capabilities.
+- ACTIVE SEARCH MANDATE: Whenever the user asks about:
+  * New or upcoming AI models, unannounced model versions or model names (e.g. "Gemini 3.8 Flash", "GPT-6 Astra", new Claude, Llama, DeepSeek, Mistral, Qwen releases, etc.)
+  * Future releases, launch dates, roadmaps, product announcements, or availability
+  * Technical updates, architectural novelties, benchmarks, or AI developments
+  * Current events, recent news, real-time market facts, economic data, or currency rates
+  * Specific entity names, unfamiliar/unrecognized names, or queries asking to verify whether an entity or release exists or is official
+  You MUST ALWAYS trigger and execute the Google Search tool before formulating your answer. Do NOT guess, speculate, or deduce from outdated memory.
+- STRICT PROHIBITION ON CUTOFF RELIANCE:
+  * Relying on your internal training data cutoff date to conclude or state that a model, release, product, or entity "does not exist officially" ("hazırda rəsmi olaraq belə bir model yoxdur"), "has not been released yet", or "is fake" is STRICTLY FORBIDDEN.
+  * Your internal cutoff does not contain newly released models, announcements, or leaks. You MUST verify live announcements, press releases, developer blogs, and credible reports via Google Search.
+  * If live search results confirm official status, leaks, developer previews, rumors, or benchmarks, summarize those grounded findings objectively.
+  * If and only if thorough Google Search returns no credible trace or confirms non-existence, you may state that based on current live web search results and official announcements, no such release has been confirmed.
+- GROUNDING & TRANSPARENCY:
+  * Never state that you cannot browse the internet, that you lack web access, or that live search is disabled.
+  * Deliver clear, comprehensive, and grounded answers in the language of the user's prompt.`
     : "";
 
   const fullSystemInstruction = (instructions || "") + searchGuidance + fileGuidance;
@@ -955,8 +974,13 @@ async function generateGeminiAskStreamResponse({
     };
   }
 
-  if (enableSearch) {
+  if (hasSearchCapability) {
     config.tools = [{ googleSearch: {} }];
+  }
+
+  // Ensure toolConfig does not suppress search grounding if configured
+  if (config.toolConfig?.functionCallingConfig?.mode === "NONE") {
+    config.toolConfig.functionCallingConfig.mode = "AUTO";
   }
 
   let accumulated = "";
@@ -1010,7 +1034,7 @@ async function generateGeminiAskStreamResponse({
     try {
       await runStream(config);
     } catch (searchOrStreamError) {
-      if (enableSearch && !accumulated.trim() && !signal?.aborted) {
+      if (config.tools && !accumulated.trim() && !signal?.aborted) {
         console.warn("⚠️ [Gemini Search Grounding Xətası]:", searchOrStreamError?.message || searchOrStreamError);
         const fallbackConfig = { ...config };
         delete fallbackConfig.tools;
@@ -1077,8 +1101,26 @@ async function generateGeminiAskResponse({
     ? "\n\nThe user has provided an uploaded file or document as analysis context. Carefully read, understand, and analyze all attached file content, documents, images, tables, code, or data. Answer the user's specific questions based on the file content with high accuracy, clarity, and depth. Provide actionable insights and strategic recommendations based on the provided material."
     : "";
 
-  const searchGuidance = enableSearch
-    ? "\n\nLive Google Search Grounding is active for this query. You have real-time internet search capability. Search the web and use the latest grounded search results to provide accurate, up-to-date facts, current prices, and real-time market data. Never say that you cannot browse the internet or that live search is disabled."
+  const hasSearchCapability = Boolean(enableSearch || model === ASK_GEMINI_MODEL || (typeof model === "string" && model.includes("gemini")));
+
+  const searchGuidance = hasSearchCapability
+    ? `\n\n[MANDATORY REAL-TIME SEARCH & TOOL GROUNDING DIRECTIVE]:
+Google Search Grounding tool is actively configured and available for this conversation. You have real-time internet search capabilities.
+- ACTIVE SEARCH MANDATE: Whenever the user asks about:
+  * New or upcoming AI models, unannounced model versions or model names (e.g. "Gemini 3.8 Flash", "GPT-6 Astra", new Claude, Llama, DeepSeek, Mistral, Qwen releases, etc.)
+  * Future releases, launch dates, roadmaps, product announcements, or availability
+  * Technical updates, architectural novelties, benchmarks, or AI developments
+  * Current events, recent news, real-time market facts, economic data, or currency rates
+  * Specific entity names, unfamiliar/unrecognized names, or queries asking to verify whether an entity or release exists or is official
+  You MUST ALWAYS trigger and execute the Google Search tool before formulating your answer. Do NOT guess, speculate, or deduce from outdated memory.
+- STRICT PROHIBITION ON CUTOFF RELIANCE:
+  * Relying on your internal training data cutoff date to conclude or state that a model, release, product, or entity "does not exist officially" ("hazırda rəsmi olaraq belə bir model yoxdur"), "has not been released yet", or "is fake" is STRICTLY FORBIDDEN.
+  * Your internal cutoff does not contain newly released models, announcements, or leaks. You MUST verify live announcements, press releases, developer blogs, and credible reports via Google Search.
+  * If live search results confirm official status, leaks, developer previews, rumors, or benchmarks, summarize those grounded findings objectively.
+  * If and only if thorough Google Search returns no credible trace or confirms non-existence, you may state that based on current live web search results and official announcements, no such release has been confirmed.
+- GROUNDING & TRANSPARENCY:
+  * Never state that you cannot browse the internet, that you lack web access, or that live search is disabled.
+  * Deliver clear, comprehensive, and grounded answers in the language of the user's prompt.`
     : "";
 
   const fullSystemInstruction = (instructions || "") + searchGuidance + fileGuidance;
@@ -1176,8 +1218,13 @@ async function generateGeminiAskResponse({
     };
   }
 
-  if (enableSearch) {
+  if (hasSearchCapability) {
     config.tools = [{ googleSearch: {} }];
+  }
+
+  // Ensure toolConfig does not suppress search grounding if configured
+  if (config.toolConfig?.functionCallingConfig?.mode === "NONE") {
+    config.toolConfig.functionCallingConfig.mode = "AUTO";
   }
 
   try {
@@ -1192,7 +1239,7 @@ async function generateGeminiAskResponse({
         signal ? { signal } : undefined,
       );
     } catch (searchError) {
-      if (enableSearch && !signal?.aborted) {
+      if (config.tools && !signal?.aborted) {
         console.warn("Gemini Search Grounding error in generateGeminiAskResponse, falling back to standard generation:", searchError?.message || searchError);
         const fallbackConfig = { ...config };
         delete fallbackConfig.tools;
