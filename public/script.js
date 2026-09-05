@@ -5635,6 +5635,77 @@ function buildLanguageSelectorSection() {
   return row;
 }
 
+function buildThemeSelectorSection() {
+  const isEn = getLanguage() === "en";
+  const row = element("div", "settings-lang-row");
+
+  const info = element("div", "settings-lang-info");
+  const label = element("span", "settings-lang-label", isEn ? "Appearance Theme" : "Görünüş teması");
+  const hint = element("span", "settings-lang-hint", isEn ? "Choose between light and eye-strain-free slate dark workspace appearance." : "Açıq və ya göz yormayan Slate qaranlıq workspace rejimini seçin.");
+  info.append(label, hint);
+
+  const dropdown = element("details", "settings-lang-dropdown");
+  const trigger = element("summary", "settings-lang-trigger");
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-label", isEn ? "Select appearance theme" : "Görünüş temasını seçin");
+
+  const currentTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  const currLabel = currentTheme === "dark" ? (isEn ? "Dark Mode" : "Qaranlıq rejim") : (isEn ? "Light Mode" : "Açıq rejim");
+
+  trigger.innerHTML = `
+    <span class="settings-lang-curr-name">${currLabel}</span>
+    <svg class="settings-lang-chevron" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
+      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+    </svg>
+  `;
+
+  const menu = element("div", "settings-lang-menu");
+  menu.setAttribute("role", "listbox");
+
+  const themes = [
+    { code: "light", name: isEn ? "Light Mode" : "Açıq rejim" },
+    { code: "dark", name: isEn ? "Dark Mode" : "Qaranlıq rejim" },
+  ];
+
+  themes.forEach((item) => {
+    const isSelected = currentTheme === item.code;
+    const opt = button("", `settings-lang-option${isSelected ? " is-selected" : ""}`, () => {
+      dropdown.removeAttribute("open");
+      const root = document.documentElement;
+      if (root.dataset.theme === item.code) return;
+      root.dataset.theme = item.code;
+      if (item.code === "dark") {
+        root.classList.add("dark");
+      } else {
+        root.classList.remove("dark");
+      }
+      try {
+        localStorage.setItem("helmer_theme", item.code);
+        localStorage.setItem("theme", item.code);
+      } catch {}
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.content = item.code === "dark" ? "#000000" : "#f8f9fb";
+      window.dispatchEvent(new CustomEvent("helmer:theme-change", { detail: { theme: item.code } }));
+      showToast(item.code === "dark" ? (isEn ? "Dark theme enabled." : "Qaranlıq rejim aktiv edildi.") : (isEn ? "Light theme enabled." : "Açıq rejim aktiv edildi."), "success");
+      renderSettings();
+    });
+    opt.type = "button";
+    opt.setAttribute("role", "option");
+    opt.setAttribute("aria-selected", String(isSelected));
+    opt.innerHTML = `
+      <span class="settings-lang-opt-name">${item.name}</span>
+      ${isSelected ? `<svg class="settings-lang-check" viewBox="0 0 20 20" width="15" height="15" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+      </svg>` : ""}
+    `;
+    menu.appendChild(opt);
+  });
+
+  dropdown.append(trigger, menu);
+  row.append(info, dropdown);
+  return row;
+}
+
 function renderSettings() {
   const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-settings");
@@ -5662,8 +5733,9 @@ function renderSettings() {
     );
     panel.appendChild(actions);
 
-    // Language Selector for Guest
+    // Language and Theme Selectors for Guest
     panel.appendChild(buildLanguageSelectorSection());
+    panel.appendChild(buildThemeSelectorSection());
 
     view.append(header, panel);
     workspace.appendChild(view);
@@ -5733,8 +5805,9 @@ function renderSettings() {
     });
     panel.appendChild(form);
 
-    // Add Language Selector inside Account tab
+    // Add Language and Theme Selectors inside Account tab
     panel.appendChild(buildLanguageSelectorSection());
+    panel.appendChild(buildThemeSelectorSection());
 
     view.appendChild(panel);
   } else if (state.settingsTab === "experience") {
@@ -7683,49 +7756,65 @@ function renderLimitsView() {
   if (totalDays > 20) labelStep = 5;
   else if (totalDays > 10) labelStep = 3;
 
-  chartData.forEach((dayItem, idx) => {
-    const col = element("div", "limits-chart-col");
-    const isFirst = (idx === 0);
-    const isLast = (idx === totalDays - 1);
-    const isKeyStep = (idx % labelStep === 0);
-    const showLabel = (totalDays <= 8) || isFirst || isLast || isKeyStep;
-
-    const hasActivity = (dayItem.build > 0) || (dayItem.ask > 0);
-    const buildH = dayItem.build > 0 ? Math.max(6, Math.round(((dayItem.build || 0) / maxTotal) * 110)) : 0;
-    const askH = dayItem.ask > 0 ? Math.max(6, Math.round(((dayItem.ask || 0) / maxTotal) * 110)) : 0;
-
-    let barsTrackHtml = "";
-    if (hasActivity) {
-      barsTrackHtml = `
-        <div class="limits-col-bars-track">
-          ${buildH > 0 ? `<div class="limits-bar-segment segment-build" style="height: ${buildH}px;"></div>` : ""}
-          ${askH > 0 ? `<div class="limits-bar-segment segment-ask" style="height: ${askH}px;"></div>` : ""}
-        </div>
-      `;
-    } else {
-      barsTrackHtml = `
-        <div class="limits-col-bars-track is-empty">
-          <div class="limits-bar-empty"></div>
-        </div>
-      `;
-    }
-
-    const labelText = escapeHtml(isEn ? dayItem.label.replace("Bugün", "Today") : dayItem.label.replace("Bu gün", "Bugün"));
-
-    col.innerHTML = `
-      <div class="limits-chart-tooltip">
-        <strong>${labelText}</strong>
-        <div class="tooltip-row"><span class="t-dot dot-build"></span> Build: ${dayItem.build || 0}</div>
-        <div class="tooltip-row"><span class="t-dot dot-ask"></span> Ask: ${dayItem.ask || 0}</div>
-        <div class="tooltip-row t-total">${isEn ? "Total" : "Cəmi"}: ${dayItem.total || 0}</div>
+  const totalPeriodOps = chartData.reduce((sum, d) => sum + (d.total || 0), 0);
+  if (totalPeriodOps === 0 && period === "today") {
+    const emptyState = element("div", "limits-chart-empty-state");
+    emptyState.innerHTML = `
+      <div class="limits-empty-icon-wrap">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
       </div>
-      ${barsTrackHtml}
-      <span class="limits-col-label${showLabel ? "" : " is-hidden-label"}">${showLabel ? labelText : "&nbsp;"}</span>
+      <p class="limits-empty-title">${escapeHtml(isEn ? "No strategic activity recorded yet today" : "Bugün üçün hələlik strateji fəallıq qeydə alınmayıb")}</p>
+      <span class="limits-empty-hint">${escapeHtml(isEn ? "Execute a Build generation or consult Ask Copilot to see real-time distribution." : "Real vaxt rejimində fəallığı görmək üçün Build generasiyası edin və ya Ask məsləhətçisinə sual verin.")}</span>
     `;
-    barsContainer.appendChild(col);
-  });
+    chartBody.appendChild(emptyState);
+  } else {
+    chartData.forEach((dayItem, idx) => {
+      const col = element("div", "limits-chart-col");
+      const isFirst = (idx === 0);
+      const isLast = (idx === totalDays - 1);
+      const isKeyStep = (idx % labelStep === 0);
+      const showLabel = (totalDays <= 8) || isFirst || isLast || isKeyStep;
 
-  chartBody.appendChild(barsContainer);
+      const hasActivity = (dayItem.build > 0) || (dayItem.ask > 0);
+      const buildH = dayItem.build > 0 ? Math.max(6, Math.round(((dayItem.build || 0) / maxTotal) * 110)) : 0;
+      const askH = dayItem.ask > 0 ? Math.max(6, Math.round(((dayItem.ask || 0) / maxTotal) * 110)) : 0;
+
+      let barsTrackHtml = "";
+      if (hasActivity) {
+        barsTrackHtml = `
+          <div class="limits-col-bars-track">
+            ${buildH > 0 ? `<div class="limits-bar-segment segment-build" style="height: ${buildH}px;"></div>` : ""}
+            ${askH > 0 ? `<div class="limits-bar-segment segment-ask" style="height: ${askH}px;"></div>` : ""}
+          </div>
+        `;
+      } else {
+        barsTrackHtml = `
+          <div class="limits-col-bars-track is-empty">
+            <div class="limits-bar-empty"></div>
+          </div>
+        `;
+      }
+
+      const labelText = escapeHtml(isEn ? dayItem.label.replace("Bugün", "Today") : dayItem.label.replace("Bu gün", "Bugün"));
+
+      col.innerHTML = `
+        <div class="limits-chart-tooltip">
+          <strong>${labelText}</strong>
+          <div class="tooltip-row"><span class="t-dot dot-build"></span> Build: ${dayItem.build || 0}</div>
+          <div class="tooltip-row"><span class="t-dot dot-ask"></span> Ask: ${dayItem.ask || 0}</div>
+          <div class="tooltip-row t-total">${isEn ? "Total" : "Cəmi"}: ${dayItem.total || 0}</div>
+        </div>
+        ${barsTrackHtml}
+        <span class="limits-col-label${showLabel ? "" : " is-hidden-label"}">${showLabel ? labelText : "&nbsp;"}</span>
+      `;
+      barsContainer.appendChild(col);
+    });
+    chartBody.appendChild(barsContainer);
+  }
   chartSection.appendChild(chartBody);
   view.appendChild(chartSection);
 

@@ -1,15 +1,56 @@
 /* Native controls, browser autofill, and selections inherit the selected palette. */
-[data-theme="dark"] { color-scheme: dark; }
-[data-theme="dark"] ::selection { background: var(--theme-blue-border); color: var(--text-primary); }
+[data-theme="dark"],
+html.dark {
+  color-scheme: dark;
+}
+
+[data-theme="dark"] ::selection,
+html.dark ::selection {
+  background: var(--theme-blue-border);
+  color: var(--text-primary);
+}
+
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
-[data-theme="dark"] select { caret-color: var(--text-primary); }
+[data-theme="dark"] select,
+html.dark input,
+html.dark textarea,
+html.dark select {
+  caret-color: var(--text-primary);
+}
+
 [data-theme="dark"] select option,
-[data-theme="dark"] select optgroup { background: var(--bg-elevated); color: var(--text-primary); }
+[data-theme="dark"] select optgroup,
+html.dark select option,
+html.dark select optgroup {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
 [data-theme="dark"] input:-webkit-autofill,
 [data-theme="dark"] input:-webkit-autofill:hover,
-[data-theme="dark"] input:-webkit-autofill:focus {
+[data-theme="dark"] input:-webkit-autofill:focus,
+html.dark input:-webkit-autofill,
+html.dark input:-webkit-autofill:hover,
+html.dark input:-webkit-autofill:focus {
   -webkit-text-fill-color: var(--text-primary);
   -webkit-box-shadow: 0 0 0 1000px var(--bg-elevated) inset;
   caret-color: var(--text-primary);
 }
+
+/* Theme toggle icon visibility */
+.theme-icon-sun {
+  display: none;
+}
+.theme-icon-moon {
+  display: block;
+}
+[data-theme="dark"] .theme-icon-sun,
+html.dark .theme-icon-sun {
+  display: block;
+}
+[data-theme="dark"] .theme-icon-moon,
+html.dark .theme-icon-moon {
+  display: none;
+}
+
