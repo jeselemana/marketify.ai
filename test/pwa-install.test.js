@@ -152,3 +152,22 @@ test("style.css: PWA install modal styles and dark mode overrides are defined", 
   assert.ok(styleCss.includes("html.dark .install-app-modal-card"), "dark mode card style defined");
   assert.ok(styleCss.includes("html.dark .install-step-item"), "dark mode step item style defined");
 });
+
+test("style.css: PWA install navigation buttons are hidden on desktop and visible only on mobile", async () => {
+  const styleCss = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
+
+  assert.ok(
+    styleCss.includes("#installAppNav,") &&
+    styleCss.includes("#railInstallAppButton") &&
+    styleCss.includes("display: none !important;"),
+    "desktop view hides #installAppNav and #railInstallAppButton"
+  );
+
+  assert.ok(
+    styleCss.includes("@media (max-width: 767px)") &&
+    styleCss.includes("#installAppNav:not([hidden])") &&
+    styleCss.includes("display: flex !important;"),
+    "mobile view (max-width: 767px) shows #installAppNav when not hidden"
+  );
+});
+

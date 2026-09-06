@@ -17928,7 +17928,20 @@ html.dark .limits-faq-content strong {
   }
 }
 
-/* ===== PWA INSTALL MODAL ===== */
+/* ===== PWA INSTALL NAVIGATION & MODAL ===== */
+
+/* Desktop: hide install navigation buttons completely */
+#installAppNav,
+#railInstallAppButton {
+  display: none !important;
+}
+
+/* Mobile: show install button in sidebar drawer when not already installed */
+@media (max-width: 767px) {
+  #installAppNav:not([hidden]) {
+    display: flex !important;
+  }
+}
 
 .install-app-modal-overlay {
   position: fixed;
