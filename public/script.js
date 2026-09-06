@@ -31,8 +31,10 @@ const homeNav = document.querySelector("#homeNav");
 const strategiesNav = document.querySelector("#strategiesNav");
 const plannerNav = document.querySelector("#plannerNav");
 const limitsNav = document.querySelector("#limitsNav");
+const installAppNav = document.querySelector("#installAppNav");
 const settingsNav = document.querySelector("#settingsNav");
 const railLimitsButton = document.querySelector("#railLimitsButton");
+const railInstallAppButton = document.querySelector("#railInstallAppButton");
 const railAccountButton = document.querySelector("#railAccountButton");
 const accountButton = document.querySelector("#accountButton");
 const workspaceAvatar = document.querySelector("#workspaceAvatar");
@@ -46,6 +48,7 @@ const sidebarBuildModeButton = document.querySelector("#sidebarBuildModeButton")
 const sidebarAskModeButton = document.querySelector("#sidebarAskModeButton");
 const keyboardShortcutsButton = document.querySelector("#keyboardShortcutsBtn");
 const keyboardShortcutsOverlay = document.querySelector("#keyboardShortcutsOverlay");
+const installAppModalOverlay = document.querySelector("#installAppModalOverlay");
 
 function getKeyboardShortcuts() {
   return [
@@ -120,7 +123,377 @@ function closeShortcutModal() {
   if (!keyboardShortcutsOverlay) return;
   keyboardShortcutsOverlay.hidden = true;
   keyboardShortcutsOverlay.replaceChildren();
-  if (document.querySelector("#legalModalOverlay[hidden]")) document.body.style.overflow = "";
+  if (document.querySelector("#legalModalOverlay[hidden]") && (!installAppModalOverlay || installAppModalOverlay.hidden)) {
+    document.body.style.overflow = "";
+  }
+}
+
+// ── PWA Installation & OS Detection ──────────────────────────────────────────
+
+let deferredInstallPrompt = null;
+
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    updateInstallButtonVisibility();
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    updateInstallButtonVisibility();
+    showToast(t("installModal.installedSuccess"), "info");
+  });
+
+  if (window.matchMedia) {
+    try {
+      window.matchMedia("(display-mode: standalone)").addEventListener("change", () => {
+        updateInstallButtonVisibility();
+      });
+    } catch {
+      // Ignore browsers that don't support addEventListener on MediaQueryList
+    }
+  }
+}
+
+function isAppInstalled() {
+  if (typeof window === "undefined") return false;
+  const isStandalone = Boolean(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  const isNavigatorStandalone = Boolean(typeof navigator !== "undefined" && navigator.standalone === true);
+  const isAndroidApp = Boolean(typeof document !== "undefined" && document.referrer && document.referrer.includes("android-app://"));
+  return isStandalone || isNavigatorStandalone || isAndroidApp;
+}
+
+function updateInstallButtonVisibility() {
+  const installed = isAppInstalled();
+  if (installAppNav) {
+    installAppNav.hidden = installed;
+    if (installed) {
+      installAppNav.setAttribute("aria-hidden", "true");
+    } else {
+      installAppNav.removeAttribute("aria-hidden");
+    }
+  }
+  if (railInstallAppButton) {
+    railInstallAppButton.hidden = installed;
+    if (installed) {
+      railInstallAppButton.setAttribute("aria-hidden", "true");
+    } else {
+      railInstallAppButton.removeAttribute("aria-hidden");
+    }
+  }
+}
+
+function getDevicePlatform() {
+  const ua = (typeof navigator !== "undefined" && navigator.userAgent) ? navigator.userAgent : "";
+  const platform = (typeof navigator !== "undefined" && navigator.platform) ? navigator.platform : "";
+  const maxTouchPoints = (typeof navigator !== "undefined" && navigator.maxTouchPoints) ? navigator.maxTouchPoints : 0;
+
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (platform === "MacIntel" && maxTouchPoints > 1);
+  if (isIOS) return "ios";
+
+  const isAndroid = /Android/i.test(ua);
+  if (isAndroid) return "android";
+
+  return "desktop";
+}
+
+async function handleInstallAppClick() {
+  if (isAppInstalled()) {
+    showToast(t("installModal.alreadyInstalledToast"), "info");
+    return;
+  }
+
+  const platform = getDevicePlatform();
+
+  if ((platform === "android" || platform === "desktop") && deferredInstallPrompt) {
+    try {
+      await deferredInstallPrompt.prompt();
+      const choiceResult = await deferredInstallPrompt.userChoice;
+      if (choiceResult && choiceResult.outcome === "accepted") {
+        deferredInstallPrompt = null;
+        updateInstallButtonVisibility();
+      }
+      return;
+    } catch (err) {
+      console.warn("PWA install prompt error:", err);
+    }
+  }
+
+  openInstallAppModal(platform);
+}
+
+function createInstallSvgIcon(type) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+
+  if (type === "app-badge") {
+    svg.setAttribute("width", "24");
+    svg.setAttribute("height", "24");
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", "5");
+    rect.setAttribute("y", "2");
+    rect.setAttribute("width", "14");
+    rect.setAttribute("height", "20");
+    rect.setAttribute("rx", "2");
+    rect.setAttribute("ry", "2");
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", "12");
+    line.setAttribute("y1", "18");
+    line.setAttribute("x2", "12.01");
+    line.setAttribute("y2", "18");
+    const arrow = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    arrow.setAttribute("d", "M12 6v6M9 9l3 3 3-3");
+    svg.append(rect, line, arrow);
+  } else if (type === "share") {
+    const box = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    box.setAttribute("d", "M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8");
+    const arrowHead = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    arrowHead.setAttribute("points", "16 6 12 2 8 6");
+    const arrowStem = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    arrowStem.setAttribute("x1", "12");
+    arrowStem.setAttribute("y1", "2");
+    arrowStem.setAttribute("x2", "12");
+    arrowStem.setAttribute("y2", "15");
+    svg.append(box, arrowHead, arrowStem);
+  } else if (type === "plus-square") {
+    const square = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    square.setAttribute("x", "3");
+    square.setAttribute("y", "3");
+    square.setAttribute("width", "18");
+    square.setAttribute("height", "18");
+    square.setAttribute("rx", "3");
+    const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    vLine.setAttribute("x1", "12");
+    vLine.setAttribute("y1", "8");
+    vLine.setAttribute("x2", "12");
+    vLine.setAttribute("y2", "16");
+    const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    hLine.setAttribute("x1", "8");
+    hLine.setAttribute("y1", "12");
+    hLine.setAttribute("x2", "16");
+    hLine.setAttribute("y2", "12");
+    svg.append(square, vLine, hLine);
+  } else if (type === "dots-menu") {
+    const c1 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c1.setAttribute("cx", "12");
+    c1.setAttribute("cy", "5");
+    c1.setAttribute("r", "1.5");
+    const c2 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c2.setAttribute("cx", "12");
+    c2.setAttribute("cy", "12");
+    c2.setAttribute("r", "1.5");
+    const c3 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c3.setAttribute("cx", "12");
+    c3.setAttribute("cy", "19");
+    c3.setAttribute("r", "1.5");
+    svg.append(c1, c2, c3);
+  } else if (type === "download") {
+    const dPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    dPath.setAttribute("d", "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4");
+    const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    poly.setAttribute("points", "7 10 12 15 17 10");
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", "12");
+    line.setAttribute("y1", "15");
+    line.setAttribute("x2", "12");
+    line.setAttribute("y2", "3");
+    svg.append(dPath, poly, line);
+  } else if (type === "check") {
+    const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    poly.setAttribute("points", "20 6 9 17 4 12");
+    svg.append(poly);
+  } else if (type === "monitor") {
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", "2");
+    rect.setAttribute("y", "3");
+    rect.setAttribute("width", "20");
+    rect.setAttribute("height", "14");
+    rect.setAttribute("rx", "2");
+    const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line1.setAttribute("x1", "8");
+    line1.setAttribute("y1", "21");
+    line1.setAttribute("x2", "16");
+    line1.setAttribute("y2", "21");
+    const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line2.setAttribute("x1", "12");
+    line2.setAttribute("y1", "17");
+    line2.setAttribute("x2", "12");
+    line2.setAttribute("y2", "21");
+    svg.append(rect, line1, line2);
+  }
+
+  return svg;
+}
+
+function openInstallAppModal(platform = getDevicePlatform()) {
+  if (!installAppModalOverlay) return;
+
+  installAppModalOverlay.replaceChildren();
+
+  const card = element("div", "install-app-modal-card");
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-modal", "true");
+  card.setAttribute("aria-labelledby", "installAppModalTitle");
+
+  // Header
+  const header = element("header", "install-modal-header");
+  const headerLeft = element("div", "install-modal-header-left");
+
+  const iconBadge = element("div", "install-modal-icon-badge");
+  iconBadge.appendChild(createInstallSvgIcon("app-badge"));
+
+  const titleGroup = element("div", "install-modal-title-group");
+  const title = element("h2", "install-modal-title", t("installModal.title"));
+  title.id = "installAppModalTitle";
+  const subtitle = element("p", "install-modal-subtitle", t("installModal.subtitle"));
+
+  const badgeText = platform === "ios"
+    ? t("installModal.iosBadge")
+    : platform === "android"
+      ? t("installModal.androidBadge")
+      : t("installModal.desktopBadge");
+  const platformBadge = element("span", "install-modal-platform-badge", badgeText);
+
+  titleGroup.append(title, subtitle, platformBadge);
+  headerLeft.append(iconBadge, titleGroup);
+
+  const closeBtn = button("✕", "install-modal-close", closeInstallAppModal);
+  closeBtn.setAttribute("aria-label", t("installModal.closeAria"));
+  header.append(headerLeft, closeBtn);
+
+  // Body: Steps
+  const body = element("div", "install-modal-body");
+  const stepsList = element("ol", "install-modal-steps");
+  stepsList.setAttribute("role", "list");
+
+  let steps = [];
+  if (platform === "ios") {
+    steps = [
+      {
+        num: "1",
+        title: t("installModal.iosStep1Title"),
+        pillIcon: "share",
+        pillText: "Share",
+        desc: t("installModal.iosStep1Desc"),
+      },
+      {
+        num: "2",
+        title: t("installModal.iosStep2Title"),
+        pillIcon: "plus-square",
+        pillText: "+",
+        desc: t("installModal.iosStep2Desc"),
+      },
+      {
+        num: "3",
+        title: t("installModal.iosStep3Title"),
+        pillIcon: "check",
+        pillText: "Add",
+        desc: t("installModal.iosStep3Desc"),
+      },
+    ];
+  } else if (platform === "android") {
+    steps = [
+      {
+        num: "1",
+        title: t("installModal.androidStep1Title"),
+        pillIcon: "dots-menu",
+        pillText: "⋮",
+        desc: t("installModal.androidStep1Desc"),
+      },
+      {
+        num: "2",
+        title: t("installModal.androidStep2Title"),
+        pillIcon: "download",
+        pillText: "Install",
+        desc: t("installModal.androidStep2Desc"),
+      },
+      {
+        num: "3",
+        title: t("installModal.androidStep3Title"),
+        pillIcon: "check",
+        pillText: "OK",
+        desc: t("installModal.androidStep3Desc"),
+      },
+    ];
+  } else {
+    steps = [
+      {
+        num: "1",
+        title: t("installModal.desktopStep1Title"),
+        pillIcon: "monitor",
+        pillText: "URL",
+        desc: t("installModal.desktopStep1Desc"),
+      },
+      {
+        num: "2",
+        title: t("installModal.desktopStep2Title"),
+        pillIcon: "download",
+        pillText: "Install",
+        desc: t("installModal.desktopStep2Desc"),
+      },
+      {
+        num: "3",
+        title: t("installModal.desktopStep3Title"),
+        pillIcon: "check",
+        pillText: "App",
+        desc: t("installModal.desktopStep3Desc"),
+      },
+    ];
+  }
+
+  steps.forEach((step) => {
+    const li = element("li", "install-step-item");
+    li.setAttribute("role", "listitem");
+
+    const numBadge = element("span", "install-step-num", step.num);
+    const details = element("div", "install-step-details");
+
+    const stepTitle = element("div", "install-step-title");
+    stepTitle.appendChild(document.createTextNode(step.title + " "));
+
+    const actionPill = element("span", "install-step-action-pill");
+    actionPill.appendChild(createInstallSvgIcon(step.pillIcon));
+    actionPill.appendChild(document.createTextNode(step.pillText));
+    stepTitle.appendChild(actionPill);
+
+    const stepDesc = element("p", "install-step-desc", step.desc);
+    details.append(stepTitle, stepDesc);
+
+    li.append(numBadge, details);
+    stepsList.appendChild(li);
+  });
+
+  body.appendChild(stepsList);
+
+  // Footer
+  const footer = element("footer", "install-modal-footer");
+  const understandBtn = button(t("installModal.understandBtn"), "install-modal-btn", closeInstallAppModal);
+  footer.appendChild(understandBtn);
+
+  card.append(header, body, footer);
+  installAppModalOverlay.appendChild(card);
+  installAppModalOverlay.hidden = false;
+  document.body.style.overflow = "hidden";
+  closeBtn.focus();
+}
+
+function closeInstallAppModal() {
+  if (!installAppModalOverlay) return;
+  installAppModalOverlay.hidden = true;
+  installAppModalOverlay.replaceChildren();
+  if (
+    (!keyboardShortcutsOverlay || keyboardShortcutsOverlay.hidden) &&
+    document.querySelector("#legalModalOverlay[hidden]")
+  ) {
+    document.body.style.overflow = "";
+  }
 }
 
 function escapeHtml(value) {
@@ -611,6 +984,10 @@ function syncNav() {
     railLimitsButton.setAttribute("data-tooltip", t("nav.limits"));
     railLimitsButton.setAttribute("aria-label", t("nav.limits"));
   }
+  if (railInstallAppButton) {
+    railInstallAppButton.setAttribute("data-tooltip", t("nav.installApp"));
+    railInstallAppButton.setAttribute("aria-label", t("nav.installApp"));
+  }
   if (railMenuButton) {
     railMenuButton.setAttribute("data-tooltip", t("nav.menu"));
     railMenuButton.setAttribute("aria-label", t("nav.openMenu"));
@@ -659,6 +1036,13 @@ function syncNav() {
   if (limitsLabel) {
     limitsLabel.textContent = t("nav.limits");
   }
+
+  const installAppLabel = installAppNav?.querySelector("span");
+  if (installAppLabel) {
+    installAppLabel.textContent = t("nav.installApp");
+  }
+
+  updateInstallButtonVisibility();
 
   const settingsLabel = settingsNav?.querySelector("span");
   if (settingsLabel) {
@@ -9318,6 +9702,9 @@ railLimitsButton?.addEventListener("click", () => {
   render();
   closeSidebar();
 });
+railInstallAppButton?.addEventListener("click", () => {
+  handleInstallAppClick();
+});
 railAccountButton?.addEventListener("click", () => {
   state.view = "settings";
   syncNav();
@@ -9354,6 +9741,10 @@ limitsNav?.addEventListener("click", () => {
   render();
   closeSidebar();
 });
+installAppNav?.addEventListener("click", () => {
+  closeSidebar();
+  handleInstallAppClick();
+});
 settingsNav.addEventListener("click", () => {
   state.view = "settings";
   syncNav();
@@ -9383,6 +9774,9 @@ document.querySelector("#legalModalOverlay")?.addEventListener("click", (event) 
 });
 keyboardShortcutsOverlay?.addEventListener("click", (event) => {
   if (event.target === keyboardShortcutsOverlay) closeShortcutModal();
+});
+installAppModalOverlay?.addEventListener("click", (event) => {
+  if (event.target === installAppModalOverlay) closeInstallAppModal();
 });
 buildModeButton?.addEventListener("click", () => setMode("build"));
 askModeButton?.addEventListener("click", () => setMode("ask"));
@@ -9430,6 +9824,7 @@ function handleKeyboardShortcut(event) {
     closeSidebar();
     closeLegalModal();
     closeShortcutModal();
+    closeInstallAppModal();
     return;
   }
 

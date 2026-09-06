@@ -78,6 +78,13 @@
               <circle cx="12" cy="14" r="2"/>
             </svg>
           </button>
+          <button class="rail-button" id="railInstallAppButton" type="button" aria-label="Tətbiqi yüklə" data-tooltip="Tətbiqi yüklə">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </button>
         </div>
         <button class="rail-button rail-theme-toggle" id="railThemeToggleButton" type="button" data-theme-toggle aria-label="Qaranlıq rejimə keç" aria-pressed="false" data-tooltip="Qaranlıq rejimə keç">
           <svg class="theme-icon-moon nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.9 13a9 9 0 0 1-9.9-9.9A9 9 0 1 0 20.9 13Z"/></svg>
@@ -141,6 +148,14 @@
             </svg>
             <span>İstifadə</span>
           </button>
+          <button class="nav-item" id="installAppNav" type="button">
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>Tətbiqi yüklə</span>
+          </button>
           <button class="nav-item" id="settingsNav" type="button">
             <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="3" />
@@ -178,6 +193,7 @@
       <div class="mobile-overlay" id="mobileOverlay" hidden></div>
       <div class="legal-modal-overlay" id="legalModalOverlay" hidden></div>
       <div class="keyboard-shortcuts-overlay" id="keyboardShortcutsOverlay" hidden></div>
+      <div class="install-app-modal-overlay" id="installAppModalOverlay" hidden></div>
 
       <div class="app-main">
         <aside class="announcement-bar" id="announcementBar" role="region" aria-label="Elan">
