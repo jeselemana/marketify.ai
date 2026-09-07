@@ -8,7 +8,7 @@ import {
   setLanguage,
   formatDate as i18nFormatDate,
   LEGAL_DOCS_I18N,
-} from "./i18n.js?v=8.0";
+} from "./i18n.js?v=8.1";
 
 const workspace = document.querySelector("#workspace");
 const sidebar = document.querySelector("#sidebar");
@@ -53,7 +53,6 @@ const keyboardShortcutsOverlay = document.querySelector("#keyboardShortcutsOverl
 const installAppModalOverlay = document.querySelector("#installAppModalOverlay");
 const mobileBottomSheetOverlay = document.querySelector("#mobileBottomSheetOverlay");
 const mobileModelSheetOverlay = document.querySelector("#mobileModelSheetOverlay");
-const mobileAskModelIndicator = document.querySelector("#mobileAskModelIndicator");
 
 function getKeyboardShortcuts() {
   return [
@@ -1669,15 +1668,6 @@ function syncMode() {
   askModeButton?.classList.toggle("is-active", !isBuild);
   buildModeButton?.setAttribute("aria-selected", String(isBuild));
   askModeButton?.setAttribute("aria-selected", String(!isBuild));
-
-  if (mobileAskModelIndicator) {
-    if (!isBuild) {
-      mobileAskModelIndicator.hidden = false;
-      mobileAskModelIndicator.textContent = state.askModel === "gemini-3.7-flash" ? "Flash" : "Auto";
-    } else {
-      mobileAskModelIndicator.hidden = true;
-    }
-  }
 
   sidebarBuildModeButton?.classList.toggle("is-active", isBuild);
   sidebarAskModeButton?.classList.toggle("is-active", !isBuild);
@@ -11066,13 +11056,6 @@ askModeButton?.addEventListener("click", () => {
   }
 });
 askModeButton?.querySelector(".mobile-mode-chevron")?.addEventListener("click", (event) => {
-  event.stopPropagation();
-  if (state.mode !== "ask") {
-    setMode("ask");
-  }
-  openMobileModelSheet();
-});
-askModeButton?.querySelector("#mobileAskModelIndicator")?.addEventListener("click", (event) => {
   event.stopPropagation();
   if (state.mode !== "ask") {
     setMode("ask");

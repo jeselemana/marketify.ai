@@ -10,7 +10,6 @@ test("index.html contains dedicated mobile sheet overlays and header chevron ind
   assert.ok(html.includes('id="mobileBottomSheetOverlay"'), "mobileBottomSheetOverlay is present in index.html");
   assert.ok(html.includes('id="mobileModelSheetOverlay"'), "mobileModelSheetOverlay is present in index.html");
   assert.ok(html.includes('id="askModeButton"'), "askModeButton is present in index.html");
-  assert.ok(html.includes('id="mobileAskModelIndicator"'), "mobileAskModelIndicator is present inside askModeButton");
   assert.ok(html.includes('class="mobile-mode-chevron"'), "mobile-mode-chevron is present inside askModeButton");
 });
 
@@ -119,7 +118,6 @@ test("script.js implements clean lifecycle, swipe gestures, and Rule 4 complianc
   assert.ok(js.includes("closeMobileBottomSheet()"), "Escape keydown closes mobile sheets");
   assert.ok(js.includes("closeMobileModelSheet()"), "Escape keydown closes mobile sheets");
 
-  // Model indicator sync
-  assert.ok(js.includes("mobileAskModelIndicator"), "mobileAskModelIndicator is wired in syncMode");
+  assert.ok(js.includes("openMobileModelSheet"), "openMobileModelSheet is wired");
   assert.ok(js.includes("askImageFileInput"), "askImageFileInput is wired for photo/camera uploads");
 });
