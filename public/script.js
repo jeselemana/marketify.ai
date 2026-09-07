@@ -8,7 +8,7 @@ import {
   setLanguage,
   formatDate as i18nFormatDate,
   LEGAL_DOCS_I18N,
-} from "./i18n.js";
+} from "./i18n.js?v=8.0";
 
 const workspace = document.querySelector("#workspace");
 const sidebar = document.querySelector("#sidebar");
@@ -1985,6 +1985,57 @@ function renderIntake() {
   contextTrigger.setAttribute("aria-label", isEn ? "More options" : "Əlavə seçimlər");
   contextTrigger.title = isEn ? "More options" : "Əlavə seçimlər";
   contextTrigger.appendChild(element("span", "ask-context-plus", "+"));
+
+  contextTrigger.addEventListener("click", (event) => {
+    if (window.innerWidth <= 767) {
+      event.preventDefault();
+      event.stopPropagation();
+      openMobileContextSheet({
+        onFileSelect: () => {
+          setMode("ask");
+          setTimeout(() => {
+            document.querySelector("#askFileInput")?.click();
+          }, 60);
+        },
+        onPhotoSelect: () => {
+          setMode("ask");
+          setTimeout(() => {
+            document.querySelector("#askImageFileInput")?.click();
+          }, 60);
+        },
+        onSelectStrategy: (stratId) => {
+          setMode("ask");
+          state.askStrategyId = stratId;
+          state.askPromptHintStrategyId = stratId;
+          render();
+        },
+        onSelectTask: (taskId) => {
+          setMode("ask");
+          state.askTaskId = taskId;
+          render();
+        },
+        onSelectPrompt: (promptText) => {
+          appendPresetPrompt(textarea, promptText, resizeInput);
+        },
+        onClearContext: () => {
+          state.askStrategyId = "";
+          state.askTaskId = "";
+          state.askPromptHintStrategyId = "";
+        },
+        onDeepResearch: () => {
+          const isEnLocale = getLanguage() === "en";
+          const prompt = isEnLocale
+            ? "Prepare a comprehensive Deep Research report analyzing my market, target customer segments, and competitors. Identify key market shifts, competitor weaknesses, and highest-potential strategic opportunities."
+            : "Biznesim üçün bazar və rəqib analizi üzrə ətraflı dərin araşdırma hesabatı hazırla. Əsas bazar tendensiyalarını, rəqiblərin boşluqlarını və ən yüksək təsirli inkişaf imkanlarını müəyyən et.";
+          textarea.value = prompt;
+          state.brief = prompt;
+          resizeInput();
+          textarea.focus();
+        },
+      });
+    }
+  });
+
   const contextPopover = element("div", "ask-context-popover");
   let contextPane = "main";
   const drawBuildMenu = () => {

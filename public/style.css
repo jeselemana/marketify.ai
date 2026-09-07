@@ -13229,6 +13229,10 @@ html.dark {
     flex-shrink: 0;
   }
 
+  #askModeButton:not(.is-active) .mobile-mode-chevron {
+    display: none;
+  }
+
   #askModeButton:hover .mobile-mode-chevron,
   #askModeButton.is-active .mobile-mode-chevron {
     opacity: 0.95;
