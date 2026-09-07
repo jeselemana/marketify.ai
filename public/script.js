@@ -6114,12 +6114,17 @@ function renderSettings() {
       element("p", "settings-panel-intro", state.currentUser ? t("settings.account.intro") : (isEn ? "Manage your profile, workspace preferences, and device synchronization." : "Profilinizi, iş mühiti parametrlərini və cihazlararası sinxronizasiyanı idarə edin."))
     );
 
-    // Profile Identity Hero Card (Always visible with avatar, name, badge, and email)
-    const profileHero = element("div", "account-profile-card");
+    // Profile Identity Card with collapsible details via arrow on the right
     const avatarInitial = state.currentUser ? (state.currentUser.fullName || state.currentUser.username || "U")[0].toUpperCase() : "G";
     const userName = state.currentUser ? (state.currentUser.fullName || state.currentUser.username) : (isEn ? "Guest Workspace" : "Qonaq İş Mühiti");
     const userRole = state.currentUser ? state.currentUser.email : (isEn ? "Local browser sandbox · Device isolated" : "Lokal brauzer mühiti · Bu cihaza bağlı");
-    profileHero.innerHTML = `
+
+    const profileCard = document.createElement("details");
+    profileCard.className = "account-profile-card experience-accordion";
+    profileCard.open = false;
+
+    const profileSummary = element("summary", "account-profile-summary");
+    profileSummary.innerHTML = `
       <div class="account-profile-avatar" aria-hidden="true">${escapeHtml(avatarInitial)}</div>
       <div class="account-profile-details">
         <div class="account-profile-title-row">
@@ -6128,11 +6133,15 @@ function renderSettings() {
         </div>
         <p class="account-profile-role">${escapeHtml(userRole)}</p>
       </div>
+      <span class="experience-accordion-icon" aria-hidden="true">
+        <svg class="experience-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </span>
     `;
-    panel.appendChild(profileHero);
 
-    // Collapsible Account Details Section (Collapsed by default)
-    let detailsAccordion;
+    const profileBody = element("div", "account-profile-body experience-accordion-content");
+
     if (state.currentUser) {
       const form = element("form", "settings-form account-settings-form");
       form.append(
@@ -6161,15 +6170,7 @@ function renderSettings() {
           save.textContent = t("settings.account.saveBtn");
         }
       });
-
-      const editBadge = element("span", "experience-summary-badge", isEn ? "Edit" : "Düzəliş");
-      detailsAccordion = createExperienceAccordion({
-        title: isEn ? "Account Details & Credentials" : "Hesab Detalları və Giriş Məlumatları",
-        desc: isEn ? "Update your display name, username, and account email address." : "Görünən adınızı, istifadəçi adınızı və e-poçt ünvanınızı redaktə edin.",
-        badgeNode: editBadge,
-        isOpen: false,
-        contentNode: form,
-      });
+      profileBody.appendChild(form);
     } else {
       const guestCard = element("div", "guest-sync-banner");
       const guestLeft = element("div", "guest-sync-left");
@@ -6192,18 +6193,11 @@ function renderSettings() {
         button(isEn ? "Log in" : "Daxil ol", "secondary-button", () => { window.location.href = "/login?returnTo=/workspace"; })
       );
       guestCard.append(guestLeft, guestActions);
-
-      const syncBadge = element("span", "experience-summary-badge", isEn ? "Backup" : "Ehtiyat Nüsxə");
-      detailsAccordion = createExperienceAccordion({
-        title: isEn ? "Cloud Strategy Vault & Device Sync" : "Bulud Sinxronizasiyası və Cihaz Girişi",
-        desc: isEn ? "Back up your campaigns and sync your workspace across devices." : "Strategiyalarınızı buludda qoruyun və başqa cihazlardan da daxil olun.",
-        badgeNode: syncBadge,
-        isOpen: false,
-        contentNode: guestCard,
-      });
+      profileBody.appendChild(guestCard);
     }
-    detailsAccordion.classList.add("settings-account-details-accordion");
-    panel.appendChild(detailsAccordion);
+
+    profileCard.append(profileSummary, profileBody);
+    panel.appendChild(profileCard);
 
     // Language Selector Card
     panel.appendChild(buildLanguageSelectorSection());

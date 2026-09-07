@@ -75,26 +75,25 @@ test("Settings: Dark mode parity is fully implemented with high-contrast obsidia
   assert.ok(css.includes('[data-theme="dark"] .settings-danger-zone'), "Dark mode danger zone styling is defined");
 });
 
-test("Settings: Profile Hero is visible, Account Details & Theme are collapsed by default, Default Workspace Mode is collapsible and open by default", async () => {
+test("Settings: Profile Card has arrow on right and collapsed details, Theme is collapsed by default, Default Mode is open by default", async () => {
   const script = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
   const css = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
 
-  // Profile Identity Hero Card is visible on panel with avatar, name, badge, and email
-  assert.ok(script.includes('const profileHero = element("div", "account-profile-card");'), "Profile hero card is created");
-  assert.ok(script.includes("panel.appendChild(profileHero);"), "Profile hero is directly appended to panel (visible, not collapsed)");
-  assert.ok(script.includes("account-profile-avatar"), "Avatar initial is rendered");
-  assert.ok(script.includes("account-profile-name"), "User name is rendered");
-  assert.ok(script.includes("account-profile-role"), "Email / workspace role is rendered");
+  // Single Profile Card with arrow on the right side and collapsed details inside
+  assert.ok(script.includes('profileCard = document.createElement("details");'), "Profile card is an accordion details element");
+  assert.ok(script.includes('profileCard.className = "account-profile-card experience-accordion";'), "Profile card has accordion classes");
+  assert.ok(script.includes("profileCard.open = false;"), "Profile card is collapsed by default (open = false)");
+  assert.ok(script.includes("account-profile-summary"), "Summary contains profile header");
+  assert.ok(script.includes("account-profile-avatar"), "Avatar initial is rendered in summary");
+  assert.ok(script.includes("account-profile-name"), "User name is rendered in summary");
+  assert.ok(script.includes("account-profile-role"), "Email / workspace role is rendered in summary");
+  assert.ok(script.includes("experience-chevron"), "Chevron arrow is on the right side of the summary");
+  assert.ok(script.includes("account-profile-body"), "Details body container exists inside profile card");
 
-  // Account details underneath the hero card should be collapsed by default (isOpen: false)
-  assert.ok(
-    script.includes("detailsAccordion = createExperienceAccordion") &&
-    script.includes("badgeNode: editBadge,\n        isOpen: false,") &&
-    script.includes("badgeNode: syncBadge,\n        isOpen: false,"),
-    "Account Details accordion (both authenticated and guest) is configured with isOpen: false"
-  );
-  assert.ok(script.includes("settings-account-details-accordion"), "settings-account-details-accordion class is applied");
-  assert.ok(css.includes(".settings-account-details-accordion.experience-accordion"), "CSS rules for settings-account-details-accordion exist");
+  // CSS rules for single profileCard accordion
+  assert.ok(css.includes(".account-profile-summary {"), "CSS rules for account-profile-summary exist");
+  assert.ok(css.includes(".account-profile-card .experience-accordion-icon {"), "CSS positions chevron arrow on the right");
+  assert.ok(css.includes(".account-profile-body {"), "CSS rules for account-profile-body exist");
 
   // Appearance & Surface Tone in Account tab should be collapsed by default
   assert.ok(
@@ -114,13 +113,13 @@ test("Settings: Profile Hero is visible, Account Details & Theme are collapsed b
   const occurrences = (script.match(/title:\s*isEn \? "Default Workspace Mode" : "İlkin İş Rejimi"/g) || []).length;
   assert.equal(occurrences, 1, "Exactly one Default Workspace Mode accordion is defined");
 
-  // In Account tab: Profile Hero -> Details accordion -> Language selector -> Theme accordion
-  const heroIndex = script.indexOf("panel.appendChild(profileHero);");
-  const detailsIndex = script.indexOf("panel.appendChild(detailsAccordion);");
+  // In Account tab: Single Profile Card -> Language selector -> Theme accordion (NO duplicate card)
+  const profileIndex = script.indexOf("panel.appendChild(profileCard);");
   const langIndex = script.indexOf("panel.appendChild(buildLanguageSelectorSection());");
   const themeIndex = script.indexOf("panel.appendChild(themeAccordion);");
-  assert.ok(heroIndex !== -1 && detailsIndex !== -1 && langIndex !== -1 && themeIndex !== -1, "All 4 components are appended");
-  assert.ok(heroIndex < detailsIndex && detailsIndex < langIndex && langIndex < themeIndex, "Order is: Profile Hero -> Details accordion -> Language selector -> Theme accordion");
+  assert.ok(profileIndex !== -1 && langIndex !== -1 && themeIndex !== -1, "Profile, Language, and Theme components are appended");
+  assert.ok(profileIndex < langIndex && langIndex < themeIndex, "Order is: Profile Card -> Language selector -> Theme accordion");
+  assert.ok(!script.includes("detailsAccordion"), "No redundant separate details card is created");
   assert.ok(!script.includes("buildThemeSelectorSection"), "Duplicate theme dropdown card is removed");
 });
 
