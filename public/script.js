@@ -1865,56 +1865,82 @@ function render() {
   return renderIntake();
 }
 
+function getUserFirstName() {
+  const fullName = state.currentUser?.fullName?.trim();
+  if (fullName) {
+    return fullName.split(/\s+/)[0];
+  }
+  const username = state.currentUser?.username?.trim();
+  if (username) {
+    return username.charAt(0).toUpperCase() + username.slice(1);
+  }
+  return "";
+}
+
 const BUILD_CTA_LIST_AZ = [
-  "Növbəti strategiyanı quraq.",
-  "Yeni marketinq hədəfin nədir?",
-  "Brendini böyütmək üçün başlayaq.",
-  "Satışları artırmaq üçün ideyanı yaz.",
+  (name) => (name ? `${name}, hansı bazarı fəth edirik?` : "Hansı bazarı fəth edirik?"),
+  "Rəqibləri qabaqlamaq vaxtıdır.",
+  (name) => (name ? `${name}, satış gətirən plan quraq.` : "Satış gətirən plan quraq."),
+  "Böyüməyə (scale) hazırsan?",
+  (name) => (name ? `${name}, növbəti böyük gedişin nədir?` : "Növbəti böyük gedişin nədir?"),
+  "İdeyanı real gəlirə çevirək.",
+  "Hədəfi göstər, hücum planını quraq.",
+  (name) => (name ? `${name}, bazarı silkələyən plan quraq.` : "Bazarı silkələyən plan quraq."),
+  "Boş vədləri unudaq — icraya başlayaq.",
   "Yeni məhsulunu bazara çıxaraq.",
-  "Kampaniyanı planlaşdıraq.",
-  "Rəqiblərdən fərqlənən plan quraq.",
 ];
 
 const BUILD_CTA_LIST_EN = [
-  "Ready to dominate your market?",
-  "Let's build something people actually buy.",
-  "Turn that crazy idea into a real plan.",
-  "What are we conquering today?",
+  (name) => (name ? `${name}, what market are we conquering?` : "What market are we conquering?"),
   "Time to outsmart the competition.",
-  "Drop the goal. We'll build the roadmap.",
-  "Let's build a strategy that prints results.",
-  "Ready to scale or just window shopping?",
+  (name) => (name ? `${name}, let's build a plan that prints results.` : "Let's build a plan that prints results."),
+  "Ready to scale aggressively?",
+  (name) => (name ? `${name}, what's your next power move?` : "What's your next power move?"),
+  "Turn that idea into actual revenue.",
+  "Name the target. We'll roadmap it.",
+  (name) => (name ? `${name}, let's build something disruptive.` : "Let's build something disruptive."),
+  "Skip vanity metrics — build the roadmap.",
+  "Ready to dominate your market?",
 ];
 
 const ASK_CTA_LIST_AZ = [
-  "Nə haqda düşünürsən?",
-  "Marketinq sualını ver.",
-  "Hansı metrikanı analiz edək?",
-  "Rəqibləri və bazarı araşdıraq?",
-  "Biznes ideyanı birlikdə müzakirə edək.",
-  "Bugünkü hədəfin nədir?",
-  "Kampaniyanı necə optimallaşdıraq?",
+  (name) => (name ? `${name}, ən çətin biznes sualını ver.` : "Ən çətin biznes sualını ver."),
+  "Biznesdəki əsas darboğaz nədir?",
+  (name) => (name ? `${name}, hansı metrikanı analiz edək?` : "Hansı metrikanı analiz edək?"),
+  "Fərziyyə yox, real rəqəmlər.",
+  (name) => (name ? `${name}, böhran, yoxsa böyümə fürsəti?` : "Böhran, yoxsa böyümə fürsəti?"),
+  "Rəqibin zəif nöqtəsi nədir?",
+  (name) => (name ? `${name}, hansı strateji qərarı veririk?` : "Hansı strateji qərarı veririk?"),
+  "Heç bir bəhanə yoxdur. Soruş.",
+  "Biznes modelini sınağa çəkək.",
+  "Hansı problem satışa mane olur?",
 ];
 
 const ASK_CTA_LIST_EN = [
-  "Ask away. We don't judge.",
-  "Got a marketing crisis? Let's fix it.",
-  "Hit me with your toughest question.",
-  "What's keeping your CMO up at night?",
-  "Need a second brain? Fire away.",
-  "Roast your idea or ask anything.",
-  "What metric is giving you a headache?",
-  "Ask anything. No fluff, pure strategy.",
+  (name) => (name ? `${name}, hit me with your toughest question.` : "Hit me with your toughest question."),
+  "What's your biggest bottleneck?",
+  (name) => (name ? `${name}, which metric is giving you headaches?` : "Which metric is giving you headaches?"),
+  "Stop guessing — ask the data.",
+  (name) => (name ? `${name}, got a crisis or a growth unlock?` : "Got a crisis or a growth unlock?"),
+  "Where is the competition vulnerable?",
+  (name) => (name ? `${name}, what strategic call are we making?` : "What strategic call are we making?"),
+  "No fluff, no excuses. Ask away.",
+  "Stress-test your business model.",
+  "What metric is keeping you up at night?",
 ];
 
 function getBuildCta() {
   const list = getLanguage() === "en" ? BUILD_CTA_LIST_EN : BUILD_CTA_LIST_AZ;
-  return list[Math.floor(Math.random() * list.length)];
+  const item = list[Math.floor(Math.random() * list.length)];
+  const name = getUserFirstName();
+  return typeof item === "function" ? item(name) : item;
 }
 
 function getAskCta() {
   const list = getLanguage() === "en" ? ASK_CTA_LIST_EN : ASK_CTA_LIST_AZ;
-  return list[Math.floor(Math.random() * list.length)];
+  const item = list[Math.floor(Math.random() * list.length)];
+  const name = getUserFirstName();
+  return typeof item === "function" ? item(name) : item;
 }
 
 function appendPresetPrompt(input, prompt, onChange) {
