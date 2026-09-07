@@ -13,20 +13,24 @@ function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || "127.0.0.1";
 }
 
-const aiSummaryRateMap = new Map();
-const AI_SUMMARY_WINDOW_MS = 10 * 60 * 1000;
-const AI_SUMMARY_MAX_PER_WINDOW = 20;
+export const aiSummaryRateMap = new Map();
+export const AI_SUMMARY_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+export const AI_SUMMARY_MAX_PER_WINDOW = 3; // 3 requests per hour
 
-function checkAiSummaryRateLimit(key) {
+export function checkAiSummaryRateLimit(key) {
   const now = Date.now();
   const record = aiSummaryRateMap.get(key) || { count: 0, resetAt: now + AI_SUMMARY_WINDOW_MS };
   if (now > record.resetAt) {
     record.count = 0;
     record.resetAt = now + AI_SUMMARY_WINDOW_MS;
   }
+  if (record.count >= AI_SUMMARY_MAX_PER_WINDOW) {
+    aiSummaryRateMap.set(key, record);
+    return { allowed: false, resetAt: record.resetAt, remaining: 0 };
+  }
   record.count += 1;
   aiSummaryRateMap.set(key, record);
-  return record.count <= AI_SUMMARY_MAX_PER_WINDOW;
+  return { allowed: true, resetAt: record.resetAt, remaining: AI_SUMMARY_MAX_PER_WINDOW - record.count };
 }
 
 setInterval(() => {
@@ -154,17 +158,7 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
     }
     const payload = parseResult.data;
 
-    // 3. Rate limiting (Rule 6)
-    const clientIp = getClientIp(req);
-    const rateLimitKey = `${clientIp}:${req.user.id}`;
-    if (!checkAiSummaryRateLimit(rateLimitKey)) {
-      return res.status(429).json({
-        error: "Çox sayda xülasə sorğusu göndərildi. Zəhmət olmasa bir qədər gözləyin.",
-        code: "RATE_LIMITED",
-      });
-    }
-
-    // 4. Personalization check (Requirement 1)
+    // 3. Personalization check (Requirement 1)
     const settings = req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {};
     if (settings.personalIntelligence !== true) {
       return res.status(403).json({
@@ -173,7 +167,7 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
       });
     }
 
-    // 5. Caching check: Return stored summary if forceRefresh is false
+    // 4. Caching check: Return stored summary if forceRefresh is false
     const rawFullName = (req.user.fullName || "").trim();
     const isStaleFullName = rawFullName.includes(" ") && req.user.aiSummary?.summary?.includes(rawFullName);
     if (!payload.forceRefresh && !isStaleFullName && req.user.aiSummary && typeof req.user.aiSummary === "object" && req.user.aiSummary.summary) {
@@ -183,6 +177,22 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
         model: req.user.aiSummary.model || aiConfig.accountSummaryModel || "gpt-5.6-luna",
         generatedAt: req.user.aiSummary.generatedAt || req.user.updatedAt || new Date().toISOString(),
         cached: true,
+      });
+    }
+
+    // 5. Rate limiting for regeneration / model calls (Rule 6: 3 requests per hour)
+    const clientIp = getClientIp(req);
+    const rateLimitKey = `${clientIp}:${req.user.id}`;
+    const rateCheck = checkAiSummaryRateLimit(rateLimitKey);
+    if (!rateCheck.allowed) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((rateCheck.resetAt - Date.now()) / 1000));
+      res.set("Retry-After", String(retryAfterSeconds));
+      return res.status(429).json({
+        error: settings.language === "en"
+          ? "Hourly regeneration limit reached (maximum 3 requests per hour). Please try again later."
+          : "Saatlıq xülasə yeniləmə limitinə (saatda maksimum 3 sorğu) çatdınız. Zəhmət olmasa bir qədər sonra yenidən cəhd edin.",
+        code: "RATE_LIMITED",
+        retryAfter: retryAfterSeconds,
       });
     }
 

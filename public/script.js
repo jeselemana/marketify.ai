@@ -6235,7 +6235,12 @@ function renderSettings() {
         renderSummaryContent(data);
       } catch (err) {
         console.error("AI Summary load error:", err);
-        renderError(err.message || t("settings.aiSummary.error"));
+        if (state.currentUser?.aiSummary?.summary) {
+          renderSummaryContent(state.currentUser.aiSummary);
+          showToast(err.message || t("settings.aiSummary.error"), "error");
+        } else {
+          renderError(err.message || t("settings.aiSummary.error"));
+        }
       } finally {
         refreshBtn.disabled = false;
         if (refreshIcon) refreshIcon.classList.remove("is-spinning");
@@ -6268,9 +6273,6 @@ function renderSettings() {
       element("h2", "", state.currentUser ? t("settings.account.title") : (isEn ? "Account & Workspace" : "Hesab və İş Mühiti")),
       element("p", "settings-panel-intro", state.currentUser ? t("settings.account.intro") : (isEn ? "Manage your profile, workspace preferences, and device synchronization." : "Profilinizi, iş mühiti parametrlərini və cihazlararası sinxronizasiyanı idarə edin."))
     );
-
-    // AI Account Summary Block (Powered by GPT-5.6 Luna)
-    panel.appendChild(buildAiAccountSummaryCard());
 
     // Profile Identity Card with collapsible details via arrow on the right
     const avatarInitial = state.currentUser ? (state.currentUser.fullName || state.currentUser.username || "U")[0].toUpperCase() : "G";
@@ -6356,6 +6358,9 @@ function renderSettings() {
 
     profileCard.append(profileSummary, profileBody);
     panel.appendChild(profileCard);
+
+    // Account Summary Card (Placed below the Profile Card)
+    panel.appendChild(buildAiAccountSummaryCard());
 
     // Language Selector Card
     panel.appendChild(buildLanguageSelectorSection());

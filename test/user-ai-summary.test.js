@@ -9,6 +9,10 @@ import {
   extractFirstName,
   AiSummaryRequestSchema,
   AiSummaryOutputSchema,
+  checkAiSummaryRateLimit,
+  aiSummaryRateMap,
+  AI_SUMMARY_MAX_PER_WINDOW,
+  AI_SUMMARY_WINDOW_MS,
 } from "../src/http/user-router.js";
 import { TRANSLATIONS } from "../public/i18n.js";
 import { aiConfig } from "../src/services/ai/config.js";
@@ -278,6 +282,65 @@ test("POST /api/user/ai-summary generates new summary and persists to user repos
   assert.ok(updatedPayload?.aiSummary);
 });
 
+test("checkAiSummaryRateLimit limits regeneration to 3 requests per hour (Rule 6)", () => {
+  aiSummaryRateMap.clear();
+  assert.equal(AI_SUMMARY_MAX_PER_WINDOW, 3);
+  assert.equal(AI_SUMMARY_WINDOW_MS, 60 * 60 * 1000);
+
+  const testKey = "rate-limit-test-user";
+  const r1 = checkAiSummaryRateLimit(testKey);
+  assert.equal(r1.allowed, true);
+  assert.equal(r1.remaining, 2);
+
+  const r2 = checkAiSummaryRateLimit(testKey);
+  assert.equal(r2.allowed, true);
+  assert.equal(r2.remaining, 1);
+
+  const r3 = checkAiSummaryRateLimit(testKey);
+  assert.equal(r3.allowed, true);
+  assert.equal(r3.remaining, 0);
+
+  // 4th call must be rejected
+  const r4 = checkAiSummaryRateLimit(testKey);
+  assert.equal(r4.allowed, false);
+  assert.equal(r4.remaining, 0);
+  assert.ok(r4.resetAt > Date.now());
+});
+
+test("POST /api/user/ai-summary returns 429 when hourly regeneration limit is exceeded", async () => {
+  aiSummaryRateMap.clear();
+  const userId = "usr_ratelimited";
+  const clientIp = "127.0.0.1";
+  const rateLimitKey = `${clientIp}:${userId}`;
+
+  // Fill up the 3 allowed slots
+  checkAiSummaryRateLimit(rateLimitKey);
+  checkAiSummaryRateLimit(rateLimitKey);
+  checkAiSummaryRateLimit(rateLimitKey);
+
+  const router = createUserRouter({
+    userRepository: {},
+    strategyRepository: {},
+    chatRepository: {},
+    plannerRepository: {},
+  });
+
+  const response = await invokeRoute(router, {
+    method: "POST",
+    url: "/ai-summary",
+    body: { forceRefresh: true },
+    user: {
+      id: userId,
+      fullName: "Cesur",
+      settings: { personalIntelligence: true },
+    },
+  });
+
+  assert.equal(response.status, 429);
+  assert.equal(response.body.code, "RATE_LIMITED");
+  assert.ok(response.body.error.includes("3"));
+});
+
 test("i18n: translations include complete aiSummary keys in both AZ and EN", () => {
   const azSummary = TRANSLATIONS.az.settings.aiSummary;
   const enSummary = TRANSLATIONS.en.settings.aiSummary;
@@ -313,12 +376,18 @@ test("i18n: translations include complete aiSummary keys in both AZ and EN", () 
   }
 });
 
-test("Frontend script.js: AI summary card complies with XSS protection and personalization gate", async () => {
+test("Frontend script.js: AI summary card complies with XSS protection, personalization gate, and is placed below profileCard", async () => {
   const script = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
 
-  // Mount point in Account tab
+  // Mount point in Account tab: summary card must be placed BELOW profileCard
   assert.ok(script.includes("buildAiAccountSummaryCard()"), "buildAiAccountSummaryCard is called in Account tab");
   assert.ok(script.includes("panel.appendChild(buildAiAccountSummaryCard())"), "card is appended to Account panel");
+
+  const profileCardIndex = script.indexOf("panel.appendChild(profileCard);");
+  const summaryCardIndex = script.indexOf("panel.appendChild(buildAiAccountSummaryCard());");
+  assert.ok(profileCardIndex > 0, "profileCard is appended to panel");
+  assert.ok(summaryCardIndex > 0, "summary card is appended to panel");
+  assert.ok(summaryCardIndex > profileCardIndex, "summary card must be appended below profileCard");
 
   // Personalization gate check
   assert.ok(script.includes("personalIntelligence === true"), "Checks if personalIntelligence is enabled");
