@@ -376,10 +376,10 @@ test("i18n: translations include complete aiSummary keys in both AZ and EN", () 
   }
 });
 
-test("Frontend script.js: AI summary card complies with XSS protection, personalization gate, and is placed below profileCard", async () => {
+test("Frontend script.js: AI summary card complies with XSS protection, personalization gate, and is placed above profileCard", async () => {
   const script = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
 
-  // Mount point in Account tab: summary card must be placed BELOW profileCard
+  // Mount point in Account tab: summary card is placed ABOVE profileCard
   assert.ok(script.includes("buildAiAccountSummaryCard()"), "buildAiAccountSummaryCard is called in Account tab");
   assert.ok(script.includes("panel.appendChild(buildAiAccountSummaryCard())"), "card is appended to Account panel");
 
@@ -387,7 +387,7 @@ test("Frontend script.js: AI summary card complies with XSS protection, personal
   const summaryCardIndex = script.indexOf("panel.appendChild(buildAiAccountSummaryCard());");
   assert.ok(profileCardIndex > 0, "profileCard is appended to panel");
   assert.ok(summaryCardIndex > 0, "summary card is appended to panel");
-  assert.ok(summaryCardIndex > profileCardIndex, "summary card must be appended below profileCard");
+  assert.ok(summaryCardIndex < profileCardIndex, "summary card must be appended above profileCard");
 
   // Personalization gate check
   assert.ok(script.includes("personalIntelligence === true"), "Checks if personalIntelligence is enabled");

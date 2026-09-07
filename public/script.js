@@ -6274,6 +6274,9 @@ function renderSettings() {
       element("p", "settings-panel-intro", state.currentUser ? t("settings.account.intro") : (isEn ? "Manage your profile, workspace preferences, and device synchronization." : "Profilinizi, iş mühiti parametrlərini və cihazlararası sinxronizasiyanı idarə edin."))
     );
 
+    // Account Summary Card (Placed above Profile Card)
+    panel.appendChild(buildAiAccountSummaryCard());
+
     // Profile Identity Card with collapsible details via arrow on the right
     const avatarInitial = state.currentUser ? (state.currentUser.fullName || state.currentUser.username || "U")[0].toUpperCase() : "G";
     const userName = state.currentUser ? (state.currentUser.fullName || state.currentUser.username) : (isEn ? "Guest Workspace" : "Qonaq İş Mühiti");
@@ -6358,9 +6361,6 @@ function renderSettings() {
 
     profileCard.append(profileSummary, profileBody);
     panel.appendChild(profileCard);
-
-    // Account Summary Card (Placed below the Profile Card)
-    panel.appendChild(buildAiAccountSummaryCard());
 
     // Language Selector Card
     panel.appendChild(buildLanguageSelectorSection());
