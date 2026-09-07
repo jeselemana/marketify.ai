@@ -82,3 +82,16 @@ test("script.js: input events and initialization toggle has-input on shell in bo
     "renderAsk toggles has-input on shell based on input.value"
   );
 });
+
+test("style.css: mobile CTA has gentle entrance animation on site open", async () => {
+  const css = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
+
+  assert.ok(
+    css.includes("@keyframes mobile-cta-enter"),
+    "@keyframes mobile-cta-enter is defined for CTA entrance animation"
+  );
+  assert.ok(
+    css.includes("animation: mobile-cta-enter"),
+    "mobile-cta-enter animation is applied to .ask-shell.is-empty .ask-intro"
+  );
+});

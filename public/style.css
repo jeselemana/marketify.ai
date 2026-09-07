@@ -13622,15 +13622,31 @@ html.dark {
     text-align: center;
     isolation: isolate;
     transform: none;
+    animation: mobile-cta-enter 800ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
     transition: opacity 220ms cubic-bezier(0.16, 1, 0.3, 1), transform 220ms cubic-bezier(0.16, 1, 0.3, 1), visibility 220ms;
   }
 
   .ask-shell.is-empty.has-input .ask-intro,
   .ask-shell.is-empty:has(.ask-input:not(:placeholder-shown)) .ask-intro {
+    animation: none;
     opacity: 0;
     visibility: hidden;
     transform: scale(0.96) translateY(-8px);
     pointer-events: none;
+  }
+
+  @keyframes mobile-cta-enter {
+    0% {
+      opacity: 0;
+      transform: translateY(14px) scale(0.97);
+    }
+    60% {
+      opacity: 0.9;
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
 
   .ask-title {

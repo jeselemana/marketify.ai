@@ -8,7 +8,7 @@ import {
   setLanguage,
   formatDate as i18nFormatDate,
   LEGAL_DOCS_I18N,
-} from "./i18n.js?v=8.3";
+} from "./i18n.js?v=8.4";
 
 const workspace = document.querySelector("#workspace");
 const sidebar = document.querySelector("#sidebar");
