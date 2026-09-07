@@ -6121,7 +6121,7 @@ function renderSettings() {
 
     const profileCard = document.createElement("details");
     profileCard.className = "account-profile-card experience-accordion";
-    profileCard.open = false;
+    profileCard.open = true;
 
     const profileSummary = element("summary", "account-profile-summary");
     profileSummary.innerHTML = `

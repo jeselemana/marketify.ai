@@ -75,14 +75,14 @@ test("Settings: Dark mode parity is fully implemented with high-contrast obsidia
   assert.ok(css.includes('[data-theme="dark"] .settings-danger-zone'), "Dark mode danger zone styling is defined");
 });
 
-test("Settings: Profile Card has arrow on right and collapsed details, Theme is collapsed by default, Default Mode is open by default", async () => {
+test("Settings: Profile Card is open by default with arrow on right, Theme is collapsed by default, Default Mode is open by default", async () => {
   const script = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
   const css = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
 
-  // Single Profile Card with arrow on the right side and collapsed details inside
+  // Single Profile Card with arrow on the right side and open details by default
   assert.ok(script.includes('profileCard = document.createElement("details");'), "Profile card is an accordion details element");
   assert.ok(script.includes('profileCard.className = "account-profile-card experience-accordion";'), "Profile card has accordion classes");
-  assert.ok(script.includes("profileCard.open = false;"), "Profile card is collapsed by default (open = false)");
+  assert.ok(script.includes("profileCard.open = true;"), "Profile card is open by default (open = true)");
   assert.ok(script.includes("account-profile-summary"), "Summary contains profile header");
   assert.ok(script.includes("account-profile-avatar"), "Avatar initial is rendered in summary");
   assert.ok(script.includes("account-profile-name"), "User name is rendered in summary");
