@@ -48,6 +48,7 @@ export function publicUser(user) {
     status: user.status === "pending_deletion" ? "pending_deletion" : "active",
     deletionRequestedAt: user.deletionRequestedAt || null,
     scheduledDeletionAt: user.scheduledDeletionAt || null,
+    aiSummary: user.aiSummary && typeof user.aiSummary === "object" ? user.aiSummary : null,
     settings: {
       personalIntelligence: settings.personalIntelligence === true,
       brandName: typeof settings.brandName === "string" ? settings.brandName : "",

@@ -6106,6 +6106,157 @@ function renderSettings() {
     return details;
   }
 
+  function buildAiAccountSummaryCard() {
+    const card = element("section", "ai-account-summary-card");
+    const isPersonalizationEnabled = Boolean(
+      state.currentUser &&
+      state.currentUser.settings &&
+      state.currentUser.settings.personalIntelligence === true
+    );
+
+    // If personalization is disabled: show graceful notification, NO model request
+    if (!isPersonalizationEnabled) {
+      card.classList.add("is-disabled-state");
+
+      const header = element("div", "ai-account-summary-header");
+      const headerLeft = element("div", "ai-summary-header-left");
+      headerLeft.innerHTML = `
+        <svg class="ai-summary-sparkle-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/>
+        </svg>
+        <strong class="ai-summary-card-title">${escapeHtml(t("settings.aiSummary.title"))}</strong>
+        <span class="ai-summary-model-badge">${escapeHtml(t("settings.aiSummary.badge"))}</span>
+      `;
+      header.appendChild(headerLeft);
+
+      const body = element("div", "ai-summary-body");
+      const desc = element("p", "ai-summary-disabled-desc", t("settings.aiSummary.disabledNotice"));
+      const enableBtn = button(t("settings.aiSummary.enableBtn"), "ai-summary-enable-btn secondary-button", () => {
+        state.settingsTab = "experience";
+        renderSettings();
+      });
+
+      body.append(desc, enableBtn);
+      card.append(header, body);
+      return card;
+    }
+
+    // Personalization IS enabled
+    const header = element("div", "ai-account-summary-header");
+    const headerLeft = element("div", "ai-summary-header-left");
+    headerLeft.innerHTML = `
+      <svg class="ai-summary-sparkle-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/>
+      </svg>
+      <strong class="ai-summary-card-title">${escapeHtml(t("settings.aiSummary.title"))}</strong>
+      <span class="ai-summary-model-badge">${escapeHtml(t("settings.aiSummary.badge"))}</span>
+    `;
+
+    const refreshBtn = button("", "ai-summary-refresh-btn", () => {
+      loadSummary(true);
+    });
+    refreshBtn.type = "button";
+    refreshBtn.setAttribute("aria-label", t("settings.aiSummary.regenerateBtn"));
+    refreshBtn.innerHTML = `
+      <svg class="ai-summary-refresh-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <polyline points="1 20 1 14 7 14"></polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+      </svg>
+      <span class="ai-summary-refresh-label">${escapeHtml(t("settings.aiSummary.regenerateBtn"))}</span>
+    `;
+    header.append(headerLeft, refreshBtn);
+
+    const body = element("div", "ai-summary-body");
+
+    function renderSummaryContent(data) {
+      body.replaceChildren();
+      const summaryP = element("p", "ai-summary-content");
+      summaryP.textContent = data.summary;
+      body.appendChild(summaryP);
+
+      if (Array.isArray(data.focusTags) && data.focusTags.length > 0) {
+        const tagsRow = element("div", "ai-summary-tags-row");
+        data.focusTags.forEach((tag) => {
+          const tagPill = element("span", "ai-summary-tag");
+          tagPill.textContent = tag;
+          tagsRow.appendChild(tagPill);
+        });
+        body.appendChild(tagsRow);
+      }
+
+      const footerNote = element("span", "ai-summary-footer-note", t("settings.aiSummary.poweredBy"));
+      body.appendChild(footerNote);
+    }
+
+    function renderSkeleton() {
+      body.replaceChildren();
+      const skeleton = element("div", "ai-summary-skeleton");
+      skeleton.setAttribute("aria-busy", "true");
+      skeleton.setAttribute("aria-label", t("settings.aiSummary.loading"));
+      skeleton.innerHTML = `
+        <div class="ai-summary-skeleton-line is-title"></div>
+        <div class="ai-summary-skeleton-line"></div>
+        <div class="ai-summary-skeleton-line is-short"></div>
+        <div class="ai-summary-skeleton-tags">
+          <div class="ai-summary-skeleton-tag"></div>
+          <div class="ai-summary-skeleton-tag"></div>
+          <div class="ai-summary-skeleton-tag"></div>
+        </div>
+      `;
+      body.appendChild(skeleton);
+    }
+
+    function renderError(message) {
+      body.replaceChildren();
+      const errBox = element("div", "ai-summary-error-box");
+      const errText = element("p", "ai-summary-error-text", message || t("settings.aiSummary.error"));
+      const retryBtn = button(t("settings.aiSummary.retryBtn"), "secondary-button", () => {
+        loadSummary(true);
+      });
+      errBox.append(errText, retryBtn);
+      body.appendChild(errBox);
+    }
+
+    async function loadSummary(force = false) {
+      renderSkeleton();
+      refreshBtn.disabled = true;
+      const refreshIcon = refreshBtn.querySelector(".ai-summary-refresh-icon");
+      if (refreshIcon) refreshIcon.classList.add("is-spinning");
+      const refreshLabel = refreshBtn.querySelector(".ai-summary-refresh-label");
+      if (refreshLabel) refreshLabel.textContent = t("settings.aiSummary.regenerating");
+
+      try {
+        const data = await authRequest("/api/user/ai-summary", {
+          method: "POST",
+          body: JSON.stringify({ forceRefresh: force }),
+        });
+        if (state.currentUser) {
+          state.currentUser.aiSummary = data;
+        }
+        renderSummaryContent(data);
+      } catch (err) {
+        console.error("AI Summary load error:", err);
+        renderError(err.message || t("settings.aiSummary.error"));
+      } finally {
+        refreshBtn.disabled = false;
+        if (refreshIcon) refreshIcon.classList.remove("is-spinning");
+        if (refreshLabel) refreshLabel.textContent = t("settings.aiSummary.regenerateBtn");
+      }
+    }
+
+    // If we already have a cached summary on the current user, render it immediately!
+    if (state.currentUser && state.currentUser.aiSummary && state.currentUser.aiSummary.summary) {
+      renderSummaryContent(state.currentUser.aiSummary);
+    } else {
+      // First time loading: fetch automatically
+      loadSummary(false);
+    }
+
+    card.append(header, body);
+    return card;
+  }
+
   let panel;
   if (state.settingsTab === "account") {
     panel = element("section", "settings-panel settings-account-panel");
@@ -6113,6 +6264,9 @@ function renderSettings() {
       element("h2", "", state.currentUser ? t("settings.account.title") : (isEn ? "Account & Workspace" : "Hesab və İş Mühiti")),
       element("p", "settings-panel-intro", state.currentUser ? t("settings.account.intro") : (isEn ? "Manage your profile, workspace preferences, and device synchronization." : "Profilinizi, iş mühiti parametrlərini və cihazlararası sinxronizasiyanı idarə edin."))
     );
+
+    // AI Account Summary Block (Powered by GPT-5.6 Luna)
+    panel.appendChild(buildAiAccountSummaryCard());
 
     // Profile Identity Card with collapsible details via arrow on the right
     const avatarInitial = state.currentUser ? (state.currentUser.fullName || state.currentUser.username || "U")[0].toUpperCase() : "G";
@@ -6202,15 +6356,6 @@ function renderSettings() {
     // Language Selector Card
     panel.appendChild(buildLanguageSelectorSection());
 
-    // Local Workspace Storage Diagnostics
-    const storageCard = element("div", "settings-diagnostic-card");
-    storageCard.innerHTML = `
-      <div class="diagnostic-info">
-        <strong>${escapeHtml(isEn ? "Workspace Storage & Telemetry" : "İş Mühiti Yaddaşı və Telemetriya")}</strong>
-        <p>${escapeHtml(isEn ? "Local browser memory: Operational (0.4 MB / 5 MB) · Zero third-party telemetry" : "Lokal brauzer yaddaşı: Normal (0.4 MB / 5 MB) · Sıfır kənar telemetriya")}</p>
-      </div>
-    `;
-    panel.appendChild(storageCard);
     view.appendChild(panel);
 
   } else if (state.settingsTab === "experience") {

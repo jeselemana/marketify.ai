@@ -21,6 +21,7 @@ import { FileStrategyRepository } from "./src/repositories/file-strategy-reposit
 import { FileChatRepository } from "./src/repositories/file-chat-repository.js";
 import { FilePlannerRepository } from "./src/repositories/file-planner-repository.js";
 import { createPlannerRouter } from "./src/http/planner-router.js";
+import { createUserRouter } from "./src/http/user-router.js";
 import { aiConfig, hasOpenAIConfiguration, hasGeminiConfiguration } from "./src/services/ai/config.js";
 import { getGeminiClient } from "./src/services/ai/client.js";
 import { LLMProviderError } from "./src/services/ai/llm-router.js";
@@ -256,6 +257,7 @@ app.use("/api/auth", createAuthRouter({
 
 app.use("/api/strategy", createStrategyRouter(strategyRepository, learningLoop));
 app.use("/api/planner", createPlannerRouter(plannerRepository));
+app.use("/api/user", createUserRouter({ userRepository, strategyRepository, chatRepository, plannerRepository }));
 app.use("/api/learning/signals", createAiLearningSignalRouter(learningLoop));
 app.use("/admin/api/ai-learning", requireAuth, requireAdmin, createAiLearningAdminRouter(learningLoop));
 app.get("/admin/api/storage-status", requireAuth, requireAdmin, async (req, res) => {

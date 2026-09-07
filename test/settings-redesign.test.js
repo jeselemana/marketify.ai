@@ -118,12 +118,12 @@ test("Settings: Profile Card is open by default with arrow on right, Theme is co
   const occurrences = (script.match(/title:\s*isEn \? "Default Workspace Mode" : "İlkin İş Rejimi"/g) || []).length;
   assert.equal(occurrences, 1, "Exactly one Default Workspace Mode accordion is defined");
 
-  // In Account tab: Profile Card -> Language selector -> Storage diagnostics (Theme studio moved to Personalization)
+  // In Account tab: Profile Card -> Language selector (Storage diagnostics removed)
   const profileIndex = script.indexOf("panel.appendChild(profileCard);");
   const langIndex = script.indexOf("panel.appendChild(buildLanguageSelectorSection());");
-  const storageIndex = script.indexOf("panel.appendChild(storageCard);");
-  assert.ok(profileIndex !== -1 && langIndex !== -1 && storageIndex !== -1, "Profile, Language, and Storage components are appended in Account tab");
-  assert.ok(profileIndex < langIndex && langIndex < storageIndex, "Order in Account is: Profile Card -> Language selector -> Storage diagnostics");
+  assert.ok(profileIndex !== -1 && langIndex !== -1, "Profile and Language components are appended in Account tab");
+  assert.ok(profileIndex < langIndex, "Order in Account is: Profile Card -> Language selector");
+  assert.ok(!script.includes("Workspace Storage & Telemetry"), "Workspace Storage & Telemetry is removed from Settings");
   assert.ok(!script.includes("detailsAccordion"), "No redundant separate details card is created");
   assert.ok(!script.includes("buildThemeSelectorSection"), "Duplicate theme dropdown card is removed");
 });
