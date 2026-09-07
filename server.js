@@ -183,7 +183,18 @@ app.get(["/favicon.ico", "/favicon.png", "/MarketifyAINewFavicon.png", "/Marketi
   return res.sendFile(path.join(__dirname, "public", "MarketifyAINewFavicon.png"));
 });
 
-app.use(express.static("public", { index: false }));
+app.use(
+  express.static("public", {
+    index: false,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      } else if (filePath.endsWith(".css") || filePath.endsWith(".js")) {
+        res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+      }
+    },
+  })
+);
 
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
