@@ -205,6 +205,8 @@
       <div class="legal-modal-overlay" id="legalModalOverlay" hidden></div>
       <div class="keyboard-shortcuts-overlay" id="keyboardShortcutsOverlay" hidden></div>
       <div class="install-app-modal-overlay" id="installAppModalOverlay" hidden></div>
+      <div class="mobile-bottom-sheet-overlay" id="mobileBottomSheetOverlay" hidden aria-hidden="true"></div>
+      <div class="mobile-model-sheet-overlay" id="mobileModelSheetOverlay" hidden aria-hidden="true"></div>
 
       <div class="app-main">
         <aside class="announcement-bar" id="announcementBar" role="region" aria-label="Elan">
@@ -229,7 +231,13 @@
           </button>
           <div class="mobile-mode-switch" role="tablist" aria-label="İş rejimi">
             <button class="mobile-mode-option is-active" id="buildModeButton" type="button" role="tab" aria-selected="true">Build</button>
-            <button class="mobile-mode-option" id="askModeButton" type="button" role="tab" aria-selected="false">Ask</button>
+            <button class="mobile-mode-option" id="askModeButton" type="button" role="tab" aria-selected="false">
+              <span class="mobile-mode-text">Ask</span>
+              <span class="mobile-mode-model" id="mobileAskModelIndicator" hidden>Flash</span>
+              <svg class="mobile-mode-chevron" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
           </div>
           <button class="mobile-new" id="mobileNewButton" type="button" aria-label="Yeni söhbət" hidden>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

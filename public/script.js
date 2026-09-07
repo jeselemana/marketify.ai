@@ -51,6 +51,9 @@ const sidebarAskModeButton = document.querySelector("#sidebarAskModeButton");
 const keyboardShortcutsButton = document.querySelector("#keyboardShortcutsBtn");
 const keyboardShortcutsOverlay = document.querySelector("#keyboardShortcutsOverlay");
 const installAppModalOverlay = document.querySelector("#installAppModalOverlay");
+const mobileBottomSheetOverlay = document.querySelector("#mobileBottomSheetOverlay");
+const mobileModelSheetOverlay = document.querySelector("#mobileModelSheetOverlay");
+const mobileAskModelIndicator = document.querySelector("#mobileAskModelIndicator");
 
 function getKeyboardShortcuts() {
   return [
@@ -496,6 +499,557 @@ function closeInstallAppModal() {
   ) {
     document.body.style.overflow = "";
   }
+}
+
+function isPersonalIntelligenceActive() {
+  if (state.currentUser && state.currentUser.settings) {
+    return state.currentUser.settings.personalIntelligence === true;
+  }
+  try {
+    const saved = localStorage.getItem("helmer_personal_intelligence");
+    if (saved !== null) return saved === "true";
+  } catch {}
+  return false;
+}
+
+async function togglePersonalIntelligence(enable) {
+  if (state.currentUser) {
+    if (!state.currentUser.settings) state.currentUser.settings = {};
+    state.currentUser.settings.personalIntelligence = enable;
+    try {
+      const data = await authRequest("/api/auth/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ personalIntelligence: enable }),
+      });
+      if (data?.user) updateWorkspaceIdentity(data.user);
+    } catch (err) {
+      console.error("Failed to update personal intelligence:", err);
+    }
+  } else {
+    try {
+      localStorage.setItem("helmer_personal_intelligence", String(enable));
+    } catch {}
+  }
+}
+
+function attachSwipeDownToClose(sheetEl, onClose) {
+  let startY = 0;
+  let currentY = 0;
+  let isDragging = false;
+
+  const onTouchStart = (e) => {
+    if (e.touches.length !== 1) return;
+    startY = e.touches[0].clientY;
+    currentY = startY;
+    isDragging = true;
+    sheetEl.style.transition = "none";
+  };
+
+  const onTouchMove = (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    currentY = e.touches[0].clientY;
+    const deltaY = currentY - startY;
+    if (deltaY > 0) {
+      sheetEl.style.transform = `translateY(${deltaY}px)`;
+    }
+  };
+
+  const onTouchEnd = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    sheetEl.style.transition = "";
+    const deltaY = currentY - startY;
+    if (deltaY > 70) {
+      onClose();
+    } else {
+      sheetEl.style.transform = "";
+    }
+  };
+
+  const dragArea = sheetEl.querySelector(".mobile-sheet-drag-area");
+  const headerArea = sheetEl.querySelector(".mobile-sheet-header");
+  dragArea?.addEventListener("touchstart", onTouchStart, { passive: true });
+  dragArea?.addEventListener("touchmove", onTouchMove, { passive: true });
+  dragArea?.addEventListener("touchend", onTouchEnd, { passive: true });
+  headerArea?.addEventListener("touchstart", onTouchStart, { passive: true });
+  headerArea?.addEventListener("touchmove", onTouchMove, { passive: true });
+  headerArea?.addEventListener("touchend", onTouchEnd, { passive: true });
+}
+
+function closeMobileBottomSheet() {
+  const overlay = document.querySelector("#mobileBottomSheetOverlay");
+  if (!overlay || overlay.hidden || overlay.classList.contains("is-closing")) return;
+  overlay.classList.remove("is-open");
+  overlay.classList.add("is-closing");
+  document.body.style.overflow = "";
+
+  let cleanedUp = false;
+  const finishClose = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.classList.remove("is-closing");
+    overlay.replaceChildren();
+  };
+
+  const sheet = overlay.querySelector(".mobile-action-sheet");
+  if (sheet) {
+    sheet.addEventListener("transitionend", (e) => {
+      if (e.target === sheet && e.propertyName === "transform") {
+        finishClose();
+      }
+    }, { once: true });
+  }
+  setTimeout(finishClose, 250);
+}
+
+function openMobileContextSheet(handlers = {}) {
+  const overlay = document.querySelector("#mobileBottomSheetOverlay");
+  if (!overlay) return;
+
+  closeMobileModelSheet();
+  overlay.replaceChildren();
+  overlay.hidden = false;
+  overlay.setAttribute("aria-hidden", "false");
+  overlay.classList.remove("is-closing");
+  document.body.style.overflow = "hidden";
+
+  const sheet = element("div", "mobile-action-sheet");
+  sheet.setAttribute("role", "dialog");
+  sheet.setAttribute("aria-modal", "true");
+  sheet.setAttribute("aria-label", t("ask.contextSheet.title"));
+
+  // Drag handle
+  const dragArea = element("div", "mobile-sheet-drag-area");
+  dragArea.appendChild(element("div", "mobile-sheet-drag-handle"));
+
+  // Header
+  const header = element("header", "mobile-sheet-header");
+  const title = element("h3", "mobile-sheet-title", t("ask.contextSheet.title"));
+  const closeBtn = button("✕", "mobile-sheet-close-btn", closeMobileBottomSheet);
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", t("common.close") || "Bağla");
+  header.append(title, closeBtn);
+
+  // Body container
+  const body = element("div", "mobile-sheet-body");
+
+  let currentPane = "main";
+
+  const renderBody = () => {
+    body.replaceChildren();
+
+    if (currentPane === "main") {
+      title.textContent = t("ask.contextSheet.title");
+
+      // Quick Action Tiles
+      const tilesGrid = element("div", "mobile-sheet-tiles");
+
+      // Tile 1: Files
+      const fileTile = button("", "mobile-sheet-tile tile-files", (e) => {
+        e.preventDefault();
+        closeMobileBottomSheet();
+        handlers.onFileSelect?.();
+      });
+      fileTile.type = "button";
+      const fileIcon = element("div", "mobile-sheet-tile-icon");
+      fileIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+      const fileTitle = element("span", "mobile-sheet-tile-title", t("ask.contextSheet.files"));
+      const fileDesc = element("span", "mobile-sheet-tile-desc", t("ask.contextSheet.filesDesc"));
+      fileTile.append(fileIcon, fileTitle, fileDesc);
+
+      // Tile 2: Photos / Camera
+      const photoTile = button("", "mobile-sheet-tile tile-photos", (e) => {
+        e.preventDefault();
+        closeMobileBottomSheet();
+        handlers.onPhotoSelect?.();
+      });
+      photoTile.type = "button";
+      const photoIcon = element("div", "mobile-sheet-tile-icon");
+      photoIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>';
+      const photoTitle = element("span", "mobile-sheet-tile-title", t("ask.contextSheet.photos"));
+      const photoDesc = element("span", "mobile-sheet-tile-desc", t("ask.contextSheet.photosDesc"));
+      photoTile.append(photoIcon, photoTitle, photoDesc);
+
+      tilesGrid.append(fileTile, photoTile);
+      body.appendChild(tilesGrid);
+
+      // Main Context List
+      const list = element("div", "mobile-sheet-list");
+
+      // Row: Strategies
+      const stratRow = button("", "mobile-sheet-row", () => {
+        currentPane = "strategies";
+        renderBody();
+      });
+      stratRow.type = "button";
+      const stratLeading = element("div", "mobile-sheet-row-leading");
+      const stratIcon = element("div", "mobile-sheet-row-icon");
+      stratIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>';
+      const stratCopy = element("div", "mobile-sheet-row-copy");
+      stratCopy.append(
+        element("strong", "", t("ask.contextSheet.strategies")),
+        element("small", "", t("ask.contextSheet.strategiesDesc"))
+      );
+      stratLeading.append(stratIcon, stratCopy);
+      stratRow.append(stratLeading, element("span", "mobile-sheet-row-trailing", "›"));
+
+      // Row: Tasks
+      const taskRow = button("", "mobile-sheet-row", () => {
+        currentPane = "tasks";
+        renderBody();
+      });
+      taskRow.type = "button";
+      const taskLeading = element("div", "mobile-sheet-row-leading");
+      const taskIcon = element("div", "mobile-sheet-row-icon");
+      taskIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>';
+      const taskCopy = element("div", "mobile-sheet-row-copy");
+      taskCopy.append(
+        element("strong", "", t("ask.contextSheet.tasks")),
+        element("small", "", t("ask.contextSheet.tasksDesc"))
+      );
+      taskLeading.append(taskIcon, taskCopy);
+      taskRow.append(taskLeading, element("span", "mobile-sheet-row-trailing", "›"));
+
+      // Row: Deep Research
+      const researchRow = button("", "mobile-sheet-row", () => {
+        closeMobileBottomSheet();
+        handlers.onDeepResearch?.();
+      });
+      researchRow.type = "button";
+      const researchLeading = element("div", "mobile-sheet-row-leading");
+      const researchIcon = element("div", "mobile-sheet-row-icon");
+      researchIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>';
+      const researchCopy = element("div", "mobile-sheet-row-copy");
+      researchCopy.append(
+        element("strong", "", t("ask.contextSheet.deepResearch")),
+        element("small", "", t("ask.contextSheet.deepResearchDesc"))
+      );
+      researchLeading.append(researchIcon, researchCopy);
+      researchRow.append(researchLeading, element("span", "mobile-sheet-row-trailing", "›"));
+
+      // Row: Preset prompts
+      const promptRow = button("", "mobile-sheet-row", () => {
+        currentPane = "prompts";
+        renderBody();
+      });
+      promptRow.type = "button";
+      const promptLeading = element("div", "mobile-sheet-row-leading");
+      const promptIcon = element("div", "mobile-sheet-row-icon");
+      promptIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>';
+      const promptCopy = element("div", "mobile-sheet-row-copy");
+      promptCopy.append(
+        element("strong", "", t("ask.contextSheet.promptTemplates")),
+        element("small", "", t("ask.contextSheet.promptTemplatesDesc"))
+      );
+      promptLeading.append(promptIcon, promptCopy);
+      promptRow.append(promptLeading, element("span", "mobile-sheet-row-trailing", "›"));
+
+      list.append(stratRow, taskRow, researchRow, promptRow);
+      body.appendChild(list);
+
+      // If context active: Clear context button
+      if (state.askStrategyId || state.askTaskId) {
+        const clearBtn = button("", "mobile-sheet-clear-btn", () => {
+          closeMobileBottomSheet();
+          handlers.onClearContext?.();
+        });
+        clearBtn.type = "button";
+        clearBtn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
+        clearBtn.appendChild(element("span", "", t("ask.contextSheet.clearContext")));
+        body.appendChild(clearBtn);
+      }
+
+      // Footer: Personal Intelligence
+      const footer = element("div", "mobile-sheet-footer");
+      const footerLeading = element("div", "mobile-sheet-footer-leading");
+      const footerIcon = element("div", "mobile-sheet-footer-icon");
+      footerIcon.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a8 8 0 0 0-8 8c0 3.3 2 6.2 5 7.4V20a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-2.6c3-1.2 5-4.1 5-7.4a8 8 0 0 0-8-8z"/></svg>';
+      const footerCopy = element("div", "mobile-sheet-footer-copy");
+      const footerTitle = element("span", "mobile-sheet-footer-title", t("ask.contextSheet.personalIntelligence"));
+      const isActivePi = isPersonalIntelligenceActive();
+      const footerStatus = element("span", "mobile-sheet-footer-status", isActivePi ? t("ask.contextSheet.personalIntelligenceOn") : t("ask.contextSheet.personalIntelligenceOff"));
+      footerCopy.append(footerTitle, footerStatus);
+      footerLeading.append(footerIcon, footerCopy);
+
+      const toggleLabel = element("label", "ask-toggle-switch");
+      const toggleInput = document.createElement("input");
+      toggleInput.type = "checkbox";
+      toggleInput.checked = isActivePi;
+      toggleInput.setAttribute("aria-label", t("ask.contextSheet.personalIntelligence"));
+      const toggleSlider = element("span", "ask-toggle-slider");
+      toggleLabel.append(toggleInput, toggleSlider);
+
+      toggleInput.addEventListener("change", async (e) => {
+        e.stopPropagation();
+        const nextVal = toggleInput.checked;
+        if (nextVal) {
+          openPersonalizationConsentModal(async () => {
+            await togglePersonalIntelligence(true);
+            toggleInput.checked = true;
+            footerStatus.textContent = t("ask.contextSheet.personalIntelligenceOn");
+          });
+        } else {
+          await togglePersonalIntelligence(false);
+          footerStatus.textContent = t("ask.contextSheet.personalIntelligenceOff");
+        }
+      });
+
+      footer.append(footerLeading, toggleLabel);
+      body.appendChild(footer);
+      return;
+    }
+
+    if (currentPane === "strategies") {
+      const nav = element("div", "mobile-sheet-sub-nav");
+      const backBtn = button(`‹ ${t("ask.contextSheet.back")}`, "mobile-sheet-back-btn", () => {
+        currentPane = "main";
+        renderBody();
+      });
+      backBtn.type = "button";
+      nav.append(backBtn, element("span", "mobile-sheet-sub-title", t("ask.contextSheet.strategies")));
+      body.appendChild(nav);
+
+      const list = element("div", "mobile-sheet-sub-list");
+      if (!state.savedStrategies.length) {
+        list.appendChild(element("div", "mobile-sheet-empty", t("ask.contextSheet.emptyStrategies")));
+      } else {
+        state.savedStrategies.forEach((strat) => {
+          const isSelected = strat.id === state.askStrategyId;
+          const item = button("", `mobile-sheet-sub-item${isSelected ? " is-selected" : ""}`, () => {
+            closeMobileBottomSheet();
+            handlers.onSelectStrategy?.(strat.id);
+          });
+          item.type = "button";
+          item.append(
+            element("strong", "", strat.title),
+            element("small", "", isSelected ? (getLanguage() === "en" ? "Selected" : "Seçilib") : formatDate(strat.updatedAt))
+          );
+          list.appendChild(item);
+        });
+      }
+      body.appendChild(list);
+      return;
+    }
+
+    if (currentPane === "tasks") {
+      const nav = element("div", "mobile-sheet-sub-nav");
+      const backBtn = button(`‹ ${t("ask.contextSheet.back")}`, "mobile-sheet-back-btn", () => {
+        currentPane = "main";
+        renderBody();
+      });
+      backBtn.type = "button";
+      nav.append(backBtn, element("span", "mobile-sheet-sub-title", t("ask.contextSheet.tasks")));
+      body.appendChild(nav);
+
+      const activeTasks = state.plannerTasks.filter((t) => !t.completed);
+      const list = element("div", "mobile-sheet-sub-list");
+      if (!activeTasks.length) {
+        list.appendChild(element("div", "mobile-sheet-empty", t("ask.contextSheet.emptyTasks")));
+      } else {
+        activeTasks.forEach((task) => {
+          const isSelected = task.id === state.askTaskId;
+          const item = button("", `mobile-sheet-sub-item${isSelected ? " is-selected" : ""}`, () => {
+            closeMobileBottomSheet();
+            handlers.onSelectTask?.(task.id);
+          });
+          item.type = "button";
+          item.append(
+            element("strong", "", task.text),
+            element("small", "", isSelected ? (getLanguage() === "en" ? "Selected" : "Seçilib") : (task.groupLabel || (getLanguage() === "en" ? "General" : "Ümumi")))
+          );
+          list.appendChild(item);
+        });
+      }
+      body.appendChild(list);
+      return;
+    }
+
+    if (currentPane === "prompts") {
+      const nav = element("div", "mobile-sheet-sub-nav");
+      const backBtn = button(`‹ ${t("ask.contextSheet.back")}`, "mobile-sheet-back-btn", () => {
+        currentPane = "main";
+        renderBody();
+      });
+      backBtn.type = "button";
+      nav.append(backBtn, element("span", "mobile-sheet-sub-title", t("ask.contextSheet.promptTemplates")));
+      body.appendChild(nav);
+
+      const presets = getPresetPrompts("ask");
+      const list = element("div", "mobile-sheet-sub-list");
+      presets.forEach((prompt) => {
+        const item = button("", "mobile-sheet-sub-item", () => {
+          closeMobileBottomSheet();
+          handlers.onSelectPrompt?.(prompt.text);
+        });
+        item.type = "button";
+        item.append(
+          element("strong", "", prompt.title),
+          element("small", "", prompt.text)
+        );
+        list.appendChild(item);
+      });
+      body.appendChild(list);
+    }
+  };
+
+  renderBody();
+  sheet.append(dragArea, header, body);
+  overlay.appendChild(sheet);
+  attachSwipeDownToClose(sheet, closeMobileBottomSheet);
+
+  requestAnimationFrame(() => {
+    overlay.classList.add("is-open");
+  });
+}
+
+function closeMobileModelSheet() {
+  const overlay = document.querySelector("#mobileModelSheetOverlay");
+  if (!overlay || overlay.hidden || overlay.classList.contains("is-closing")) return;
+  overlay.classList.remove("is-open");
+  overlay.classList.add("is-closing");
+  document.body.style.overflow = "";
+
+  let cleanedUp = false;
+  const finishClose = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.classList.remove("is-closing");
+    overlay.replaceChildren();
+  };
+
+  const sheet = overlay.querySelector(".mobile-model-sheet");
+  if (sheet) {
+    sheet.addEventListener("transitionend", (e) => {
+      if (e.target === sheet && e.propertyName === "transform") {
+        finishClose();
+      }
+    }, { once: true });
+  }
+  setTimeout(finishClose, 250);
+}
+
+function openMobileModelSheet() {
+  const overlay = document.querySelector("#mobileModelSheetOverlay");
+  if (!overlay) return;
+
+  closeMobileBottomSheet();
+  overlay.replaceChildren();
+  overlay.hidden = false;
+  overlay.setAttribute("aria-hidden", "false");
+  overlay.classList.remove("is-closing");
+  document.body.style.overflow = "hidden";
+
+  const sheet = element("div", "mobile-model-sheet");
+  sheet.setAttribute("role", "dialog");
+  sheet.setAttribute("aria-modal", "true");
+  sheet.setAttribute("aria-label", t("ask.modelSheet.title"));
+
+  // Drag handle
+  const dragArea = element("div", "mobile-sheet-drag-area");
+  dragArea.appendChild(element("div", "mobile-sheet-drag-handle"));
+
+  // Header
+  const header = element("header", "mobile-sheet-header");
+  const title = element("h3", "mobile-sheet-title", t("ask.modelSheet.title"));
+  const closeBtn = button("✕", "mobile-sheet-close-btn", closeMobileModelSheet);
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", t("common.close") || "Bağla");
+  header.append(title, closeBtn);
+
+  // Body
+  const body = element("div", "mobile-sheet-body");
+  const options = element("div", "mobile-model-options");
+
+  const isFlashSelected = state.askModel === "gemini-3.7-flash";
+
+  // Flash Card
+  const flashCard = button("", `mobile-model-option-card${isFlashSelected ? " is-active" : ""}`, () => {
+    state.askModel = "gemini-3.7-flash";
+    try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch {}
+    closeMobileModelSheet();
+    syncMode();
+    if (state.mode === "ask") render();
+  });
+  flashCard.type = "button";
+  const flashLeading = element("div", "mobile-model-card-leading");
+  const flashIcon = element("div", "mobile-model-card-icon");
+  flashIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
+  const flashCopy = element("div", "mobile-model-card-copy");
+  flashCopy.append(
+    element("strong", "", t("ask.modelSheet.flashTitle")),
+    element("small", "", t("ask.modelSheet.flashDesc"))
+  );
+  flashLeading.append(flashIcon, flashCopy);
+  flashCard.append(flashLeading);
+  if (isFlashSelected) {
+    flashCard.appendChild(element("span", "mobile-model-card-check", "✓"));
+  }
+
+  // Auto Card
+  const autoCard = button("", `mobile-model-option-card${!isFlashSelected ? " is-active" : ""}`, () => {
+    state.askModel = "auto";
+    try { localStorage.setItem("helmer_ask_model", "auto"); } catch {}
+    closeMobileModelSheet();
+    syncMode();
+    if (state.mode === "ask") render();
+  });
+  autoCard.type = "button";
+  const autoLeading = element("div", "mobile-model-card-leading");
+  const autoIcon = element("div", "mobile-model-card-icon");
+  autoIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/></svg>';
+  const autoCopy = element("div", "mobile-model-card-copy");
+  autoCopy.append(
+    element("strong", "", t("ask.modelSheet.autoTitle")),
+    element("small", "", t("ask.modelSheet.autoDesc"))
+  );
+  autoLeading.append(autoIcon, autoCopy);
+  autoCard.append(autoLeading);
+  if (!isFlashSelected) {
+    autoCard.appendChild(element("span", "mobile-model-card-check", "✓"));
+  }
+
+  options.append(flashCard, autoCard);
+
+  // If Flash is selected: Thinking toggle row
+  if (isFlashSelected) {
+    const thinkingRow = element("div", "mobile-model-thinking-row");
+    const thinkingCopy = element("div", "mobile-model-card-copy");
+    const thinkingTitle = element("strong", "", t("ask.modelSheet.thinkingTitle"));
+    const thinkingStatus = element("small", "", state.askThinking ? t("ask.modelSheet.thinkingOn") : t("ask.modelSheet.thinkingOff"));
+    thinkingCopy.append(thinkingTitle, thinkingStatus);
+
+    const toggleLabel = element("label", "ask-toggle-switch");
+    const toggleInput = document.createElement("input");
+    toggleInput.type = "checkbox";
+    toggleInput.checked = Boolean(state.askThinking);
+    toggleInput.setAttribute("aria-label", t("ask.modelSheet.thinkingTitle"));
+    const toggleSlider = element("span", "ask-toggle-slider");
+    toggleLabel.append(toggleInput, toggleSlider);
+
+    toggleInput.addEventListener("change", (e) => {
+      e.stopPropagation();
+      state.askThinking = toggleInput.checked;
+      try { localStorage.setItem("helmer_ask_thinking", String(state.askThinking)); } catch {}
+      thinkingStatus.textContent = state.askThinking ? t("ask.modelSheet.thinkingOn") : t("ask.modelSheet.thinkingOff");
+      trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
+    });
+
+    thinkingRow.append(thinkingCopy, toggleLabel);
+    options.appendChild(thinkingRow);
+  }
+
+  body.appendChild(options);
+  sheet.append(dragArea, header, body);
+  overlay.appendChild(sheet);
+  attachSwipeDownToClose(sheet, closeMobileModelSheet);
+
+  requestAnimationFrame(() => {
+    overlay.classList.add("is-open");
+  });
 }
 
 function escapeHtml(value) {
@@ -1115,6 +1669,15 @@ function syncMode() {
   askModeButton?.classList.toggle("is-active", !isBuild);
   buildModeButton?.setAttribute("aria-selected", String(isBuild));
   askModeButton?.setAttribute("aria-selected", String(!isBuild));
+
+  if (mobileAskModelIndicator) {
+    if (!isBuild) {
+      mobileAskModelIndicator.hidden = false;
+      mobileAskModelIndicator.textContent = state.askModel === "gemini-3.7-flash" ? "Flash" : "Auto";
+    } else {
+      mobileAskModelIndicator.hidden = true;
+    }
+  }
 
   sidebarBuildModeButton?.classList.toggle("is-active", isBuild);
   sidebarAskModeButton?.classList.toggle("is-active", !isBuild);
@@ -1985,12 +2548,63 @@ function renderAsk() {
     if (file) handleFileSelection(file);
   });
 
+  const imageFileInput = document.createElement("input");
+  imageFileInput.type = "file";
+  imageFileInput.id = "askImageFileInput";
+  imageFileInput.className = "sr-only";
+  imageFileInput.accept = "image/*";
+  imageFileInput.addEventListener("change", () => {
+    const file = imageFileInput.files?.[0];
+    if (file) handleFileSelection(file);
+  });
+
   const contextMenu = document.createElement("details");
   contextMenu.className = `ask-context-menu${selectedStrategy || selectedTask ? " has-selection" : ""}`;
   const contextTrigger = element("summary", "ask-context-trigger");
   contextTrigger.setAttribute("aria-label", isEn ? "Select context" : "Kontekst seç");
   contextTrigger.title = selectedStrategy || selectedTask ? `${isEn ? "Context" : "Kontekst"}: ${[selectedStrategy?.title, selectedTask?.text].filter(Boolean).join(" · ")}` : (isEn ? "Select context" : "Kontekst seç");
   contextTrigger.appendChild(element("span", "ask-context-plus", "+"));
+
+  contextTrigger.addEventListener("click", (event) => {
+    if (window.innerWidth <= 767) {
+      event.preventDefault();
+      event.stopPropagation();
+      openMobileContextSheet({
+        onFileSelect: () => fileInput.click(),
+        onPhotoSelect: () => imageFileInput.click(),
+        onSelectStrategy: (stratId) => {
+          state.askStrategyId = stratId;
+          state.askPromptHintStrategyId = stratId;
+          render();
+        },
+        onSelectTask: (taskId) => {
+          state.askTaskId = taskId;
+          render();
+        },
+        onSelectPrompt: (promptText) => {
+          appendPresetPrompt(input, promptText, resizeInput);
+        },
+        onClearContext: () => {
+          state.askStrategyId = "";
+          state.askTaskId = "";
+          state.askPromptHintStrategyId = "";
+          render();
+        },
+        onDeepResearch: () => {
+          const isEnLocale = getLanguage() === "en";
+          const prompt = isEnLocale
+            ? "Prepare a comprehensive Deep Research report analyzing my market, target customer segments, and competitors. Identify key market shifts, competitor weaknesses, and highest-potential strategic opportunities."
+            : "Biznesim üçün bazar və rəqib analizi üzrə ətraflı dərin araşdırma hesabatı hazırla. Əsas bazar tendensiyalarını, rəqiblərin boşluqlarını və ən yüksək təsirli inkişaf imkanlarını müəyyən et.";
+          if (input) {
+            input.value = prompt;
+            state.askDraft = prompt;
+            resizeInput();
+            input.focus();
+          }
+        },
+      });
+    }
+  });
   const contextPopover = element("div", "ask-context-popover");
   const activeTasks = state.plannerTasks.filter((task) => !task.completed);
   let contextPane = "main";
@@ -2232,7 +2846,7 @@ function renderAsk() {
   });
 
   const composerLeading = element("div", "ask-composer-leading");
-  composerLeading.append(contextSlot, fileInput);
+  composerLeading.append(contextSlot, fileInput, imageFileInput);
 
   const composerBody = element("div", "ask-composer-body");
   if (state.askPendingFile) {
@@ -10386,10 +11000,43 @@ keyboardShortcutsOverlay?.addEventListener("click", (event) => {
 installAppModalOverlay?.addEventListener("click", (event) => {
   if (event.target === installAppModalOverlay) closeInstallAppModal();
 });
+mobileBottomSheetOverlay?.addEventListener("click", (event) => {
+  if (event.target === mobileBottomSheetOverlay) closeMobileBottomSheet();
+});
+mobileModelSheetOverlay?.addEventListener("click", (event) => {
+  if (event.target === mobileModelSheetOverlay) closeMobileModelSheet();
+});
 buildModeButton?.addEventListener("click", () => setMode("build"));
-askModeButton?.addEventListener("click", () => setMode("ask"));
+askModeButton?.addEventListener("click", () => {
+  if (state.mode !== "ask") {
+    setMode("ask");
+  } else {
+    openMobileModelSheet();
+  }
+});
+askModeButton?.querySelector(".mobile-mode-chevron")?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  if (state.mode !== "ask") {
+    setMode("ask");
+  }
+  openMobileModelSheet();
+});
+askModeButton?.querySelector("#mobileAskModelIndicator")?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  if (state.mode !== "ask") {
+    setMode("ask");
+  }
+  openMobileModelSheet();
+});
 sidebarBuildModeButton?.addEventListener("click", () => setMode("build"));
 sidebarAskModeButton?.addEventListener("click", () => setMode("ask"));
+
+window.addEventListener("resize", () => {
+  if (window.innerWidth > 767) {
+    closeMobileBottomSheet();
+    closeMobileModelSheet();
+  }
+});
 let railModeClickTimeout = null;
 let railModeLastClick = 0;
 
@@ -10433,6 +11080,8 @@ function handleKeyboardShortcut(event) {
     closeLegalModal();
     closeShortcutModal();
     closeInstallAppModal();
+    closeMobileBottomSheet();
+    closeMobileModelSheet();
     return;
   }
 
