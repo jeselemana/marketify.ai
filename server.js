@@ -1601,7 +1601,9 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           res.write(`data: ${JSON.stringify({ error: userFriendlyError })}\n\n`);
           return res.end();
         }
+        return;
       }
+      return;
     }
 
     const generated = isGemini
@@ -1659,6 +1661,9 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       groundingMetadata: generated.groundingMetadata || undefined,
     });
   } catch (error) {
+    if (res.headersSent || res.writableEnded || res.destroyed) {
+      return;
+    }
     if (learningInteractionId) {
       logWithoutBlocking(learningLoop.recordInteraction({
         id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,

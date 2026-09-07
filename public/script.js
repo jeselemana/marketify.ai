@@ -1413,6 +1413,82 @@ function slugify(value) {
 }
 
 let currentAbortController = null;
+let currentAskAbortController = null;
+let activeAskReader = null;
+let activeAskTypewriter = null;
+
+function createAskStopIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "14");
+  svg.setAttribute("height", "14");
+  svg.setAttribute("fill", "currentColor");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("ask-stop-icon");
+  const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  rect.setAttribute("x", "6");
+  rect.setAttribute("y", "6");
+  rect.setAttribute("width", "12");
+  rect.setAttribute("height", "12");
+  rect.setAttribute("rx", "2");
+  svg.appendChild(rect);
+  return svg;
+}
+
+function createAskSendIcon() {
+  return element("span", "ask-submit-icon", "↑");
+}
+
+function createStrategyAskSendIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "15");
+  svg.setAttribute("height", "15");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2.2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  const p1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  p1.setAttribute("d", "M12 19V5");
+  const p2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  p2.setAttribute("d", "m5 12 7-7 7 7");
+  svg.append(p1, p2);
+  return svg;
+}
+
+function abortAskMessage() {
+  if (currentAskAbortController) {
+    try {
+      currentAskAbortController.abort();
+    } catch {}
+    currentAskAbortController = null;
+  }
+  if (activeAskReader) {
+    try {
+      activeAskReader.cancel().catch(() => {});
+    } catch {}
+    activeAskReader = null;
+  }
+  if (activeAskTypewriter) {
+    try {
+      activeAskTypewriter.flush();
+    } catch {}
+    activeAskTypewriter = null;
+  }
+  state.askLoading = false;
+  state.askError = "";
+  const streamingMsg = state.askMessages.find((m) => m && m.isStreaming);
+  if (streamingMsg) {
+    streamingMsg.isStreaming = false;
+    if (!streamingMsg.content) {
+      const idx = state.askMessages.indexOf(streamingMsg);
+      if (idx !== -1) state.askMessages.splice(idx, 1);
+    }
+  }
+  render();
+}
 
 async function api(path, options = {}) {
   let response;
@@ -2786,10 +2862,23 @@ function renderAsk() {
   }
 
   const submit = button("", "ask-submit");
-  submit.type = "submit";
-  submit.disabled = true;
-  submit.setAttribute("aria-label", isEn ? "Send question" : "Sualı göndər");
-  submit.appendChild(element("span", "", "↑"));
+  const isGenerating = Boolean(state.askLoading);
+  submit.classList.toggle("is-stop", isGenerating);
+  submit.classList.toggle("is-generating", isGenerating);
+
+  if (isGenerating) {
+    submit.type = "button";
+    submit.disabled = false;
+    submit.setAttribute("aria-label", isEn ? "Stop generating" : "Dayandır");
+    submit.title = isEn ? "Stop generating" : "Dayandır";
+    submit.appendChild(createAskStopIcon());
+  } else {
+    submit.type = "submit";
+    submit.disabled = true;
+    submit.setAttribute("aria-label", isEn ? "Send question" : "Sualı göndər");
+    submit.title = isEn ? "Send question" : "Sualı göndər";
+    submit.appendChild(createAskSendIcon());
+  }
 
   const isFlashSelected = state.askModel === "gemini-3.7-flash";
   const modelSelectorMenu = document.createElement("details");
@@ -2965,7 +3054,11 @@ function renderAsk() {
     input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
     const hasText = input.value.trim().length >= 2;
     const hasFile = Boolean(state.askPendingFile);
-    submit.disabled = (!hasText && !hasFile) || state.askLoading;
+    if (state.askLoading) {
+      submit.disabled = false;
+    } else {
+      submit.disabled = (!hasText && !hasFile);
+    }
   };
   input.addEventListener("input", () => {
     state.askDraft = input.value;
@@ -2975,11 +3068,26 @@ function renderAsk() {
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
-      if (!submit.disabled) form.requestSubmit();
+      if (state.askLoading) {
+        abortAskMessage();
+      } else if (!submit.disabled) {
+        form.requestSubmit();
+      }
+    }
+  });
+  submit.addEventListener("click", (event) => {
+    if (state.askLoading) {
+      event.preventDefault();
+      event.stopPropagation();
+      abortAskMessage();
     }
   });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (state.askLoading) {
+      abortAskMessage();
+      return;
+    }
     const message = input.value.trim();
     const hasFile = Boolean(state.askPendingFile);
     if (message.length >= 2 || hasFile) {
@@ -3297,9 +3405,15 @@ async function thinkDeeperWithTerra(messageIndex) {
   let typewriter = null;
   let accumulatedFullText = "";
 
+  currentAskAbortController?.abort();
+  currentAskAbortController = new AbortController();
+  activeAskReader = null;
+  activeAskTypewriter = null;
+
   try {
     const response = await fetch("/api/ask", {
       method: "POST",
+      signal: currentAskAbortController.signal,
       headers: {
         "Content-Type": "application/json",
         "Accept": "text/event-stream",
@@ -3322,6 +3436,7 @@ async function thinkDeeperWithTerra(messageIndex) {
     const contentType = response.headers.get("content-type") || "";
     if (contentType.includes("text/event-stream")) {
       const reader = response.body.getReader();
+      activeAskReader = reader;
       const decoder = new TextDecoder();
       let buffer = "";
 
@@ -3335,6 +3450,7 @@ async function thinkDeeperWithTerra(messageIndex) {
           render();
         }
       );
+      activeAskTypewriter = typewriter;
 
       let rawBuffer = "";
       let eventLines = [];
@@ -3419,8 +3535,14 @@ async function thinkDeeperWithTerra(messageIndex) {
       rememberSavedAskChat(data.chat);
     }
   } catch (error) {
-    state.askError = error.message;
+    const isAborted = error?.name === "AbortError" || currentAskAbortController?.signal?.aborted;
+    if (!isAborted) {
+      state.askError = error.message;
+    }
   } finally {
+    activeAskReader = null;
+    activeAskTypewriter = null;
+    currentAskAbortController = null;
     if (accumulatedFullText && (!assistantMsg.content || assistantMsg.content.length < accumulatedFullText.length)) {
       assistantMsg.content = accumulatedFullText;
     }
@@ -3464,9 +3586,15 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   let typewriter = null;
   let accumulatedFullText = "";
 
+  currentAskAbortController?.abort();
+  currentAskAbortController = new AbortController();
+  activeAskReader = null;
+  activeAskTypewriter = null;
+
   try {
     const response = await fetch("/api/ask", {
       method: "POST",
+      signal: currentAskAbortController.signal,
       headers: {
         "Content-Type": "application/json",
         "Accept": "text/event-stream",
@@ -3493,6 +3621,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     const contentType = response.headers.get("content-type") || "";
     if (contentType.includes("text/event-stream")) {
       const reader = response.body.getReader();
+      activeAskReader = reader;
       const decoder = new TextDecoder();
       let buffer = "";
 
@@ -3506,6 +3635,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
           render();
         }
       );
+      activeAskTypewriter = typewriter;
 
       let rawBuffer = "";
       let eventLines = [];
@@ -3593,12 +3723,18 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       rememberSavedAskChat(data.chat);
     }
   } catch (error) {
-    state.askError = error.message;
+    const isAborted = error?.name === "AbortError" || currentAskAbortController?.signal?.aborted;
+    if (!isAborted) {
+      state.askError = error.message;
+    }
     if (!assistantMsg.content && !accumulatedFullText) {
       const idx = state.askMessages.indexOf(assistantMsg);
       if (idx !== -1) state.askMessages.splice(idx, 1);
     }
   } finally {
+    activeAskReader = null;
+    activeAskTypewriter = null;
+    currentAskAbortController = null;
     if (accumulatedFullText && (!assistantMsg.content || assistantMsg.content.length < accumulatedFullText.length)) {
       assistantMsg.content = accumulatedFullText;
     }
@@ -5917,26 +6053,58 @@ function buildStrategyAskAssistant() {
   input.placeholder = isEn ? "Ask a question about this strategy…" : "Strategiya haqqında soruş…";
   input.disabled = state.askLoading;
   const send = button("", "strategy-ask-send");
-  send.type = "submit";
-  send.disabled = true;
-  send.setAttribute("aria-label", isEn ? "Send question" : "Sualı göndər");
-  send.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>';
+  const isStrategyGenerating = Boolean(state.askLoading);
+  send.classList.toggle("is-stop", isStrategyGenerating);
+  send.classList.toggle("is-generating", isStrategyGenerating);
+
+  if (isStrategyGenerating) {
+    send.type = "button";
+    send.disabled = false;
+    send.setAttribute("aria-label", isEn ? "Stop generating" : "Dayandır");
+    send.title = isEn ? "Stop generating" : "Dayandır";
+    send.appendChild(createAskStopIcon());
+  } else {
+    send.type = "submit";
+    send.disabled = true;
+    send.setAttribute("aria-label", isEn ? "Send question" : "Sualı göndər");
+    send.title = isEn ? "Send question" : "Sualı göndər";
+    send.appendChild(createStrategyAskSendIcon());
+  }
   form.append(input, send);
 
   const resize = () => {
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 110)}px`;
-    send.disabled = input.value.trim().length < 2 || state.askLoading;
+    if (state.askLoading) {
+      send.disabled = false;
+    } else {
+      send.disabled = input.value.trim().length < 2;
+    }
   };
   input.addEventListener("input", resize);
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
-      if (!send.disabled) form.requestSubmit();
+      if (state.askLoading) {
+        abortAskMessage();
+      } else if (!send.disabled) {
+        form.requestSubmit();
+      }
+    }
+  });
+  send.addEventListener("click", (event) => {
+    if (state.askLoading) {
+      event.preventDefault();
+      event.stopPropagation();
+      abortAskMessage();
     }
   });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (state.askLoading) {
+      abortAskMessage();
+      return;
+    }
     const message = input.value.trim();
     if (message.length < 2 || state.askLoading) return;
     input.value = "";

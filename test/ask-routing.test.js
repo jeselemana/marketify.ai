@@ -124,4 +124,40 @@ test("SEC-12: FileChatRepository enforces UUID format, cross-tenant isolation, a
   assert.equal(aliceAfter.messages[0].content, "Salam");
 });
 
+test("Ask Mode: script.js defines currentAskAbortController, abortAskMessage, and wires AbortController signal to /api/ask", async () => {
+  const scriptContent = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
+
+  assert.ok(scriptContent.includes("let currentAskAbortController = null;"), "declares currentAskAbortController");
+  assert.ok(scriptContent.includes("function abortAskMessage()"), "defines abortAskMessage function");
+  assert.ok(scriptContent.includes("currentAskAbortController.abort()"), "calls abort on currentAskAbortController");
+  assert.ok(scriptContent.includes("function createAskStopIcon()"), "defines createAskStopIcon safe SVG builder");
+  assert.ok(scriptContent.includes("createElementNS(\"http://www.w3.org/2000/svg\", \"rect\")"), "safely constructs stop square via DOM API");
+  assert.ok(scriptContent.includes("signal: currentAskAbortController.signal"), "passes abort signal to /api/ask fetch call");
+  assert.ok(scriptContent.includes("error?.name === \"AbortError\" || currentAskAbortController?.signal?.aborted"), "handles AbortError gracefully without noisy error banners");
+});
+
+test("Ask Mode: renderAsk and renderStrategyAskPanel toggle is-stop class and button states during generation", async () => {
+  const scriptContent = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
+
+  // Main ask composer
+  assert.ok(scriptContent.includes("submit.classList.toggle(\"is-stop\", isGenerating)"), "toggles is-stop on ask-submit");
+  assert.ok(scriptContent.includes("submit.setAttribute(\"aria-label\", isEn ? \"Stop generating\" : \"Dayandır\")"), "sets stop aria-label on ask-submit");
+  assert.ok(scriptContent.includes("submit.appendChild(createAskStopIcon())"), "appends safe stop icon to ask-submit");
+  assert.ok(scriptContent.includes("abortAskMessage()"), "calls abortAskMessage on click/submit");
+
+  // Strategy ask composer
+  assert.ok(scriptContent.includes("send.classList.toggle(\"is-stop\", isStrategyGenerating)"), "toggles is-stop on strategy-ask-send");
+  assert.ok(scriptContent.includes("send.appendChild(createAskStopIcon())"), "appends safe stop icon to strategy-ask-send");
+});
+
+test("Ask Mode: style.css defines .is-stop, hover transitions, and dark mode high-contrast parity", async () => {
+  const cssContent = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
+
+  assert.ok(cssContent.includes(".ask-submit.is-stop"), "defines .ask-submit.is-stop");
+  assert.ok(cssContent.includes(".strategy-ask-send.is-stop"), "defines .strategy-ask-send.is-stop");
+  assert.ok(cssContent.includes(".ask-stop-icon"), "defines .ask-stop-icon");
+  assert.ok(cssContent.includes("[data-theme=\"dark\"] .ask-stop-icon"), "defines dark mode .ask-stop-icon contrast");
+});
+
+
 

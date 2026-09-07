@@ -8179,6 +8179,33 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   opacity: 0.7;
 }
 
+.ask-submit.is-stop,
+.strategy-ask-send.is-stop {
+  cursor: pointer !important;
+}
+
+.ask-submit.is-stop:hover,
+.strategy-ask-send.is-stop:hover {
+  transform: scale(1.04);
+}
+
+.ask-submit.is-stop:active,
+.strategy-ask-send.is-stop:active {
+  transform: scale(0.95);
+}
+
+.ask-stop-icon {
+  display: block;
+  stroke: none !important;
+  fill: #ffffff;
+}
+
+[data-theme="dark"] .ask-stop-icon,
+html.dark .ask-stop-icon {
+  stroke: none !important;
+  fill: #0b0f17 !important;
+}
+
 .ask-model-selector-menu {
   position: relative;
   display: inline-flex;
