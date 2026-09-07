@@ -205,6 +205,79 @@ test("POST /api/user/ai-summary returns cached summary without model request whe
   assert.equal(response.body.model, "gpt-5.6-luna");
 });
 
+test("POST /api/user/ai-summary generates new summary and persists to user repository", async () => {
+  let updatedUserId = null;
+  let updatedPayload = null;
+
+  const userRepository = {
+    async update(id, payload) {
+      updatedUserId = id;
+      updatedPayload = payload;
+      return { id, ...payload };
+    },
+  };
+
+  const mockOpenAiClient = {
+    chat: {
+      completions: {
+        async create({ messages }) {
+          return {
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    summary: "Cesur, hər şeyi eyni anda fəth etməyə çalışırsan, amma artıq birbaşa icraya və satışa keçmək vaxtıdır.",
+                    focusTags: ["İcraya keç", "Böyümə"],
+                  }),
+                },
+              },
+            ],
+          };
+        },
+      },
+    },
+  };
+
+  const router = createUserRouter({
+    userRepository,
+    openAiClient: mockOpenAiClient,
+    strategyRepository: {
+      async readAll() {
+        return [{ ownerId: "usr_gen", title: "Restoran və E-commerce" }];
+      },
+    },
+    chatRepository: {
+      async readAll() {
+        return [];
+      },
+    },
+    plannerRepository: {
+      async list() {
+        return [];
+      },
+    },
+  });
+
+  const response = await invokeRoute(router, {
+    method: "POST",
+    url: "/ai-summary",
+    body: { forceRefresh: true },
+    user: {
+      id: "usr_gen",
+      fullName: "Cesur Elemana",
+      settings: { personalIntelligence: true },
+      aiSummary: null,
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.summary.startsWith("Cesur,"), "Summary must start with first name 'Cesur,'");
+  assert.ok(!response.body.summary.includes("Elemana"), "Summary must not contain surname");
+  assert.ok(Array.isArray(response.body.focusTags));
+  assert.equal(updatedUserId, "usr_gen");
+  assert.ok(updatedPayload?.aiSummary);
+});
+
 test("i18n: translations include complete aiSummary keys in both AZ and EN", () => {
   const azSummary = TRANSLATIONS.az.settings.aiSummary;
   const enSummary = TRANSLATIONS.en.settings.aiSummary;

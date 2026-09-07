@@ -132,7 +132,7 @@ MƏCBURİ TƏLƏBLƏR:
 }`;
 }
 
-export function createUserRouter({ userRepository, strategyRepository, chatRepository, plannerRepository }) {
+export function createUserRouter({ userRepository, strategyRepository, chatRepository, plannerRepository, openAiClient }) {
   const router = express.Router();
 
   router.post("/ai-summary", asyncRoute(async (req, res) => {
@@ -154,11 +154,12 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
     }
     const payload = parseResult.data;
 
-    // 3. Rate limiting check (Rule 6)
-    const rateLimitKey = `ai-summary:${req.user.id}:${getClientIp(req)}`;
+    // 3. Rate limiting (Rule 6)
+    const clientIp = getClientIp(req);
+    const rateLimitKey = `${clientIp}:${req.user.id}`;
     if (!checkAiSummaryRateLimit(rateLimitKey)) {
       return res.status(429).json({
-        error: "Çox sayda xülasə sorğusu göndərildi. Bir qədər sonra yenidən cəhd edin.",
+        error: "Çox sayda xülasə sorğusu göndərildi. Zəhmət olmasa bir qədər gözləyin.",
         code: "RATE_LIMITED",
       });
     }
@@ -201,6 +202,7 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
 
     const rawDisplayName = (req.user.fullName || req.user.username || "Lider").trim();
     const firstName = extractFirstName(rawDisplayName) || "Lider";
+    const displayName = firstName;
     const language = settings.language === "en" ? "en" : "az";
 
     const systemPrompt = buildSystemPrompt({
@@ -212,7 +214,7 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
       tasks,
     });
 
-    if (!hasOpenAIConfiguration()) {
+    if (!openAiClient && !hasOpenAIConfiguration()) {
       return res.status(503).json({
         error: "OpenAI xidməti konfiqurasiya edilməyib. OPENAI_API_KEY tələb olunur.",
         code: "AI_NOT_CONFIGURED",
@@ -222,7 +224,7 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
     const modelName = aiConfig.accountSummaryModel || "gpt-5.6-luna";
 
     try {
-      const client = getOpenAIClient();
+      const client = openAiClient || getOpenAIClient();
       const completion = await client.chat.completions.create({
         model: modelName,
         messages: [
@@ -257,10 +259,12 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
         parsed = {
           summary: typeof parsed.summary === "string" && parsed.summary.trim()
             ? parsed.summary.trim()
-            : `${displayName}, cari strategiya və fəaliyyət axınınız üzrə əsas marketinq prioritetləriniz aktivdir. Fokusunuzu yüksək dönüşümlü satış kanallarına və brend mövqelənməsinə yönəldin.`,
+            : (language === "en"
+              ? `${firstName}, your ideas are bold and plentiful, but some are still gathering dust on the drawing board. Stop strategizing in circles and execute on your highest-converting channels.`
+              : `${firstName}, planlar möhtəşəmdir, amma ideyalar hələ də icra gözləyir. İndi fəlsəfəni kənara qoyub birbaşa gəlir gətirən kanalları hərəkətə keçirmək vaxtıdır.`),
           focusTags: Array.isArray(parsed.focusTags) && parsed.focusTags.length > 0
             ? parsed.focusTags.slice(0, 3)
-            : ["Marketinq Strategiyası", "Böyümə Planı", "Biznes İntellekti"],
+            : (language === "en" ? ["Revenue Execution", "Growth Focus", "Active Channels"] : ["İcraya keç", "Gəlir gətirən böyümə", "Fokus"]),
         };
       } else {
         parsed = validated.data;
@@ -268,9 +272,9 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
 
       // Ensure direct name prefix
       let summaryText = parsed.summary.trim();
-      const namePrefixRegex = new RegExp(`^${displayName}\\b`, "i");
+      const namePrefixRegex = new RegExp(`^${firstName}\\b`, "i");
       if (!namePrefixRegex.test(summaryText)) {
-        summaryText = `${displayName}, ${summaryText.charAt(0).toLowerCase()}${summaryText.slice(1)}`;
+        summaryText = `${firstName}, ${summaryText.charAt(0).toLowerCase()}${summaryText.slice(1)}`;
       }
 
       const cleanTags = (parsed.focusTags || [])
