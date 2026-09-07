@@ -259,6 +259,9 @@ export const TRANSLATIONS = {
       bgCtaAction: "Yeni strategiya",
       bgCtaDismiss: "Bağla",
       buildSomethingNew: "Yeni bir şey qur",
+      viewAll: "Hamısına bax",
+      recentStrategies: "Son strategiyalar",
+      noStrategiesYet: "Hələ strategiya yoxdur",
     },
 
     // ── Planner ──────────────────────────────────────────────────────────────
@@ -923,6 +926,9 @@ export const TRANSLATIONS = {
       bgCtaAction: "New strategy",
       bgCtaDismiss: "Dismiss",
       buildSomethingNew: "Build something new",
+      viewAll: "View all",
+      recentStrategies: "Recent strategies",
+      noStrategiesYet: "No strategies yet",
     },
 
     // ── Planner ──────────────────────────────────────────────────────────────

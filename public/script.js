@@ -35,6 +35,8 @@ const installAppNav = document.querySelector("#installAppNav");
 const settingsNav = document.querySelector("#settingsNav");
 const railLimitsButton = document.querySelector("#railLimitsButton");
 const railInstallAppButton = document.querySelector("#railInstallAppButton");
+const railLangToggleButton = document.querySelector("#railLangToggleButton");
+const railLangBadge = document.querySelector("#railLangBadge");
 const railAccountButton = document.querySelector("#railAccountButton");
 const accountButton = document.querySelector("#accountButton");
 const workspaceAvatar = document.querySelector("#workspaceAvatar");
@@ -991,6 +993,16 @@ function syncNav() {
   if (railMenuButton) {
     railMenuButton.setAttribute("data-tooltip", t("nav.menu"));
     railMenuButton.setAttribute("aria-label", t("nav.openMenu"));
+  }
+  if (railLangToggleButton) {
+    const currentLang = getLanguage();
+    const isEn = currentLang === "en";
+    railLangToggleButton.setAttribute("data-tooltip", t("nav.languageToggle"));
+    railLangToggleButton.setAttribute("aria-label", t("nav.languageToggleAria"));
+    railLangToggleButton.setAttribute("title", t("nav.languageToggle"));
+    if (railLangBadge) {
+      railLangBadge.textContent = isEn ? "EN" : "AZ";
+    }
   }
   const railNavEl = document.querySelector(".navigation-rail");
   if (railNavEl) {
@@ -5784,6 +5796,8 @@ async function loadSavedStrategies() {
     strategyCount.textContent = String(data.strategies.length);
     renderRecentList();
     if (state.view === "list") renderStrategyList();
+    const railPopover = document.querySelector("#railArchivePopover");
+    if (railPopover && !railPopover.hidden) renderRailArchivePopover();
   } catch {
     recentList.replaceChildren(element("p", "recent-empty", "Strategiyaları yükləmək mümkün olmadı."));
   }
@@ -7237,6 +7251,9 @@ function closeAllArchiveMenus() {
 }
 
 document.addEventListener("click", (e) => {
+  if (!e.target.closest("#railArchiveContainer")) {
+    hideRailArchivePopover(true);
+  }
   closeAllArchiveMenus();
   document.querySelectorAll(".settings-lang-dropdown[open]").forEach((d) => {
     if (!d.contains(e.target)) d.removeAttribute("open");
@@ -7469,6 +7486,179 @@ function renderArchiveBackgroundCta() {
   banner.append(left, actions);
 
   return banner;
+}
+
+let railArchiveHoverTimeout = null;
+
+function renderRailArchivePopover() {
+  const popover = document.querySelector("#railArchivePopover");
+  if (!popover) return;
+  const isEn = getLanguage() === "en";
+  popover.replaceChildren();
+
+  const header = element("div", "rail-archive-popover-header", t("archive.recentStrategies"));
+  popover.appendChild(header);
+
+  const list = element("div", "rail-archive-popover-list");
+  const recent = (state.savedStrategies || []).slice(0, 3);
+
+  if (!recent.length) {
+    const empty = element("div", "rail-archive-popover-empty", t("archive.noStrategiesYet"));
+    list.appendChild(empty);
+  } else {
+    recent.forEach((strat) => {
+      const item = button("", "rail-archive-popover-item", (e) => {
+        e.stopPropagation();
+        hideRailArchivePopover(true);
+        openSavedStrategy(strat.id);
+      });
+      item.setAttribute("role", "menuitem");
+
+      const icon = element("span", "rail-archive-popover-item-icon");
+      icon.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+
+      const textWrap = element("div", "rail-archive-popover-item-text");
+      const title = element(
+        "span",
+        "rail-archive-popover-item-title",
+        strat.title || (isEn ? "Untitled strategy" : "Adsız strategiya")
+      );
+      const date = element(
+        "span",
+        "rail-archive-popover-item-date",
+        formatDate(strat.updatedAt || strat.createdAt)
+      );
+      textWrap.append(title, date);
+
+      item.append(icon, textWrap);
+      list.appendChild(item);
+    });
+  }
+  popover.appendChild(list);
+
+  const divider = element("div", "rail-archive-popover-divider");
+  popover.appendChild(divider);
+
+  const viewAllBtn = button("", "rail-archive-popover-all", (e) => {
+    e.stopPropagation();
+    hideRailArchivePopover(true);
+    state.view = "list";
+    syncNav();
+    render();
+    closeSidebar();
+  });
+  viewAllBtn.setAttribute("role", "menuitem");
+
+  const viewAllText = element("span", "rail-archive-popover-all-label", t("archive.viewAll"));
+  const arrow = element("span", "rail-archive-popover-all-arrow");
+  arrow.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+  viewAllBtn.append(viewAllText, arrow);
+
+  popover.appendChild(viewAllBtn);
+}
+
+function showRailArchivePopover() {
+  if (typeof window !== "undefined" && window.innerWidth < 768) return;
+  if (document.body.classList.contains("sidebar-open")) return;
+  if (state.view === "list") return;
+
+  if (railArchiveHoverTimeout) {
+    clearTimeout(railArchiveHoverTimeout);
+    railArchiveHoverTimeout = null;
+  }
+  const popover = document.querySelector("#railArchivePopover");
+  if (!popover) return;
+
+  if (!popover.hidden && popover.classList.contains("is-visible")) {
+    return;
+  }
+
+  renderRailArchivePopover();
+  popover.hidden = false;
+  popover.classList.add("is-visible");
+}
+
+function hideRailArchivePopover(immediate = false) {
+  if (railArchiveHoverTimeout) {
+    clearTimeout(railArchiveHoverTimeout);
+    railArchiveHoverTimeout = null;
+  }
+  const popover = document.querySelector("#railArchivePopover");
+  if (!popover) return;
+
+  if (immediate) {
+    popover.classList.remove("is-visible");
+    popover.hidden = true;
+    return;
+  }
+
+  railArchiveHoverTimeout = setTimeout(() => {
+    popover.classList.remove("is-visible");
+    popover.hidden = true;
+    railArchiveHoverTimeout = null;
+  }, 260);
+}
+
+function setupRailArchiveHover() {
+  const container = document.querySelector("#railArchiveContainer");
+  const popover = document.querySelector("#railArchivePopover");
+  const btn = document.querySelector("#railStrategiesButton");
+  if (!container || !popover || !btn) return;
+
+  const cancelHide = () => {
+    if (railArchiveHoverTimeout) {
+      clearTimeout(railArchiveHoverTimeout);
+      railArchiveHoverTimeout = null;
+    }
+  };
+
+  container.addEventListener("mouseenter", () => {
+    cancelHide();
+    showRailArchivePopover();
+  });
+
+  popover.addEventListener("mouseenter", () => {
+    cancelHide();
+  });
+
+  container.addEventListener("mouseleave", (e) => {
+    if (e.relatedTarget && (container.contains(e.relatedTarget) || popover.contains(e.relatedTarget))) {
+      return;
+    }
+    hideRailArchivePopover();
+  });
+
+  popover.addEventListener("mouseleave", (e) => {
+    if (e.relatedTarget && (container.contains(e.relatedTarget) || popover.contains(e.relatedTarget))) {
+      return;
+    }
+    hideRailArchivePopover();
+  });
+
+  btn.addEventListener("click", () => {
+    hideRailArchivePopover(true);
+  });
+
+  container.addEventListener("focusin", (e) => {
+    cancelHide();
+    if (e.target === btn) {
+      showRailArchivePopover();
+    }
+  });
+
+  container.addEventListener("focusout", () => {
+    setTimeout(() => {
+      if (!container.contains(document.activeElement) && !popover.contains(document.activeElement)) {
+        hideRailArchivePopover(true);
+      }
+    }, 250);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && popover && !popover.hidden) {
+      hideRailArchivePopover(true);
+    }
+  });
 }
 
 function renderStrategyList() {
@@ -10087,6 +10277,7 @@ mobileMenuButton.addEventListener("click", openSidebar);
 railMenuButton.addEventListener("click", () => (sidebar.classList.contains("is-open") ? closeSidebar() : openSidebar()));
 railHomeButton.addEventListener("click", navigateHome);
 railStrategiesButton.addEventListener("click", () => {
+  hideRailArchivePopover(true);
   state.view = "list";
   syncNav();
   render();
@@ -10106,6 +10297,21 @@ railLimitsButton?.addEventListener("click", () => {
 });
 railInstallAppButton?.addEventListener("click", () => {
   handleInstallAppClick();
+});
+railLangToggleButton?.addEventListener("click", async () => {
+  const currentLang = getLanguage();
+  const nextLang = currentLang === "az" ? "en" : "az";
+  setLanguage(nextLang, true);
+  if (state.currentUser) {
+    try {
+      await authRequest("/api/auth/settings", { method: "PATCH", body: JSON.stringify({ language: nextLang }) });
+    } catch { }
+  }
+  showToast(
+    t("settings.languageSelector.toastChanged", {}, nextLang) ||
+      (nextLang === "en" ? "Interface language updated." : "İnterfeys dili dəyişdirildi."),
+    "success"
+  );
 });
 railAccountButton?.addEventListener("click", () => {
   state.view = "settings";
@@ -10430,6 +10636,12 @@ window.addEventListener("helmer:language-change", () => {
   render();
 });
 
+window.addEventListener("storage", (event) => {
+  if (event.key === "helmer_language" && (event.newValue === "az" || event.newValue === "en")) {
+    setLanguage(event.newValue, false);
+  }
+});
+
 // Render the workspace immediately while authentication and saved data load in the background.
 if (!new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/verify-email"]).has(window.location.pathname)) {
   render();
@@ -10463,5 +10675,6 @@ initializeAuthentication(async (user) => {
   } else if (window.location.hash === "#privacy" || window.location.pathname === "/privacy") {
     openLegalModal("privacy");
   }
+  setupRailArchiveHover();
   checkSupportBanner();
 });

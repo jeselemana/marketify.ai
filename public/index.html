@@ -65,9 +65,12 @@
           <button class="rail-button is-active" id="railHomeButton" type="button" aria-label="Başlanğıc" data-tooltip="Başlanğıc">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           </button>
-          <button class="rail-button" id="railStrategiesButton" type="button" aria-label="Arxiv" data-tooltip="Arxiv">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 8 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-          </button>
+          <div class="rail-archive-container" id="railArchiveContainer">
+            <button class="rail-button" id="railStrategiesButton" type="button" aria-label="Arxiv" data-tooltip="Arxiv">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 8 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+            </button>
+            <div class="rail-archive-popover" id="railArchivePopover" role="menu" aria-label="Son strategiyalar" hidden></div>
+          </div>
           <button class="rail-button" id="railPlannerButton" type="button" aria-label="Planlaşdırılanlar" data-tooltip="Planlaşdırılanlar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           </button>
@@ -89,6 +92,14 @@
         <button class="rail-button rail-theme-toggle" id="railThemeToggleButton" type="button" data-theme-toggle aria-label="Qaranlıq rejimə keç" aria-pressed="false" data-tooltip="Qaranlıq rejimə keç">
           <svg class="theme-icon-moon nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.9 13a9 9 0 0 1-9.9-9.9A9 9 0 1 0 20.9 13Z"/></svg>
           <svg class="theme-icon-sun nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+        </button>
+        <button class="rail-button rail-lang-toggle" id="railLangToggleButton" type="button" aria-label="İnterfeys dilini ingilis dilinə dəyiş" data-tooltip="Dili dəyiş (EN)">
+          <svg class="nav-svg rail-lang-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          <span class="rail-lang-badge" id="railLangBadge" aria-hidden="true">AZ</span>
         </button>
         <button class="rail-profile-button" id="railAccountButton" type="button" aria-label="Hesab tənzimləmələrini aç" data-tooltip="Hesab tənzimləmələri">
           <span class="workspace-avatar rail-profile-avatar" id="railWorkspaceAvatar" aria-hidden="true">H</span>
