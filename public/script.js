@@ -2165,6 +2165,7 @@ function renderIntake() {
     submit.disabled = textarea.value.trim().length < 8;
     textarea.style.height = "auto";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+    shell.classList.toggle("has-input", Boolean(textarea.value.trim()));
   };
   textarea.addEventListener("input", resizeInput);
   textarea.addEventListener("keydown", (event) => {
@@ -2184,6 +2185,7 @@ function renderIntake() {
 
   shell.append(thread, composerArea);
   workspace.appendChild(shell);
+  resizeInput();
   if (window.innerWidth > 767) setTimeout(() => textarea.focus(), 0);
 }
 
@@ -3059,7 +3061,9 @@ function renderAsk() {
     } else {
       submit.disabled = (!hasText && !hasFile);
     }
+    shell.classList.toggle("has-input", Boolean(input.value.trim()));
   };
+  resizeInput();
   input.addEventListener("input", () => {
     state.askDraft = input.value;
     if (state.askError) state.askError = "";

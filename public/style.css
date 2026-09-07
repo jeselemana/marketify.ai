@@ -13323,10 +13323,7 @@ html.dark {
   .workspace-centered:has(.intake-view),
   .workspace-ask.is-empty,
   .workspace-ask:has(.ask-shell.is-empty) {
-    background:
-      radial-gradient(ellipse 90% 65% at 50% 44%, rgba(var(--theme-blue-rgb, 186, 220, 255), 0.65) 0%, rgba(var(--theme-blue-rgb, 219, 234, 254), 0.42) 35%, rgba(var(--theme-blue-rgb, 239, 246, 255), 0.18) 58%, transparent 75%),
-      radial-gradient(ellipse 55% 45% at 50% 42%, rgba(var(--theme-blue-rgb, 147, 197, 253), 0.38) 0%, transparent 60%),
-      var(--bg-canvas);
+    background: var(--bg-canvas);
   }
 
   .workspace-centered .intake-view {
@@ -13520,14 +13517,43 @@ html.dark {
     max-height: calc(100dvh - 60px - env(safe-area-inset-top));
     min-height: 0;
     overflow: hidden;
+    position: relative;
     display: flex;
     flex-direction: column;
     padding: 0 16px max(10px, env(safe-area-inset-bottom));
     box-sizing: border-box;
+    background: var(--bg-canvas);
+  }
+
+  .workspace-ask.is-empty::before,
+  .workspace-intake.is-empty::before,
+  .workspace.is-empty:has(.ask-shell.is-empty)::before,
+  .workspace:has(.ask-shell.is-empty)::before,
+  .workspace-ask:has(.ask-shell.is-empty)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
     background:
-      radial-gradient(ellipse 90% 65% at 50% 44%, rgba(var(--theme-blue-rgb, 186, 220, 255), 0.65) 0%, rgba(var(--theme-blue-rgb, 219, 234, 254), 0.42) 35%, rgba(var(--theme-blue-rgb, 239, 246, 255), 0.18) 58%, transparent 75%),
-      radial-gradient(ellipse 55% 45% at 50% 42%, rgba(var(--theme-blue-rgb, 147, 197, 253), 0.38) 0%, transparent 60%),
-      var(--bg-canvas);
+      radial-gradient(ellipse 135% 80% at 50% 100%, rgba(var(--theme-blue-rgb, 186, 220, 255), 0.7) 0%, rgba(var(--theme-blue-rgb, 219, 234, 254), 0.44) 34%, rgba(var(--theme-blue-rgb, 239, 246, 255), 0.2) 58%, transparent 82%),
+      radial-gradient(ellipse 80% 45% at 50% 100%, rgba(var(--theme-blue-rgb, 147, 197, 253), 0.42) 0%, transparent 64%);
+    transform-origin: 50% 100%;
+    animation: mobile-gradient-bloom 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes mobile-gradient-bloom {
+    0% {
+      opacity: 0;
+      transform: scale(0.6) translateY(24px);
+    }
+    40% {
+      opacity: 0.75;
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
   }
 
   .workspace-ask.has-messages,
@@ -13541,6 +13567,8 @@ html.dark {
   }
 
   .ask-shell.is-empty {
+    position: relative;
+    z-index: 1;
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
@@ -13594,6 +13622,15 @@ html.dark {
     text-align: center;
     isolation: isolate;
     transform: none;
+    transition: opacity 220ms cubic-bezier(0.16, 1, 0.3, 1), transform 220ms cubic-bezier(0.16, 1, 0.3, 1), visibility 220ms;
+  }
+
+  .ask-shell.is-empty.has-input .ask-intro,
+  .ask-shell.is-empty:has(.ask-input:not(:placeholder-shown)) .ask-intro {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.96) translateY(-8px);
+    pointer-events: none;
   }
 
   .ask-title {
@@ -18866,9 +18903,22 @@ html.dark .status-ready {
   html.dark .workspace-centered:has(.intake-view),
   html.dark .workspace-ask.is-empty,
   html.dark .workspace:has(.ask-shell.is-empty) {
+    background: var(--bg-canvas);
+  }
+
+  [data-theme="dark"] .workspace-ask.is-empty::before,
+  [data-theme="dark"] .workspace-intake.is-empty::before,
+  [data-theme="dark"] .workspace.is-empty:has(.ask-shell.is-empty)::before,
+  [data-theme="dark"] .workspace:has(.ask-shell.is-empty)::before,
+  [data-theme="dark"] .workspace-ask:has(.ask-shell.is-empty)::before,
+  html.dark .workspace-ask.is-empty::before,
+  html.dark .workspace-intake.is-empty::before,
+  html.dark .workspace.is-empty:has(.ask-shell.is-empty)::before,
+  html.dark .workspace:has(.ask-shell.is-empty)::before,
+  html.dark .workspace-ask:has(.ask-shell.is-empty)::before {
     background:
-      radial-gradient(ellipse 75% 55% at 50% 42%, rgba(30, 58, 138, 0.38) 0%, rgba(23, 37, 84, 0.55) 35%, rgba(15, 23, 42, 0.35) 60%, rgba(0, 0, 0, 0) 80%),
-      var(--bg-canvas);
+      radial-gradient(ellipse 135% 80% at 50% 100%, rgba(30, 58, 138, 0.46) 0%, rgba(23, 37, 84, 0.52) 34%, rgba(15, 23, 42, 0.32) 60%, transparent 82%),
+      radial-gradient(ellipse 80% 45% at 50% 100%, rgba(49, 75, 175, 0.35) 0%, transparent 64%);
   }
 }
 
