@@ -344,8 +344,8 @@ export const TRANSLATIONS = {
         deleteAccountIntro: "Hesabınızı və bütün məlumatlarınızı 14 günlük təhlükəsizlik müddəti ilə silin.",
       },
       aiSummary: {
-        title: "AI Hesab Xülasəsi",
-        badge: "AI",
+        title: "Hesab Xülasəsi",
+        badge: "",
         disabledNotice: "Fərdiləşdirilmiş xülasə üçün Personalization bölməsindən bu funksiyanı aktivləşdirin",
         enableBtn: "Fərdiləşdirməyə keç",
         regenerateBtn: "Yenilə",
@@ -353,7 +353,7 @@ export const TRANSLATIONS = {
         loading: "Xülasə hazırlanır…",
         error: "Xülasəni yükləmək mümkün olmadı.",
         retryBtn: "Yenidən cəhd et",
-        poweredBy: "Helmer AI tərəfindən fərdiləşdirilib",
+        poweredBy: "Profiliniz və fəaliyyətiniz əsasında fərdiləşdirilib",
         focusTagsLabel: "Əsas fokus sahələri",
       },
       experience: {
@@ -1008,8 +1008,8 @@ export const TRANSLATIONS = {
         deleteAccountIntro: "Permanently delete your account and workspace data with a 14-day recovery window.",
       },
       aiSummary: {
-        title: "AI Account Summary",
-        badge: "AI",
+        title: "Account Summary",
+        badge: "",
         disabledNotice: "Enable Personalization in the Personalization tab to get your tailored executive summary",
         enableBtn: "Go to Personalization",
         regenerateBtn: "Regenerate",
@@ -1017,7 +1017,7 @@ export const TRANSLATIONS = {
         loading: "Generating summary…",
         error: "Failed to load account summary.",
         retryBtn: "Retry",
-        poweredBy: "Powered by Helmer AI",
+        poweredBy: "Tailored to your profile and activity",
         focusTagsLabel: "Key focus areas",
       },
       experience: {

@@ -201,8 +201,10 @@ test("i18n: translations include complete aiSummary keys in both AZ and EN", () 
   assert.ok(azSummary, "AZ settings.aiSummary exists");
   assert.ok(enSummary, "EN settings.aiSummary exists");
 
-  assert.equal(azSummary.badge, "AI");
-  assert.equal(enSummary.badge, "AI");
+  assert.equal(azSummary.title, "Hesab Xülasəsi");
+  assert.equal(enSummary.title, "Account Summary");
+  assert.equal(azSummary.badge, "");
+  assert.equal(enSummary.badge, "");
 
   assert.ok(azSummary.disabledNotice.includes("Personalization"));
   assert.ok(enSummary.disabledNotice.includes("Personalization"));
@@ -222,12 +224,12 @@ test("i18n: translations include complete aiSummary keys in both AZ and EN", () 
   ];
 
   for (const key of requiredKeys) {
-    assert.ok(azSummary[key], `AZ aiSummary.${key} must be defined`);
-    assert.ok(enSummary[key], `EN aiSummary.${key} must be defined`);
+    assert.ok(azSummary[key] !== undefined, `AZ aiSummary.${key} must be defined`);
+    assert.ok(enSummary[key] !== undefined, `EN aiSummary.${key} must be defined`);
   }
 });
 
-test("Frontend script.js: AI summary card complies with XSS protection, personalization gate, and badge rendering", async () => {
+test("Frontend script.js: AI summary card complies with XSS protection and personalization gate", async () => {
   const script = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
 
   // Mount point in Account tab
@@ -239,8 +241,8 @@ test("Frontend script.js: AI summary card complies with XSS protection, personal
   assert.ok(script.includes("is-disabled-state"), "Applies is-disabled-state when disabled");
   assert.ok(script.includes("settingsTab = \"experience\""), "Allows navigating to experience (Personalization) tab to enable");
 
-  // Model and badge
-  assert.ok(script.includes("ai-summary-model-badge"), "Renders model badge");
+  // Header and controls
+  assert.ok(script.includes("ai-summary-card-title"), "Renders card title");
   assert.ok(script.includes("ai-summary-sparkle-icon"), "Renders sparkle icon");
   assert.ok(script.includes("ai-summary-refresh-btn"), "Renders regenerate button");
   assert.ok(script.includes("ai-summary-skeleton"), "Renders skeleton loader");
