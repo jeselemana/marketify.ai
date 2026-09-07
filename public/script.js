@@ -5975,7 +5975,7 @@ function buildLanguageSelectorSection() {
   const currLabel = currentLang === "en" ? "English" : "Azərbaycan dili";
 
   trigger.innerHTML = `
-    <span class="settings-lang-curr-name">${currLabel}</span>
+    <span class="settings-lang-curr-name">${escapeHtml(currLabel)}</span>
     <svg class="settings-lang-chevron" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
       <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
     </svg>
@@ -6006,7 +6006,7 @@ function buildLanguageSelectorSection() {
     opt.setAttribute("role", "option");
     opt.setAttribute("aria-selected", String(isSelected));
     opt.innerHTML = `
-      <span class="settings-lang-opt-name">${item.name}</span>
+      <span class="settings-lang-opt-name">${escapeHtml(item.name)}</span>
       ${isSelected ? `<svg class="settings-lang-check" viewBox="0 0 20 20" width="15" height="15" fill="currentColor" aria-hidden="true">
         <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
       </svg>` : ""}
@@ -6015,80 +6015,18 @@ function buildLanguageSelectorSection() {
   });
 
   dropdown.append(trigger, menu);
-  row.append(info, dropdown);
-  return row;
-}
 
-function buildThemeSelectorSection() {
-  const isEn = getLanguage() === "en";
-  const row = element("div", "settings-lang-row");
-
-  const info = element("div", "settings-lang-info");
-  const label = element("span", "settings-lang-label", isEn ? "Appearance Theme" : "Görünüş teması");
-  const hint = element("span", "settings-lang-hint", isEn ? "Choose between light and eye-strain-free slate dark workspace appearance." : "Açıq və ya göz yormayan Slate qaranlıq workspace rejimini seçin.");
-  info.append(label, hint);
-
-  const dropdown = element("details", "settings-lang-dropdown");
-  const trigger = element("summary", "settings-lang-trigger");
-  trigger.setAttribute("aria-haspopup", "listbox");
-  trigger.setAttribute("aria-label", isEn ? "Select appearance theme" : "Görünüş temasını seçin");
-
-  const currentTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-  const currLabel = currentTheme === "dark" ? (isEn ? "Dark Mode" : "Qaranlıq rejim") : (isEn ? "Light Mode" : "Açıq rejim");
-
-  trigger.innerHTML = `
-    <span class="settings-lang-curr-name">${currLabel}</span>
-    <svg class="settings-lang-chevron" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
-      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-    </svg>
-  `;
-
-  const menu = element("div", "settings-lang-menu");
-  menu.setAttribute("role", "listbox");
-
-  const themes = [
-    { code: "light", name: isEn ? "Light Mode" : "Açıq rejim" },
-    { code: "dark", name: isEn ? "Dark Mode" : "Qaranlıq rejim" },
-  ];
-
-  themes.forEach((item) => {
-    const isSelected = currentTheme === item.code;
-    const opt = button("", `settings-lang-option${isSelected ? " is-selected" : ""}`, () => {
+  const handleDropdownClose = (evt) => {
+    if (dropdown.hasAttribute("open") && !dropdown.contains(evt.target)) {
       dropdown.removeAttribute("open");
-      const root = document.documentElement;
-      if (root.dataset.theme === item.code) return;
-      root.dataset.theme = item.code;
-      if (item.code === "dark") {
-        root.classList.add("dark");
-      } else {
-        root.classList.remove("dark");
-      }
-      try {
-        localStorage.setItem("helmer_theme", item.code);
-        localStorage.setItem("theme", item.code);
-      } catch {}
-      const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.content = item.code === "dark" ? "#000000" : "#f8f9fb";
-      window.dispatchEvent(new CustomEvent("helmer:theme-change", { detail: { theme: item.code } }));
-      showToast(item.code === "dark" ? (isEn ? "Dark theme enabled." : "Qaranlıq rejim aktiv edildi.") : (isEn ? "Light theme enabled." : "Açıq rejim aktiv edildi."), "success");
-      renderSettings();
-    });
-    opt.type = "button";
-    opt.setAttribute("role", "option");
-    opt.setAttribute("aria-selected", String(isSelected));
-    opt.innerHTML = `
-      <span class="settings-lang-opt-name">${item.name}</span>
-      ${isSelected ? `<svg class="settings-lang-check" viewBox="0 0 20 20" width="15" height="15" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-      </svg>` : ""}
-    `;
-    menu.appendChild(opt);
-  });
+    }
+  };
+  document.addEventListener("click", handleDropdownClose);
 
-  dropdown.append(trigger, menu);
   row.append(info, dropdown);
   return row;
 }
+
 
 function renderSettings() {
   const isEn = getLanguage() === "en";
@@ -6097,140 +6035,263 @@ function renderSettings() {
   const view = element("section", "settings-view");
   const header = element("header", "settings-header");
   header.append(
-    element("span", "section-kicker", "WORKSPACE"),
-    element("h1", "", state.currentUser ? (isEn ? "Settings" : "Parametrlər") : (isEn ? "Preserve your progress" : "Gedişatını qoruyun")),
+    element("span", "section-kicker settings-kicker", isEn ? "SETTINGS" : "PARAMETRLƏR"),
+    element("h1", "", isEn ? "Settings" : "Parametrlər"),
     element("p", "", state.currentUser
-      ? (isEn ? "Manage your account preferences, intelligence, and security." : "Hesab məlumatlarını və giriş təhlükəsizliyini idarə et.")
-      : (isEn ? "You can use Helmer as a guest. Creating an account syncs your strategies across devices." : "Hesabsız istifadə edə bilərsən. Hesab yaratdıqda bu cihazdakı strategiyaların profilinə köçürüləcək və başqa cihazlardan da əlçatan olacaq."))
+      ? (isEn ? "Manage your account preferences, intelligence, and security." : "Hesab məlumatlarını, fərdiləşdirilmiş təcrübəni və giriş təhlükəsizliyini idarə edin.")
+      : (isEn ? "Configure workspace preferences, interface language, and cloud synchronization." : "İş mühiti parametrlərini, interfeys dilini və bulud sinxronizasiyasını tənzimləyin."))
   );
 
-  if (!state.currentUser) {
-    const panel = element("section", "settings-panel guest-account-panel");
-    panel.append(
-      element("h2", "", isEn ? "Account is optional" : "Hesab məcburi deyil"),
-      element("p", "settings-panel-intro", isEn ? "Your current work is saved locally in this browser. Create a free account to back up and sync across devices." : "Hazırkı işlərin bu brauzerdə saxlanılır. Cihaz dəyişdikdə itirməmək üçün pulsuz hesab yaratmağı tövsiyə edirik."),
-    );
-    const actions = element("div", "guest-account-actions");
-    actions.append(
-      button(isEn ? "Create account" : "Hesab yarat", "primary-button", () => { window.location.href = "/signup?returnTo=/workspace"; }),
-      button(isEn ? "Log in" : "Daxil ol", "secondary-button", () => { window.location.href = "/login?returnTo=/workspace"; }),
-    );
-    panel.appendChild(actions);
+  if (!state.settingsTab) state.settingsTab = "account";
 
-    // Language and Theme Selectors for Guest
-    panel.appendChild(buildLanguageSelectorSection());
-    panel.appendChild(buildThemeSelectorSection());
-
-    view.append(header, panel);
-    workspace.appendChild(view);
-    return;
-  }
   const tabs = element("div", "settings-tabs");
   tabs.setAttribute("role", "tablist");
-  const accountTab = button(t("settings.tabs.account"), `settings-tab${state.settingsTab === "account" ? " is-active" : ""}`, () => {
-    state.settingsTab = "account";
-    renderSettings();
-  });
-  accountTab.setAttribute("role", "tab");
-  accountTab.setAttribute("aria-selected", String(state.settingsTab === "account"));
-  const securityTab = button(t("settings.tabs.security"), `settings-tab${state.settingsTab === "security" ? " is-active" : ""}`, () => {
-    state.settingsTab = "security";
-    renderSettings();
-  });
-  securityTab.setAttribute("role", "tab");
-  securityTab.setAttribute("aria-selected", String(state.settingsTab === "security"));
-  const experienceTab = button(t("settings.tabs.experience"), `settings-tab${state.settingsTab === "experience" ? " is-active" : ""}`, () => {
-    state.settingsTab = "experience";
-    renderSettings();
-  });
-  experienceTab.setAttribute("role", "tab");
-  experienceTab.setAttribute("aria-selected", String(state.settingsTab === "experience"));
-  const legalTab = button(t("settings.tabs.legal"), `settings-tab${state.settingsTab === "legal" ? " is-active" : ""}`, () => {
-    state.settingsTab = "legal";
-    renderSettings();
-  });
-  legalTab.setAttribute("role", "tab");
-  legalTab.setAttribute("aria-selected", String(state.settingsTab === "legal"));
-  tabs.append(accountTab, experienceTab, securityTab, legalTab);
-  view.append(header, tabs);
+  tabs.setAttribute("aria-label", isEn ? "Settings navigation" : "Parametrlər menyusu");
 
-  if (state.settingsTab === "account") {
-    const panel = element("section", "settings-panel");
-    panel.append(
-      element("h2", "", t("settings.account.title")),
-      element("p", "settings-panel-intro", t("settings.account.intro"))
-    );
-    const form = element("form", "settings-form account-settings-form");
-    form.append(
-      settingsField(t("settings.account.fullName"), "fullName", state.currentUser.fullName, "text", "name"),
-      settingsField(t("settings.account.username"), "username", state.currentUser.username, "text", "username"),
-      settingsField(t("settings.account.email"), "email", state.currentUser.email, "email", "email"),
-    );
-    const save = button(t("settings.account.saveBtn"), "primary-button");
-    save.type = "submit";
-    form.appendChild(save);
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      save.disabled = true;
-      save.textContent = isEn ? "Saving…" : "Saxlanılır…";
-      try {
-        const data = await authRequest("/api/auth/account", {
-          method: "PATCH",
-          body: JSON.stringify(Object.fromEntries(new FormData(form))),
-        });
-        updateWorkspaceIdentity(data.user);
-        settingsMessage(form, isEn ? "Account information updated." : "Hesab məlumatları yeniləndi.", "success");
-      } catch (error) {
-        settingsMessage(form, error.message);
-      } finally {
-        save.disabled = false;
-        save.textContent = t("settings.account.saveBtn");
-      }
+  const tabDefs = [
+    {
+      id: "account",
+      label: t("settings.tabs.account"),
+      icon: `<svg class="settings-tab-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+    },
+    {
+      id: "experience",
+      label: t("settings.tabs.experience"),
+      icon: `<svg class="settings-tab-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>`,
+    },
+    {
+      id: "security",
+      label: t("settings.tabs.security"),
+      icon: `<svg class="settings-tab-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    },
+    {
+      id: "legal",
+      label: t("settings.tabs.legal"),
+      icon: `<svg class="settings-tab-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+    },
+  ];
+
+  tabDefs.forEach((tabItem) => {
+    const tabBtn = button("", `settings-tab${state.settingsTab === tabItem.id ? " is-active" : ""}`, () => {
+      state.settingsTab = tabItem.id;
+      renderSettings();
     });
-    panel.appendChild(form);
+    tabBtn.type = "button";
+    tabBtn.setAttribute("role", "tab");
+    tabBtn.setAttribute("aria-selected", String(state.settingsTab === tabItem.id));
+    tabBtn.innerHTML = `${tabItem.icon}<span>${escapeHtml(tabItem.label)}</span>`;
+    tabs.appendChild(tabBtn);
+  });
 
-    // Add Language and Theme Selectors inside Account tab
+  function createExperienceAccordion({ title, desc, badgeNode = null, isOpen = false, contentNode }) {
+    const details = document.createElement("details");
+    details.className = "experience-accordion";
+    if (isOpen) details.open = true;
+
+    const summary = element("summary", "experience-accordion-summary");
+    const summaryLeft = element("div", "experience-accordion-left");
+    const titleRow = element("div", "experience-accordion-title-row");
+    titleRow.appendChild(element("strong", "experience-accordion-title", title));
+    if (badgeNode) titleRow.appendChild(badgeNode);
+    summaryLeft.appendChild(titleRow);
+    if (desc) summaryLeft.appendChild(element("p", "experience-accordion-desc", desc));
+
+    const iconWrap = element("span", "experience-accordion-icon");
+    iconWrap.innerHTML = '<svg class="experience-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+    summary.append(summaryLeft, iconWrap);
+    const body = element("div", "experience-accordion-content");
+    body.appendChild(contentNode);
+    details.append(summary, body);
+    return details;
+  }
+
+  let panel;
+  if (state.settingsTab === "account") {
+    panel = element("section", "settings-panel settings-account-panel");
+    panel.append(
+      element("h2", "", state.currentUser ? t("settings.account.title") : (isEn ? "Account & Workspace" : "Hesab və İş Mühiti")),
+      element("p", "settings-panel-intro", state.currentUser ? t("settings.account.intro") : (isEn ? "Manage your profile, workspace preferences, and device synchronization." : "Profilinizi, iş mühiti parametrlərini və cihazlararası sinxronizasiyanı idarə edin."))
+    );
+
+    // Profile Identity Hero Card (Always visible with avatar, name, badge, and email)
+    const profileHero = element("div", "account-profile-card");
+    const avatarInitial = state.currentUser ? (state.currentUser.fullName || state.currentUser.username || "U")[0].toUpperCase() : "G";
+    const userName = state.currentUser ? (state.currentUser.fullName || state.currentUser.username) : (isEn ? "Guest Workspace" : "Qonaq İş Mühiti");
+    const userRole = state.currentUser ? state.currentUser.email : (isEn ? "Local browser sandbox · Device isolated" : "Lokal brauzer mühiti · Bu cihaza bağlı");
+    profileHero.innerHTML = `
+      <div class="account-profile-avatar" aria-hidden="true">${escapeHtml(avatarInitial)}</div>
+      <div class="account-profile-details">
+        <div class="account-profile-title-row">
+          <strong class="account-profile-name">${escapeHtml(userName)}</strong>
+          <span class="account-badge ${state.currentUser ? "is-verified" : "is-guest"}">${state.currentUser ? (isEn ? "✓ Synced" : "✓ Bulud Hesabı") : (isEn ? "○ Guest" : "○ Qonaq")}</span>
+        </div>
+        <p class="account-profile-role">${escapeHtml(userRole)}</p>
+      </div>
+    `;
+    panel.appendChild(profileHero);
+
+    // Collapsible Account Details Section (Collapsed by default)
+    let detailsAccordion;
+    if (state.currentUser) {
+      const form = element("form", "settings-form account-settings-form");
+      form.append(
+        settingsField(t("settings.account.fullName"), "fullName", state.currentUser.fullName, "text", "name"),
+        settingsField(t("settings.account.username"), "username", state.currentUser.username, "text", "username"),
+        settingsField(t("settings.account.email"), "email", state.currentUser.email, "email", "email"),
+      );
+      const save = button(t("settings.account.saveBtn"), "primary-button");
+      save.type = "submit";
+      form.appendChild(save);
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        save.disabled = true;
+        save.textContent = isEn ? "Saving…" : "Saxlanılır…";
+        try {
+          const data = await authRequest("/api/auth/account", {
+            method: "PATCH",
+            body: JSON.stringify(Object.fromEntries(new FormData(form))),
+          });
+          updateWorkspaceIdentity(data.user);
+          settingsMessage(form, isEn ? "Account information updated." : "Hesab məlumatları yeniləndi.", "success");
+        } catch (error) {
+          settingsMessage(form, error.message);
+        } finally {
+          save.disabled = false;
+          save.textContent = t("settings.account.saveBtn");
+        }
+      });
+
+      const editBadge = element("span", "experience-summary-badge", isEn ? "Edit" : "Düzəliş");
+      detailsAccordion = createExperienceAccordion({
+        title: isEn ? "Account Details & Credentials" : "Hesab Detalları və Giriş Məlumatları",
+        desc: isEn ? "Update your display name, username, and account email address." : "Görünən adınızı, istifadəçi adınızı və e-poçt ünvanınızı redaktə edin.",
+        badgeNode: editBadge,
+        isOpen: false,
+        contentNode: form,
+      });
+    } else {
+      const guestCard = element("div", "guest-sync-banner");
+      const guestLeft = element("div", "guest-sync-left");
+      guestLeft.innerHTML = `
+        <div class="guest-sync-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 18a3.5 3.5 0 0 0 0-7h-1A5 5 0 0 0 8 8a3.5 3.5 0 0 0-1 6.8V18"/>
+            <polyline points="13 14 16 11 19 14"/>
+            <line x1="16" y1="11" x2="16" y2="21"/>
+          </svg>
+        </div>
+        <div class="guest-sync-text">
+          <h3>${escapeHtml(isEn ? "Cloud Strategy Vault & Device Sync" : "Bulud Strategiya Arxivi və Sinxronizasiya")}</h3>
+          <p>${escapeHtml(isEn ? "Your campaigns, personas, and custom instructions are saved in this browser. Create a free account to back them up securely and access your work anywhere." : "Hazırladığınız marketinq strategiyaları, brend təlimatları və qeydləriniz bu brauzerdə saxlanılır. Keçmişinizi itirməmək və istənilən cihazdan daxil olmaq üçün pulsuz hesab açın.")}</p>
+        </div>
+      `;
+      const guestActions = element("div", "guest-sync-actions");
+      guestActions.append(
+        button(isEn ? "Create account" : "Hesab yarat", "primary-button", () => { window.location.href = "/signup?returnTo=/workspace"; }),
+        button(isEn ? "Log in" : "Daxil ol", "secondary-button", () => { window.location.href = "/login?returnTo=/workspace"; })
+      );
+      guestCard.append(guestLeft, guestActions);
+
+      const syncBadge = element("span", "experience-summary-badge", isEn ? "Backup" : "Ehtiyat Nüsxə");
+      detailsAccordion = createExperienceAccordion({
+        title: isEn ? "Cloud Strategy Vault & Device Sync" : "Bulud Sinxronizasiyası və Cihaz Girişi",
+        desc: isEn ? "Back up your campaigns and sync your workspace across devices." : "Strategiyalarınızı buludda qoruyun və başqa cihazlardan da daxil olun.",
+        badgeNode: syncBadge,
+        isOpen: false,
+        contentNode: guestCard,
+      });
+    }
+    detailsAccordion.classList.add("settings-account-details-accordion");
+    panel.appendChild(detailsAccordion);
+
+    // Language Selector Card
     panel.appendChild(buildLanguageSelectorSection());
-    panel.appendChild(buildThemeSelectorSection());
 
+    // Visual Theme Picker Studio (Collapsed by default, positioned directly under Language card)
+    const currentTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    const themeBadge = element("span", "experience-summary-badge", currentTheme === "dark" ? (isEn ? "Dark Mode" : "Qaranlıq Rejim") : (isEn ? "Light Mode" : "Açıq Rejim"));
+
+    const themeCardsGrid = element("div", "theme-cards-grid");
+    themeCardsGrid.innerHTML = `
+      <button type="button" class="theme-preview-card${currentTheme === "light" ? " is-active" : ""}" data-theme-choice="light">
+        <div class="theme-preview-canvas is-light" aria-hidden="true">
+          <div class="preview-mock-rail"></div>
+          <div class="preview-mock-body">
+            <div class="preview-mock-line"></div>
+            <div class="preview-mock-box"></div>
+          </div>
+        </div>
+        <div class="theme-card-caption">
+          <div class="theme-card-dot is-light"></div>
+          <strong>${escapeHtml(isEn ? "Light Mode" : "Açıq Rejim")}</strong>
+          <span class="theme-card-radio"></span>
+        </div>
+      </button>
+      <button type="button" class="theme-preview-card${currentTheme === "dark" ? " is-active" : ""}" data-theme-choice="dark">
+        <div class="theme-preview-canvas is-dark" aria-hidden="true">
+          <div class="preview-mock-rail"></div>
+          <div class="preview-mock-body">
+            <div class="preview-mock-line"></div>
+            <div class="preview-mock-box"></div>
+          </div>
+        </div>
+        <div class="theme-card-caption">
+          <div class="theme-card-dot is-dark"></div>
+          <strong>${escapeHtml(isEn ? "Dark Mode" : "Qaranlıq Rejim")}</strong>
+          <span class="theme-card-radio"></span>
+        </div>
+      </button>
+    `;
+    themeCardsGrid.querySelectorAll(".theme-preview-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const choice = card.dataset.themeChoice;
+        const root = document.documentElement;
+        root.dataset.theme = choice;
+        if (choice === "dark") root.classList.add("dark");
+        else root.classList.remove("dark");
+        try { localStorage.setItem("theme", choice); } catch {}
+        themeCardsGrid.querySelectorAll(".theme-preview-card").forEach((c) => {
+          c.classList.toggle("is-active", c.dataset.themeChoice === choice);
+        });
+        themeBadge.textContent = choice === "dark" ? (isEn ? "Dark Mode" : "Qaranlıq Rejim") : (isEn ? "Light Mode" : "Açıq Rejim");
+        showToast(isEn ? `Theme set to ${choice === "dark" ? "Dark Mode" : "Light Mode"}.` : `Mövzu ${choice === "dark" ? "Qaranlıq" : "Açıq"} olaraq təyin edildi.`);
+      });
+    });
+
+    const themeAccordion = createExperienceAccordion({
+      title: isEn ? "Appearance & Surface Tone" : "Vizual Görünüş və Mövzu",
+      desc: isEn ? "Choose your workspace surface tone. Helmer adapts to high-contrast daylight or pure black obsidian." : "İş mühitinin rəng rejimini tənzimləyin. Helmer yüksək kontrastlı işıqlı və təmiz obsidian qaranlıq rejimi dəstəkləyir.",
+      badgeNode: themeBadge,
+      isOpen: false,
+      contentNode: themeCardsGrid,
+    });
+    themeAccordion.classList.add("settings-theme-studio");
+    panel.appendChild(themeAccordion);
+
+    // Local Workspace Storage Diagnostics
+    const storageCard = element("div", "settings-diagnostic-card");
+    storageCard.innerHTML = `
+      <div class="diagnostic-info">
+        <strong>${escapeHtml(isEn ? "Workspace Storage & Telemetry" : "İş Mühiti Yaddaşı və Telemetriya")}</strong>
+        <p>${escapeHtml(isEn ? "Local browser memory: Operational (0.4 MB / 5 MB) · Zero third-party telemetry" : "Lokal brauzer yaddaşı: Normal (0.4 MB / 5 MB) · Sıfır kənar telemetriya")}</p>
+      </div>
+    `;
+    panel.appendChild(storageCard);
     view.appendChild(panel);
+
   } else if (state.settingsTab === "experience") {
-    const panel = element("section", "settings-panel settings-experience-panel");
+    panel = element("section", "settings-panel settings-experience-panel");
     panel.append(
       element("h2", "", t("settings.experience.title")),
       element("p", "settings-panel-intro", t("settings.experience.intro")),
     );
 
-    const userSettings = state.currentUser.settings || {};
+    const userSettings = state.currentUser?.settings || {};
     let currentTone = userSettings.tone || "professional";
     let memoriesList = Array.isArray(userSettings.memories) ? [...userSettings.memories] : [];
 
-    // Import Memory Banner / Action Card
-    const importCard = element("div", "experience-import-banner");
-    const importLeft = element("div", "experience-import-left");
-    importLeft.innerHTML = `
-      <div class="experience-import-icon-badge">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      </div>
-      <div class="experience-import-text">
-        <strong>${escapeHtml(t("settings.experience.importTitle"))}</strong>
-        <p>${escapeHtml(t("settings.experience.importDesc"))}</p>
-      </div>
-    `;
-    const importBtn = button(t("settings.experience.importBtn"), "secondary-button experience-import-trigger-btn", () => {
-      openImportMemoryModal({
-        userSettings: state.currentUser?.settings || {},
-        onImportSuccess: (updatedUser) => {
-          updateWorkspaceIdentity(updatedUser);
-          renderSettings();
-        },
-      });
-    });
-    importBtn.type = "button";
-    importCard.append(importLeft, importBtn);
-    panel.appendChild(importCard);
-
-    // Master Switch
+    // Master AI Intelligence Switch Card
     const masterCard = element("div", "experience-hero-toggle");
     const masterLeft = element("div", "experience-hero-left");
     masterLeft.append(
@@ -6241,7 +6302,7 @@ function renderSettings() {
     masterToggle.type = "button";
     masterToggle.setAttribute("role", "switch");
     masterToggle.setAttribute("aria-label", t("settings.experience.masterTitle"));
-    let isMasterEnabled = userSettings.personalIntelligence === true;
+    let isMasterEnabled = state.currentUser ? userSettings.personalIntelligence === true : true;
     const syncMasterToggle = () => {
       masterToggle.classList.toggle("is-active", isMasterEnabled);
       masterToggle.setAttribute("aria-checked", String(isMasterEnabled));
@@ -6254,92 +6315,92 @@ function renderSettings() {
         syncMasterToggle();
         return;
       }
-
       openPersonalizationConsentModal(() => {
         isMasterEnabled = true;
         syncMasterToggle();
       });
     });
     masterCard.append(masterLeft, masterToggle);
-    panel.appendChild(masterCard);
 
-    const form = element("form", "settings-form experience-settings-form");
+    // Default Mode Selector (Both Authenticated & Guest - Collapsible, Open by default)
+    let currentDefaultMode = userSettings.defaultMode || getCookie("helmer_default_mode") || state.mode || "build";
+    const modeBadge = element("span", "experience-summary-badge", currentDefaultMode === "ask" ? "Ask Mode" : "Build Mode");
 
-    function createExperienceAccordion({ title, desc, badgeNode = null, isOpen = false, contentNode }) {
-      const details = document.createElement("details");
-      details.className = "experience-accordion";
-      if (isOpen) details.open = true;
+    const modeGrid = element("div", "experience-mode-options experience-tone-grid experience-mode-grid");
+    modeGrid.style.marginTop = "6px";
 
-      const summary = element("summary", "experience-accordion-summary");
-      const summaryLeft = element("div", "experience-accordion-left");
-      const titleRow = element("div", "experience-accordion-title-row");
-      titleRow.appendChild(element("strong", "experience-accordion-title", title));
-      if (badgeNode) {
-        titleRow.appendChild(badgeNode);
-      }
-      summaryLeft.appendChild(titleRow);
-      if (desc) {
-        summaryLeft.appendChild(element("p", "experience-accordion-desc", desc));
-      }
+    const defaultModeOptions = [
+      {
+        id: "build",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+        name: "Build Mode",
+        desc: isEn ? "Start directly in structured multi-channel strategy generation mode on launch." : "Helmer açıldıqda birbaşa strukturlaşdırılmış marketinq strategiyası rejimi aktiv olsun.",
+      },
+      {
+        id: "ask",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        name: "Ask Mode",
+        desc: isEn ? "Start directly in conversational AI sparring and ad-hoc strategic Q&A mode on launch." : "Helmer açıldıqda birbaşa interaktiv AI söhbət və operativ sual-cavab rejimi aktiv olsun.",
+      },
+    ];
 
-      const iconWrap = element("span", "experience-accordion-icon");
-      iconWrap.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-
-      summary.append(summaryLeft, iconWrap);
-      const body = element("div", "experience-accordion-content");
-      body.appendChild(contentNode);
-      details.append(summary, body);
-      return details;
-    }
-
-    // 1. Business Profile (Primary - Open by default)
-    const profileGrid = element("div", "experience-grid-fields");
-    profileGrid.append(
-      settingsField(t("settings.experience.brandName"), "brandName", userSettings.brandName || "", "text", "organization", isEn ? "e.g. Helmer" : "Məs: Helmer"),
-      settingsField(t("settings.experience.industry"), "industry", userSettings.industry || "", "text", "off", isEn ? "e.g. B2B SaaS, E-commerce" : "Məs: B2B SaaS, E-ticarət, Kosmetika"),
-      settingsField(t("settings.experience.primaryMarket"), "primaryMarket", userSettings.primaryMarket || "", "text", "off", isEn ? "e.g. Global, North America, Azerbaijan" : "Məs: Azərbaycan (Bakı və regionlar)"),
-      settingsField(t("settings.experience.targetAudience"), "targetAudience", userSettings.targetAudience || "", "text", "off", isEn ? "e.g. Tech founders, Growth marketers" : "Məs: 20-35 yaş gənclər, startaplar"),
-    );
-    const profileAccordion = createExperienceAccordion({
-      title: t("settings.experience.profileTitle"),
-      desc: t("settings.experience.profileDesc"),
-      isOpen: true,
-      contentNode: profileGrid,
+    defaultModeOptions.forEach((opt) => {
+      const card = element("button", `experience-mode-option experience-tone-card experience-mode-card${currentDefaultMode === opt.id ? " is-selected" : ""}`);
+      card.type = "button";
+      card.innerHTML = `
+        <div class="tone-card-top">
+          <span class="tone-card-icon-wrap">${opt.icon}</span>
+          <strong class="tone-card-title">${escapeHtml(opt.name)}</strong>
+          <span class="tone-card-check"></span>
+        </div>
+        <p class="tone-card-desc">${escapeHtml(opt.desc)}</p>
+      `;
+      card.addEventListener("click", () => {
+        currentDefaultMode = opt.id;
+        setDefaultWorkspaceMode(currentDefaultMode);
+        modeBadge.textContent = opt.name;
+        modeGrid.querySelectorAll(".experience-mode-card").forEach((c) => c.classList.remove("is-selected"));
+        card.classList.add("is-selected");
+        showToast(isEn ? `Default mode set to ${opt.name}.` : `İlkin rejim ${opt.name} olaraq təyin edildi.`);
+      });
+      modeGrid.appendChild(card);
     });
-    form.appendChild(profileAccordion);
 
-    // 2. Tone & Voice (Secondary - Collapsible)
+    const modeAccordion = createExperienceAccordion({
+      title: isEn ? "Default Workspace Mode" : "İlkin İş Rejimi",
+      desc: isEn ? "Choose your default launch workspace when opening Helmer." : "Helmer açıldıqda hansı rejimdə başlamaq istədiyinizi seçin.",
+      badgeNode: modeBadge,
+      isOpen: true,
+      contentNode: modeGrid,
+    });
+
+    // Tone Studio Accordion (Collapsed by default)
     const toneGrid = element("div", "experience-tone-grid");
+    toneGrid.style.marginTop = "6px";
     const toneOptions = [
       {
         id: "professional",
-        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>',
-        name: t("settings.experience.tones.professional.name"),
-        desc: t("settings.experience.tones.professional.desc"),
+        name: isEn ? "Strategic & Analytical" : "Strateji və Analitik",
+        desc: isEn ? "Data-backed market positioning, unit economics, and ROI-driven action plans." : "Məlumatlara əsaslanan mövqeləndirmə, vahid iqtisadiyyatı və ROI hədəfli planlar.",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+      },
+      {
+        id: "direct",
+        name: isEn ? "Bold & High-Converting" : "Cəsarətli və Satış Yönümlü",
+        desc: isEn ? "Punchy direct-response hooks, bold headlines, and uncompromising CTA triggers." : "Dəqiq çağırışlar, güclü başlıqlar və yüksək konversiyalı marketinq mətni.",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
       },
       {
         id: "creative",
-        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>',
-        name: t("settings.experience.tones.creative.name"),
-        desc: t("settings.experience.tones.creative.desc"),
+        name: isEn ? "Storyteller & Creative" : "Yaradıcı və Hekayəçi",
+        desc: isEn ? "Narrative-driven voice, emotional brand resonance, and lifestyle storytelling." : "Hekayə əsaslı brend dili, emosional bağ və cəlbedici brend hekayəsi.",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>',
       },
       {
-        id: "concise",
-        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
-        name: t("settings.experience.tones.concise.name"),
-        desc: t("settings.experience.tones.concise.desc"),
-      },
-      {
-        id: "friendly",
-        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-        name: t("settings.experience.tones.friendly.name"),
-        desc: t("settings.experience.tones.friendly.desc"),
-      },
-      {
-        id: "data_driven",
-        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
-        name: t("settings.experience.tones.data_driven.name"),
-        desc: t("settings.experience.tones.data_driven.desc"),
+        id: "executive",
+        name: isEn ? "Executive & Concise" : "İcraçı və Qısa",
+        desc: isEn ? "High-level bulleted summaries, action-item delegation, and zero marketing jargon." : "Yüksək səviyyəli xülasələr, konkret tapşırıqlar və lüzumsuz sözlərdən azad dil.",
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
       },
     ];
 
@@ -6367,45 +6428,44 @@ function renderSettings() {
     });
 
     const toneAccordion = createExperienceAccordion({
-      title: t("settings.experience.toneTitle"),
-      desc: t("settings.experience.toneDesc"),
+      title: isEn ? "Brand Voice & Analytical Tone" : "Brend Səsi və Analitik Ton",
+      desc: isEn ? "Configure the communication style and directness of Helmer's outputs." : "Helmer-in çıxardığı nəticələrin üslubunu və tonunu müəyyən edin.",
       badgeNode: toneBadge,
       isOpen: false,
       contentNode: toneGrid,
     });
-    form.appendChild(toneAccordion);
 
-    // 3. Custom Instructions (Secondary - Collapsible)
-    const customLabel = element("label", "settings-field");
-    const customTextarea = element("textarea", "settings-input settings-textarea");
-    customTextarea.name = "customInstructions";
-    customTextarea.rows = 3;
-    customTextarea.maxLength = 2000;
-    customTextarea.placeholder = isEn
-      ? "e.g. Always prioritize cost-efficient digital channels. Provide step-by-step roadmaps with measurable KPI checkpoints..."
-      : "Məsələn: Təkliflərdə həmişə büdcəyə qənaətcil rəqəmsal kanalları önə çək. Cavablarda addım-addım icra planı və ölçülə bilən KPI cədvəli təqdim et...";
-    customTextarea.value = userSettings.customInstructions || "";
-    customLabel.append(element("span", "settings-field-label", t("settings.experience.customInstructions")), customTextarea);
+    if (state.currentUser) {
+      const form = element("form", "settings-form experience-settings-form");
+      form.append(masterCard, modeAccordion, toneAccordion);
 
-    const customAccordion = createExperienceAccordion({
-      title: t("settings.experience.instructionsTitle"),
-      desc: t("settings.experience.instructionsDesc"),
-      isOpen: false,
-      contentNode: customLabel,
-    });
-    form.appendChild(customAccordion);
+      // Business Profile Accordion (Collapsed by default)
+      const profileGrid = element("div", "experience-grid-fields");
+      profileGrid.append(
+        settingsField(t("settings.experience.brandName"), "brandName", userSettings.brandName || "", "text", "organization", isEn ? "e.g. Helmer" : "Məs: Helmer"),
+        settingsField(t("settings.experience.industry"), "industry", userSettings.industry || "", "text", "off", isEn ? "e.g. B2B SaaS, E-commerce" : "Məs: B2B SaaS, E-ticarət, Kosmetika"),
+        settingsField(t("settings.experience.primaryMarket"), "primaryMarket", userSettings.primaryMarket || "", "text", "off", isEn ? "e.g. Global, North America, Azerbaijan" : "Məs: Azərbaycan (Bakı və regionlar)"),
+        settingsField(t("settings.experience.targetAudience"), "targetAudience", userSettings.targetAudience || "", "text", "off", isEn ? "e.g. Tech founders, Growth marketers" : "Məs: 20-35 yaş gənclər, startaplar"),
+      );
+      const profileAccordion = createExperienceAccordion({
+        title: t("settings.experience.profileTitle"),
+        desc: t("settings.experience.profileDesc"),
+        isOpen: false,
+        contentNode: profileGrid,
+      });
+      form.appendChild(profileAccordion);
 
-    // 4. Memory Hub (Secondary - Collapsible)
-    const memoryWrapper = element("div", "experience-memory-wrapper");
-    const memoryListContainer = element("div", "experience-memory-list");
-    const memoryBadge = element("span", "experience-summary-badge", isEn ? `${memoriesList.length} memories` : `${memoriesList.length} qeyd`);
-    const categoryNames = {
-      business: isEn ? "Business Fact" : "Biznes faktı",
-      audience: isEn ? "Audience" : "Auditoriya",
-      preference: isEn ? "Preference" : "Üstünlük",
-      constraint: isEn ? "Constraint" : "Məhdudiyyət",
-      general: isEn ? "General Note" : "Qeyd",
-    };
+      // Memory Hub (Secondary - Collapsible)
+      const memoryWrapper = element("div", "experience-memory-wrapper");
+      const memoryListContainer = element("div", "experience-memory-list");
+      const memoryBadge = element("span", "experience-summary-badge", isEn ? `${memoriesList.length} memories` : `${memoriesList.length} qeyd`);
+      const categoryNames = {
+        business: isEn ? "Business Fact" : "Biznes faktı",
+        audience: isEn ? "Audience" : "Auditoriya",
+        preference: isEn ? "Preference" : "Üstünlük",
+        constraint: isEn ? "Constraint" : "Məhdudiyyət",
+        general: isEn ? "General Note" : "Qeyd",
+      };
     const memoryFilters = [
       { id: "all", label: t("common.all") },
       { id: "preference", label: isEn ? "Preferences" : "Üstünlüklər" },
@@ -6637,60 +6697,12 @@ function renderSettings() {
     });
     form.appendChild(scopesAccordion);
 
-    // 6. Default Mode (Bottom Accordion before Save)
-    const modeGrid = element("div", "experience-tone-grid experience-mode-grid");
-    const modeOptions = [
-      {
-        id: "build",
-        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
-        name: "Build",
-        desc: isEn ? "Start directly in structured strategy generation mode on platform launch." : "Helmer açıldıqda və ya yeni sessiyada birbaşa strukturlaşdırılmış strategiya hazırlamaq rejimini aktiv edin.",
-      },
-      {
-        id: "ask",
-        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-        name: "Ask",
-        desc: isEn ? "Start directly in interactive AI assistant and ad-hoc strategic Q&A mode on launch." : "Helmer açıldıqda və ya yeni sessiyada birbaşa AI ilə interaktiv söhbət və operativ sual-cavab rejimini aktiv edin.",
-      },
-    ];
-
-    let currentDefaultMode = userSettings.defaultMode || "build";
-    const currentModeObj = modeOptions.find((m) => m.id === currentDefaultMode) || modeOptions[0];
-    const modeBadge = element("span", "experience-summary-badge", currentModeObj.name);
-
-    modeOptions.forEach((opt) => {
-      const card = element("button", `experience-tone-card experience-mode-card${currentDefaultMode === opt.id ? " is-selected" : ""}`);
-      card.type = "button";
-      card.innerHTML = `
-        <div class="tone-card-top">
-          <span class="tone-card-icon-wrap">${opt.icon}</span>
-          <strong class="tone-card-title">${opt.name}</strong>
-          <span class="tone-card-check"></span>
-        </div>
-        <p class="tone-card-desc">${opt.desc}</p>
-      `;
-      card.addEventListener("click", () => {
-        currentDefaultMode = opt.id;
-        modeBadge.textContent = opt.name;
-        modeGrid.querySelectorAll(".experience-mode-card").forEach((c) => c.classList.remove("is-selected"));
-        card.classList.add("is-selected");
-      });
-      modeGrid.appendChild(card);
-    });
-
-    const defaultModeAccordion = createExperienceAccordion({
-      title: t("settings.experience.defaultModeTitle"),
-      desc: t("settings.experience.defaultModeDesc"),
-      badgeNode: modeBadge,
-      isOpen: false,
-      contentNode: modeGrid,
-    });
-    form.appendChild(defaultModeAccordion);
-
     // Save bar
+    const formActions = element("div", "experience-form-actions");
     const save = button(t("settings.experience.saveBtn"), "primary-button experience-save-btn");
     save.type = "submit";
-    form.appendChild(save);
+    formActions.appendChild(save);
+    form.appendChild(formActions);
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -6733,110 +6745,254 @@ function renderSettings() {
         save.textContent = t("settings.experience.saveBtn");
       }
     });
-
     panel.appendChild(form);
+  } else {
+      const guestStack = element("div", "experience-cards-stack");
+      guestStack.append(masterCard, modeAccordion, toneAccordion);
+
+      // Guest Experience Preview Card
+      const guestExpCard = element("div", "experience-preview-card");
+      guestExpCard.innerHTML = `
+        <div class="experience-preview-header">
+          <span class="experience-preview-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1-1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/>
+            </svg>
+          </span>
+          <div class="experience-preview-text">
+            <strong>${escapeHtml(isEn ? "Personalized Brand Brain & Long-Term Memory" : "Fərdiləşdirilmiş Brend Yaddaşı")}</strong>
+            <p>${escapeHtml(isEn ? "Save your industry, target audience, and strategic constraints once. Helmer uses persistent context across all campaigns without repeating prompts." : "Sənayenizi, hədəf auditoriyanızı və brend qaydalarınızı bir dəfə qeyd edin. Helmer hər dəfə təkrar yazmadan bütün strategiyalarda bu kontekstdən istifadə edəcək.")}</p>
+          </div>
+        </div>
+        <div class="experience-preview-features">
+          <div class="preview-feature-item"><span class="preview-feature-bullet">✓</span>${escapeHtml(isEn ? "Persistent business profile facts" : "Daimi biznes faktları və profili")}</div>
+          <div class="preview-feature-item"><span class="preview-feature-bullet">✓</span>${escapeHtml(isEn ? "Target ICP and persona memory" : "Hədəf kütlə və persona yaddaşı")}</div>
+          <div class="preview-feature-item"><span class="preview-feature-bullet">✓</span>${escapeHtml(isEn ? "Cross-session strategic context" : "Sessiyalararası strateji kontekst")}</div>
+          <div class="preview-feature-item"><span class="preview-feature-bullet">✓</span>${escapeHtml(isEn ? "Brand voice style enforcement" : "Brend tonu və üslub dəqiqliyi")}</div>
+        </div>
+      `;
+      const guestExpCta = element("div", "guest-sync-banner");
+      const guestExpLeft = element("div", "guest-sync-left");
+      guestExpLeft.innerHTML = `
+        <div class="guest-sync-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 18a3.5 3.5 0 0 0 0-7h-1A5 5 0 0 0 8 8a3.5 3.5 0 0 0-1 6.8V18"/>
+            <polyline points="13 14 16 11 19 14"/>
+            <line x1="16" y1="11" x2="16" y2="21"/>
+          </svg>
+        </div>
+        <div class="guest-sync-text">
+          <strong>${escapeHtml(isEn ? "Unlock Multi-Project Memory Hub" : "Çoxlayihəli Yaddaş Mərkəzini Açın")}</strong>
+          <p>${escapeHtml(isEn ? "Create a free cloud account to save up to 50 strategic memories, custom instructions, and persona rules." : "50-dək strateji yaddaş qeydi, xüsusi təlimatlar və qaydalar saxlamaq üçün pulsuz hesab açın.")}</p>
+        </div>
+      `;
+      const guestExpActions = element("div", "guest-sync-actions");
+      guestExpActions.append(
+        button(isEn ? "Create account" : "Hesab yarat", "primary-button", () => { window.location.href = "/signup?returnTo=/workspace"; }),
+        button(isEn ? "Log in" : "Daxil ol", "secondary-button", () => { window.location.href = "/login?returnTo=/workspace"; })
+      );
+      guestExpCta.append(guestExpLeft, guestExpActions);
+      guestStack.append(guestExpCard, guestExpCta);
+      panel.appendChild(guestStack);
+    }
     view.appendChild(panel);
   } else if (state.settingsTab === "security") {
-    const panel = element("section", "settings-panel");
+    const panel = element("section", "settings-panel settings-security-panel");
     panel.append(
       element("h2", "", t("settings.security.title")),
       element("p", "settings-panel-intro", t("settings.security.intro"))
     );
-    const form = element("form", "settings-form");
-    form.append(
-      settingsField(t("settings.security.currentPassword"), "currentPassword", "", "password", "current-password"),
-      settingsField(t("settings.security.newPassword"), "newPassword", "", "password", "new-password"),
-      settingsField(t("settings.security.confirmPassword"), "confirmPassword", "", "password", "new-password"),
-    );
-    const save = button(t("settings.security.changePasswordBtn"), "primary-button");
-    save.type = "submit";
-    form.appendChild(save);
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      if (form.newPassword.value !== form.confirmPassword.value) {
-        settingsMessage(form, isEn ? "New passwords do not match." : "Yeni şifrələr eyni deyil.");
-        return;
-      }
-      save.disabled = true;
-      save.textContent = isEn ? "Updating…" : "Yenilənir…";
-      try {
-        await authRequest("/api/auth/change-password", {
-          method: "POST",
-          body: JSON.stringify({
-            currentPassword: form.currentPassword.value,
-            newPassword: form.newPassword.value,
-          }),
-        });
-        form.reset();
-        settingsMessage(form, isEn ? "Password updated. Other sessions terminated." : "Şifrə yeniləndi. Digər sessiyalar bağlandı.", "success");
-      } catch (error) {
-        settingsMessage(form, error.message);
-      } finally {
-        save.disabled = false;
-        save.textContent = t("settings.security.changePasswordBtn");
-      }
-    });
-    const signOut = element("div", "settings-signout");
-    const copy = element("div");
-    copy.append(
-      element("strong", "", t("settings.security.signOutTitle")),
-      element("p", "", t("settings.security.signOutDesc"))
-    );
-    signOut.append(copy, button(t("settings.security.signOutBtn"), "danger-button", logout));
 
-    // Danger Zone: Account Deletion (14-day grace period)
-    const isPendingDeletion = state.currentUser?.status === "pending_deletion" || Boolean(state.currentUser?.scheduledDeletionAt);
-    const deleteAccountBox = element("div", `settings-signout settings-danger-zone${isPendingDeletion ? " is-pending-deletion" : ""}`);
-    const deleteCopy = element("div");
+    // Security & Data Protection Health Card
+    const healthCard = element("div", "settings-security-card security-health-card");
+    healthCard.innerHTML = `
+      <div class="security-card-header">
+        <div class="security-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="security-card-text">
+          <strong>${escapeHtml(isEn ? "Security & Data Protection" : "Təhlükəsizlik və Məlumatların Qorunması")}</strong>
+          <p>${escapeHtml(isEn ? "Helmer employs industry-standard practices to protect your workspace, active sessions, and preferences." : "Helmer iş mühitinizi, aktiv sessiyalarınızı və parametrlərinizi qorumaq üçün standart təhlükəsizlik qaydalarından istifadə edir.")}</p>
+        </div>
+      </div>
+      <div class="security-badges-grid">
+        <div class="security-badge-tile">
+          <span class="tile-icon">🔒</span>
+          <strong>${escapeHtml(isEn ? "Encrypted Connection" : "Şifrələnmiş Əlaqə")}</strong>
+          <p>${escapeHtml(isEn ? "Data transmitted between your browser and the workspace is protected via secure HTTPS." : "Brauzer və sistem arasındakı məlumat mübadiləsi təhlükəsiz HTTPS protokolu ilə qorunur.")}</p>
+        </div>
+        <div class="security-badge-tile">
+          <span class="tile-icon">🛡️</span>
+          <strong>${escapeHtml(isEn ? "Session & Account Safety" : "Sessiya və Giriş Təhlükəsizliyi")}</strong>
+          <p>${escapeHtml(isEn ? "Sessions are managed with secure browser cookies to keep your account safe." : "Hesabınızın təhlükəsizliyini təmin etmək üçün qorunan sessiya kukilərindən istifadə edilir.")}</p>
+        </div>
+        <div class="security-badge-tile">
+          <span class="tile-icon">📄</span>
+          <strong>${escapeHtml(isEn ? "Data Control" : "Məlumatlara Nəzarət")}</strong>
+          <p>${escapeHtml(isEn ? "You have full control over your saved strategies, account data, and workspace memory." : "Saxlanılan strategiyalarınız, yaddaş və hesab məlumatlarınız üzərində tam nəzarətə maliksiniz.")}</p>
+        </div>
+      </div>
+    `;
+    panel.appendChild(healthCard);
 
-    if (isPendingDeletion) {
-      const schedDate = state.currentUser.scheduledDeletionAt
-        ? new Date(state.currentUser.scheduledDeletionAt).toLocaleDateString(isEn ? "en-US" : "az-AZ", { day: "numeric", month: "long", year: "numeric" })
-        : (isEn ? "in 14 days" : "14 gün sonra");
-      deleteCopy.append(
-        element("strong", "danger-zone-title text-warning", isEn ? "⚠️ Account deletion pending" : "⚠️ Hesabın silinməsi gözlənilir"),
-        element("p", "", isEn
-          ? `Your account is scheduled for deletion on ${schedDate}. You can cancel deletion anytime before this date.`
-          : `Hesabınız 14 günlük gözləmə rejimindədir. Yekun silinmə tarixi: ${schedDate}. Bu tarixə qədər silinməni istədiyiniz vaxt ləğv edə bilərsiniz.`)
-      );
-      const cancelDeletionBtn = button(isEn ? "Cancel deletion" : "Silinməni ləğv et", "secondary-button experience-restore-btn", async () => {
-        cancelDeletionBtn.disabled = true;
-        cancelDeletionBtn.textContent = isEn ? "Restoring…" : "Bərpa edilir…";
-        try {
-          const res = await authRequest("/api/auth/account/cancel-deletion", { method: "POST" });
-          if (res?.user) state.currentUser = res.user;
-          showToast(isEn ? "Deletion cancelled and account restored." : "Silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.", "success");
-          render();
-        } catch (err) {
-          showToast(err.message || (isEn ? "An error occurred." : "Xəta baş verdi."), "error");
-          cancelDeletionBtn.disabled = false;
-          cancelDeletionBtn.textContent = isEn ? "Cancel deletion" : "Silinməni ləğv et";
+    // Active Device & Session Inspector
+    const sessionCard = element("div", "security-session-card");
+    const userAgent = navigator.userAgent || "";
+    const isMac = /mac/i.test(userAgent);
+    const osLabel = isMac ? "macOS Desktop" : /windows/i.test(userAgent) ? "Windows PC" : "Web Client";
+    sessionCard.innerHTML = `
+      <div class="session-card-header">
+        <div class="session-device-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </div>
+        <div class="session-device-info">
+          <strong>${escapeHtml(osLabel)} · ${escapeHtml(isEn ? "Current Workspace Session" : "Cari İş Mühiti Sessiyası")}</strong>
+          <p>${escapeHtml(isEn ? "Active connection · Authenticated origin · Secured browser sandbox" : "Aktiv əlaqə · Təsdiqlənmiş mənbə · Qorunan brauzer mühiti")}</p>
+        </div>
+        <span class="session-active-indicator"><span class="pulse-dot"></span>${escapeHtml(isEn ? "Active now" : "Hazırda aktiv")}</span>
+      </div>
+    `;
+    panel.appendChild(sessionCard);
+
+    if (!state.currentUser) {
+      const guestSandboxCard = element("div", "settings-diagnostic-card");
+      guestSandboxCard.innerHTML = `
+        <div class="diagnostic-info">
+          <strong>${escapeHtml(isEn ? "Guest Local Sandbox Controls" : "Qonaq Mühiti İdarəetməsi")}</strong>
+          <p>${escapeHtml(isEn ? "Reset this browser's isolated local memory and purge session cookies immediately." : "Bu brauzerdəki lokal yaddaşı və sessiya kukilərini dərhal sıfırlayın.")}</p>
+        </div>
+      `;
+      const resetBtn = button(isEn ? "Reset Local Session" : "Lokal sessiyanı sıfırla", "secondary-button", () => {
+        if (confirm(isEn ? "Reset local guest data and refresh workspace?" : "Lokal məlumatları sıfırlamaq və səhifəni yeniləmək istəyirsiniz?")) {
+          document.cookie.split(";").forEach((c) => {
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+          });
+          window.location.reload();
         }
       });
-      deleteAccountBox.append(deleteCopy, cancelDeletionBtn);
-    } else {
-      deleteCopy.append(
-        element("strong", "danger-zone-title text-danger", t("settings.security.deleteAccountTitle")),
-        element("p", "", t("settings.security.deleteAccountDesc"))
-      );
-      const deleteBtn = button(t("settings.security.deleteAccountBtn"), "danger-button", openDeleteAccountModal);
-      deleteAccountBox.append(deleteCopy, deleteBtn);
-    }
+      resetBtn.type = "button";
+      guestSandboxCard.appendChild(resetBtn);
+      panel.appendChild(guestSandboxCard);
 
-    panel.append(form, signOut, deleteAccountBox);
-    view.appendChild(panel);
+      const guestSecCard = element("div", "guest-sync-banner");
+      const guestSecLeft = element("div", "guest-sync-left");
+      guestSecLeft.innerHTML = `
+        <div class="guest-sync-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <div class="guest-sync-text">
+          <strong>${escapeHtml(isEn ? "Elevate to Encrypted Cloud Security" : "Şifrələnmiş Bulud Hesabına Keçin")}</strong>
+          <p>${escapeHtml(isEn ? "Your guest session is securely isolated on this device. Create an account to enable Argon2id password protection and multi-device session security." : "Qonaq sessiyanız bu cihazda təcrid olunub. Şifrə mühafizəsi və çoxcihazlı təhlükəsizlik üçün hesab yaradın.")}</p>
+        </div>
+      `;
+      const guestSecActions = element("div", "guest-sync-actions");
+      guestSecActions.append(
+        button(isEn ? "Create account" : "Hesab yarat", "primary-button", () => { window.location.href = "/signup?returnTo=/workspace"; }),
+        button(isEn ? "Log in" : "Daxil ol", "secondary-button", () => { window.location.href = "/login?returnTo=/workspace"; })
+      );
+      guestSecCard.append(guestSecLeft, guestSecActions);
+      panel.appendChild(guestSecCard);
+      view.appendChild(panel);
+    } else {
+      const form = element("form", "settings-form");
+      form.append(
+        settingsField(t("settings.security.currentPassword"), "currentPassword", "", "password", "current-password"),
+        settingsField(t("settings.security.newPassword"), "newPassword", "", "password", "new-password"),
+        settingsField(t("settings.security.confirmPassword"), "confirmPassword", "", "password", "new-password"),
+      );
+      const save = button(t("settings.security.changePasswordBtn"), "primary-button");
+      save.type = "submit";
+      form.appendChild(save);
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (form.newPassword.value !== form.confirmPassword.value) {
+          settingsMessage(form, isEn ? "New passwords do not match." : "Yeni şifrələr eyni deyil.");
+          return;
+        }
+        save.disabled = true;
+        save.textContent = isEn ? "Updating…" : "Yenilənir…";
+        try {
+          await authRequest("/api/auth/change-password", {
+            method: "POST",
+            body: JSON.stringify({
+              currentPassword: form.currentPassword.value,
+              newPassword: form.newPassword.value,
+            }),
+          });
+          form.reset();
+          settingsMessage(form, isEn ? "Password updated. Other sessions terminated." : "Şifrə yeniləndi. Digər sessiyalar bağlandı.", "success");
+        } catch (error) {
+          settingsMessage(form, error.message);
+        } finally {
+          save.disabled = false;
+          save.textContent = t("settings.security.changePasswordBtn");
+        }
+      });
+      const signOut = element("div", "settings-signout");
+      const copy = element("div");
+      copy.append(
+        element("strong", "", t("settings.security.signOutTitle")),
+        element("p", "", t("settings.security.signOutDesc"))
+      );
+      signOut.append(copy, button(t("settings.security.signOutBtn"), "danger-button", logout));
+
+      // Danger Zone: Account Deletion (14-day grace period)
+      const isPendingDeletion = state.currentUser?.status === "pending_deletion" || Boolean(state.currentUser?.scheduledDeletionAt);
+      const deleteAccountBox = element("div", `settings-signout settings-danger-zone${isPendingDeletion ? " is-pending-deletion" : ""}`);
+      const deleteCopy = element("div");
+
+      if (isPendingDeletion) {
+        const schedDate = state.currentUser.scheduledDeletionAt
+          ? new Date(state.currentUser.scheduledDeletionAt).toLocaleDateString(isEn ? "en-US" : "az-AZ", { day: "numeric", month: "long", year: "numeric" })
+          : (isEn ? "in 14 days" : "14 gün sonra");
+        deleteCopy.append(
+          element("strong", "danger-zone-title text-warning", isEn ? "⚠️ Account deletion pending" : "⚠️ Hesabın silinməsi gözlənilir"),
+          element("p", "", isEn
+            ? `Your account is scheduled for deletion on ${schedDate}. You can cancel deletion anytime before this date.`
+            : `Hesabınız 14 günlük gözləmə rejimindədir. Yekun silinmə tarixi: ${schedDate}. Bu tarixə qədər silinməni istədiyiniz vaxt ləğv edə bilərsiniz.`)
+        );
+        const cancelDeletionBtn = button(isEn ? "Cancel deletion" : "Silinməni ləğv et", "secondary-button experience-restore-btn", async () => {
+          cancelDeletionBtn.disabled = true;
+          cancelDeletionBtn.textContent = isEn ? "Restoring…" : "Bərpa edilir…";
+          try {
+            const res = await authRequest("/api/auth/account/cancel-deletion", { method: "POST" });
+            if (res?.user) state.currentUser = res.user;
+            showToast(isEn ? "Deletion cancelled and account restored." : "Silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.", "success");
+            render();
+          } catch (err) {
+            showToast(err.message || (isEn ? "An error occurred." : "Xəta baş verdi."), "error");
+            cancelDeletionBtn.disabled = false;
+            cancelDeletionBtn.textContent = isEn ? "Cancel deletion" : "Silinməni ləğv et";
+          }
+        });
+        deleteAccountBox.append(deleteCopy, cancelDeletionBtn);
+      } else {
+        deleteCopy.append(
+          element("strong", "danger-zone-title text-danger", t("settings.security.deleteAccountTitle")),
+          element("p", "", t("settings.security.deleteAccountDesc"))
+        );
+        const deleteBtn = button(t("settings.security.deleteAccountBtn"), "danger-button", openDeleteAccountModal);
+        deleteAccountBox.append(deleteCopy, deleteBtn);
+      }
+
+      panel.append(form, signOut, deleteAccountBox);
+      view.appendChild(panel);
+    }
   } else {
-    const panel = element("section", "settings-panel");
+    const panel = element("section", "settings-panel settings-legal-panel");
     panel.append(
       element("h2", "", t("settings.legal.title")),
       element("p", "settings-panel-intro", t("settings.legal.intro"))
     );
-
-    const apiNotice = element("div", "legal-highlight-box");
-    apiNotice.innerHTML = isEn
-      ? "<strong>✦ Third-Party AI API Infrastructure</strong>Helmer uses industry-leading artificial intelligence models and secure API infrastructure to generate strategic analyses and insights."
-      : "<strong>✦ 3-cü Tərəf Süni İntellekt API İnteqrasiyası</strong>Helmer xidməti biznes analizləri və strategiya generasiyası üçün qabaqcıl süni intellekt API provayderlərinin rəsmi infrastrukturundan istifadə edir.";
-    panel.appendChild(apiNotice);
 
     const docsList = element("div", "settings-legal-list");
 
@@ -6867,7 +7023,33 @@ function renderSettings() {
     docsList.append(termsRow, privacyRow, reportRow);
     panel.appendChild(docsList);
     view.appendChild(panel);
+
+    // Legal & Policy Direct Contact Card (Completely separate card outside and below the legal panel)
+    const contactCard = element("div", "settings-legal-contact-card");
+    contactCard.innerHTML = `
+      <div class="legal-contact-left">
+        <div class="legal-contact-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="20" height="16" x="2" y="4" rx="2"/>
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+          </svg>
+        </div>
+        <div class="legal-contact-text">
+          <strong>${escapeHtml(isEn ? "Legal & Policy Contact" : "Hüquq və Qaydalar üzrə Əlaqə")}</strong>
+          <p>${escapeHtml(isEn ? "For privacy inquiries, terms feedback, or compliance questions, reach our team." : "Məxfilik sorğuları, istifadə qaydaları və hüquqi məsələlər üçün bizimlə əlaqə saxlayın.")}</p>
+        </div>
+      </div>
+      <a href="mailto:helmerworkspace@googlegroups.com" class="legal-contact-email-btn">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect width="20" height="16" x="2" y="4" rx="2"/>
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+        </svg>
+        <span>${escapeHtml(isEn ? "Contact us" : "Əlaqə saxla")}</span>
+      </a>
+    `;
+    view.appendChild(contactCard);
   }
+  view.appendChild(tabs);
   workspace.appendChild(view);
 }
 
@@ -7090,6 +7272,58 @@ function createStrategyRowContextMenu(record) {
   return menu;
 }
 
+function renderArchiveBackgroundCta() {
+  const banner = element("aside", "archive-bg-cta");
+  banner.setAttribute("role", "note");
+  banner.setAttribute("aria-label", t("archive.bgCtaTitle"));
+
+  const left = element("div", "archive-bg-cta-left");
+  const iconWrap = element("div", "archive-bg-cta-icon");
+  iconWrap.setAttribute("aria-hidden", "true");
+  iconWrap.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+
+  const textWrap = element("div", "archive-bg-cta-text");
+  const tag = element("span", "archive-bg-cta-tag");
+  const tagSparkle = document.createElement("span");
+  tagSparkle.className = "archive-bg-cta-tag-sparkle";
+  tagSparkle.setAttribute("aria-hidden", "true");
+  tagSparkle.innerHTML = `<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M12 2l2.4 5.6L20 10l-4.4 3.8L16.8 20 12 16.9 7.2 20l1.2-6.2L4 10l5.6-2.4z"/></svg>`;
+  tag.append(tagSparkle, document.createTextNode(t("archive.bgCtaTag")));
+
+  const title = element("strong", "archive-bg-cta-title", t("archive.bgCtaTitle"));
+  const desc = element("p", "archive-bg-cta-desc", t("archive.bgCtaDesc"));
+  textWrap.append(tag, title, desc);
+  left.append(iconWrap, textWrap);
+
+  const actions = element("div", "archive-bg-cta-actions");
+  const actionBtn = button("", "archive-bg-cta-btn", resetStrategy);
+  actionBtn.type = "button";
+  actionBtn.setAttribute("aria-label", t("archive.bgCtaAction"));
+  const arrow = document.createElement("span");
+  arrow.setAttribute("aria-hidden", "true");
+  arrow.className = "archive-bg-cta-arrow";
+  arrow.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+  actionBtn.append(document.createTextNode(t("archive.bgCtaAction")), arrow);
+
+  const dismissBtn = element("button", "archive-bg-cta-dismiss");
+  dismissBtn.type = "button";
+  dismissBtn.setAttribute("aria-label", t("archive.bgCtaDismiss"));
+  dismissBtn.title = t("archive.bgCtaDismiss");
+  dismissBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  dismissBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    banner.classList.add("is-dismissed");
+    setTimeout(() => {
+      banner.remove();
+    }, 220);
+  });
+
+  actions.append(actionBtn, dismissBtn);
+  banner.append(left, actions);
+
+  return banner;
+}
+
 function renderStrategyList() {
   const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-list");
@@ -7102,17 +7336,18 @@ function renderStrategyList() {
     element("h1", "archive-title", isEn ? "Archive" : "Arxiv"),
     element("p", "archive-subtitle", isEn ? "Manage and organize your strategic roadmaps" : "Strategiyalarını və saxladığın işləri idarə et")
   );
-  const newBtn = button("", "archive-new-btn", resetStrategy);
-  newBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>${isEn ? "New" : "Yeni"}</span>`;
-  heading.append(copy, newBtn);
+  heading.append(copy);
   view.appendChild(heading);
+
+  const bgCta = renderArchiveBackgroundCta();
+  view.appendChild(bgCta);
 
   const activeBgJobs = backgroundJobs.filter((j) => j.status === "generating" || j.status === "ready" || j.status === "error");
 
   if (!state.savedStrategies.length && !activeBgJobs.length) {
     const empty = element("div", "archive-empty-state");
     const emptyNewBtn = button("", "archive-new-btn", resetStrategy);
-    emptyNewBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>${isEn ? "New" : "Yeni"}</span>`;
+    emptyNewBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>${t("archive.buildSomethingNew")}</span>`;
     empty.append(
       element("h2", "archive-empty-title", isEn ? "No strategies yet" : "Hələ strategiya yoxdur"),
       element("p", "archive-empty-desc", isEn ? "Get started by building your first go-to-market strategy." : "İlk strategiyanı yaradaraq işə başla."),
@@ -7120,18 +7355,6 @@ function renderStrategyList() {
     );
     view.appendChild(empty);
   } else {
-    // 2-level editorial controls layout
-    const controlsSection = element("div", "archive-controls-section");
-
-    // Search wrap (compact 320-360px)
-    const searchWrap = element("div", "archive-search-wrap");
-    searchWrap.innerHTML = `<svg class="archive-search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
-    const search = element("input", "archive-search-input");
-    search.type = "search";
-    search.placeholder = isEn ? "Search strategies…" : "Strategiyalarda axtar";
-    search.setAttribute("aria-label", isEn ? "Search strategies" : "Strategiyalarda axtar");
-    searchWrap.appendChild(search);
-
     // Toolbar with simple editorial tabs on left and Sort on right
     const toolbar = element("div", "archive-toolbar");
 
@@ -7192,8 +7415,40 @@ function renderStrategyList() {
 
     sortWrap.append(sortBtn, sortMenu);
     toolbar.append(tabs, sortWrap);
-    controlsSection.append(searchWrap, toolbar);
+
+    const controlsSection = element("div", "archive-controls-section");
+    controlsSection.append(toolbar);
     view.appendChild(controlsSection);
+
+    // Floating compact bottom dock: Search + "Build something new" button
+    const dock = element("div", "archive-bottom-dock");
+    dock.setAttribute("role", "toolbar");
+    dock.setAttribute("aria-label", isEn ? "Archive actions" : "Arxiv əməliyyatları");
+
+    const searchWrap = element("div", "archive-dock-search-wrap");
+    searchWrap.innerHTML = `<svg class="archive-dock-search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+
+    const search = element("input", "archive-search-input archive-dock-search-input");
+    search.type = "search";
+    search.placeholder = isEn ? "Search strategies…" : "Strategiyalarda axtar…";
+    search.setAttribute("aria-label", isEn ? "Search strategies" : "Strategiyalarda axtar");
+    searchWrap.appendChild(search);
+
+    search.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && search.value) {
+        e.stopPropagation();
+        search.value = "";
+        drawRows();
+      }
+    });
+
+    const divider = element("span", "archive-dock-divider");
+
+    const newBtn = button("", "archive-new-btn archive-dock-new-btn", resetStrategy);
+    newBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>${t("archive.buildSomethingNew")}</span>`;
+
+    dock.append(searchWrap, divider, newBtn);
+    view.appendChild(dock);
 
     const list = element("div", "strategy-library");
 

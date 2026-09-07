@@ -253,6 +253,12 @@ export const TRANSLATIONS = {
       delete: "Sil",
       deletedToast: "Uğurla silindi.",
       open: "Aç",
+      bgCtaTag: "Vaxta qənaət",
+      bgCtaTitle: "Vaxtın yoxdur? Generasiya səhifəsində işi Helmer-ə tapşır!",
+      bgCtaDesc: "Strategiyanın hazırlanmasını gözləmək məcburiyyətində deyilsən — generasiya zamanı «İşi arxa planda davam etdir» seçimini et, proses fonda tamamlansın və nəticə birbaşa Arxivinə əlavə olunsun.",
+      bgCtaAction: "Yeni strategiya",
+      bgCtaDismiss: "Bağla",
+      buildSomethingNew: "Yeni bir şey qur",
     },
 
     // ── Planner ──────────────────────────────────────────────────────────────
@@ -898,6 +904,12 @@ export const TRANSLATIONS = {
       delete: "Delete",
       deletedToast: "Deleted successfully.",
       open: "Open",
+      bgCtaTag: "Time-saver",
+      bgCtaTitle: "Short on time? Let Helmer handle it on the generation page!",
+      bgCtaDesc: "No need to wait while your strategy generates — select “Continue in background”. The process runs smoothly in the background and your finished roadmap is saved straight to your Archive.",
+      bgCtaAction: "New strategy",
+      bgCtaDismiss: "Dismiss",
+      buildSomethingNew: "Build something new",
     },
 
     // ── Planner ──────────────────────────────────────────────────────────────
