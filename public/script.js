@@ -8,7 +8,7 @@ import {
   setLanguage,
   formatDate as i18nFormatDate,
   LEGAL_DOCS_I18N,
-} from "./i18n.js?v=8.1";
+} from "./i18n.js?v=8.2";
 
 const workspace = document.querySelector("#workspace");
 const sidebar = document.querySelector("#sidebar");
@@ -607,6 +607,9 @@ function openMobileContextSheet(handlers = {}) {
   const overlay = document.querySelector("#mobileBottomSheetOverlay");
   if (!overlay) return;
 
+  const isBuildMode = (handlers.mode || state.mode) === "build";
+  const isEn = getLanguage() === "en";
+
   closeMobileModelSheet();
   overlay.replaceChildren();
   overlay.hidden = false;
@@ -617,7 +620,7 @@ function openMobileContextSheet(handlers = {}) {
   const sheet = element("div", "mobile-action-sheet");
   sheet.setAttribute("role", "dialog");
   sheet.setAttribute("aria-modal", "true");
-  sheet.setAttribute("aria-label", t("ask.contextSheet.title"));
+  sheet.setAttribute("aria-label", isBuildMode ? (isEn ? "Add" : "Əlavə et") : t("ask.contextSheet.title"));
 
   // Drag handle
   const dragArea = element("div", "mobile-sheet-drag-area");
@@ -625,7 +628,7 @@ function openMobileContextSheet(handlers = {}) {
 
   // Header
   const header = element("header", "mobile-sheet-header");
-  const title = element("h3", "mobile-sheet-title", t("ask.contextSheet.title"));
+  const title = element("h3", "mobile-sheet-title", isBuildMode ? (isEn ? "Add" : "Əlavə et") : t("ask.contextSheet.title"));
   const closeBtn = button("✕", "mobile-sheet-close-btn", closeMobileBottomSheet);
   closeBtn.type = "button";
   closeBtn.setAttribute("aria-label", t("common.close") || "Bağla");
@@ -640,95 +643,101 @@ function openMobileContextSheet(handlers = {}) {
     body.replaceChildren();
 
     if (currentPane === "main") {
-      title.textContent = t("ask.contextSheet.title");
+      title.textContent = isBuildMode ? (isEn ? "Add" : "Əlavə et") : t("ask.contextSheet.title");
 
-      // Quick Action Tiles
-      const tilesGrid = element("div", "mobile-sheet-tiles");
+      // Quick Action Tiles (Only in Ask mode)
+      if (!isBuildMode) {
+        const tilesGrid = element("div", "mobile-sheet-tiles");
 
-      // Tile 1: Files
-      const fileTile = button("", "mobile-sheet-tile tile-files", (e) => {
-        e.preventDefault();
-        closeMobileBottomSheet();
-        handlers.onFileSelect?.();
-      });
-      fileTile.type = "button";
-      const fileIcon = element("div", "mobile-sheet-tile-icon");
-      fileIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
-      const fileTitle = element("span", "mobile-sheet-tile-title", t("ask.contextSheet.files"));
-      const fileDesc = element("span", "mobile-sheet-tile-desc", t("ask.contextSheet.filesDesc"));
-      fileTile.append(fileIcon, fileTitle, fileDesc);
+        // Tile 1: Files
+        const fileTile = button("", "mobile-sheet-tile tile-files", (e) => {
+          e.preventDefault();
+          closeMobileBottomSheet();
+          handlers.onFileSelect?.();
+        });
+        fileTile.type = "button";
+        const fileIcon = element("div", "mobile-sheet-tile-icon");
+        fileIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+        const fileTitle = element("span", "mobile-sheet-tile-title", t("ask.contextSheet.files"));
+        const fileDesc = element("span", "mobile-sheet-tile-desc", t("ask.contextSheet.filesDesc"));
+        fileTile.append(fileIcon, fileTitle, fileDesc);
 
-      // Tile 2: Photos / Camera
-      const photoTile = button("", "mobile-sheet-tile tile-photos", (e) => {
-        e.preventDefault();
-        closeMobileBottomSheet();
-        handlers.onPhotoSelect?.();
-      });
-      photoTile.type = "button";
-      const photoIcon = element("div", "mobile-sheet-tile-icon");
-      photoIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>';
-      const photoTitle = element("span", "mobile-sheet-tile-title", t("ask.contextSheet.photos"));
-      const photoDesc = element("span", "mobile-sheet-tile-desc", t("ask.contextSheet.photosDesc"));
-      photoTile.append(photoIcon, photoTitle, photoDesc);
+        // Tile 2: Photos / Camera
+        const photoTile = button("", "mobile-sheet-tile tile-photos", (e) => {
+          e.preventDefault();
+          closeMobileBottomSheet();
+          handlers.onPhotoSelect?.();
+        });
+        photoTile.type = "button";
+        const photoIcon = element("div", "mobile-sheet-tile-icon");
+        photoIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>';
+        const photoTitle = element("span", "mobile-sheet-tile-title", t("ask.contextSheet.photos"));
+        const photoDesc = element("span", "mobile-sheet-tile-desc", t("ask.contextSheet.photosDesc"));
+        photoTile.append(photoIcon, photoTitle, photoDesc);
 
-      tilesGrid.append(fileTile, photoTile);
-      body.appendChild(tilesGrid);
+        tilesGrid.append(fileTile, photoTile);
+        body.appendChild(tilesGrid);
+      }
 
       // Main Context List
       const list = element("div", "mobile-sheet-list");
 
-      // Row: Strategies
-      const stratRow = button("", "mobile-sheet-row", () => {
-        currentPane = "strategies";
-        renderBody();
-      });
-      stratRow.type = "button";
-      const stratLeading = element("div", "mobile-sheet-row-leading");
-      const stratIcon = element("div", "mobile-sheet-row-icon");
-      stratIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>';
-      const stratCopy = element("div", "mobile-sheet-row-copy");
-      stratCopy.append(
-        element("strong", "", t("ask.contextSheet.strategies")),
-        element("small", "", t("ask.contextSheet.strategiesDesc"))
-      );
-      stratLeading.append(stratIcon, stratCopy);
-      stratRow.append(stratLeading, element("span", "mobile-sheet-row-trailing", "›"));
+      if (!isBuildMode) {
+        // Row: Strategies
+        const stratRow = button("", "mobile-sheet-row", () => {
+          currentPane = "strategies";
+          renderBody();
+        });
+        stratRow.type = "button";
+        const stratLeading = element("div", "mobile-sheet-row-leading");
+        const stratIcon = element("div", "mobile-sheet-row-icon");
+        stratIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>';
+        const stratCopy = element("div", "mobile-sheet-row-copy");
+        stratCopy.append(
+          element("strong", "", t("ask.contextSheet.strategies")),
+          element("small", "", t("ask.contextSheet.strategiesDesc"))
+        );
+        stratLeading.append(stratIcon, stratCopy);
+        stratRow.append(stratLeading, element("span", "mobile-sheet-row-trailing", "›"));
 
-      // Row: Tasks
-      const taskRow = button("", "mobile-sheet-row", () => {
-        currentPane = "tasks";
-        renderBody();
-      });
-      taskRow.type = "button";
-      const taskLeading = element("div", "mobile-sheet-row-leading");
-      const taskIcon = element("div", "mobile-sheet-row-icon");
-      taskIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>';
-      const taskCopy = element("div", "mobile-sheet-row-copy");
-      taskCopy.append(
-        element("strong", "", t("ask.contextSheet.tasks")),
-        element("small", "", t("ask.contextSheet.tasksDesc"))
-      );
-      taskLeading.append(taskIcon, taskCopy);
-      taskRow.append(taskLeading, element("span", "mobile-sheet-row-trailing", "›"));
+        // Row: Tasks
+        const taskRow = button("", "mobile-sheet-row", () => {
+          currentPane = "tasks";
+          renderBody();
+        });
+        taskRow.type = "button";
+        const taskLeading = element("div", "mobile-sheet-row-leading");
+        const taskIcon = element("div", "mobile-sheet-row-icon");
+        taskIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>';
+        const taskCopy = element("div", "mobile-sheet-row-copy");
+        taskCopy.append(
+          element("strong", "", t("ask.contextSheet.tasks")),
+          element("small", "", t("ask.contextSheet.tasksDesc"))
+        );
+        taskLeading.append(taskIcon, taskCopy);
+        taskRow.append(taskLeading, element("span", "mobile-sheet-row-trailing", "›"));
 
-      // Row: Deep Research
-      const researchRow = button("", "mobile-sheet-row", () => {
-        closeMobileBottomSheet();
-        handlers.onDeepResearch?.();
-      });
-      researchRow.type = "button";
-      const researchLeading = element("div", "mobile-sheet-row-leading");
-      const researchIcon = element("div", "mobile-sheet-row-icon");
-      researchIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>';
-      const researchCopy = element("div", "mobile-sheet-row-copy");
-      researchCopy.append(
-        element("strong", "", t("ask.contextSheet.deepResearch")),
-        element("small", "", t("ask.contextSheet.deepResearchDesc"))
-      );
-      researchLeading.append(researchIcon, researchCopy);
-      researchRow.append(researchLeading, element("span", "mobile-sheet-row-trailing", "›"));
+        // Row: Deep Research
+        const researchRow = button("", "mobile-sheet-row", () => {
+          closeMobileBottomSheet();
+          handlers.onDeepResearch?.();
+        });
+        researchRow.type = "button";
+        const researchLeading = element("div", "mobile-sheet-row-leading");
+        const researchIcon = element("div", "mobile-sheet-row-icon");
+        researchIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>';
+        const researchCopy = element("div", "mobile-sheet-row-copy");
+        researchCopy.append(
+          element("strong", "", t("ask.contextSheet.deepResearch")),
+          element("small", "", t("ask.contextSheet.deepResearchDesc"))
+        );
+        researchLeading.append(researchIcon, researchCopy);
+        researchRow.append(researchLeading, element("span", "mobile-sheet-row-trailing", "›"));
 
-      // Row: Preset prompts
+        list.append(stratRow, taskRow, researchRow);
+      }
+
+      // Row: Preset prompts (In both Build and Ask)
       const promptRow = button("", "mobile-sheet-row", () => {
         currentPane = "prompts";
         renderBody();
@@ -740,16 +749,16 @@ function openMobileContextSheet(handlers = {}) {
       const promptCopy = element("div", "mobile-sheet-row-copy");
       promptCopy.append(
         element("strong", "", t("ask.contextSheet.promptTemplates")),
-        element("small", "", t("ask.contextSheet.promptTemplatesDesc"))
+        element("small", "", isBuildMode ? (isEn ? "Choose a ready-made strategy brief template" : "Başlamaq üçün hazır prompt seç") : t("ask.contextSheet.promptTemplatesDesc"))
       );
       promptLeading.append(promptIcon, promptCopy);
       promptRow.append(promptLeading, element("span", "mobile-sheet-row-trailing", "›"));
 
-      list.append(stratRow, taskRow, researchRow, promptRow);
+      list.append(promptRow);
       body.appendChild(list);
 
-      // If context active: Clear context button
-      if (state.askStrategyId || state.askTaskId) {
+      // If context active: Clear context button (Only in Ask mode)
+      if (!isBuildMode && (state.askStrategyId || state.askTaskId)) {
         const clearBtn = button("", "mobile-sheet-clear-btn", () => {
           closeMobileBottomSheet();
           handlers.onClearContext?.();
@@ -875,7 +884,7 @@ function openMobileContextSheet(handlers = {}) {
       nav.append(backBtn, element("span", "mobile-sheet-sub-title", t("ask.contextSheet.promptTemplates")));
       body.appendChild(nav);
 
-      const presets = getPresetPrompts("ask");
+      const presets = getPresetPrompts(isBuildMode ? "build" : "ask");
       const list = element("div", "mobile-sheet-sub-list");
       presets.forEach((prompt) => {
         const item = button("", "mobile-sheet-sub-item", () => {
@@ -1981,46 +1990,9 @@ function renderIntake() {
       event.preventDefault();
       event.stopPropagation();
       openMobileContextSheet({
-        onFileSelect: () => {
-          setMode("ask");
-          setTimeout(() => {
-            document.querySelector("#askFileInput")?.click();
-          }, 60);
-        },
-        onPhotoSelect: () => {
-          setMode("ask");
-          setTimeout(() => {
-            document.querySelector("#askImageFileInput")?.click();
-          }, 60);
-        },
-        onSelectStrategy: (stratId) => {
-          setMode("ask");
-          state.askStrategyId = stratId;
-          state.askPromptHintStrategyId = stratId;
-          render();
-        },
-        onSelectTask: (taskId) => {
-          setMode("ask");
-          state.askTaskId = taskId;
-          render();
-        },
+        mode: "build",
         onSelectPrompt: (promptText) => {
           appendPresetPrompt(textarea, promptText, resizeInput);
-        },
-        onClearContext: () => {
-          state.askStrategyId = "";
-          state.askTaskId = "";
-          state.askPromptHintStrategyId = "";
-        },
-        onDeepResearch: () => {
-          const isEnLocale = getLanguage() === "en";
-          const prompt = isEnLocale
-            ? "Prepare a comprehensive Deep Research report analyzing my market, target customer segments, and competitors. Identify key market shifts, competitor weaknesses, and highest-potential strategic opportunities."
-            : "Biznesim üçün bazar və rəqib analizi üzrə ətraflı dərin araşdırma hesabatı hazırla. Əsas bazar tendensiyalarını, rəqiblərin boşluqlarını və ən yüksək təsirli inkişaf imkanlarını müəyyən et.";
-          textarea.value = prompt;
-          state.brief = prompt;
-          resizeInput();
-          textarea.focus();
         },
       });
     }

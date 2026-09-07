@@ -120,4 +120,6 @@ test("script.js implements clean lifecycle, swipe gestures, and Rule 4 complianc
 
   assert.ok(js.includes("openMobileModelSheet"), "openMobileModelSheet is wired");
   assert.ok(js.includes("askImageFileInput"), "askImageFileInput is wired for photo/camera uploads");
+  assert.ok(js.includes("isBuildMode"), "openMobileContextSheet distinguishes build mode");
+  assert.ok(js.includes('mode: "build"'), "renderBuildForm invokes openMobileContextSheet in build mode");
 });
