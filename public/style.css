@@ -10312,7 +10312,7 @@ html.dark {
 
 .settings-theme-studio.experience-accordion {
   padding: 0;
-  margin: 20px 0 16px;
+  margin: 0;
   background: var(--theme-surface, #ffffff);
 }
 

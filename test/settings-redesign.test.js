@@ -95,11 +95,16 @@ test("Settings: Profile Card has arrow on right and collapsed details, Theme is 
   assert.ok(css.includes(".account-profile-card .experience-accordion-icon {"), "CSS positions chevron arrow on the right");
   assert.ok(css.includes(".account-profile-body {"), "CSS rules for account-profile-body exist");
 
-  // Appearance & Surface Tone in Account tab should be collapsed by default
+  // Appearance & Surface Tone is placed in Experience (Personalization) tab and collapsed by default
   assert.ok(
     script.includes('title: isEn ? "Appearance & Surface Tone" : "Vizual Görünüş və Mövzu"') &&
     script.includes("badgeNode: themeBadge,\n      isOpen: false,"),
     "Appearance & Surface Tone accordion is configured with isOpen: false"
+  );
+  assert.ok(
+    script.includes("form.append(masterCard, modeAccordion, themeAccordion, toneAccordion);") &&
+    script.includes("guestStack.append(masterCard, modeAccordion, themeAccordion, toneAccordion);"),
+    "Theme studio accordion is integrated into Personalization (experience) tab for both auth and guest"
   );
 
   // Default Workspace Mode in Experience tab should be an accordion, open by default, and unique
@@ -113,12 +118,12 @@ test("Settings: Profile Card has arrow on right and collapsed details, Theme is 
   const occurrences = (script.match(/title:\s*isEn \? "Default Workspace Mode" : "İlkin İş Rejimi"/g) || []).length;
   assert.equal(occurrences, 1, "Exactly one Default Workspace Mode accordion is defined");
 
-  // In Account tab: Single Profile Card -> Language selector -> Theme accordion (NO duplicate card)
+  // In Account tab: Profile Card -> Language selector -> Storage diagnostics (Theme studio moved to Personalization)
   const profileIndex = script.indexOf("panel.appendChild(profileCard);");
   const langIndex = script.indexOf("panel.appendChild(buildLanguageSelectorSection());");
-  const themeIndex = script.indexOf("panel.appendChild(themeAccordion);");
-  assert.ok(profileIndex !== -1 && langIndex !== -1 && themeIndex !== -1, "Profile, Language, and Theme components are appended");
-  assert.ok(profileIndex < langIndex && langIndex < themeIndex, "Order is: Profile Card -> Language selector -> Theme accordion");
+  const storageIndex = script.indexOf("panel.appendChild(storageCard);");
+  assert.ok(profileIndex !== -1 && langIndex !== -1 && storageIndex !== -1, "Profile, Language, and Storage components are appended in Account tab");
+  assert.ok(profileIndex < langIndex && langIndex < storageIndex, "Order in Account is: Profile Card -> Language selector -> Storage diagnostics");
   assert.ok(!script.includes("detailsAccordion"), "No redundant separate details card is created");
   assert.ok(!script.includes("buildThemeSelectorSection"), "Duplicate theme dropdown card is removed");
 });

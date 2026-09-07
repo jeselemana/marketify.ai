@@ -6202,67 +6202,6 @@ function renderSettings() {
     // Language Selector Card
     panel.appendChild(buildLanguageSelectorSection());
 
-    // Visual Theme Picker Studio (Collapsed by default, positioned directly under Language card)
-    const currentTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-    const themeBadge = element("span", "experience-summary-badge", currentTheme === "dark" ? (isEn ? "Dark Mode" : "Qaranlıq Rejim") : (isEn ? "Light Mode" : "Açıq Rejim"));
-
-    const themeCardsGrid = element("div", "theme-cards-grid");
-    themeCardsGrid.innerHTML = `
-      <button type="button" class="theme-preview-card${currentTheme === "light" ? " is-active" : ""}" data-theme-choice="light">
-        <div class="theme-preview-canvas is-light" aria-hidden="true">
-          <div class="preview-mock-rail"></div>
-          <div class="preview-mock-body">
-            <div class="preview-mock-line"></div>
-            <div class="preview-mock-box"></div>
-          </div>
-        </div>
-        <div class="theme-card-caption">
-          <div class="theme-card-dot is-light"></div>
-          <strong>${escapeHtml(isEn ? "Light Mode" : "Açıq Rejim")}</strong>
-          <span class="theme-card-radio"></span>
-        </div>
-      </button>
-      <button type="button" class="theme-preview-card${currentTheme === "dark" ? " is-active" : ""}" data-theme-choice="dark">
-        <div class="theme-preview-canvas is-dark" aria-hidden="true">
-          <div class="preview-mock-rail"></div>
-          <div class="preview-mock-body">
-            <div class="preview-mock-line"></div>
-            <div class="preview-mock-box"></div>
-          </div>
-        </div>
-        <div class="theme-card-caption">
-          <div class="theme-card-dot is-dark"></div>
-          <strong>${escapeHtml(isEn ? "Dark Mode" : "Qaranlıq Rejim")}</strong>
-          <span class="theme-card-radio"></span>
-        </div>
-      </button>
-    `;
-    themeCardsGrid.querySelectorAll(".theme-preview-card").forEach((card) => {
-      card.addEventListener("click", () => {
-        const choice = card.dataset.themeChoice;
-        const root = document.documentElement;
-        root.dataset.theme = choice;
-        if (choice === "dark") root.classList.add("dark");
-        else root.classList.remove("dark");
-        try { localStorage.setItem("theme", choice); } catch {}
-        themeCardsGrid.querySelectorAll(".theme-preview-card").forEach((c) => {
-          c.classList.toggle("is-active", c.dataset.themeChoice === choice);
-        });
-        themeBadge.textContent = choice === "dark" ? (isEn ? "Dark Mode" : "Qaranlıq Rejim") : (isEn ? "Light Mode" : "Açıq Rejim");
-        showToast(isEn ? `Theme set to ${choice === "dark" ? "Dark Mode" : "Light Mode"}.` : `Mövzu ${choice === "dark" ? "Qaranlıq" : "Açıq"} olaraq təyin edildi.`);
-      });
-    });
-
-    const themeAccordion = createExperienceAccordion({
-      title: isEn ? "Appearance & Surface Tone" : "Vizual Görünüş və Mövzu",
-      desc: isEn ? "Choose your workspace surface tone. Helmer adapts to high-contrast daylight or pure black obsidian." : "İş mühitinin rəng rejimini tənzimləyin. Helmer yüksək kontrastlı işıqlı və təmiz obsidian qaranlıq rejimi dəstəkləyir.",
-      badgeNode: themeBadge,
-      isOpen: false,
-      contentNode: themeCardsGrid,
-    });
-    themeAccordion.classList.add("settings-theme-studio");
-    panel.appendChild(themeAccordion);
-
     // Local Workspace Storage Diagnostics
     const storageCard = element("div", "settings-diagnostic-card");
     storageCard.innerHTML = `
@@ -6368,6 +6307,66 @@ function renderSettings() {
       contentNode: modeGrid,
     });
 
+    // Visual Theme Picker Studio (Both Authenticated & Guest - Collapsible, Closed by default)
+    const currentTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    const themeBadge = element("span", "experience-summary-badge", currentTheme === "dark" ? (isEn ? "Dark Mode" : "Qaranlıq Rejim") : (isEn ? "Light Mode" : "Açıq Rejim"));
+
+    const themeCardsGrid = element("div", "theme-cards-grid");
+    themeCardsGrid.innerHTML = `
+      <button type="button" class="theme-preview-card${currentTheme === "light" ? " is-active" : ""}" data-theme-choice="light">
+        <div class="theme-preview-canvas is-light" aria-hidden="true">
+          <div class="preview-mock-rail"></div>
+          <div class="preview-mock-body">
+            <div class="preview-mock-line"></div>
+            <div class="preview-mock-box"></div>
+          </div>
+        </div>
+        <div class="theme-card-caption">
+          <div class="theme-card-dot is-light"></div>
+          <strong>${escapeHtml(isEn ? "Light Mode" : "Açıq Rejim")}</strong>
+          <span class="theme-card-radio"></span>
+        </div>
+      </button>
+      <button type="button" class="theme-preview-card${currentTheme === "dark" ? " is-active" : ""}" data-theme-choice="dark">
+        <div class="theme-preview-canvas is-dark" aria-hidden="true">
+          <div class="preview-mock-rail"></div>
+          <div class="preview-mock-body">
+            <div class="preview-mock-line"></div>
+            <div class="preview-mock-box"></div>
+          </div>
+        </div>
+        <div class="theme-card-caption">
+          <div class="theme-card-dot is-dark"></div>
+          <strong>${escapeHtml(isEn ? "Dark Mode" : "Qaranlıq Rejim")}</strong>
+          <span class="theme-card-radio"></span>
+        </div>
+      </button>
+    `;
+    themeCardsGrid.querySelectorAll(".theme-preview-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const choice = card.dataset.themeChoice;
+        const root = document.documentElement;
+        root.dataset.theme = choice;
+        if (choice === "dark") root.classList.add("dark");
+        else root.classList.remove("dark");
+        try { localStorage.setItem("theme", choice); } catch {}
+        themeCardsGrid.querySelectorAll(".theme-preview-card").forEach((c) => {
+          c.classList.toggle("is-active", c.dataset.themeChoice === choice);
+        });
+        themeBadge.textContent = choice === "dark" ? (isEn ? "Dark Mode" : "Qaranlıq Rejim") : (isEn ? "Light Mode" : "Açıq Rejim");
+        showToast(isEn ? `Theme set to ${choice === "dark" ? "Dark Mode" : "Light Mode"}.` : `Mövzu ${choice === "dark" ? "Qaranlıq" : "Açıq"} olaraq təyin edildi.`);
+      });
+    });
+
+    const themeAccordion = createExperienceAccordion({
+      title: isEn ? "Appearance & Surface Tone" : "Vizual Görünüş və Mövzu",
+      desc: isEn ? "Choose your workspace surface tone. Helmer adapts to high-contrast daylight or pure black obsidian." : "İş mühitinin rəng rejimini tənzimləyin. Helmer yüksək kontrastlı işıqlı və təmiz obsidian qaranlıq rejimi dəstəkləyir.",
+      badgeNode: themeBadge,
+      isOpen: false,
+      contentNode: themeCardsGrid,
+    });
+    themeAccordion.classList.add("settings-theme-studio");
+
     // Tone Studio Accordion (Collapsed by default)
     const toneGrid = element("div", "experience-tone-grid");
     toneGrid.style.marginTop = "6px";
@@ -6431,7 +6430,7 @@ function renderSettings() {
 
     if (state.currentUser) {
       const form = element("form", "settings-form experience-settings-form");
-      form.append(masterCard, modeAccordion, toneAccordion);
+      form.append(masterCard, modeAccordion, themeAccordion, toneAccordion);
 
       // Business Profile Accordion (Collapsed by default)
       const profileGrid = element("div", "experience-grid-fields");
@@ -6742,7 +6741,7 @@ function renderSettings() {
     panel.appendChild(form);
   } else {
       const guestStack = element("div", "experience-cards-stack");
-      guestStack.append(masterCard, modeAccordion, toneAccordion);
+      guestStack.append(masterCard, modeAccordion, themeAccordion, toneAccordion);
 
       // Guest Experience Preview Card
       const guestExpCard = element("div", "experience-preview-card");
