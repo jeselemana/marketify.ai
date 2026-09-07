@@ -6243,12 +6243,18 @@ function renderSettings() {
       }
     }
 
-    // If we already have a cached summary on the current user, render it immediately!
-    if (state.currentUser && state.currentUser.aiSummary && state.currentUser.aiSummary.summary) {
+    // If we already have a cached summary on the current user, check if it contains the old full-name with surname
+    const hasOldFullNameSummary = Boolean(
+      state.currentUser?.fullName &&
+      state.currentUser.fullName.includes(" ") &&
+      state.currentUser.aiSummary?.summary?.includes(state.currentUser.fullName)
+    );
+
+    if (state.currentUser && state.currentUser.aiSummary && state.currentUser.aiSummary.summary && !hasOldFullNameSummary) {
       renderSummaryContent(state.currentUser.aiSummary);
     } else {
-      // First time loading: fetch automatically
-      loadSummary(false);
+      // First time loading or upgrading stale full-name summary: fetch automatically
+      loadSummary(Boolean(hasOldFullNameSummary));
     }
 
     card.append(header, body);

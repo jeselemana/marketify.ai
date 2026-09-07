@@ -6,6 +6,7 @@ import express from "express";
 import {
   createUserRouter,
   buildSystemPrompt,
+  extractFirstName,
   AiSummaryRequestSchema,
   AiSummaryOutputSchema,
 } from "../src/http/user-router.js";
@@ -14,6 +15,13 @@ import { aiConfig } from "../src/services/ai/config.js";
 
 test("aiConfig defines accountSummaryModel as gpt-5.6-luna", () => {
   assert.equal(aiConfig.accountSummaryModel, "gpt-5.6-luna");
+});
+
+test("extractFirstName extracts only first name and strips surname", () => {
+  assert.equal(extractFirstName("Cesur Elemana"), "Cesur");
+  assert.equal(extractFirstName("Cəsur Ələmanov"), "Cəsur");
+  assert.equal(extractFirstName("Jese"), "Jese");
+  assert.equal(extractFirstName(""), "");
 });
 
 test("AiSummaryRequestSchema enforces strict validation against unexpected fields (Rule 2)", () => {
@@ -48,7 +56,7 @@ test("AiSummaryOutputSchema validates summary length and focus tags count", () =
   assert.ok(!emptyTags.success);
 });
 
-test("buildSystemPrompt incorporates user name, direct address rule, bold tone, and tenant activity context", () => {
+test("buildSystemPrompt addresses by first name only, incorporates playful teasing, and includes tenant activity", () => {
   const promptAz = buildSystemPrompt({
     displayName: "Cəsur Ələmanov",
     language: "az",
@@ -66,10 +74,12 @@ test("buildSystemPrompt incorporates user name, direct address rule, bold tone, 
     tasks: [{ title: "Landing page hazırlığı" }],
   });
 
-  assert.match(promptAz, /Cəsur Ələmanov/);
+  // Must address by first name only and explicitly forbid surname
+  assert.match(promptAz, /Cəsur/);
+  assert.ok(!promptAz.includes("Ələmanov"), "Surname must be excluded from prompt address");
   assert.match(promptAz, /Helmer/);
-  assert.match(promptAz, /BİRBAŞA MÜRACİƏT/);
-  assert.match(promptAz, /Cəsarətli, iddialı, dinamik/);
+  assert.match(promptAz, /YALNIZ AD İLƏ BİRBAŞA MÜRACİƏT/);
+  assert.match(promptAz, /sataş/i);
   assert.match(promptAz, /Bakı Coffee Shop Bazara Giriş/);
   assert.match(promptAz, /Qıfın optimizasiyası/);
   assert.match(promptAz, /Landing page hazırlığı/);
@@ -84,9 +94,10 @@ test("buildSystemPrompt incorporates user name, direct address rule, bold tone, 
     strategies: [{ title: "SaaS Expansion" }],
   });
 
-  assert.match(promptEn, /Jese Eleman/);
-  assert.match(promptEn, /ADDRESS BY NAME/);
-  assert.match(promptEn, /Bold, ambitious, dynamic/);
+  assert.match(promptEn, /Jese/);
+  assert.ok(!promptEn.includes("Eleman"), "Surname must be excluded from prompt address");
+  assert.match(promptEn, /ADDRESS BY FIRST NAME ONLY/);
+  assert.match(promptEn, /PLAYFUL TEASING/);
   assert.match(promptEn, /SaaS Expansion/);
 });
 

@@ -47,8 +47,16 @@ export const AiSummaryOutputSchema = z.object({
   focusTags: z.array(z.string()).min(1).max(5),
 });
 
+export function extractFirstName(name) {
+  if (!name || typeof name !== "string") return "";
+  const trimmed = name.trim();
+  const first = trimmed.split(/\s+/)[0];
+  return first || trimmed;
+}
+
 export function buildSystemPrompt({ displayName, language, settings, strategies = [], chats = [], tasks = [] }) {
   const isEn = language === "en";
+  const firstName = extractFirstName(displayName) || (isEn ? "Leader" : "Lider");
   const toneKey = settings.tone || "professional";
   const toneDirective = TONE_DIRECTIVES[toneKey] || TONE_DIRECTIVES.professional;
 
@@ -76,44 +84,50 @@ export function buildSystemPrompt({ displayName, language, settings, strategies 
   }
 
   if (isEn) {
-    return `You are Helmer's executive AI account intelligence engine.
-Your task is to generate a personalized executive account summary and strategic focus tags for the user.
+    return `You are Helmer's witty, sharp, and personalized executive account co-pilot.
+Your task is to generate a personalized account summary and strategic focus tags for the user with playful teasing and high-energy motivation.
 
 USER PROFILE & IDENTITY:
-- Name: ${displayName}
+- Name: ${firstName} (Strictly FIRST NAME only! NEVER use surname or full name!)
 - Interface Language: English
 ${profileLines.length > 0 ? "\nBRAND & PERSONALIZATION PROFILE:\n" + profileLines.join("\n") : ""}
 ${activityLines.length > 0 ? "\nRECENT ACTIVITY & WORKFLOW CONTEXT:\n" + activityLines.join("\n") : ""}
 
 CRITICAL RULES:
-1. ADDRESS BY NAME: The summary MUST start by directly addressing the user by their name ("${displayName}, ...").
-2. TONE & STYLE: Bold, ambitious, dynamic, and motivating. Avoid dry, corporate, robotic, passive, or generic filler language.
-3. LENGTH: Crisp and sharp, exactly 2 to 3 sentences.
-4. FOCUS TAGS: Extract 2 to 3 high-impact strategic focus tags (focusTags) reflecting their immediate growth priorities.
+1. ADDRESS BY FIRST NAME ONLY: The summary MUST start by directly addressing the user by their FIRST NAME ONLY ("${firstName}, ..."). NEVER use surnames, full names, or formal titles ("Mr.", "Ms.").
+2. TONE & STYLE (PLAYFUL TEASING & WITTY BANTER):
+   - NEVER sound dry, corporate, bureaucratic, or like a robotic consultant report.
+   - Playfully tease the user ("bir az sataş"): banter about their unstoppable urge to conquer every niche at once, juggle multiple grand ambitions, or over-strategize before pushing to production.
+   - Sound like a sharp-witted, hilarious co-founder: lovingly roast them, keep it candid and engaging, yet fiercely validate their ambition and drive them to execute for real revenue.
+3. LENGTH: Crisp, punchy, and vibrant, exactly 2 to 3 sentences.
+4. FOCUS TAGS: Extract 2 to 3 punchy, memorable strategic focus tags (focusTags) reflecting their immediate growth priorities.
 5. FORMAT: Return ONLY valid JSON matching this structure:
 {
-  "summary": "${displayName}, [bold, dynamic executive summary in 2-3 sentences]",
+  "summary": "${firstName}, [playful, witty, lightly teasing, and motivating summary in 2-3 sentences]",
   "focusTags": ["Tag 1", "Tag 2", "Tag 3"]
 }`;
   }
 
-  return `Sən Helmer platformasının ali dərəcəli idarəetmə və hesab intellekti mühərrikisən.
-Vəzifən istifadəçi üçün fərdiləşdirilmiş idarəedici hesab xülasəsi və strateji fokus teqləri formalaşdırmaqdır.
+  return `Sən Helmer platformasının iti zəkalı, zarafatcıl və fərdiləşdirilmiş hesab yoldaşısan.
+Vəzifən istifadəçinin fəaliyyəti əsasında onun üçün canlı, bir az sataşan (playful teasing / witty banter), səmimi və motivasiyaedici hesab xülasəsi və fokus teqləri formalaşdırmaqdır.
 
-İSTİFADƏÇİ PROFİLİ VƏ ŞƏXSİYYƏTİ:
-- Ad / İstifadəçi adı: ${displayName}
+İSTİFADƏÇİ PROFİLİ:
+- Ad: ${firstName} (Soyad qətiyyən işlədilməməlidir!)
 - Dil: Azərbaycan dili
 ${profileLines.length > 0 ? "\nBREND VƏ FƏRDİLƏŞDİRMƏ PROFİLİ:\n" + profileLines.join("\n") : ""}
 ${activityLines.length > 0 ? "\nSON FƏALİYYƏT VƏ İŞ AXINI KONTEKSTİ:\n" + activityLines.join("\n") : ""}
 
 MƏCBURİ TƏLƏBLƏR:
-1. BİRBAŞA MÜRACİƏT: Xülasə MÜTLƏQ istifadəçinin adı ilə birbaşa müraciət edərək başlamalıdır (məsələn: "${displayName}, ...").
-2. DİL VƏ ÜSLUB: Standart korporativ, robotik, passiv və şablon cümlələrdən tam uzaq dur. Cəsarətli, iddialı, dinamik və motivasiyaedici tonda yaz.
-3. HƏCM: Dəqiq 2-3 cümləlik kəskin, vurucu və tətbiq oluna bilən xülasə.
-4. FOKUS TEQLƏRİ: İstifadəçinin cari prioritetlərini əks etdirən 2-3 açar fokus teqi (focusTags) təyin et.
+1. YALNIZ AD İLƏ BİRBAŞA MÜRACİƏT: Xülasə MÜTLƏQ və İSTİSNASIZ yalnız istifadəçinin İLK ADI ilə başlamalıdır ("${firstName}, ..."). QƏTİYYƏN soyad, tam ad, "bəy", "cənab" və ya rəsmi xitab işlətmə!
+2. DİL VƏ ÜSLUB (BİR AZ SATAŞ, SƏMİMİ VƏ CANLI OL):
+   - QƏTİYYƏN quru rəsmi, audit hesabatı, korporativ və ya şablon məsləhətçi dili işlətmə! Bu sıxıcı hesabat deyil.
+   - İstifadəçiyə bir az sataş (playful teasing, yüngül zarafatla söz atmaq): çoxlu layihələrə və ideyalara baş qoşmasını, dünyanı eyni anda fəth etmək istəyini və ya bəzi planların hələ də icra gözlədiyini zarafatla yada sal.
+   - Sanki iti sözlü, səmimi bir dost və ya zarafatcıl co-founder onunla danışır: bir az iynələ, amma eyni zamanda enerjisini qaldır, böyük potensialını vurğula və real gəlirə/icraya fokusla.
+3. HƏCM: Dəqiq 2-3 cümləlik kəskin, vurucu, canlı və təbəssüm yaradan xülasə.
+4. FOKUS TEQLƏRİ: 2-3 qısa, canlı və diqqət çəkən strateji fokus sahəsi (focusTags).
 5. FORMAT: YALNIZ bu JSON strukturunda çıxış ver:
 {
-  "summary": "${displayName}, [cəsarətli və dinamik 2-3 cümləlik xülasə]",
+  "summary": "${firstName}, [bir az sataşan, səmimi, zarafatcıl və motivasiyaedici 2-3 cümləlik xülasə]",
   "focusTags": ["Teq 1", "Teq 2", "Teq 3"]
 }`;
 }
@@ -159,7 +173,9 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
     }
 
     // 5. Caching check: Return stored summary if forceRefresh is false
-    if (!payload.forceRefresh && req.user.aiSummary && typeof req.user.aiSummary === "object" && req.user.aiSummary.summary) {
+    const rawFullName = (req.user.fullName || "").trim();
+    const isStaleFullName = rawFullName.includes(" ") && req.user.aiSummary?.summary?.includes(rawFullName);
+    if (!payload.forceRefresh && !isStaleFullName && req.user.aiSummary && typeof req.user.aiSummary === "object" && req.user.aiSummary.summary) {
       return res.json({
         summary: req.user.aiSummary.summary,
         focusTags: Array.isArray(req.user.aiSummary.focusTags) ? req.user.aiSummary.focusTags : [],
@@ -183,11 +199,12 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
         : Promise.resolve([]),
     ]);
 
-    const displayName = (req.user.fullName || req.user.username || "Lider").trim();
+    const rawDisplayName = (req.user.fullName || req.user.username || "Lider").trim();
+    const firstName = extractFirstName(rawDisplayName) || "Lider";
     const language = settings.language === "en" ? "en" : "az";
 
     const systemPrompt = buildSystemPrompt({
-      displayName,
+      displayName: firstName,
       language,
       settings,
       strategies,
@@ -213,8 +230,8 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
           {
             role: "user",
             content: language === "en"
-              ? `Generate the personalized account summary for ${displayName}.`
-              : `${displayName} üçün fərdiləşdirilmiş hesab xülasəsini tərtib et.`,
+              ? `Generate a witty, playfully teasing, and high-energy account summary for ${firstName}.`
+              : `${firstName} üçün bir az sataşan, səmimi və canlı hesab xülasəsini tərtib et.`,
           },
         ],
         response_format: { type: "json_object" },
