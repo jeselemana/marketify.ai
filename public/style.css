@@ -13796,24 +13796,33 @@ html.dark .auth-footer-link:hover {
   }
 
   .mobile-header {
-    display: grid;
+    display: block;
     position: sticky;
     top: 0;
     z-index: 50;
-    height: calc(60px + env(safe-area-inset-top));
-    min-height: calc(60px + env(safe-area-inset-top));
-    grid-template-columns: 44px minmax(0, 1fr) 44px;
-    align-items: center;
-    padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
     border-bottom: none;
     background: transparent;
     box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    pointer-events: auto;
+    transition: background 180ms ease;
+  }
+
+  .mobile-header-intake {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    align-items: center;
+    height: calc(60px + env(safe-area-inset-top));
+    min-height: calc(60px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .mobile-header .icon-button,
-  .mobile-header .mobile-new {
+  .mobile-header-intake .icon-button,
+  .mobile-header-intake .mobile-new {
     width: 44px;
     height: 44px;
     border-radius: 13px;
@@ -13827,22 +13836,28 @@ html.dark .auth-footer-link:hover {
     transition: all 140ms ease;
   }
 
-  .mobile-header #mobileMenuButton {
+  .mobile-header-intake #mobileMenuButton {
     grid-column: 1;
   }
 
-  .mobile-header .mobile-new {
+  .mobile-header-spacer {
+    grid-column: 3;
+    width: 44px;
+    height: 44px;
+  }
+
+  .mobile-header-intake .mobile-new {
     grid-column: 3;
     justify-self: end;
     display: none;
     padding: 0;
   }
 
-  .mobile-header .mobile-new:not([hidden]) {
+  .mobile-header-intake .mobile-new:not([hidden]) {
     display: flex;
   }
 
-  .mobile-header .mobile-new svg {
+  .mobile-header-intake .mobile-new svg {
     width: 18px;
     height: 18px;
     stroke: currentColor;
@@ -13850,15 +13865,212 @@ html.dark .auth-footer-link:hover {
     display: block;
   }
 
-  .mobile-header .mobile-new:active,
-  .mobile-header .icon-button:active {
+  .mobile-header-intake .mobile-new:active,
+  .mobile-header-intake .icon-button:active {
     transform: scale(0.96);
     background: var(--bg-hover, #f1f5f9);
   }
 
-  .mobile-header #mobileMenuButton span {
+  .mobile-header-intake #mobileMenuButton span {
     font-size: 22px;
     line-height: 1;
+  }
+
+  /* Chat bar - hidden by default on intake, shown ONLY when .is-chat-active */
+  .mobile-header-chat {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    height: calc(58px + env(safe-area-inset-top));
+    min-height: calc(58px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 4px max(16px, env(safe-area-inset-left));
+    width: 100%;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+
+  .mobile-header-chat > * {
+    pointer-events: auto;
+  }
+
+  /* Left: Circular dark pill button with 2-line menu icon */
+  .mobile-header .mobile-menu-pill-btn,
+  .mobile-header #mobileChatMenuButton {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 50%;
+    background: rgba(24, 24, 27, 0.78);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    padding: 0;
+    cursor: pointer;
+    transition: transform 140ms ease, background 140ms ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-header .mobile-menu-pill-btn:active,
+  .mobile-header #mobileChatMenuButton:active {
+    transform: scale(0.92);
+    background: rgba(39, 39, 42, 0.92);
+  }
+
+  .mobile-menu-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+    color: #ffffff;
+    stroke: currentColor;
+    stroke-width: 2.2;
+  }
+
+  /* Center: Model Selector Pill Dropdown */
+  .mobile-header-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0 8px;
+  }
+
+  .mobile-model-pill-btn,
+  .mobile-header #mobileChatModelButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 38px;
+    padding: 0 14px;
+    max-width: 170px;
+    border-radius: 999px;
+    background: rgba(24, 24, 27, 0.78);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.12);
+    color: #ffffff;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .mobile-model-pill-btn:active,
+  .mobile-header #mobileChatModelButton:active {
+    transform: scale(0.96);
+    background: rgba(39, 39, 42, 0.92);
+  }
+
+  .mobile-active-model-name {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .mobile-header .mobile-mode-chevron {
+    width: 12px;
+    height: 12px;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.8;
+    transition: transform 180ms ease, opacity 140ms ease;
+  }
+
+  .mobile-model-pill-btn:hover .mobile-mode-chevron,
+  .mobile-model-pill-btn:active .mobile-mode-chevron,
+  .mobile-model-pill-btn.is-open .mobile-mode-chevron {
+    opacity: 1;
+  }
+
+  .mobile-model-pill-btn.is-open .mobile-mode-chevron {
+    transform: rotate(180deg);
+  }
+
+  /* Right: Elongated oval capsule pill with new chat and 3-dots */
+  .mobile-actions-pill {
+    display: inline-flex;
+    align-items: center;
+    height: 38px;
+    padding: 3px 4px;
+    border-radius: 999px;
+    background: rgba(24, 24, 27, 0.78);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.12);
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .mobile-actions-pill .mobile-pill-action-btn,
+  .mobile-header .mobile-pill-action-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    transition: background 140ms ease, transform 140ms ease, opacity 140ms ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-actions-pill .mobile-pill-action-btn:active,
+  .mobile-header .mobile-pill-action-btn:active {
+    transform: scale(0.92);
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .mobile-actions-pill .mobile-new svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    stroke-width: 2;
+    display: block;
+  }
+
+  .mobile-actions-pill .mobile-more-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+    display: block;
+  }
+
+  /* Active Chat Isolation Rules */
+  .mobile-header.is-chat-active {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.42) 55%, rgba(0, 0, 0, 0) 100%);
+    pointer-events: none;
+  }
+
+  .mobile-header.is-chat-active .mobile-header-intake {
+    display: none !important;
+  }
+
+  .mobile-header.is-chat-active .mobile-header-chat {
+    display: flex !important;
   }
 
   .mobile-mode-switch {
@@ -14517,6 +14729,23 @@ html.dark .auth-footer-link:hover {
   .mobile-header {
     padding-right: max(14px, env(safe-area-inset-right));
     padding-left: max(14px, env(safe-area-inset-left));
+  }
+
+  .mobile-header-intake {
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-left: max(14px, env(safe-area-inset-left));
+  }
+
+  .mobile-header-chat {
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-left: max(12px, env(safe-area-inset-left));
+  }
+
+  .mobile-model-pill-btn,
+  .mobile-header #mobileChatModelButton {
+    padding: 0 10px;
+    max-width: 140px;
+    font-size: 13px;
   }
 
   .workspace-centered,
@@ -19374,6 +19603,28 @@ html.dark .mobile-header {
   border-bottom: none;
   background: transparent;
   box-shadow: none;
+}
+
+[data-theme="dark"] .mobile-header.is-chat-active,
+html.dark .mobile-header.is-chat-active {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.5) 60%, rgba(0, 0, 0, 0) 100%);
+  border-bottom: none;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .mobile-header .mobile-menu-pill-btn,
+html.dark .mobile-header .mobile-menu-pill-btn,
+[data-theme="dark"] .mobile-header #mobileChatMenuButton,
+html.dark .mobile-header #mobileChatMenuButton,
+[data-theme="dark"] .mobile-model-pill-btn,
+html.dark .mobile-model-pill-btn,
+[data-theme="dark"] .mobile-header #mobileChatModelButton,
+html.dark .mobile-header #mobileChatModelButton,
+[data-theme="dark"] .mobile-actions-pill,
+html.dark .mobile-actions-pill {
+  background: rgba(18, 18, 20, 0.88);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
 [data-theme="dark"] .mobile-mode-switch:not([hidden]),

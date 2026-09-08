@@ -931,6 +931,17 @@ function closeMobileModelSheet() {
     overlay.replaceChildren();
   };
 
+  const askBtn = document.querySelector("#askModeButton");
+  if (askBtn) {
+    askBtn.classList.remove("is-open");
+    askBtn.setAttribute("aria-expanded", "false");
+  }
+  const chatModelBtn = document.querySelector("#mobileChatModelButton");
+  if (chatModelBtn) {
+    chatModelBtn.classList.remove("is-open");
+    chatModelBtn.setAttribute("aria-expanded", "false");
+  }
+
   const sheet = overlay.querySelector(".mobile-model-sheet");
   if (sheet) {
     sheet.addEventListener("transitionend", (e) => {
@@ -952,6 +963,17 @@ function openMobileModelSheet() {
   overlay.setAttribute("aria-hidden", "false");
   overlay.classList.remove("is-closing");
   document.body.style.overflow = "hidden";
+
+  const askBtn = document.querySelector("#askModeButton");
+  if (askBtn) {
+    askBtn.classList.add("is-open");
+    askBtn.setAttribute("aria-expanded", "true");
+  }
+  const chatModelBtn = document.querySelector("#mobileChatModelButton");
+  if (chatModelBtn) {
+    chatModelBtn.classList.add("is-open");
+    chatModelBtn.setAttribute("aria-expanded", "true");
+  }
 
   const sheet = element("div", "mobile-model-sheet");
   sheet.setAttribute("role", "dialog");
@@ -1900,7 +1922,8 @@ function openSidebar() {
   sidebar.classList.add("is-open");
   document.body.classList.add("sidebar-open");
   mobileOverlay.hidden = false;
-  mobileMenuButton.setAttribute("aria-expanded", "true");
+  mobileMenuButton?.setAttribute("aria-expanded", "true");
+  document.querySelector("#mobileChatMenuButton")?.setAttribute("aria-expanded", "true");
   railMenuButton.setAttribute("aria-expanded", "true");
 }
 
@@ -1908,13 +1931,44 @@ function closeSidebar() {
   sidebar.classList.remove("is-open");
   document.body.classList.remove("sidebar-open");
   mobileOverlay.hidden = true;
-  mobileMenuButton.setAttribute("aria-expanded", "false");
+  mobileMenuButton?.setAttribute("aria-expanded", "false");
+  document.querySelector("#mobileChatMenuButton")?.setAttribute("aria-expanded", "false");
   railMenuButton.setAttribute("aria-expanded", "false");
 }
 
 function syncLanguageControls() {
   const skipLink = document.querySelector(".skip-link");
   if (skipLink) skipLink.textContent = t("nav.skipToMain");
+
+  const isEn = getLanguage() === "en";
+  const mobileMenuBtn = document.querySelector("#mobileMenuButton");
+  if (mobileMenuBtn) {
+    mobileMenuBtn.setAttribute("aria-label", t("nav.openMenu") || (isEn ? "Open menu" : "Menyunu aç"));
+  }
+  const mobileChatMenuBtn = document.querySelector("#mobileChatMenuButton");
+  if (mobileChatMenuBtn) {
+    mobileChatMenuBtn.setAttribute("aria-label", t("nav.openMenu") || (isEn ? "Open menu" : "Menyunu aç"));
+  }
+  const newChatLabel = t("nav.newChat") || (isEn ? "New chat" : "Yeni söhbət");
+  const mobileNewBtn = document.querySelector("#mobileNewButton");
+  if (mobileNewBtn) {
+    mobileNewBtn.setAttribute("aria-label", newChatLabel);
+    mobileNewBtn.setAttribute("title", newChatLabel);
+  }
+  const mobileMoreBtn = document.querySelector("#mobileMoreButton");
+  if (mobileMoreBtn) {
+    const moreLabel = isEn ? "More options" : "Daha çox";
+    mobileMoreBtn.setAttribute("aria-label", moreLabel);
+    mobileMoreBtn.setAttribute("title", moreLabel);
+  }
+  const askModeBtn = document.querySelector("#askModeButton");
+  if (askModeBtn) {
+    askModeBtn.setAttribute("aria-label", isEn ? "Ask mode" : "Ask rejimi");
+  }
+  const chatModelBtn = document.querySelector("#mobileChatModelButton");
+  if (chatModelBtn) {
+    chatModelBtn.setAttribute("aria-label", isEn ? "Model selection" : "Model seçimi");
+  }
 }
 
 function syncNav() {
@@ -2063,10 +2117,27 @@ function isHomePage() {
   return false;
 }
 
+function updateMobileActiveModelName() {
+  const el = document.querySelector("#mobileActiveModelName");
+  if (!el) return;
+  const isFlash = state.askModel === "gemini-3.7-flash";
+  el.textContent = isFlash ? "Flash" : "Helmer";
+}
+
 function syncMode() {
   const isBuild = state.mode === "build";
   const isHome = isHomePage();
   const isAskChatActive = state.mode === "ask" && state.view === "home" && Boolean(state.askMessages?.length || state.askLoading);
+  const isChatActive = isAskChatActive;
+
+  updateMobileActiveModelName();
+
+  const mobileHeader = document.querySelector(".mobile-header");
+  if (mobileHeader) {
+    mobileHeader.classList.toggle("is-chat-active", isChatActive);
+  }
+  document.body.classList.toggle("is-chat-active", isChatActive);
+  document.body.dataset.isChatActive = String(isChatActive);
 
   if (mobileModeSwitch) {
     mobileModeSwitch.hidden = !isHome;
@@ -11580,6 +11651,14 @@ askModeButton?.querySelector(".mobile-mode-chevron")?.addEventListener("click", 
     setMode("ask");
   }
   openMobileModelSheet();
+});
+document.querySelector("#mobileChatMenuButton")?.addEventListener("click", openSidebar);
+document.querySelector("#mobileChatModelButton")?.addEventListener("click", () => {
+  openMobileModelSheet();
+});
+document.querySelector("#mobileMoreButton")?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  openUserProfileMenu(document.querySelector("#mobileMoreButton"));
 });
 sidebarBuildModeButton?.addEventListener("click", () => setMode("build"));
 sidebarAskModeButton?.addEventListener("click", () => setMode("ask"));
