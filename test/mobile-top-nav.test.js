@@ -28,21 +28,23 @@ test("index.html: mobile top navigation bar isolates intake/home view and active
   assert.ok(html.includes('line x1="4" y1="8" x2="20" y2="8"'), "first horizontal line of = menu icon exists");
   assert.ok(html.includes('line x1="4" y1="16" x2="20" y2="16"'), "second horizontal line of = menu icon exists");
 
-  // Center: Active model pill with downward chevron
-  assert.ok(html.includes('class="mobile-header-center"'), "mobile-header-center container is present in chat view");
+  // Left Group: Combined Hamburger Menu (=) and Model Selector Dropdown (Helmer ▾)
+  assert.ok(html.includes('class="mobile-chat-left-group"'), "mobile-chat-left-group container is present in chat view");
+  assert.ok(html.includes('id="mobileChatMenuButton"'), "mobileChatMenuButton is present in chat view");
+  assert.ok(html.includes('class="mobile-menu-icon"'), "mobile-menu-icon SVG is present inside mobileChatMenuButton");
+  assert.ok(html.includes('line x1="4" y1="8" x2="20" y2="8"'), "first horizontal line of = menu icon exists");
+  assert.ok(html.includes('line x1="4" y1="16" x2="20" y2="16"'), "second horizontal line of = menu icon exists");
   assert.ok(html.includes('id="mobileChatModelButton"'), "mobileChatModelButton is present for model selection");
   assert.ok(html.includes('id="mobileActiveModelName"'), "mobileActiveModelName element is present");
   assert.ok(html.includes('>Helmer<'), "Initial model label defaults to Helmer");
 
-  // Right: Oval capsule pill with new chat (pencil) and three dots (•••)
-  assert.ok(html.includes('class="mobile-actions-pill"'), "mobile-actions-pill container is present in chat view");
-  assert.ok(html.includes('id="mobileNewButton"'), "mobileNewButton is present inside mobile-actions-pill");
-  assert.ok(html.includes('id="mobileMoreButton"'), "mobileMoreButton is present inside mobile-actions-pill");
+  // Right: Standalone New Chat Button (Pencil Icon)
+  assert.ok(html.includes('id="mobileNewButton"'), "mobileNewButton is present as standalone right button");
+  assert.ok(html.includes('class="icon-button mobile-pill-btn mobile-new-pill-btn mobile-new"'), "mobileNewButton is styled as a standalone pill button");
 
-  // Icons: Three dots (•••)
-  assert.ok(html.includes('circle cx="5" cy="12" r="2"'), "three dots icon dot 1 exists");
-  assert.ok(html.includes('circle cx="12" cy="12" r="2"'), "three dots icon dot 2 exists");
-  assert.ok(html.includes('circle cx="19" cy="12" r="2"'), "three dots icon dot 3 exists");
+  // Three dots (•••) and actions pill completely removed
+  assert.ok(!html.includes('id="mobileMoreButton"'), "mobileMoreButton is removed from active chat view");
+  assert.ok(!html.includes('class="mobile-actions-pill"'), "mobile-actions-pill is removed from active chat view");
 });
 
 test("style.css: isolates intake vs active chat views, defines fading dark gradient, sticky position, and desktop isolation", async () => {
@@ -59,9 +61,10 @@ test("style.css: isolates intake vs active chat views, defines fading dark gradi
   assert.ok(css.includes(".mobile-header-intake {"), "mobile-header-intake is defined");
   assert.ok(css.includes("grid-template-columns: 44px minmax(0, 1fr) 44px;"), "mobile-header-intake uses 3-column grid");
 
-  // Chat bar styling
+  // Chat bar styling - edge alignment and full width
   assert.ok(css.includes(".mobile-header-chat {"), "mobile-header-chat is defined");
   assert.ok(css.includes("display: none;"), "mobile-header-chat is hidden by default");
+  assert.ok(css.includes("justify-content: space-between;"), "mobile-header-chat distributes elements to left and right edges");
 
   // View isolation via .is-chat-active
   assert.ok(css.includes(".mobile-header.is-chat-active .mobile-header-intake {\n    display: none !important;"), "intake bar is hidden when chat is active");
@@ -73,8 +76,15 @@ test("style.css: isolates intake vs active chat views, defines fading dark gradi
   assert.ok(css.includes("pointer-events: none;"), "header allows touch pass-through on empty fade areas in chat mode");
   assert.ok(css.includes("pointer-events: auto;"), "buttons retain pointer-events auto");
 
-  // Left: Circular dark pill button
+  // Left: Combined group
+  assert.ok(css.includes(".mobile-chat-left-group {"), ".mobile-chat-left-group is defined");
+  assert.ok(css.includes("gap: 8px;"), ".mobile-chat-left-group spaces menu and model selector");
+
+  // Touch targets: 42px touch target dimensions
+  assert.ok(css.includes("width: 42px;"), "circular pill buttons have 42px width");
+  assert.ok(css.includes("height: 42px;"), "circular pill buttons have 42px height");
   assert.ok(css.includes(".mobile-menu-pill-btn"), ".mobile-menu-pill-btn is defined");
+  assert.ok(css.includes(".mobile-new-pill-btn"), ".mobile-new-pill-btn is defined");
   assert.ok(css.includes("border-radius: 50%;"), "circular pill uses 50% border radius");
   assert.ok(css.includes(".mobile-menu-icon"), ".mobile-menu-icon is styled");
 
@@ -84,14 +94,9 @@ test("style.css: isolates intake vs active chat views, defines fading dark gradi
   assert.ok(css.includes(".mobile-mode-chevron"), ".mobile-mode-chevron is styled");
   assert.ok(css.includes("transform: rotate(180deg);"), "chevron rotates 180 degrees when model sheet is open");
 
-  // Right: Oval capsule pill
-  assert.ok(css.includes(".mobile-actions-pill"), ".mobile-actions-pill is defined");
-  assert.ok(css.includes(".mobile-actions-pill .mobile-new"), "mobile-new inside actions pill is styled");
-  assert.ok(css.includes(".mobile-actions-pill .mobile-more-btn"), "mobile-more-btn inside actions pill is styled");
-
   // Dark mode parity
   assert.ok(css.includes('[data-theme="dark"] .mobile-header.is-chat-active') || css.includes('html.dark .mobile-header.is-chat-active'), "Dark mode mobile-header.is-chat-active styling is defined");
-  assert.ok(css.includes('[data-theme="dark"] .mobile-actions-pill') || css.includes('html.dark .mobile-actions-pill'), "Dark mode mobile actions pill styling is defined");
+  assert.ok(css.includes('[data-theme="dark"] .mobile-header .mobile-new-pill-btn') || css.includes('html.dark .mobile-header .mobile-new-pill-btn'), "Dark mode mobile new button styling is defined");
 });
 
 test("script.js: applies is-chat-active ONLY during active chat, wires model/profile dropdowns, and complies with Rule 4", async () => {

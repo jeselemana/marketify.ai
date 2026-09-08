@@ -13881,9 +13881,9 @@ html.dark .auth-footer-link:hover {
     display: none;
     align-items: center;
     justify-content: space-between;
-    height: calc(58px + env(safe-area-inset-top));
-    min-height: calc(58px + env(safe-area-inset-top));
-    padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 4px max(16px, env(safe-area-inset-left));
+    height: calc(62px + env(safe-area-inset-top));
+    min-height: calc(62px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
     width: 100%;
     box-sizing: border-box;
     pointer-events: none;
@@ -13893,12 +13893,22 @@ html.dark .auth-footer-link:hover {
     pointer-events: auto;
   }
 
-  /* Left: Circular dark pill button with 2-line menu icon */
+  /* Left: Combined group for hamburger menu and model selector dropdown */
+  .mobile-chat-left-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Circular dark pill buttons (Left Menu and Right New Chat) */
   .mobile-header .mobile-menu-pill-btn,
-  .mobile-header #mobileChatMenuButton {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
+  .mobile-header #mobileChatMenuButton,
+  .mobile-header .mobile-new-pill-btn,
+  .mobile-header .mobile-header-chat #mobileNewButton {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
     border-radius: 50%;
     background: rgba(24, 24, 27, 0.78);
     backdrop-filter: blur(16px);
@@ -13914,42 +13924,45 @@ html.dark .auth-footer-link:hover {
     transition: transform 140ms ease, background 140ms ease;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
   }
 
   .mobile-header .mobile-menu-pill-btn:active,
-  .mobile-header #mobileChatMenuButton:active {
-    transform: scale(0.92);
+  .mobile-header #mobileChatMenuButton:active,
+  .mobile-header .mobile-new-pill-btn:active,
+  .mobile-header .mobile-header-chat #mobileNewButton:active {
+    transform: scale(0.93);
     background: rgba(39, 39, 42, 0.92);
   }
 
   .mobile-menu-icon {
     display: block;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     color: #ffffff;
     stroke: currentColor;
     stroke-width: 2.2;
   }
 
-  /* Center: Model Selector Pill Dropdown */
-  .mobile-header-center {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 1 1 auto;
-    min-width: 0;
-    padding: 0 8px;
+  .mobile-header-chat #mobileNewButton svg {
+    width: 19px;
+    height: 19px;
+    stroke: currentColor;
+    stroke-width: 2;
+    display: block;
   }
 
+  /* Model Selector Pill Dropdown */
   .mobile-model-pill-btn,
   .mobile-header #mobileChatModelButton {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    height: 38px;
+    gap: 6px;
+    height: 42px;
+    min-height: 42px;
     padding: 0 14px;
-    max-width: 170px;
+    max-width: 180px;
     border-radius: 999px;
     background: rgba(24, 24, 27, 0.78);
     backdrop-filter: blur(16px);
@@ -13966,6 +13979,7 @@ html.dark .auth-footer-link:hover {
     -webkit-tap-highlight-color: transparent;
     white-space: nowrap;
     overflow: hidden;
+    flex-shrink: 0;
   }
 
   .mobile-model-pill-btn:active,
@@ -13981,8 +13995,8 @@ html.dark .auth-footer-link:hover {
   }
 
   .mobile-header .mobile-mode-chevron {
-    width: 12px;
-    height: 12px;
+    width: 13px;
+    height: 13px;
     stroke: currentColor;
     stroke-width: 2.4;
     display: inline-flex;
@@ -14001,62 +14015,6 @@ html.dark .auth-footer-link:hover {
 
   .mobile-model-pill-btn.is-open .mobile-mode-chevron {
     transform: rotate(180deg);
-  }
-
-  /* Right: Elongated oval capsule pill with new chat and 3-dots */
-  .mobile-actions-pill {
-    display: inline-flex;
-    align-items: center;
-    height: 38px;
-    padding: 3px 4px;
-    border-radius: 999px;
-    background: rgba(24, 24, 27, 0.78);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.12);
-    gap: 2px;
-    flex-shrink: 0;
-  }
-
-  .mobile-actions-pill .mobile-pill-action-btn,
-  .mobile-header .mobile-pill-action-btn {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    cursor: pointer;
-    transition: background 140ms ease, transform 140ms ease, opacity 140ms ease;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .mobile-actions-pill .mobile-pill-action-btn:active,
-  .mobile-header .mobile-pill-action-btn:active {
-    transform: scale(0.92);
-    background: rgba(255, 255, 255, 0.16);
-  }
-
-  .mobile-actions-pill .mobile-new svg {
-    width: 16px;
-    height: 16px;
-    stroke: currentColor;
-    stroke-width: 2;
-    display: block;
-  }
-
-  .mobile-actions-pill .mobile-more-btn svg {
-    width: 16px;
-    height: 16px;
-    fill: currentColor;
-    display: block;
   }
 
   /* Active Chat Isolation Rules */
@@ -19620,6 +19578,10 @@ html.dark .mobile-header #mobileChatMenuButton,
 html.dark .mobile-model-pill-btn,
 [data-theme="dark"] .mobile-header #mobileChatModelButton,
 html.dark .mobile-header #mobileChatModelButton,
+[data-theme="dark"] .mobile-header .mobile-new-pill-btn,
+html.dark .mobile-header .mobile-new-pill-btn,
+[data-theme="dark"] .mobile-header #mobileNewButton,
+html.dark .mobile-header #mobileNewButton,
 [data-theme="dark"] .mobile-actions-pill,
 html.dark .mobile-actions-pill {
   background: rgba(18, 18, 20, 0.88);
