@@ -57,6 +57,32 @@ export const TRANSLATIONS = {
       languageToggleAria: "İnterfeys dilini ingilis dilinə dəyiş",
       themeToggleDark: "Dark Mode-a keç",
       themeToggleLight: "Light Mode-a keç",
+      accountSettings: "Hesab tənzimləmələri",
+      openAccountSettings: "Hesab tənzimləmələrini aç",
+    },
+
+    // ── User Profile Menu ──────────────────────────────────────────────────
+    profileMenu: {
+      ariaLabel: "İstifadəçi profil menyusu",
+      personalization: "Fərdiləşdirmə",
+      personalizationAz: "Fərdiləşdirmə",
+      profile: "Profil",
+      profileAz: "Profil",
+      settings: "Parametrlər",
+      settingsAz: "Parametrlər",
+      security: "Təhlükəsizlik",
+      securityAz: "Təhlükəsizlik",
+      legal: "Hüquqi",
+      legalAz: "Hüquqi",
+      help: "Kömək",
+      helpAz: "Kömək",
+      logout: "Çıxış",
+      logoutAz: "Çıxış",
+      planFree: "Pulsuz Plan",
+      planPro: "Pro Plan",
+      planPersonal: "Şəxsi",
+      planGuest: "Qonaq Planı",
+      guestUser: "Qonaq İstifadəçi",
     },
 
     // ── Keyboard Shortcuts ───────────────────────────────────────────────────
@@ -758,6 +784,25 @@ export const TRANSLATIONS = {
       languageToggleAria: "Switch interface language to Azerbaijani",
       themeToggleDark: "Switch to Dark Mode",
       themeToggleLight: "Switch to Light Mode",
+      accountSettings: "Account Settings",
+      openAccountSettings: "Open account settings",
+    },
+
+    // ── User Profile Menu ──────────────────────────────────────────────────
+    profileMenu: {
+      ariaLabel: "User profile menu",
+      personalization: "Personalization",
+      profile: "Profile",
+      settings: "Settings",
+      security: "Security",
+      legal: "Legal",
+      help: "Help",
+      logout: "Log out",
+      planFree: "Free Plan",
+      planPro: "Pro Plan",
+      planPersonal: "Personal",
+      planGuest: "Guest Plan",
+      guestUser: "Guest",
     },
 
     // ── Keyboard Shortcuts ───────────────────────────────────────────────────

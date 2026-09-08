@@ -8,7 +8,7 @@ import {
   setLanguage,
   formatDate as i18nFormatDate,
   LEGAL_DOCS_I18N,
-} from "./i18n.js?v=8.4";
+} from "./i18n.js?v=8.5";
 
 const workspace = document.querySelector("#workspace");
 const sidebar = document.querySelector("#sidebar");
@@ -53,6 +53,8 @@ const keyboardShortcutsOverlay = document.querySelector("#keyboardShortcutsOverl
 const installAppModalOverlay = document.querySelector("#installAppModalOverlay");
 const mobileBottomSheetOverlay = document.querySelector("#mobileBottomSheetOverlay");
 const mobileModelSheetOverlay = document.querySelector("#mobileModelSheetOverlay");
+const mobileProfileSheetOverlay = document.querySelector("#mobileProfileSheetOverlay");
+const profilePopoverMenu = document.querySelector("#profilePopoverMenu");
 
 function getKeyboardShortcuts() {
   return [
@@ -1060,6 +1062,321 @@ function openMobileModelSheet() {
   });
 }
 
+let activeProfileDocClickCleanup = null;
+
+function closeUserProfileMenu() {
+  if (activeProfileDocClickCleanup) {
+    activeProfileDocClickCleanup();
+    activeProfileDocClickCleanup = null;
+  }
+
+  const popover = document.querySelector("#profilePopoverMenu");
+  if (popover && !popover.hidden) {
+    popover.classList.remove("is-open");
+    popover.hidden = true;
+    popover.setAttribute("aria-hidden", "true");
+    popover.dataset.triggerId = "";
+    popover.replaceChildren();
+  }
+
+  const overlay = document.querySelector("#mobileProfileSheetOverlay");
+  if (overlay && !overlay.hidden && !overlay.classList.contains("is-closing")) {
+    overlay.classList.remove("is-open");
+    overlay.classList.add("is-closing");
+    document.body.style.overflow = "";
+
+    let cleanedUp = false;
+    const finishClose = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      overlay.hidden = true;
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.classList.remove("is-closing");
+      overlay.replaceChildren();
+    };
+
+    const sheet = overlay.querySelector(".mobile-profile-sheet, .mobile-action-sheet");
+    if (sheet) {
+      sheet.addEventListener("transitionend", (e) => {
+        if (e.target === sheet && e.propertyName === "transform") {
+          finishClose();
+        }
+      }, { once: true });
+    }
+    setTimeout(finishClose, 250);
+  }
+}
+
+function buildProfileMenuItems() {
+  const isEn = getLanguage() === "en";
+  const user = state.currentUser;
+
+  // 1. Header: Avatar, Name, Plan status, and Right Arrow (">")
+  const headerBtn = element("div", "profile-menu-header");
+  headerBtn.setAttribute("role", "button");
+  headerBtn.setAttribute("tabindex", "0");
+  headerBtn.setAttribute("aria-label", t("profileMenu.profile") || (isEn ? "Profile" : "Profil"));
+
+  const avatarEl = element("div", "workspace-avatar profile-menu-avatar");
+  const avatarText = user
+    ? (user.fullName || user.username || "U")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toLocaleUpperCase("az"))
+        .join("") || "H"
+    : "H";
+  avatarEl.textContent = avatarText;
+
+  const infoWrap = element("div", "profile-menu-info");
+  const nameEl = element(
+    "strong",
+    "profile-menu-name",
+    user ? (user.fullName || user.username) : (t("profileMenu.guestUser") || (isEn ? "Guest User" : "Qonaq İstifadəçi"))
+  );
+  infoWrap.append(nameEl);
+
+  const headerChevron = element("span", "profile-menu-chevron");
+  headerChevron.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+
+  const onHeaderNavigate = () => {
+    if (state.view !== "settings") {
+      state.previousView = state.view;
+    }
+    state.view = "settings";
+    state.settingsTab = "account";
+    syncNav();
+    render();
+    closeSidebar();
+    closeUserProfileMenu();
+  };
+  headerBtn.addEventListener("click", onHeaderNavigate);
+  headerBtn.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onHeaderNavigate();
+    }
+  });
+  headerBtn.append(avatarEl, infoWrap, headerChevron);
+
+  // Helper for menu items (safe DOM, XSS protection per Rule 4)
+  const createItem = ({ iconSvg, label, onClick, hasChevron = false, isDanger = false, extraClass = "" }) => {
+    const itemBtn = button("", `profile-menu-item${isDanger ? " is-danger" : ""}${extraClass ? " " + extraClass : ""}`, (e) => {
+      e.stopPropagation();
+      closeUserProfileMenu();
+      onClick();
+    });
+    itemBtn.setAttribute("role", "menuitem");
+
+    const left = element("div", "profile-menu-item-left");
+    const iconWrap = element("span", "profile-menu-item-icon");
+    iconWrap.innerHTML = iconSvg;
+    const labelWrap = element("span", "profile-menu-item-label", label);
+    left.append(iconWrap, labelWrap);
+    itemBtn.appendChild(left);
+
+    if (hasChevron) {
+      const chev = element("span", "profile-menu-item-chevron");
+      chev.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+      itemBtn.appendChild(chev);
+    }
+    return itemBtn;
+  };
+
+  // Divider 1
+  const divider1 = element("div", "profile-menu-divider");
+  divider1.setAttribute("role", "separator");
+
+  // Section 1: Settings sections (Profile, Personalization, Security, Legal)
+  const section1 = element("div", "profile-menu-section profile-menu-section-1");
+
+  const profileItem = createItem({
+    iconSvg: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+    label: t("profileMenu.profile") || (isEn ? "Profile" : "Profil"),
+    onClick: () => {
+      if (state.view !== "settings") {
+        state.previousView = state.view;
+      }
+      state.view = "settings";
+      state.settingsTab = "account";
+      syncNav();
+      render();
+      closeSidebar();
+    },
+  });
+
+  const personalizationItem = createItem({
+    iconSvg: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>`,
+    label: t("profileMenu.personalization") || (isEn ? "Personalization" : "Fərdiləşdirmə"),
+    onClick: () => {
+      if (state.view !== "settings") {
+        state.previousView = state.view;
+      }
+      state.view = "settings";
+      state.settingsTab = "experience";
+      syncNav();
+      render();
+      closeSidebar();
+    },
+  });
+
+  const securityItem = createItem({
+    iconSvg: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    label: t("profileMenu.security") || (isEn ? "Security" : "Təhlükəsizlik"),
+    onClick: () => {
+      if (state.view !== "settings") {
+        state.previousView = state.view;
+      }
+      state.view = "settings";
+      state.settingsTab = "security";
+      syncNav();
+      render();
+      closeSidebar();
+    },
+  });
+
+  const legalItem = createItem({
+    iconSvg: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+    label: t("profileMenu.legal") || (isEn ? "Legal" : "Hüquqi"),
+    onClick: () => {
+      if (state.view !== "settings") {
+        state.previousView = state.view;
+      }
+      state.view = "settings";
+      state.settingsTab = "legal";
+      syncNav();
+      render();
+      closeSidebar();
+    },
+  });
+
+  section1.append(profileItem, personalizationItem, securityItem, legalItem);
+
+  // Divider 2
+  const divider2 = element("div", "profile-menu-divider");
+  divider2.setAttribute("role", "separator");
+
+  // Section 2: Help (">"), Log out (">")
+  const section2 = element("div", "profile-menu-section profile-menu-section-2");
+  const helpItem = createItem({
+    iconSvg: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    label: t("profileMenu.help") || (isEn ? "Help" : "Kömək"),
+    hasChevron: true,
+    onClick: () => {
+      openShortcutModal();
+      closeSidebar();
+    },
+  });
+
+  const logoutItem = createItem({
+    iconSvg: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
+    label: t("profileMenu.logout") || (isEn ? "Log out" : "Çıxış"),
+    hasChevron: true,
+    isDanger: true,
+    onClick: () => {
+      logout();
+      closeSidebar();
+    },
+  });
+  section2.append(helpItem, logoutItem);
+
+  return [headerBtn, divider1, section1, divider2, section2];
+}
+
+function openUserProfileMenu(triggerEl) {
+  const isMobile = window.innerWidth <= 767;
+
+  if (isMobile) {
+    // Mobile Bottom Sheet
+    closeUserProfileMenu();
+    closeMobileBottomSheet();
+    closeMobileModelSheet();
+
+    const overlay = document.querySelector("#mobileProfileSheetOverlay");
+    if (!overlay) return;
+
+    overlay.replaceChildren();
+    overlay.hidden = false;
+    overlay.setAttribute("aria-hidden", "false");
+    overlay.classList.remove("is-closing");
+    document.body.style.overflow = "hidden";
+
+    const sheet = element("div", "mobile-action-sheet mobile-profile-sheet");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    sheet.setAttribute("aria-label", t("profileMenu.ariaLabel") || "User Profile Menu");
+
+    // Drag area & handle
+    const dragArea = element("div", "mobile-sheet-drag-area");
+    dragArea.appendChild(element("div", "mobile-sheet-drag-handle"));
+
+    // Menu content container
+    const content = element("div", "profile-menu-content");
+    const items = buildProfileMenuItems();
+    content.append(...items);
+
+    sheet.append(dragArea, content);
+    overlay.appendChild(sheet);
+    attachSwipeDownToClose(sheet, closeUserProfileMenu);
+
+    requestAnimationFrame(() => {
+      overlay.classList.add("is-open");
+    });
+  } else {
+    // Desktop Popover
+    const popover = document.querySelector("#profilePopoverMenu");
+    if (!popover) return;
+
+    // Toggle off if already open for the same trigger
+    const triggerId = triggerEl?.id || "accountTrigger";
+    if (!popover.hidden && popover.dataset.triggerId === triggerId) {
+      closeUserProfileMenu();
+      return;
+    }
+
+    closeUserProfileMenu();
+
+    popover.dataset.triggerId = triggerId;
+    popover.replaceChildren();
+
+    const content = element("div", "profile-menu-content");
+    const items = buildProfileMenuItems();
+    content.append(...items);
+    popover.appendChild(content);
+
+    popover.hidden = false;
+    popover.setAttribute("aria-hidden", "false");
+
+    // Position popover floating above avatar trigger
+    const rect = triggerEl ? triggerEl.getBoundingClientRect() : { left: 14, top: window.innerHeight - 60, width: 260 };
+    const margin = 10;
+    const popoverWidth = Math.max(rect.width, 270);
+    const bottom = Math.max(margin, window.innerHeight - rect.top + margin);
+    const left = Math.max(margin, Math.min(rect.left, window.innerWidth - popoverWidth - margin));
+
+    popover.style.bottom = `${bottom}px`;
+    popover.style.left = `${left}px`;
+    popover.style.width = `${popoverWidth}px`;
+
+    requestAnimationFrame(() => {
+      popover.classList.add("is-open");
+    });
+
+    // Outside click dismiss
+    setTimeout(() => {
+      const onDocClick = (e) => {
+        if (!popover.contains(e.target) && (!triggerEl || !triggerEl.contains(e.target))) {
+          closeUserProfileMenu();
+        }
+      };
+      document.addEventListener("click", onDocClick);
+      activeProfileDocClickCleanup = () => {
+        document.removeEventListener("click", onDocClick);
+      };
+    }, 10);
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -1250,6 +1567,7 @@ const state = {
     return "build";
   })(),
   view: "home",
+  previousView: "home",
   status: "draft",
   brief: "",
   questions: [],
@@ -1641,6 +1959,15 @@ function syncNav() {
     if (railLangBadge) {
       railLangBadge.textContent = isEn ? "EN" : "AZ";
     }
+  }
+  if (railAccountButton) {
+    const isEn = getLanguage() === "en";
+    railAccountButton.setAttribute("data-tooltip", t("nav.accountSettings") || (isEn ? "Account Settings" : "Hesab tənzimləmələri"));
+    railAccountButton.setAttribute("aria-label", t("nav.openAccountSettings") || (isEn ? "Open account settings" : "Hesab tənzimləmələrini aç"));
+  }
+  if (accountButton) {
+    const isEn = getLanguage() === "en";
+    accountButton.setAttribute("aria-label", t("nav.openAccountSettings") || (isEn ? "Open account settings" : "Hesab tənzimləmələrini aç"));
   }
   const railNavEl = document.querySelector(".navigation-rail");
   if (railNavEl) {
@@ -6872,6 +7199,26 @@ function renderSettings() {
   workspace.classList.add("workspace-settings");
   workspace.replaceChildren();
   const view = element("section", "settings-view");
+
+  const topNav = element("div", "settings-top-nav");
+  const backBtn = button("", "settings-back-btn", () => {
+    state.view = state.previousView || "home";
+    syncNav();
+    render();
+  });
+  backBtn.type = "button";
+  backBtn.id = "settingsBackBtn";
+  backBtn.setAttribute("aria-label", t("common.back") || (isEn ? "Back" : "Geri"));
+  backBtn.title = t("common.back") || (isEn ? "Back" : "Geri");
+  backBtn.innerHTML = `
+    <svg class="settings-back-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M19 12H5M12 19l-7-7 7-7"/>
+    </svg>
+    <span class="settings-back-label">${escapeHtml(t("common.back") || (isEn ? "Back" : "Geri"))}</span>
+  `;
+  topNav.appendChild(backBtn);
+  view.appendChild(topNav);
+
   const header = element("header", "settings-header");
   header.append(
     element("span", "section-kicker settings-kicker", isEn ? "SETTINGS" : "PARAMETRLƏR"),
@@ -11138,11 +11485,9 @@ railLangToggleButton?.addEventListener("click", async () => {
     "success"
   );
 });
-railAccountButton?.addEventListener("click", () => {
-  state.view = "settings";
-  syncNav();
-  render();
-  closeSidebar();
+railAccountButton?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  openUserProfileMenu(railAccountButton);
 });
 sidebarClose.addEventListener("click", closeSidebar);
 mobileOverlay.addEventListener("click", closeSidebar);
@@ -11179,16 +11524,17 @@ installAppNav?.addEventListener("click", () => {
   handleInstallAppClick();
 });
 settingsNav.addEventListener("click", () => {
+  if (state.view !== "settings") {
+    state.previousView = state.view;
+  }
   state.view = "settings";
   syncNav();
   render();
   closeSidebar();
 });
-accountButton.addEventListener("click", () => {
-  state.view = "settings";
-  syncNav();
-  render();
-  closeSidebar();
+accountButton?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  openUserProfileMenu(accountButton);
 });
 document.querySelector("#sidebarTermsBtn")?.addEventListener("click", () => {
   closeSidebar();
@@ -11216,6 +11562,9 @@ mobileBottomSheetOverlay?.addEventListener("click", (event) => {
 });
 mobileModelSheetOverlay?.addEventListener("click", (event) => {
   if (event.target === mobileModelSheetOverlay) closeMobileModelSheet();
+});
+mobileProfileSheetOverlay?.addEventListener("click", (event) => {
+  if (event.target === mobileProfileSheetOverlay) closeUserProfileMenu();
 });
 buildModeButton?.addEventListener("click", () => setMode("build"));
 askModeButton?.addEventListener("click", () => {
@@ -11280,12 +11629,29 @@ railModeToggleButton?.addEventListener("dblclick", (event) => {
 
 function handleKeyboardShortcut(event) {
   if (event.key === "Escape") {
+    const hadOverlay = Boolean(
+      (mobileOverlay && !mobileOverlay.hidden) ||
+      document.querySelector("#legalModalOverlay:not([hidden])") ||
+      document.querySelector("#keyboardShortcutsOverlay:not([hidden])") ||
+      document.querySelector("#installAppModalOverlay:not([hidden])") ||
+      document.querySelector("#mobileBottomSheetOverlay:not([hidden])") ||
+      document.querySelector("#mobileModelSheetOverlay:not([hidden])") ||
+      document.querySelector("#mobileProfileSheetOverlay:not([hidden])") ||
+      document.querySelector("#profilePopoverMenu:not([hidden])") ||
+      document.querySelector("#appShell.is-sidebar-open")
+    );
     closeSidebar();
     closeLegalModal();
     closeShortcutModal();
     closeInstallAppModal();
     closeMobileBottomSheet();
     closeMobileModelSheet();
+    closeUserProfileMenu();
+    if (!hadOverlay && state.view === "settings") {
+      state.view = state.previousView || "home";
+      syncNav();
+      render();
+    }
     return;
   }
 
