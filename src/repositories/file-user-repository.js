@@ -238,6 +238,8 @@ export class FileUserRepository {
         avatarUrl: payload.avatarUrl || null,
         emailVerifiedAt: payload.emailVerifiedAt || null,
         onboardingFocus: payload.onboardingFocus || null,
+        onboardingRole: payload.onboardingRole || null,
+        onboardingGoal: payload.onboardingGoal || null,
         onboardingCompletedAt: payload.onboardingCompletedAt || null,
         settings: {
           personalIntelligence: false,

@@ -73,8 +73,11 @@ export const AccountUpdateSchema = z.object({
 }).strict();
 
 export const OnboardingSchema = z.object({
-  focus: z.enum(["business", "campaign", "brand", "research", "other"]),
-});
+  role: z.string().trim().max(100).optional(),
+  goal: z.string().trim().max(200).optional(),
+  focus: z.string().trim().max(100).optional(),
+  skipped: z.boolean().optional(),
+}).strict();
 
 /**
  * Detects sensitive personal data (phone numbers, residential addresses, payment info,

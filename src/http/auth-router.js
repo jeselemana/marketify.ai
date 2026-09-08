@@ -44,6 +44,8 @@ export function publicUser(user) {
     avatarUrl: user.avatarUrl,
     emailVerified: Boolean(user.emailVerifiedAt),
     onboardingFocus: user.onboardingFocus,
+    onboardingRole: user.onboardingRole || null,
+    onboardingGoal: user.onboardingGoal || null,
     onboardingCompleted: Boolean(user.onboardingCompletedAt),
     status: user.status === "pending_deletion" ? "pending_deletion" : "active",
     deletionRequestedAt: user.deletionRequestedAt || null,
@@ -106,11 +108,16 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     const code = String(randomInt(100000, 1000000));
     const tokenId = hashOpaqueToken(`${user.id}:${code}`);
     await authStore.createEmailVerificationToken(tokenId, user.id, EMAIL_VERIFICATION_TTL_SECONDS);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`\n🔑 [DEV ONLY] E-poçt təsdiq kodu (${user.email}): ${code}\n`);
+    }
     try {
       await emailService.sendEmailVerificationCode({ email: user.email, fullName: user.fullName, code });
     } catch (error) {
-      // Do not leave a usable code behind if delivery fails.
-      await authStore.consumeEmailVerificationToken(tokenId);
+      if (process.env.NODE_ENV === "production") {
+        // Do not leave a usable code behind if delivery fails in production.
+        await authStore.consumeEmailVerificationToken(tokenId);
+      }
       console.error("Email verification delivery failed", {
         userId: user.id,
         emailDomain: user.email.split("@")[1] || "unknown",
@@ -295,6 +302,12 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       try {
         await sendEmailVerificationCode(user);
       } catch {
+        if (process.env.NODE_ENV !== "production") {
+          return res.json({
+            ok: true,
+            message: "Təsdiq kodu terminala çıxarıldı (Lokal test).",
+          });
+        }
         return res.status(503).json({
           error: "Təsdiq kodu hazırda göndərilə bilmədi. Bir neçə dəqiqə sonra yenidən yoxla.",
           code: "EMAIL_DELIVERY_UNAVAILABLE",
@@ -540,9 +553,26 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   router.post("/onboarding", asyncRoute(async (req, res) => {
     if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
     const payload = parseBody(OnboardingSchema, req.body);
+    const currentSettings = req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {};
+    const updatedSettings = {
+      ...currentSettings,
+    };
+    if (payload.role) {
+      updatedSettings.industry = payload.role;
+    }
+    if (payload.goal && !updatedSettings.customInstructions) {
+      updatedSettings.customInstructions = `Əsas məqsəd: ${payload.goal}`;
+    }
+    if (payload.role || payload.goal) {
+      updatedSettings.personalIntelligence = true;
+    }
+
     const updated = await userRepository.update(req.user.id, {
-      onboardingFocus: payload.focus,
+      onboardingFocus: payload.goal || payload.focus || (payload.skipped ? "other" : "business"),
+      onboardingRole: payload.role || null,
+      onboardingGoal: payload.goal || null,
       onboardingCompletedAt: new Date().toISOString(),
+      settings: updatedSettings,
     });
     return res.json({ user: publicUser(updated) });
   }));

@@ -105,114 +105,235 @@ function route(path, replace = false) {
   window.history[replace ? "replaceState" : "pushState"]({}, "", path);
 }
 
-function shell(title, subtitle) {
+function shell(title, subtitle, { stepBadge = null, wide = false } = {}) {
   authRoot.replaceChildren();
   const layout = document.createElement("div");
   layout.className = "auth-layout";
-  layout.innerHTML = `
-    <section class="auth-story" aria-label="Helmer">
-      <div class="auth-story-bg-glow"></div>
-      <div class="auth-story-header">
-        <a class="auth-brand" href="/login">
-          <div class="auth-brand-info">
-            <strong>Helmer</strong>
-          </div>
-        </a>
-      </div>
 
-      <div class="auth-story-body">
-        <div class="auth-brand-statement">
-          <h2>Düşündüyün strategiyanın<br>icrasına başla.</h2>
-          <p class="auth-brand-subtext">AI-powered strategy workspace</p>
-        </div>
-      </div>
+  // Ambient glow backdrop for theme depth
+  const glow = document.createElement("div");
+  glow.className = "auth-ambient-glow";
+  glow.setAttribute("aria-hidden", "true");
+  layout.appendChild(glow);
 
-      <div class="auth-story-footer">
-        <span class="auth-story-copyright">© Innova Group Azerbaijan</span>
-      </div>
-    </section>
+  // Top header bar with brand logo & live theme/language controls
+  const topBar = document.createElement("header");
+  topBar.className = "auth-top-bar";
 
-    <section class="auth-panel">
-      <div class="auth-container">
-        <div class="auth-mobile-header">
-          <a class="auth-brand" href="/login">
-            <div class="auth-brand-info">
-              <strong>Helmer</strong>
-            </div>
-          </a>
-        </div>
+  const brand = document.createElement("a");
+  brand.className = "auth-brand";
+  brand.href = "/login";
+  brand.setAttribute("aria-label", "Helmer");
 
-        <div class="auth-header">
-          <div class="auth-header-top-row">
-            <h1>${escapeHtml(title)}</h1>
-          </div>
-          <p>${escapeHtml(subtitle)}</p>
-        </div>
+  const brandInfo = document.createElement("div");
+  brandInfo.className = "auth-brand-info";
+  const brandLogo = document.createElement("img");
+  brandLogo.src = "/MarketifyAINewFavicon.png?v=4";
+  brandLogo.alt = "Helmer";
+  brandLogo.className = "auth-brand-logo";
+  brandLogo.width = 24;
+  brandLogo.height = 24;
+  const brandTitle = document.createElement("strong");
+  brandTitle.textContent = "Helmer";
+  brandInfo.append(brandLogo, brandTitle);
+  brand.appendChild(brandInfo);
 
-        <div class="auth-content"></div>
-      </div>
-    </section>`;
+  const utils = document.createElement("div");
+  utils.className = "auth-top-utils";
+
+  // Theme toggle button (managed automatically by public/theme.js)
+  const isDark = document.documentElement.dataset.theme === "dark";
+  const themeBtn = document.createElement("button");
+  themeBtn.type = "button";
+  themeBtn.className = "auth-util-btn auth-theme-toggle";
+  themeBtn.setAttribute("data-theme-toggle", "");
+  themeBtn.setAttribute("aria-label", isDark ? t("nav.themeToggleLight") : t("nav.themeToggleDark"));
+  themeBtn.setAttribute("title", isDark ? t("nav.themeToggleLight") : t("nav.themeToggleDark"));
+  themeBtn.innerHTML = `
+    <svg class="theme-icon-moon nav-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.9 13a9 9 0 0 1-9.9-9.9A9 9 0 1 0 20.9 13Z"/></svg>
+    <svg class="theme-icon-sun nav-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+  `;
+
+  // Language toggle button
+  const currentLang = getLanguage();
+  const langBtn = document.createElement("button");
+  langBtn.type = "button";
+  langBtn.className = "auth-util-btn auth-lang-btn";
+  langBtn.setAttribute("aria-label", t("nav.languageToggleAria"));
+  langBtn.setAttribute("title", t("nav.languageToggle"));
+  const langBadge = document.createElement("span");
+  langBadge.className = "auth-lang-badge";
+  langBadge.textContent = currentLang === "az" ? "EN" : "AZ";
+  langBtn.appendChild(langBadge);
+  langBtn.addEventListener("click", () => {
+    const next = getLanguage() === "az" ? "en" : "az";
+    setLanguage(next, true);
+    renderRoute();
+  });
+
+  utils.append(themeBtn, langBtn);
+  topBar.append(brand, utils);
+  layout.appendChild(topBar);
+
+  // Auth panel container (clean, centered minimalist glass card)
+  const panel = document.createElement("section");
+  panel.className = "auth-panel";
+
+  const container = document.createElement("div");
+  container.className = `auth-container auth-card${wide ? " auth-container-wide" : ""}`;
+
+  if (stepBadge) {
+    const badgeEl = document.createElement("div");
+    badgeEl.className = "auth-step-badge";
+    badgeEl.textContent = stepBadge;
+    container.appendChild(badgeEl);
+  }
+
+  const header = document.createElement("div");
+  header.className = "auth-header";
+
+  const h1 = document.createElement("h1");
+  h1.textContent = title;
+
+  const p = document.createElement("p");
+  p.textContent = subtitle;
+
+  header.append(h1, p);
+  container.appendChild(header);
+
+  const content = document.createElement("div");
+  content.className = "auth-content";
+  container.appendChild(content);
+
+  panel.appendChild(container);
+  layout.appendChild(panel);
+
+  // Footer with copyright & legal links
+  const footer = document.createElement("footer");
+  footer.className = "auth-footer";
+  const copyright = document.createElement("span");
+  copyright.className = "auth-copyright";
+  copyright.textContent = "© Innova Group Azerbaijan";
+
+  const footerLinks = document.createElement("div");
+  footerLinks.className = "auth-footer-links";
+
+  const termsLink = document.createElement("a");
+  termsLink.href = "/terms";
+  termsLink.target = "_blank";
+  termsLink.rel = "noopener noreferrer";
+  termsLink.className = "auth-footer-link";
+  termsLink.textContent = t("nav.terms") || "İstifadə şərtləri";
+
+  const privacyLink = document.createElement("a");
+  privacyLink.href = "/privacy";
+  privacyLink.target = "_blank";
+  privacyLink.rel = "noopener noreferrer";
+  privacyLink.className = "auth-footer-link";
+  privacyLink.textContent = t("nav.privacy") || "Məxfilik siyasəti";
+
+  footerLinks.append(termsLink, document.createTextNode(" · "), privacyLink);
+  footer.append(copyright, footerLinks);
+  layout.appendChild(footer);
 
   authRoot.appendChild(layout);
-  return layout.querySelector(".auth-content");
+  return content;
 }
 
 function field({ label, name, type = "text", autocomplete, placeholder = "", hint = "" }) {
   const wrapper = document.createElement("label");
   wrapper.className = "auth-field";
   const eyeLabel = getLanguage() === "en" ? "Show password" : "Şifrəni göstər";
-  wrapper.innerHTML = `
-    <span class="auth-field-label">${label}</span>
-    <span class="auth-input-wrap">
-      <input name="${name}" type="${type}" autocomplete="${autocomplete || "off"}" placeholder="${placeholder}" required />
-      <button class="password-toggle" type="button" aria-label="${eyeLabel}" ${type === "password" ? "" : "hidden"}>
-        <svg class="icon-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-      </button>
-    </span>
-    <small class="auth-field-hint">${hint}</small>
-  `;
-  const input = wrapper.querySelector("input");
+
+  const labelSpan = document.createElement("span");
+  labelSpan.className = "auth-field-label";
+  labelSpan.textContent = label;
+
+  const wrapSpan = document.createElement("span");
+  wrapSpan.className = "auth-input-wrap";
+
+  const input = document.createElement("input");
+  input.name = name;
+  input.type = type;
+  input.autocomplete = autocomplete || "off";
+  input.placeholder = placeholder;
+  input.required = true;
   input.setAttribute("aria-label", label);
-  const toggle = wrapper.querySelector(".password-toggle");
+  wrapSpan.appendChild(input);
+
   if (type === "password") {
+    const toggle = document.createElement("button");
+    toggle.className = "password-toggle";
+    toggle.type = "button";
+    toggle.setAttribute("aria-label", eyeLabel);
+    toggle.innerHTML = `<svg class="icon-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+
     toggle.addEventListener("click", () => {
       const visible = input.type === "text";
       input.type = visible ? "password" : "text";
       const isEn = getLanguage() === "en";
       toggle.setAttribute("aria-label", visible ? (isEn ? "Show password" : "Şifrəni göstər") : (isEn ? "Hide password" : "Şifrəni gizlət"));
       toggle.innerHTML = visible
-        ? `<svg class="icon-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`
-        : `<svg class="icon-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`;
+        ? `<svg class="icon-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`
+        : `<svg class="icon-eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`;
     });
+    wrapSpan.appendChild(toggle);
   }
+
+  const hintEl = document.createElement("small");
+  hintEl.className = "auth-field-hint";
+  hintEl.textContent = hint;
+
+  wrapper.append(labelSpan, wrapSpan, hintEl);
   return wrapper;
 }
 
 function setFormError(form, message, fieldName = "") {
   form.querySelectorAll(".auth-field").forEach((item) => item.classList.remove("has-error"));
   const box = form.querySelector(".auth-error");
-  box.textContent = message || "";
-  box.hidden = !message;
+  if (box) {
+    box.textContent = message || "";
+    box.hidden = !message;
+  }
   if (fieldName) form.elements[fieldName]?.closest(".auth-field")?.classList.add("has-error");
 }
 
 function submitState(button, pending, label) {
   button.disabled = pending;
-  button.innerHTML = pending ? `<span class="auth-spinner" aria-hidden="true"></span>${t("common.loading")}` : label;
+  button.replaceChildren();
+  if (pending) {
+    const spinner = document.createElement("span");
+    spinner.className = "auth-spinner";
+    spinner.setAttribute("aria-hidden", "true");
+    button.append(spinner, document.createTextNode(` ${t("common.loading") || "Loading…"}`));
+  } else {
+    button.textContent = label;
+  }
 }
 
 function formBase(actionLabel) {
   const form = document.createElement("form");
   form.className = "auth-form";
-  form.innerHTML = `<div class="auth-error" role="alert" hidden></div>`;
+  const err = document.createElement("div");
+  err.className = "auth-error";
+  err.setAttribute("role", "alert");
+  err.hidden = true;
+  form.appendChild(err);
+
   const submit = document.createElement("button");
   submit.type = "submit";
   submit.className = "auth-submit";
   submit.textContent = actionLabel;
   return { form, submit };
+}
+
+function authDivider(text) {
+  const divider = document.createElement("div");
+  divider.className = "auth-divider";
+  const span = document.createElement("span");
+  span.textContent = text;
+  divider.appendChild(span);
+  return divider;
 }
 
 function linkButton(label, path) {
@@ -244,12 +365,16 @@ function guestAccessButton(label = null) {
   const guest = document.createElement("button");
   guest.type = "button";
   guest.className = "auth-guest-link";
-  guest.innerHTML = `
-    <span>${escapeHtml(currentLabel)}</span>
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M5 12h14M12 5l7 7-7 7"/>
-    </svg>
-  `;
+
+  const textSpan = document.createElement("span");
+  textSpan.textContent = currentLabel;
+  guest.appendChild(textSpan);
+
+  guest.insertAdjacentHTML(
+    "beforeend",
+    `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>`
+  );
+
   guest.addEventListener("click", enterGuestWorkspace);
   wrap.appendChild(guest);
   return wrap;
@@ -384,9 +509,7 @@ function renderLogin() {
 
   form.append(helpers, submit);
 
-  const divider = document.createElement("div");
-  divider.className = "auth-divider";
-  divider.innerHTML = `<span>${isEn ? "or" : "və ya"}</span>`;
+  const divider = authDivider(isEn ? "or" : "və ya");
 
   form.append(
     divider,
@@ -444,7 +567,9 @@ function renderLogin() {
 function renderSignup() {
   document.title = `${t("auth.signup.title")} — Helmer Workspace`;
   const isEn = getLanguage() === "en";
-  const content = shell(t("auth.signup.title"), t("auth.signup.subtitle"));
+  const content = shell(t("auth.signup.title"), t("auth.signup.subtitle"), {
+    stepBadge: t("auth.signup.stepBadge") || (isEn ? "Step 1 of 3 · Account Details" : "Addım 1 / 3 · Hesab məlumatları"),
+  });
   const { form, submit } = formBase(t("auth.signup.submitBtn"));
   const fullName = field({ label: t("auth.signup.fullNameLabel"), name: "fullName", autocomplete: "name", placeholder: isEn ? "Full Name" : "Ad və Soyad" });
   const username = field({ label: t("auth.signup.usernameLabel"), name: "username", autocomplete: "username", placeholder: isEn ? "marketer" : "marketoloq" });
@@ -457,9 +582,7 @@ function renderSignup() {
   const password = field({ label: t("auth.signup.passwordLabel"), name: "password", type: "password", autocomplete: "new-password", placeholder: isEn ? "At least 10 characters" : "Ən azı 10 simvol" });
   form.append(fullName, username, email, password, submit);
 
-  const divider = document.createElement("div");
-  divider.className = "auth-divider";
-  divider.innerHTML = `<span>${isEn ? "or" : "və ya"}</span>`;
+  const divider = authDivider(isEn ? "or" : "və ya");
 
   form.append(
     divider,
@@ -645,8 +768,13 @@ function renderForgot() {
       form.replaceChildren();
       const done = document.createElement("div");
       done.className = "auth-success";
-      done.innerHTML = `<span>✓</span><h3>${isEn ? "Check your email" : "E-poçtunu yoxla"}</h3><p>${data.message || t("auth.forgotPassword.sentNotice")}</p>`;
-      done.appendChild(linkButton(isEn ? "Back to sign in" : "Daxil olmağa qayıt", "/login"));
+      const checkIcon = document.createElement("span");
+      checkIcon.textContent = "✓";
+      const heading = document.createElement("h3");
+      heading.textContent = isEn ? "Check your email" : "E-poçtunu yoxla";
+      const notice = document.createElement("p");
+      notice.textContent = data.message || t("auth.forgotPassword.sentNotice");
+      done.append(checkIcon, heading, notice, linkButton(isEn ? "Back to sign in" : "Daxil olmağa qayıt", "/login"));
       form.appendChild(done);
     } catch (error) {
       setFormError(form, error.message);
@@ -683,8 +811,13 @@ function renderReset() {
       form.replaceChildren();
       const done = document.createElement("div");
       done.className = "auth-success";
-      done.innerHTML = `<span>✓</span><h3>${isEn ? "Password Updated" : "Şifrə yeniləndi"}</h3><p>${t("auth.resetPassword.successNotice")}</p>`;
-      done.appendChild(linkButton(t("auth.login.title"), "/login"));
+      const checkIcon = document.createElement("span");
+      checkIcon.textContent = "✓";
+      const heading = document.createElement("h3");
+      heading.textContent = isEn ? "Password Updated" : "Şifrə yeniləndi";
+      const notice = document.createElement("p");
+      notice.textContent = t("auth.resetPassword.successNotice");
+      done.append(checkIcon, heading, notice, linkButton(t("auth.login.title"), "/login"));
       form.appendChild(done);
     } catch (error) {
       setFormError(form, error.message);
@@ -696,38 +829,327 @@ function renderReset() {
 
 function renderOnboarding(user) {
   const isEn = getLanguage() === "en";
-  document.title = `${isEn ? "Set up Helmer" : "Helmer-i hazırla"} — Helmer Workspace`;
+  document.title = `${isEn ? "Personalization" : "Fərdiləşdirmə"} — Helmer Workspace`;
   document.body.classList.add("auth-active");
-  const firstName = user.fullName.split(" ")[0];
+
+  const firstName = (user?.fullName || "").trim().split(/\s+/)[0] || (isEn ? "Leader" : "Lider");
+  const welcomeTitle = isEn ? `Welcome, ${firstName}` : `Salam, ${firstName}`;
+  const subtitle = t("auth.onboarding.subtitle") || (isEn ? "Briefly tailor Helmer to your workflow." : "Helmer-i iş axınınıza uyğunlaşdırmaq üçün qısa məlumat verin.");
+
   const content = shell(
-    isEn ? `Welcome, ${firstName}` : `Salam, ${firstName}`,
-    isEn ? "Choose your primary focus to tailor Helmer to your workflow." : "Helmer-i işinə uyğunlaşdırmaq üçün əsas fokusunu seç."
+    welcomeTitle,
+    subtitle,
+    {
+      stepBadge: t("auth.onboarding.stepBadge") || (isEn ? "Step 2 of 3 · Personalization" : "Addım 2 / 3 · Fərdiləşdirmə"),
+      wide: true,
+    }
   );
+
   const form = document.createElement("form");
-  form.className = "onboarding-form";
-  form.innerHTML = `<div class="auth-error" role="alert" hidden></div><div class="onboarding-options">
-    <label><input type="radio" name="focus" value="business" checked><span><strong>${isEn ? "Business Strategy" : "Biznes strategiyası"}</strong><small>${isEn ? "Positioning, growth, and execution plan" : "Mövqelənmə, böyümə və icra planı"}</small></span></label>
-    <label><input type="radio" name="focus" value="campaign"><span><strong>${isEn ? "Campaigns" : "Kampaniya"}</strong><small>${isEn ? "Launch and marketing campaigns" : "Launch və marketinq kampaniyaları"}</small></span></label>
-    <label><input type="radio" name="focus" value="brand"><span><strong>${isEn ? "Brand Strategy" : "Brend"}</strong><small>${isEn ? "Audience, messaging, and brand direction" : "Auditoriya, mesaj və brend istiqaməti"}</small></span></label>
-    <label><input type="radio" name="focus" value="research"><span><strong>${isEn ? "Research" : "Araşdırma"}</strong><small>${isEn ? "Market, competitors, and decision support" : "Bazar, rəqib və qərar dəstəyi"}</small></span></label>
-  </div>`;
+  form.className = "auth-form onboarding-form";
+
+  const errorBox = document.createElement("div");
+  errorBox.className = "auth-error";
+  errorBox.setAttribute("role", "alert");
+  errorBox.hidden = true;
+  form.appendChild(errorBox);
+
+  // Group 1: Role / Industry selection
+  const roleGroup = document.createElement("div");
+  roleGroup.className = "onboarding-group";
+
+  const roleLabel = document.createElement("div");
+  roleLabel.className = "onboarding-label";
+  roleLabel.textContent = t("auth.onboarding.roleLabel") || (isEn ? "1. Your role or field:" : "1. Rol və ya fəaliyyət sahəniz:");
+  roleGroup.appendChild(roleLabel);
+
+  const roleGrid = document.createElement("div");
+  roleGrid.className = "onboarding-grid onboarding-grid-roles";
+
+  const roleOptions = [
+    {
+      key: "marketing",
+      title: t("auth.onboarding.roles.marketing.title") || (isEn ? "Marketing" : "Marketinq"),
+      desc: t("auth.onboarding.roles.marketing.desc") || (isEn ? "Digital marketing, brand & growth" : "Rəqəmsal marketinq, brend və böyümə"),
+    },
+    {
+      key: "startup",
+      title: t("auth.onboarding.roles.startup.title") || (isEn ? "Startup / Founder" : "Startap / Təsisçi"),
+      desc: t("auth.onboarding.roles.startup.desc") || (isEn ? "Product development & go-to-market" : "Məhsul inkişafı və bazar açılışı"),
+    },
+    {
+      key: "business",
+      title: t("auth.onboarding.roles.business.title") || (isEn ? "Business Management" : "Biznes İdarəetmə"),
+      desc: t("auth.onboarding.roles.business.desc") || (isEn ? "Leadership, operations & strategy" : "Rəhbərlik, əməliyyatlar və strategiya"),
+    },
+    {
+      key: "ecommerce",
+      title: t("auth.onboarding.roles.ecommerce.title") || (isEn ? "E-Commerce" : "E-ticarət"),
+      desc: t("auth.onboarding.roles.ecommerce.desc") || (isEn ? "Online store, retail & direct sales" : "Onlayn mağaza, satış və pərakəndə"),
+    },
+    {
+      key: "freelance",
+      title: t("auth.onboarding.roles.freelance.title") || (isEn ? "Freelance" : "Freelance"),
+      desc: t("auth.onboarding.roles.freelance.desc") || (isEn ? "Independent consultant or agency" : "Müstəqil mütəxəssis və ya agentlik"),
+    },
+    {
+      key: "other",
+      title: t("auth.onboarding.roles.other.title") || (isEn ? "Other" : "Digər"),
+      desc: t("auth.onboarding.roles.other.desc") || (isEn ? "Other custom domain or project" : "Fərqli fəaliyyət sahəsi və ya layihə"),
+    },
+  ];
+
+  roleOptions.forEach((opt, idx) => {
+    const label = document.createElement("label");
+    label.className = "onboarding-card";
+
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "role";
+    input.value = opt.title;
+    if (idx === 0) input.checked = true;
+
+    const cardInner = document.createElement("span");
+    cardInner.className = "onboarding-card-inner";
+
+    const cardHeader = document.createElement("span");
+    cardHeader.className = "onboarding-card-header";
+
+    const titleEl = document.createElement("strong");
+    titleEl.textContent = opt.title;
+
+    const checkIndicator = document.createElement("span");
+    checkIndicator.className = "onboarding-card-check";
+    checkIndicator.setAttribute("aria-hidden", "true");
+
+    cardHeader.append(titleEl, checkIndicator);
+
+    const descEl = document.createElement("small");
+    descEl.textContent = opt.desc;
+
+    cardInner.append(cardHeader, descEl);
+    label.append(input, cardInner);
+    roleGrid.appendChild(label);
+  });
+
+  roleGroup.appendChild(roleGrid);
+  form.appendChild(roleGroup);
+
+  // Group 2: Primary Goal / Use Case selection
+  const goalGroup = document.createElement("div");
+  goalGroup.className = "onboarding-group";
+
+  const goalLabel = document.createElement("div");
+  goalLabel.className = "onboarding-label";
+  goalLabel.textContent = t("auth.onboarding.goalLabel") || (isEn ? "2. Primary purpose / goal:" : "2. Əsas istifadə məqsədiniz:");
+  goalGroup.appendChild(goalLabel);
+
+  const goalGrid = document.createElement("div");
+  goalGrid.className = "onboarding-grid onboarding-grid-goals";
+
+  const goalOptions = [
+    {
+      key: "strategy",
+      title: t("auth.onboarding.goals.strategy.title") || (isEn ? "Build Strategy" : "Strategiya qurmaq"),
+      desc: t("auth.onboarding.goals.strategy.desc") || (isEn ? "Market analysis, positioning & roadmap" : "Bazar analizi, mövqelənmə və yol xəritəsi"),
+    },
+    {
+      key: "content",
+      title: t("auth.onboarding.goals.content.title") || (isEn ? "Create Content" : "Məzmun yaratmaq"),
+      desc: t("auth.onboarding.goals.content.desc") || (isEn ? "Campaign concepts & creative messaging" : "Kampaniya konsepsiyaları və kreativ mesajlar"),
+    },
+    {
+      key: "execution",
+      title: t("auth.onboarding.goals.execution.title") || (isEn ? "Execution & Analytics" : "İcra və analiz"),
+      desc: t("auth.onboarding.goals.execution.desc") || (isEn ? "Task execution, KPIs & performance tracking" : "Tapşırıqların icrası, KPI və nəticələrin analizi"),
+    },
+  ];
+
+  goalOptions.forEach((opt, idx) => {
+    const label = document.createElement("label");
+    label.className = "onboarding-card";
+
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "goal";
+    input.value = opt.title;
+    input.dataset.focus = opt.key;
+    if (idx === 0) input.checked = true;
+
+    const cardInner = document.createElement("span");
+    cardInner.className = "onboarding-card-inner";
+
+    const cardHeader = document.createElement("span");
+    cardHeader.className = "onboarding-card-header";
+
+    const titleEl = document.createElement("strong");
+    titleEl.textContent = opt.title;
+
+    const checkIndicator = document.createElement("span");
+    checkIndicator.className = "onboarding-card-check";
+    checkIndicator.setAttribute("aria-hidden", "true");
+
+    cardHeader.append(titleEl, checkIndicator);
+
+    const descEl = document.createElement("small");
+    descEl.textContent = opt.desc;
+
+    cardInner.append(cardHeader, descEl);
+    label.append(input, cardInner);
+    goalGrid.appendChild(label);
+  });
+
+  goalGroup.appendChild(goalGrid);
+  form.appendChild(goalGroup);
+
+  // Action Buttons: Continue & Skip
+  const actions = document.createElement("div");
+  actions.className = "onboarding-actions";
+
   const submit = document.createElement("button");
   submit.type = "submit";
   submit.className = "auth-submit";
-  submit.textContent = isEn ? "Continue to Workspace" : "Workspace-ə keç";
-  form.appendChild(submit);
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    submitState(submit, true, isEn ? "Continuing…" : "Keçid edilir…");
+  submit.textContent = t("auth.onboarding.continueBtn") || (isEn ? "Continue to Workspace" : "Davam et");
+
+  const skipBtn = document.createElement("button");
+  skipBtn.type = "button";
+  skipBtn.className = "auth-skip-btn";
+  skipBtn.textContent = t("auth.onboarding.skipBtn") || (isEn ? "Skip for now" : "Keç");
+
+  actions.append(submit, skipBtn);
+  form.appendChild(actions);
+
+  skipBtn.addEventListener("click", async () => {
+    skipBtn.disabled = true;
+    submit.disabled = true;
+    submitState(submit, true, isEn ? "Loading…" : "Keçid edilir…");
     try {
-      const data = await request("/api/auth/onboarding", { method: "POST", body: JSON.stringify({ focus: form.focus.value }) });
-      await completeAuthentication(data.user);
+      const data = await request("/api/auth/onboarding", {
+        method: "POST",
+        body: JSON.stringify({ skipped: true }),
+      });
+      renderWorkspaceOverview(data.user);
     } catch (error) {
       setFormError(form, error.message);
-      submitState(submit, false, isEn ? "Continue to Workspace" : "Workspace-ə keç");
+      submitState(submit, false, t("auth.onboarding.continueBtn") || (isEn ? "Continue to Workspace" : "Davam et"));
+      skipBtn.disabled = false;
     }
   });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setFormError(form, "");
+    submitState(submit, true, t("auth.onboarding.submitting") || (isEn ? "Saving…" : "Yadda saxlanılır…"));
+    skipBtn.disabled = true;
+
+    try {
+      const selectedRole = form.role.value;
+      const selectedGoalInput = form.querySelector('input[name="goal"]:checked');
+      const selectedGoal = selectedGoalInput ? selectedGoalInput.value : "";
+      const selectedFocus = selectedGoalInput?.dataset?.focus || "business";
+
+      const data = await request("/api/auth/onboarding", {
+        method: "POST",
+        body: JSON.stringify({
+          role: selectedRole,
+          goal: selectedGoal,
+          focus: selectedFocus,
+        }),
+      });
+      renderWorkspaceOverview(data.user);
+    } catch (error) {
+      setFormError(form, error.message);
+      submitState(submit, false, t("auth.onboarding.continueBtn") || (isEn ? "Continue to Workspace" : "Davam et"));
+      skipBtn.disabled = false;
+    }
+  });
+
   content.appendChild(form);
+}
+
+function renderWorkspaceOverview(user) {
+  const isEn = getLanguage() === "en";
+  document.title = `${t("auth.overview.title") || (isEn ? "Welcome to Helmer Workspace" : "Helmer Workspace-ə xoş gəldiniz")} — Helmer Workspace`;
+  document.body.classList.add("auth-active");
+
+  const content = shell(
+    t("auth.overview.title") || (isEn ? "Welcome to Helmer Workspace" : "Helmer Workspace-ə xoş gəldiniz"),
+    t("auth.overview.subtitle") || (isEn ? "Strategic management, AI execution, and unified workflows in one place." : "Strateji idarəetmə, süni intellektlə icra və güclü iş axını bir məkanda."),
+    {
+      stepBadge: t("auth.overview.stepBadge") || (isEn ? "Step 3 of 3 · Workspace Overview" : "Addım 3 / 3 · Workspace İcmalı"),
+      wide: true,
+    }
+  );
+
+  const container = document.createElement("div");
+  container.className = "onboarding-overview-container";
+
+  const grid = document.createElement("div");
+  grid.className = "onboarding-overview-grid";
+
+  const cardsData = [
+    {
+      key: "strategy",
+      svg: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>`,
+      title: t("auth.overview.cards.strategy.title") || (isEn ? "Strategic Management" : "Strateji İdarəetmə"),
+      desc: t("auth.overview.cards.strategy.desc") || (isEn ? "Clear business objectives, market research, competitive insights, and step-by-step growth roadmaps." : "Dəqiq biznes hədəfləri, bazar analizi, rəqib araşdırması və addım-addım böyümə yol xəritələri."),
+    },
+    {
+      key: "execution",
+      svg: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`,
+      title: t("auth.overview.cards.execution.title") || (isEn ? "AI-Powered Execution" : "Süni İntellektlə İcra"),
+      desc: t("auth.overview.cards.execution.desc") || (isEn ? "AI-powered deep copilot for rapid campaign concepts, creative copy, and execution." : "Dərin süni intellekt kopiloti, avtomatlaşdırılmış kampaniyalar və sürətli kreativ məzmun."),
+    },
+    {
+      key: "workflow",
+      svg: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`,
+      title: t("auth.overview.cards.workflow.title") || (isEn ? "Unified Workflows" : "Vahid İş Axını"),
+      desc: t("auth.overview.cards.workflow.desc") || (isEn ? "Built-in task planner, instant PDF/DOCX exports, and real-time performance tracking." : "Tapşırıq planlayıcısı, PDF/DOCX sənəd ixracı və real-vaxt performans nəticələri."),
+    },
+  ];
+
+  cardsData.forEach((item) => {
+    const card = document.createElement("div");
+    card.className = "onboarding-overview-card";
+
+    const iconBox = document.createElement("div");
+    iconBox.className = "onboarding-overview-icon";
+    iconBox.setAttribute("aria-hidden", "true");
+    iconBox.insertAdjacentHTML("beforeend", item.svg);
+
+    const titleEl = document.createElement("strong");
+    titleEl.className = "onboarding-overview-title";
+    titleEl.textContent = item.title;
+
+    const descEl = document.createElement("p");
+    descEl.className = "onboarding-overview-desc";
+    descEl.textContent = item.desc;
+
+    card.append(iconBox, titleEl, descEl);
+    grid.appendChild(card);
+  });
+
+  const actions = document.createElement("div");
+  actions.className = "onboarding-overview-actions";
+
+  const enterBtn = document.createElement("button");
+  enterBtn.type = "button";
+  enterBtn.className = "auth-submit onboarding-enter-btn";
+  enterBtn.textContent = t("auth.overview.enterBtn") || (isEn ? "Enter Workspace" : "Workspace-ə daxil ol");
+
+  enterBtn.addEventListener("click", async () => {
+    enterBtn.disabled = true;
+    submitState(enterBtn, true, isEn ? "Entering…" : "Daxil olunur…");
+    authRoot.hidden = true;
+    appShell.hidden = false;
+    document.body.classList.remove("auth-loading", "auth-active");
+    route(pendingReturnPath, true);
+    await authenticatedCallback?.(user);
+  });
+
+  actions.appendChild(enterBtn);
+  container.append(grid, actions);
+  content.appendChild(container);
 }
 
 function renderRoute() {

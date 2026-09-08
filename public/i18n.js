@@ -587,6 +587,7 @@ export const TRANSLATIONS = {
         signupLink: "Qeydiyyatdan keç",
       },
       signup: {
+        stepBadge: "Addım 1 / 3 · Hesab məlumatları",
         title: "Hesab yarat",
         subtitle: "Pulsuz başlayın. Strategiyalarınızı istənilən cihazdan idarə edin.",
         fullNameLabel: "Ad və soyad",
@@ -604,6 +605,49 @@ export const TRANSLATIONS = {
         and: " və ",
         privacyLink: "məxfilik siyasətini",
         termsAgreementPost: " qəbul edirsən.",
+      },
+      onboarding: {
+        stepBadge: "Addım 2 / 3 · Fərdiləşdirmə",
+        welcomeTitle: "Salam, {name}",
+        subtitle: "Helmer-i iş axınınıza uyğunlaşdırmaq üçün qısa məlumat verin.",
+        roleLabel: "Rol və ya fəaliyyət sahəniz:",
+        roles: {
+          marketing: { title: "Marketinq", desc: "Rəqəmsal marketinq, brend və böyümə" },
+          startup: { title: "Startap / Təsisçi", desc: "Məhsul inkişafı və bazar açılışı" },
+          business: { title: "Biznes İdarəetmə", desc: "Rəhbərlik, əməliyyatlar və strategiya" },
+          ecommerce: { title: "E-ticarət", desc: "Onlayn mağaza, satış və pərakəndə" },
+          freelance: { title: "Freelance", desc: "Müstəqil mütəxəssis və ya agentlik" },
+          other: { title: "Digər", desc: "Fərqli fəaliyyət sahəsi və ya layihə" },
+        },
+        goalLabel: "Əsas istifadə məqsədiniz:",
+        goals: {
+          strategy: { title: "Strategiya qurmaq", desc: "Bazar analizi, mövqelənmə və yol xəritəsi" },
+          content: { title: "Məzmun yaratmaq", desc: "Kampaniya konsepsiyaları və kreativ mesajlar" },
+          execution: { title: "İcra və analiz", desc: "Tapşırıqların icrası, KPI və nəticələrin analizi" },
+        },
+        continueBtn: "Davam et",
+        skipBtn: "Keç",
+        submitting: "Yadda saxlanılır…",
+      },
+      overview: {
+        stepBadge: "Addım 3 / 3 · Workspace İcmalı",
+        title: "Helmer Workspace-ə xoş gəldiniz",
+        subtitle: "Strateji idarəetmə, süni intellektlə icra və güclü iş axını bir məkanda.",
+        cards: {
+          strategy: {
+            title: "Strateji İdarəetmə",
+            desc: "Dəqiq biznes hədəfləri, bazar analizi, rəqib araşdırması və addım-addım böyümə yol xəritələri.",
+          },
+          execution: {
+            title: "Süni İntellektlə İcra",
+            desc: "Dərin süni intellekt kopiloti, avtomatlaşdırılmış kampaniyalar və sürətli kreativ məzmun.",
+          },
+          workflow: {
+            title: "Vahid İş Axını",
+            desc: "Tapşırıq planlayıcısı, PDF/DOCX sənəd ixracı və real-vaxt performans nəticələri.",
+          },
+        },
+        enterBtn: "Workspace-ə daxil ol",
       },
       forgotPassword: {
         title: "Şifrənin bərpası",
@@ -1307,6 +1351,7 @@ export const TRANSLATIONS = {
         signupLink: "Create account",
       },
       signup: {
+        stepBadge: "Step 1 of 3 · Account Details",
         title: "Create Account",
         subtitle: "Start for free. Manage your marketing strategies from any device.",
         fullNameLabel: "Full Name",
@@ -1324,6 +1369,49 @@ export const TRANSLATIONS = {
         and: " and ",
         privacyLink: "Privacy Policy",
         termsAgreementPost: ".",
+      },
+      onboarding: {
+        stepBadge: "Step 2 of 3 · Personalization",
+        welcomeTitle: "Welcome, {name}",
+        subtitle: "Briefly customize Helmer for your specific workflow.",
+        roleLabel: "Your role or field:",
+        roles: {
+          marketing: { title: "Marketing", desc: "Digital marketing, brand & growth" },
+          startup: { title: "Startup / Founder", desc: "Product development & go-to-market" },
+          business: { title: "Business Management", desc: "Leadership, operations & strategy" },
+          ecommerce: { title: "E-Commerce", desc: "Online store, retail & direct sales" },
+          freelance: { title: "Freelance", desc: "Independent consultant or agency" },
+          other: { title: "Other", desc: "Other custom domain or project" },
+        },
+        goalLabel: "Primary purpose / goal:",
+        goals: {
+          strategy: { title: "Build Strategy", desc: "Market analysis, positioning & roadmap" },
+          content: { title: "Create Content", desc: "Campaign concepts & creative messaging" },
+          execution: { title: "Execution & Analytics", desc: "Task execution, KPIs & performance tracking" },
+        },
+        continueBtn: "Continue",
+        skipBtn: "Skip",
+        submitting: "Saving…",
+      },
+      overview: {
+        stepBadge: "Step 3 of 3 · Workspace Overview",
+        title: "Welcome to Helmer Workspace",
+        subtitle: "Strategic management, AI execution, and unified workflows in one place.",
+        cards: {
+          strategy: {
+            title: "Strategic Management",
+            desc: "Clear business objectives, market research, competitive insights, and step-by-step growth roadmaps.",
+          },
+          execution: {
+            title: "AI-Powered Execution",
+            desc: "AI-powered deep copilot for rapid campaign concepts, creative copy, and execution.",
+          },
+          workflow: {
+            title: "Unified Workflows",
+            desc: "Built-in task planner, instant PDF/DOCX exports, and real-time performance tracking.",
+          },
+        },
+        enterBtn: "Enter Workspace",
       },
       forgotPassword: {
         title: "Reset Password",
