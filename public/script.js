@@ -27,6 +27,7 @@ const toastRegion = document.querySelector("#toastRegion");
 const recentList = document.querySelector("#recentList");
 const strategyCount = document.querySelector("#strategyCount");
 const plannerCount = document.querySelector("#plannerCount");
+const searchNav = document.querySelector("#searchNav");
 const homeNav = document.querySelector("#homeNav");
 const strategiesNav = document.querySelector("#strategiesNav");
 const plannerNav = document.querySelector("#plannerNav");
@@ -57,8 +58,10 @@ const mobileProfileSheetOverlay = document.querySelector("#mobileProfileSheetOve
 const profilePopoverMenu = document.querySelector("#profilePopoverMenu");
 
 function getKeyboardShortcuts() {
+  const isEn = getLanguage() === "en";
   return [
-    { label: t("shortcuts.items.newStrategyOrChat"), mac: "⌘ ⌥ N", windows: "Ctrl Alt N", action: () => newStrategyButton?.click() },
+    { label: t("shortcuts.items.newStrategyOrChat"), mac: "⌘ ⌥ N", windows: "Ctrl Alt N", action: () => (state.mode === "ask" ? startNewChat() : resetStrategy()) },
+    { label: t("nav.search") || (isEn ? "Search" : "Axtarış"), mac: "⌘ K", windows: "Ctrl K", action: () => openSearchModal() },
     { label: t("shortcuts.items.home"), mac: "⌘ 1", windows: "Ctrl 1", action: () => homeNav?.click() },
     { label: t("shortcuts.items.archive"), mac: "⌘ 2", windows: "Ctrl 2", action: () => strategiesNav?.click() },
     { label: t("shortcuts.items.planner"), mac: "⌘ 3", windows: "Ctrl 3", action: () => plannerNav?.click() },
@@ -132,6 +135,200 @@ function closeShortcutModal() {
   if (document.querySelector("#legalModalOverlay[hidden]") && (!installAppModalOverlay || installAppModalOverlay.hidden)) {
     document.body.style.overflow = "";
   }
+}
+
+let searchModalOverlay = null;
+
+function closeSearchModal() {
+  if (!searchModalOverlay) return;
+  searchModalOverlay.remove();
+  searchModalOverlay = null;
+  document.body.style.overflow = "";
+}
+
+function openSearchModal() {
+  closeSearchModal();
+  closeSidebar();
+
+  const isEn = getLanguage() === "en";
+  const isAsk = state.mode === "ask";
+  searchModalOverlay = element("div", "sidebar-search-overlay");
+  searchModalOverlay.setAttribute("role", "dialog");
+  searchModalOverlay.setAttribute("aria-modal", "true");
+  searchModalOverlay.setAttribute(
+    "aria-label",
+    isAsk
+      ? (isEn ? "Search chats" : "Söhbətlərdə axtar")
+      : (isEn ? "Search strategies" : "Strategiyalarda axtar")
+  );
+
+  const card = element("div", "sidebar-search-card");
+  const handle = element("div", "sidebar-search-handle");
+  card.appendChild(handle);
+
+  const header = element("div", "sidebar-search-header");
+
+  const searchSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  searchSvg.setAttribute("class", "nav-svg");
+  searchSvg.setAttribute("viewBox", "0 0 24 24");
+  searchSvg.setAttribute("fill", "none");
+  searchSvg.setAttribute("stroke", "currentColor");
+  searchSvg.setAttribute("stroke-width", "1.75");
+  searchSvg.setAttribute("stroke-linecap", "round");
+  searchSvg.setAttribute("stroke-linejoin", "round");
+  searchSvg.setAttribute("aria-hidden", "true");
+  const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  circle.setAttribute("cx", "11");
+  circle.setAttribute("cy", "11");
+  circle.setAttribute("r", "7.5");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "m16.5 16.5 4.5 4.5");
+  searchSvg.append(circle, path);
+
+  const input = element("input", "sidebar-search-input");
+  input.type = "text";
+  input.placeholder = isAsk
+    ? (isEn ? "Search chat history..." : "Söhbət tarixçəsində axtar...")
+    : (isEn ? "Search strategies..." : "Strategiyalarda axtar...");
+  input.autocomplete = "off";
+
+  const kbd = element("kbd", "sidebar-search-kbd", "Esc");
+
+  const closeBtn = element("button", "sidebar-search-close");
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
+  const closeSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  closeSvg.setAttribute("viewBox", "0 0 24 24");
+  closeSvg.setAttribute("width", "16");
+  closeSvg.setAttribute("height", "16");
+  closeSvg.setAttribute("fill", "none");
+  closeSvg.setAttribute("stroke", "currentColor");
+  closeSvg.setAttribute("stroke-width", "2");
+  closeSvg.setAttribute("stroke-linecap", "round");
+  closeSvg.setAttribute("stroke-linejoin", "round");
+  const closePath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  closePath.setAttribute("d", "m18 6-12 12M6 6l12 12");
+  closeSvg.appendChild(closePath);
+  closeBtn.appendChild(closeSvg);
+  closeBtn.addEventListener("click", () => closeSearchModal());
+
+  header.append(searchSvg, input, kbd, closeBtn);
+
+  const body = element("div", "sidebar-search-body");
+
+  function renderSearchResults(query = "") {
+    body.replaceChildren();
+    const q = query.trim().toLowerCase();
+    const results = [];
+
+    const chatMatches = [];
+    (state.savedChats || []).forEach((chat) => {
+      const title = chat.title || (isEn ? "Untitled Chat" : "Adsız söhbət");
+      const lastMsg = chat.lastMessage || "";
+      const matches = !q || title.toLowerCase().includes(q) || lastMsg.toLowerCase().includes(q);
+      if (matches) {
+        chatMatches.push({
+          type: isEn ? "Chat" : "Söhbət",
+          title,
+          meta: chat.updatedAt ? i18nFormatDate(chat.updatedAt) : "",
+          action: () => {
+            closeSearchModal();
+            openSavedChat(chat.id);
+          }
+        });
+      }
+    });
+
+    const strategyMatches = [];
+    (state.savedStrategies || []).forEach((strat) => {
+      const title = strat.title || (isEn ? "Untitled Strategy" : "Adsız strategiya");
+      const brief = strat.brief || "";
+      const matches = !q || title.toLowerCase().includes(q) || brief.toLowerCase().includes(q);
+      if (matches) {
+        strategyMatches.push({
+          type: isEn ? "Strategy" : "Strategiya",
+          title,
+          meta: strat.createdAt ? i18nFormatDate(strat.createdAt) : "",
+          action: () => {
+            closeSearchModal();
+            openSavedStrategy(strat.id);
+          }
+        });
+      }
+    });
+
+    if (isAsk) {
+      if (!q) {
+        results.push(...chatMatches);
+      } else {
+        results.push(...chatMatches, ...strategyMatches);
+      }
+    } else {
+      if (!q) {
+        results.push(...strategyMatches);
+      } else {
+        results.push(...strategyMatches, ...chatMatches);
+      }
+    }
+
+    if (!results.length) {
+      const emptyMsg = isAsk
+        ? (isEn ? "No matching chats found." : "Uyğun söhbət tapılmadı.")
+        : (isEn ? "No matching strategies found." : "Uyğun strategiya tapılmadı.");
+      body.appendChild(element("div", "sidebar-search-empty", emptyMsg));
+      return;
+    }
+
+    results.slice(0, 20).forEach((res) => {
+      const item = button("", "sidebar-search-item", res.action);
+      item.type = "button";
+      const info = element("div", "sidebar-search-item-info");
+      info.append(
+        element("span", "sidebar-search-item-title", res.title),
+        element("span", "sidebar-search-item-meta", res.meta)
+      );
+      const badge = element("span", "sidebar-search-item-type", res.type);
+      item.append(info, badge);
+      body.appendChild(item);
+    });
+  }
+
+  input.addEventListener("input", () => renderSearchResults(input.value));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const firstItem = body.querySelector(".sidebar-search-item");
+      if (firstItem) firstItem.click();
+    }
+  });
+
+  renderSearchResults("");
+
+  // Ensure chats or strategies are loaded fresh
+  if (isAsk && !state.savedChats?.length) {
+    loadSavedChats().then(() => {
+      if (searchModalOverlay && document.body.contains(searchModalOverlay)) {
+        renderSearchResults(input.value);
+      }
+    });
+  } else if (!isAsk && !state.savedStrategies?.length) {
+    loadSavedStrategies().then(() => {
+      if (searchModalOverlay && document.body.contains(searchModalOverlay)) {
+        renderSearchResults(input.value);
+      }
+    });
+  }
+
+  card.append(header, body);
+  searchModalOverlay.appendChild(card);
+
+  searchModalOverlay.addEventListener("click", (e) => {
+    if (e.target === searchModalOverlay) closeSearchModal();
+  });
+
+  document.body.appendChild(searchModalOverlay);
+  document.body.style.overflow = "hidden";
+  setTimeout(() => input.focus(), 20);
 }
 
 // ── PWA Installation & OS Detection ──────────────────────────────────────────
@@ -1973,6 +2170,7 @@ function syncLanguageControls() {
 
 function syncNav() {
   const isBuild = state.mode === "build";
+  const isEn = getLanguage() === "en";
   const nonHomeViews = ["list", "settings", "planner", "limits"];
   homeNav.classList.toggle("is-active", !nonHomeViews.includes(state.view));
   strategiesNav.classList.toggle("is-active", state.view === "list");
@@ -2048,6 +2246,11 @@ function syncNav() {
     skipLinkEl.textContent = t("nav.skipToMain");
   }
 
+  const searchLabel = searchNav?.querySelector("span");
+  if (searchLabel) {
+    searchLabel.textContent = isEn ? "Search" : "Axtarış";
+  }
+
   const homeLabel = homeNav.querySelector("span");
   if (homeLabel) {
     homeLabel.textContent = isBuild ? t("nav.home") : t("nav.askChat");
@@ -2080,13 +2283,13 @@ function syncNav() {
     settingsLabel.textContent = t("nav.settings");
   }
 
-  const newButtonSpan = newStrategyButton?.querySelector("span");
-  if (newButtonSpan) {
-    newButtonSpan.textContent = isBuild ? t("nav.newStrategy") : t("nav.newChat");
+  if (newStrategyButton) {
+    newStrategyButton.style.display = "none";
   }
 
-  if (sidebarLabel) {
-    sidebarLabel.textContent = isBuild ? t("nav.recentWork") : t("nav.chatHistory");
+  const labelEl = document.querySelector("#sidebarLabelText") || sidebarLabel;
+  if (labelEl) {
+    labelEl.textContent = isBuild ? t("nav.recentWork") : t("nav.chatHistory");
   }
 
   const shortcutsBtn = document.querySelector("#keyboardShortcutsBtn");
@@ -7091,9 +7294,6 @@ function renderRecentList() {
       const item = button("", "recent-item", () => openSavedChat(chat.id));
       item.classList.toggle("is-active", state.askChatId === chat.id);
 
-      const icon = element("span", "recent-icon-wrap");
-      icon.innerHTML = `<svg class="recent-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-
       const textWrap = element("div", "recent-text-wrap");
       textWrap.append(
         element("span", "recent-title", chat.title || (isEn ? "Chat" : "Söhbət")),
@@ -7102,9 +7302,24 @@ function renderRecentList() {
 
       const deleteBtn = button("", "recent-delete-btn", (e) => deleteSavedChat(e, chat.id));
       deleteBtn.setAttribute("aria-label", isEn ? "Delete chat" : "Söhbəti sil");
-      deleteBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+      deleteBtn.setAttribute("title", isEn ? "Delete chat" : "Söhbəti sil");
 
-      item.append(icon, textWrap, deleteBtn);
+      const delSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      delSvg.setAttribute("viewBox", "0 0 24 24");
+      delSvg.setAttribute("width", "13");
+      delSvg.setAttribute("height", "13");
+      delSvg.setAttribute("fill", "none");
+      delSvg.setAttribute("stroke", "currentColor");
+      delSvg.setAttribute("stroke-width", "2");
+      delSvg.setAttribute("stroke-linecap", "round");
+      delSvg.setAttribute("stroke-linejoin", "round");
+      delSvg.setAttribute("aria-hidden", "true");
+      const delPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      delPath.setAttribute("d", "M18 6 6 18M6 6l12 12");
+      delSvg.appendChild(delPath);
+      deleteBtn.appendChild(delSvg);
+
+      item.append(textWrap, deleteBtn);
       recentList.appendChild(item);
     });
     return;
@@ -7123,14 +7338,11 @@ function renderRecentList() {
   // Show active background jobs at top of recent list
   backgroundJobs.filter((j) => j.status === "generating").forEach((job) => {
     const item = button("", "recent-item is-bg-job", () => openBackgroundJob(job.id));
-    const icon = element("span", "recent-icon-wrap");
-    icon.innerHTML = `<svg class="recent-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`;
     const pulse = element("span", "recent-bg-pulse");
-    icon.appendChild(pulse);
     const textWrap = element("div", "recent-text-wrap");
     const jobTitle = job.brief ? (job.brief.length > 26 ? job.brief.slice(0, 26) + "…" : job.brief) : (isEn ? "New Strategy" : "Yeni Strategiya");
     textWrap.append(element("span", "recent-title", jobTitle), element("span", "recent-date", (isEn ? "Generating · " : "Hazırlanır · ") + formatDate(job.startedAt)));
-    item.append(icon, textWrap);
+    item.append(pulse, textWrap);
     recentList.appendChild(item);
   });
 
@@ -7138,13 +7350,10 @@ function renderRecentList() {
     const item = button("", "recent-item", () => openSavedStrategy(record.id));
     item.classList.toggle("is-active", state.savedId === record.id);
 
-    const icon = element("span", "recent-icon-wrap");
-    icon.innerHTML = `<svg class="recent-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-
     const textWrap = element("div", "recent-text-wrap");
     textWrap.append(element("span", "recent-title", record.title), element("span", "recent-date", formatDate(record.updatedAt)));
 
-    item.append(icon, textWrap);
+    item.append(textWrap);
     recentList.appendChild(item);
   });
 }
@@ -11568,6 +11777,26 @@ document.querySelectorAll(".brand").forEach((brandEl) => {
     navigateHome();
   });
 });
+searchNav?.addEventListener("click", () => {
+  openSearchModal();
+});
+const recentCollapseToggle = document.querySelector("#recentCollapseToggle");
+const recentSection = document.querySelector("#recentSection");
+if (recentCollapseToggle && recentSection) {
+  try {
+    if (localStorage.getItem("helmer_recent_collapsed") === "true") {
+      recentSection.classList.add("is-collapsed");
+      recentCollapseToggle.setAttribute("aria-expanded", "false");
+    }
+  } catch {}
+  recentCollapseToggle.addEventListener("click", () => {
+    const isCollapsed = recentSection.classList.toggle("is-collapsed");
+    recentCollapseToggle.setAttribute("aria-expanded", String(!isCollapsed));
+    try {
+      localStorage.setItem("helmer_recent_collapsed", String(isCollapsed));
+    } catch {}
+  });
+}
 homeNav.addEventListener("click", () => {
   navigateHome();
   closeSidebar();
@@ -11708,6 +11937,10 @@ railModeToggleButton?.addEventListener("dblclick", (event) => {
 
 function handleKeyboardShortcut(event) {
   if (event.key === "Escape") {
+    if (searchModalOverlay) {
+      closeSearchModal();
+      return;
+    }
     const hadOverlay = Boolean(
       (mobileOverlay && !mobileOverlay.hidden) ||
       document.querySelector("#legalModalOverlay:not([hidden])") ||
@@ -11738,7 +11971,13 @@ function handleKeyboardShortcut(event) {
 
   const typing = isTypingTarget(event.target);
   const primary = event.metaKey || event.ctrlKey;
-  const key = event.code === "KeyN" ? "n" : event.key.toLowerCase();
+  const key = event.code === "KeyN" ? "n" : (event.code === "KeyK" ? "k" : event.key.toLowerCase());
+
+  if (primary && key === "k") {
+    event.preventDefault();
+    openSearchModal();
+    return;
+  }
 
   if (!typing && (event.key === "?" || (primary && event.key === "/"))) {
     event.preventDefault();
@@ -11765,6 +12004,7 @@ function handleKeyboardShortcut(event) {
 
   const actions = {
     n: () => newStrategyButton?.click(),
+    k: () => openSearchModal(),
     "1": () => homeNav?.click(),
     "2": () => strategiesNav?.click(),
     "3": () => plannerNav?.click(),

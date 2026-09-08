@@ -35,7 +35,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
       rel="stylesheet"
     />
-<link rel="stylesheet" href="/style.css?v=8.7" />
+<link rel="stylesheet" href="/style.css?v=9.1" />
 
 <script
   src="https://accounts.google.com/gsi/client"
@@ -43,7 +43,7 @@
   defer
 ></script>
 
-<script src="/script.js?v=8.7" type="module"></script>
+<script src="/script.js?v=9.1" type="module"></script>
     <link rel="stylesheet" href="/theme.css?v=1.1" />
   </head>
   <body>
@@ -113,71 +113,88 @@
             <strong class="brand-wordmark">Helmer</strong>
           </a>
           <button class="icon-button sidebar-close" id="sidebarClose" type="button" aria-label="Menyunu bağla">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>
           </button>
         </div>
 
         <div class="sidebar-mode-switch" role="tablist" aria-label="İş rejimi">
-          <button class="sidebar-mode-option is-active" id="sidebarBuildModeButton" type="button" role="tab" aria-selected="true">Build</button>
-          <button class="sidebar-mode-option" id="sidebarAskModeButton" type="button" role="tab" aria-selected="false">Ask</button>
+          <button class="sidebar-mode-option is-active" id="sidebarBuildModeButton" type="button" role="tab" aria-selected="true">
+            <span>Build</span>
+          </button>
+          <button class="sidebar-mode-option" id="sidebarAskModeButton" type="button" role="tab" aria-selected="false">
+            <span>Ask</span>
+          </button>
         </div>
 
-        <button class="new-strategy-button" id="newStrategyButton" type="button">
-          <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
+        <button class="new-strategy-button" id="newStrategyButton" type="button" style="display: none;" hidden>
+          <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            <path d="M7 5a9 9 0 0 0-4 8 9 9 0 0 0 9 9 9 9 0 0 0 8.5-5"/>
           </svg>
           <span>Yeni strategiya</span>
         </button>
 
         <nav class="primary-nav" aria-label="Workspace">
           <button class="nav-item is-active" id="homeNav" type="button">
-            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3.5 10.5 12 3l8.5 7.5v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>
+              <path d="M9 21.5v-7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v7"/>
             </svg>
             <span>Başlanğıc</span>
           </button>
+          <button class="nav-item" id="searchNav" type="button">
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7.5"/>
+              <path d="m16.5 16.5 4.5 4.5"/>
+            </svg>
+            <span>Axtarış</span>
+          </button>
           <button class="nav-item" id="strategiesNav" type="button">
-            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 8 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7.5" height="7.5" rx="2.5"/>
+              <rect x="13.5" y="3" width="7.5" height="7.5" rx="2.5"/>
+              <rect x="3" y="13.5" width="7.5" height="7.5" rx="2.5"/>
+              <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2.5"/>
             </svg>
             <span>Arxiv</span>
             <span class="nav-count" id="strategyCount">0</span>
           </button>
           <button class="nav-item" id="plannerNav" type="button">
-            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="17" rx="3.5"/>
+              <path d="M16 2v4M8 2v4M3 9.5h18"/>
+              <path d="m9 15 2 2 4-4"/>
             </svg>
             <span>Planlaşdırılanlar</span>
             <span class="nav-count" id="plannerCount">0</span>
           </button>
           <button class="nav-item" id="limitsNav" type="button">
-            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3.34 17a10 10 0 1 1 17.32 0"/>
-              <path d="m12 14 4-4"/>
-              <circle cx="12" cy="14" r="2"/>
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 12h3.5l3-7 5 14 3-7H21"/>
             </svg>
             <span>İstifadə</span>
           </button>
           <button class="nav-item" id="installAppNav" type="button">
-            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
+              <path d="m7 10 5 5 5-5M12 15V3"/>
             </svg>
             <span>Tətbiqi yüklə</span>
           </button>
           <button class="nav-item" id="settingsNav" type="button">
-            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
             <span>Parametrlər</span>
           </button>
         </nav>
 
-        <div class="recent-section">
-          <div class="sidebar-label">Son işlər</div>
+        <div class="recent-section" id="recentSection">
+          <button class="sidebar-label recent-collapse-toggle" id="recentCollapseToggle" type="button" aria-expanded="true">
+            <span class="sidebar-label-text" id="sidebarLabelText">Son işlər</span>
+            <svg class="recent-collapse-chevron" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
           <div class="recent-list" id="recentList">
             <div class="recent-empty"><strong>Strategiyalar burada görünəcək.</strong><span>Yadda saxladığın işlər bu bölmədə qalır.</span></div>
           </div>
