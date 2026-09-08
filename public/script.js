@@ -8,7 +8,7 @@ import {
   setLanguage,
   formatDate as i18nFormatDate,
   LEGAL_DOCS_I18N,
-} from "./i18n.js?v=8.5";
+} from "./i18n.js?v=8.6";
 
 const workspace = document.querySelector("#workspace");
 const sidebar = document.querySelector("#sidebar");
@@ -921,6 +921,12 @@ function closeMobileModelSheet() {
   overlay.classList.add("is-closing");
   document.body.style.overflow = "";
 
+  const askBtn = document.querySelector("#askModeButton");
+  if (askBtn) {
+    askBtn.classList.remove("is-open");
+    askBtn.setAttribute("aria-expanded", "false");
+  }
+
   let cleanedUp = false;
   const finishClose = () => {
     if (cleanedUp) return;
@@ -952,6 +958,12 @@ function openMobileModelSheet() {
   overlay.setAttribute("aria-hidden", "false");
   overlay.classList.remove("is-closing");
   document.body.style.overflow = "hidden";
+
+  const askBtn = document.querySelector("#askModeButton");
+  if (askBtn) {
+    askBtn.classList.add("is-open");
+    askBtn.setAttribute("aria-expanded", "true");
+  }
 
   const sheet = element("div", "mobile-model-sheet");
   sheet.setAttribute("role", "dialog");
@@ -1915,6 +1927,28 @@ function closeSidebar() {
 function syncLanguageControls() {
   const skipLink = document.querySelector(".skip-link");
   if (skipLink) skipLink.textContent = t("nav.skipToMain");
+
+  const isEn = getLanguage() === "en";
+  const mobileMenuBtn = document.querySelector("#mobileMenuButton");
+  if (mobileMenuBtn) {
+    mobileMenuBtn.setAttribute("aria-label", t("nav.openMenu") || (isEn ? "Open menu" : "Menyunu aç"));
+  }
+  const mobileNewBtn = document.querySelector("#mobileNewButton");
+  if (mobileNewBtn) {
+    const newChatLabel = t("nav.newChat") || (isEn ? "New chat" : "Yeni söhbət");
+    mobileNewBtn.setAttribute("aria-label", newChatLabel);
+    mobileNewBtn.setAttribute("title", newChatLabel);
+  }
+  const mobileMoreBtn = document.querySelector("#mobileMoreButton");
+  if (mobileMoreBtn) {
+    const moreLabel = isEn ? "More options" : "Daha çox";
+    mobileMoreBtn.setAttribute("aria-label", moreLabel);
+    mobileMoreBtn.setAttribute("title", moreLabel);
+  }
+  const askModeBtn = document.querySelector("#askModeButton");
+  if (askModeBtn) {
+    askModeBtn.setAttribute("aria-label", isEn ? "Model selection" : "Model seçimi");
+  }
 }
 
 function syncNav() {
@@ -2063,17 +2097,25 @@ function isHomePage() {
   return false;
 }
 
+function updateMobileActiveModelName() {
+  const el = document.querySelector("#mobileActiveModelName");
+  if (!el) return;
+  const isFlash = state.askModel === "gemini-3.7-flash";
+  el.textContent = isFlash ? "Flash" : "Helmer";
+}
+
 function syncMode() {
   const isBuild = state.mode === "build";
   const isHome = isHomePage();
-  const isAskChatActive = state.mode === "ask" && state.view === "home" && Boolean(state.askMessages?.length || state.askLoading);
+
+  updateMobileActiveModelName();
 
   if (mobileModeSwitch) {
-    mobileModeSwitch.hidden = !isHome;
+    mobileModeSwitch.hidden = false;
   }
 
   if (mobileNewButton) {
-    mobileNewButton.hidden = !isAskChatActive;
+    mobileNewButton.hidden = false;
   }
 
   buildModeButton?.classList.toggle("is-active", isBuild);
@@ -7293,7 +7335,9 @@ function renderSettings() {
   }
 
   function buildAiAccountSummaryCard() {
-    const card = element("section", "ai-account-summary-card");
+    const card = document.createElement("details");
+    card.className = "ai-account-summary-card experience-accordion";
+    card.open = false;
     const isPersonalizationEnabled = Boolean(
       state.currentUser &&
       state.currentUser.settings &&
@@ -7304,7 +7348,7 @@ function renderSettings() {
     if (!isPersonalizationEnabled) {
       card.classList.add("is-disabled-state");
 
-      const header = element("div", "ai-account-summary-header");
+      const header = element("summary", "ai-account-summary-header experience-accordion-summary");
       const headerLeft = element("div", "ai-summary-header-left");
       headerLeft.innerHTML = `
         <svg class="ai-summary-sparkle-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -7312,9 +7356,16 @@ function renderSettings() {
         </svg>
         <strong class="ai-summary-card-title">${escapeHtml(t("settings.aiSummary.title"))}</strong>
       `;
-      header.appendChild(headerLeft);
+      const iconWrap = element("span", "experience-accordion-icon");
+      iconWrap.setAttribute("aria-hidden", "true");
+      iconWrap.innerHTML = `
+        <svg class="experience-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      `;
+      header.append(headerLeft, iconWrap);
 
-      const body = element("div", "ai-summary-body");
+      const body = element("div", "ai-summary-body experience-accordion-content");
       const desc = element("p", "ai-summary-disabled-desc", t("settings.aiSummary.disabledNotice"));
       const enableBtn = button(t("settings.aiSummary.enableBtn"), "ai-summary-enable-btn secondary-button", () => {
         state.settingsTab = "experience";
@@ -7327,7 +7378,7 @@ function renderSettings() {
     }
 
     // Personalization IS enabled
-    const header = element("div", "ai-account-summary-header");
+    const header = element("summary", "ai-account-summary-header experience-accordion-summary");
     const headerLeft = element("div", "ai-summary-header-left");
     headerLeft.innerHTML = `
       <svg class="ai-summary-sparkle-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -7336,11 +7387,19 @@ function renderSettings() {
       <strong class="ai-summary-card-title">${escapeHtml(t("settings.aiSummary.title"))}</strong>
     `;
 
-    const refreshBtn = button("", "ai-summary-refresh-btn", () => {
+    const headerRight = element("div", "ai-summary-header-right");
+    const refreshBtn = button("", "ai-summary-refresh-btn", (event) => {
+      if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
       loadSummary(true);
     });
     refreshBtn.type = "button";
     refreshBtn.setAttribute("aria-label", t("settings.aiSummary.regenerateBtn"));
+    refreshBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
     refreshBtn.innerHTML = `
       <svg class="ai-summary-refresh-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <polyline points="23 4 23 10 17 10"></polyline>
@@ -7349,9 +7408,19 @@ function renderSettings() {
       </svg>
       <span class="ai-summary-refresh-label">${escapeHtml(t("settings.aiSummary.regenerateBtn"))}</span>
     `;
-    header.append(headerLeft, refreshBtn);
 
-    const body = element("div", "ai-summary-body");
+    const iconWrap = element("span", "experience-accordion-icon");
+    iconWrap.setAttribute("aria-hidden", "true");
+    iconWrap.innerHTML = `
+      <svg class="experience-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    `;
+
+    headerRight.append(refreshBtn, iconWrap);
+    header.append(headerLeft, headerRight);
+
+    const body = element("div", "ai-summary-body experience-accordion-content");
 
     function renderSummaryContent(data) {
       body.replaceChildren();
@@ -11566,13 +11635,16 @@ mobileModelSheetOverlay?.addEventListener("click", (event) => {
 mobileProfileSheetOverlay?.addEventListener("click", (event) => {
   if (event.target === mobileProfileSheetOverlay) closeUserProfileMenu();
 });
+document.querySelector("#mobileMoreButton")?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  openUserProfileMenu(document.querySelector("#mobileMoreButton"));
+});
 buildModeButton?.addEventListener("click", () => setMode("build"));
 askModeButton?.addEventListener("click", () => {
   if (state.mode !== "ask") {
     setMode("ask");
-  } else {
-    openMobileModelSheet();
   }
+  openMobileModelSheet();
 });
 askModeButton?.querySelector(".mobile-mode-chevron")?.addEventListener("click", (event) => {
   event.stopPropagation();

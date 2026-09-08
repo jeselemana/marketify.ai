@@ -400,12 +400,19 @@ test("Frontend script.js: AI summary card complies with XSS protection, personal
   assert.ok(script.includes("ai-summary-refresh-btn"), "Renders regenerate button");
   assert.ok(script.includes("ai-summary-skeleton"), "Renders skeleton loader");
 
+  // Accordion details and collapsed by default
+  assert.ok(script.includes('card = document.createElement("details");'), "Card is an accordion details element");
+  assert.ok(script.includes('card.className = "ai-account-summary-card experience-accordion";'), "Card has experience-accordion class");
+  assert.ok(script.includes("card.open = false;"), "Card is collapsed by default (open = false)");
+  assert.ok(script.includes("experience-accordion-summary"), "Header acts as accordion summary");
+  assert.ok(script.includes("experience-chevron"), "Header includes chevron arrow indicator");
+
   // Rule 4 (Frontend XSS Protection): summary and tags must be rendered securely via textContent
   assert.ok(script.includes("summaryP.textContent = data.summary;"), "Summary text is assigned via textContent (XSS protection)");
   assert.ok(script.includes("tagPill.textContent = tag;"), "Tag pills are assigned via textContent (XSS protection)");
 });
 
-test("Frontend style.css: AI summary card includes light and dark mode rules (Slate 950/900/800)", async () => {
+test("Frontend style.css: AI summary card includes light and dark mode rules with flowing gradient borders", async () => {
   const css = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
 
   // Light mode styles
@@ -414,6 +421,8 @@ test("Frontend style.css: AI summary card includes light and dark mode rules (Sl
   assert.ok(css.includes(".ai-summary-skeleton {"), "Skeleton loader is defined");
   assert.ok(css.includes("@keyframes aiSummaryShimmer"), "Shimmer animation is defined");
   assert.ok(css.includes("@keyframes aiSummarySpin"), "Spin animation is defined");
+  assert.ok(css.includes("@keyframes aiSummaryBorderFlow"), "Flowing gradient border animation keyframes are defined");
+  assert.ok(css.includes("animation: aiSummaryBorderFlow"), "Flowing gradient border animation is assigned to card");
 
   // Dark mode overrides
   assert.ok(css.includes('[data-theme="dark"] .ai-account-summary-card'), "Dark mode card style is defined");
