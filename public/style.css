@@ -10478,54 +10478,26 @@ html.dark {
 .guest-account-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
 
 /* AI Account Summary Card (Powered by GPT-5.6 Luna) */
-@keyframes aiSummaryBorderFlow {
-  0% {
-    background-position: 0 0, 0% 50%;
-  }
-  50% {
-    background-position: 0 0, 100% 50%;
-  }
-  100% {
-    background-position: 0 0, 0% 50%;
-  }
-}
-
-.ai-account-summary-card,
-.ai-account-summary-card.experience-accordion {
+.ai-account-summary-card {
   display: block;
-  padding: 0;
+  padding: 20px 22px;
   border-radius: 14px;
-  margin-bottom: 24px;
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(#ffffff, #ffffff) padding-box,
-    linear-gradient(135deg, #4f6ee8 0%, #8b5cf6 25%, #38bdf8 50%, #6366f1 75%, #4f6ee8 100%) border-box;
-  background-size: 100% 100%, 300% 300%;
-  animation: aiSummaryBorderFlow 6s ease infinite;
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.09), 0 1px 3px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
-  transition: box-shadow 180ms ease, border-color 180ms ease;
+  background: var(--bg-soft, #f8fafc);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  margin-bottom: 20px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.04);
 }
 
 .ai-account-summary-card:hover {
-  box-shadow: 0 6px 26px rgba(99, 102, 241, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-
-.ai-account-summary-card[open] .experience-chevron {
-  transform: rotate(180deg);
-}
-
-.ai-account-summary-card[open] .experience-accordion-icon {
-  background: rgba(99, 102, 241, 0.12);
-  color: #4338ca;
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 18px rgba(99, 102, 241, 0.08);
 }
 
 .ai-account-summary-card.is-disabled-state {
   border: 1px dashed var(--border-subtle, #cbd5e1);
   background: var(--bg-soft, #f8fafc);
-  background-clip: border-box;
   box-shadow: none;
-  animation: none;
 }
 
 .ai-account-summary-header {
@@ -10533,21 +10505,7 @@ html.dark {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 20px;
-  margin: 0;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-  background: transparent;
-  transition: background-color 140ms ease;
-}
-
-.ai-account-summary-header:hover {
-  background: rgba(99, 102, 241, 0.04);
-}
-
-.ai-account-summary-header::-webkit-details-marker {
-  display: none;
+  margin-bottom: 14px;
 }
 
 .ai-summary-header-left {
@@ -10555,19 +10513,6 @@ html.dark {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.ai-summary-header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.ai-summary-body {
-  padding: 18px 20px 22px;
-  border-top: 1px solid rgba(99, 102, 241, 0.12);
-  animation: experienceAccordionSlide 160ms ease-out;
 }
 
 .ai-summary-sparkle-icon {
@@ -11856,17 +11801,6 @@ html.dark {
   overflow: hidden;
   margin: 0;
   transition: border-color 150ms ease, box-shadow 150ms ease;
-}
-
-/* Ensure Settings Accordion Cards have generous, clear separation */
-.ai-account-summary-card.experience-accordion,
-.settings-account-panel > .ai-account-summary-card {
-  margin: 0 0 28px 0;
-}
-
-.account-profile-card.experience-accordion,
-.settings-account-panel > .account-profile-card {
-  margin: 0 0 24px 0;
 }
 
 .experience-form-actions {
@@ -13262,193 +13196,135 @@ html.dark {
   }
 
   .mobile-header {
-    display: flex;
+    display: grid;
     position: sticky;
     top: 0;
-    left: 0;
-    right: 0;
     z-index: 50;
-    height: calc(58px + env(safe-area-inset-top));
-    min-height: calc(58px + env(safe-area-inset-top));
+    height: calc(60px + env(safe-area-inset-top));
+    min-height: calc(60px + env(safe-area-inset-top));
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
     align-items: center;
-    justify-content: space-between;
-    padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 4px max(16px, env(safe-area-inset-left));
+    padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
     border-bottom: none;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.42) 55%, rgba(0, 0, 0, 0) 100%);
+    background: transparent;
     box-shadow: none;
-    pointer-events: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
-  .mobile-header > * {
-    pointer-events: auto;
-  }
-
-  /* Left: Circular dark pill button with 2-line menu icon */
-  .mobile-header .mobile-menu-pill-btn,
-  .mobile-header #mobileMenuButton {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
-    border-radius: 50%;
-    background: rgba(24, 24, 27, 0.78);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.12);
+  .mobile-header .icon-button,
+  .mobile-header .mobile-new {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background: rgba(var(--theme-surface-rgb, 255, 255, 255), 0.9);
+    border: 1px solid var(--border-subtle, rgba(20, 27, 42, 0.08));
+    box-shadow: 0 1px 2px var(--theme-shadow-soft, rgba(31, 41, 55, 0.04));
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #ffffff;
-    cursor: pointer;
+    color: var(--text-primary, #0f172a);
+    transition: all 140ms ease;
+  }
+
+  .mobile-header #mobileMenuButton {
+    grid-column: 1;
+  }
+
+  .mobile-header .mobile-new {
+    grid-column: 3;
+    justify-self: end;
+    display: none;
     padding: 0;
-    transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
   }
 
-  .mobile-header .mobile-menu-pill-btn:active,
-  .mobile-header #mobileMenuButton:active {
-    transform: scale(0.94);
-    background: rgba(39, 39, 42, 0.92);
+  .mobile-header .mobile-new:not([hidden]) {
+    display: flex;
   }
 
-  .mobile-menu-icon {
+  .mobile-header .mobile-new svg {
     width: 18px;
     height: 18px;
     stroke: currentColor;
-    stroke-width: 2.2;
-    stroke-linecap: round;
+    stroke-width: 1.9;
     display: block;
   }
 
-  /* Center: Native model pill with active model name and chevron */
-  .mobile-header-center {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .mobile-model-pill-btn,
-  .mobile-header #askModeButton {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    height: 38px;
-    max-width: 180px;
-    padding: 0 14px;
-    border-radius: 999px;
-    background: rgba(24, 24, 27, 0.78);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.12);
-    color: #ffffff;
-    font-size: 13.5px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    cursor: pointer;
-    transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    white-space: nowrap;
-    overflow: hidden;
-  }
-
-  .mobile-model-pill-btn:active,
-  .mobile-header #askModeButton:active {
+  .mobile-header .mobile-new:active,
+  .mobile-header .icon-button:active {
     transform: scale(0.96);
-    background: rgba(39, 39, 42, 0.92);
+    background: var(--bg-hover, #f1f5f9);
   }
 
-  .mobile-active-model-name {
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
+  .mobile-header #mobileMenuButton span {
+    font-size: 22px;
+    line-height: 1;
   }
 
-  .mobile-header .mobile-mode-chevron {
-    width: 12px;
-    height: 12px;
-    stroke: currentColor;
-    stroke-width: 2.4;
-    display: inline-flex;
+  .mobile-mode-switch {
+    display: none;
+  }
+
+  .mobile-mode-switch:not([hidden]) {
+    display: flex;
     align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    opacity: 0.8;
-    transition: transform 180ms ease, opacity 140ms ease;
-  }
-
-  .mobile-model-pill-btn:hover .mobile-mode-chevron,
-  .mobile-model-pill-btn:active .mobile-mode-chevron,
-  .mobile-model-pill-btn.is-open .mobile-mode-chevron {
-    opacity: 1;
-  }
-
-  .mobile-model-pill-btn.is-open .mobile-mode-chevron {
-    transform: rotate(180deg);
-  }
-
-  /* Right: Elongated oval capsule pill with new chat and 3-dots */
-  .mobile-actions-pill {
-    display: inline-flex;
-    align-items: center;
+    width: auto;
+    min-width: 176px;
+    max-width: 236px;
     height: 38px;
-    padding: 3px 4px;
+    padding: 3px;
+    margin: 0 auto;
     border-radius: 999px;
-    background: rgba(24, 24, 27, 0.78);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.12);
-    gap: 2px;
-    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--border-subtle, rgba(20, 27, 42, 0.08));
+    box-shadow: none;
+    justify-self: center;
   }
 
-  .mobile-actions-pill .mobile-pill-action-btn,
-  .mobile-header .mobile-pill-action-btn {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: #ffffff;
+  .mobile-mode-option {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0;
+    gap: 4px;
+    flex: 1 1 0;
+    width: auto;
+    height: 100%;
+    min-width: 0;
+    padding: 0 10px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary, #64748b);
+    font-size: 13.5px;
+    font-weight: 550;
     cursor: pointer;
-    transition: background 140ms ease, transform 140ms ease, opacity 140ms ease;
+    transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
   }
 
-  .mobile-actions-pill .mobile-pill-action-btn:active,
-  .mobile-header .mobile-pill-action-btn:active {
-    transform: scale(0.92);
-    background: rgba(255, 255, 255, 0.16);
+  .mobile-mode-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 11px;
+    height: 11px;
+    color: currentColor;
+    opacity: 0.65;
+    transition: transform 160ms ease, opacity 160ms ease;
+    flex-shrink: 0;
   }
 
-  .mobile-actions-pill .mobile-new svg {
-    width: 16px;
-    height: 16px;
-    stroke: currentColor;
-    stroke-width: 2;
-    display: block;
+  #askModeButton:not(.is-active) .mobile-mode-chevron {
+    display: none;
   }
 
-  .mobile-actions-pill .mobile-more-btn svg {
-    width: 16px;
-    height: 16px;
-    fill: currentColor;
-    display: block;
+  #askModeButton:hover .mobile-mode-chevron,
+  #askModeButton.is-active .mobile-mode-chevron {
+    opacity: 0.95;
   }
 
-  /* Preserved badges and compatibility tokens for test suite */
   .mobile-mode-model {
     display: inline-flex;
     align-items: center;
@@ -13467,6 +13343,17 @@ html.dark {
   html.dark .mobile-mode-model {
     background: rgba(99, 128, 255, 0.2);
     color: #818cf8;
+  }
+
+  .mobile-mode-option:hover {
+    color: var(--text-primary, #0f172a);
+  }
+
+  .mobile-mode-option.is-active {
+    background: var(--theme-surface, #ffffff);
+    color: var(--text-primary, #0f172a);
+    font-weight: 600;
+    box-shadow: 0 1px 4px var(--theme-shadow-soft, rgba(31, 41, 55, 0.12)), 0 2px 6px var(--theme-shadow-soft, rgba(31, 41, 55, 0.04));
   }
 
   .mobile-brand {
@@ -14028,15 +13915,8 @@ html.dark {
 
 @media (max-width: 390px) {
   .mobile-header {
-    padding-right: max(12px, env(safe-area-inset-right));
-    padding-left: max(12px, env(safe-area-inset-left));
-  }
-
-  .mobile-model-pill-btn,
-  .mobile-header #askModeButton {
-    padding: 0 10px;
-    max-width: 140px;
-    font-size: 13px;
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-left: max(14px, env(safe-area-inset-left));
   }
 
   .workspace-centered,
@@ -18892,23 +18772,22 @@ html.dark .nav-item.is-active {
 [data-theme="dark"] .mobile-header,
 html.dark .mobile-header {
   border-bottom: none;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.5) 60%, rgba(0, 0, 0, 0) 100%);
+  background: transparent;
   box-shadow: none;
 }
 
-[data-theme="dark"] .mobile-header .mobile-menu-pill-btn,
-html.dark .mobile-header .mobile-menu-pill-btn,
-[data-theme="dark"] .mobile-header #mobileMenuButton,
-html.dark .mobile-header #mobileMenuButton,
-[data-theme="dark"] .mobile-model-pill-btn,
-html.dark .mobile-model-pill-btn,
-[data-theme="dark"] .mobile-header #askModeButton,
-html.dark .mobile-header #askModeButton,
-[data-theme="dark"] .mobile-actions-pill,
-html.dark .mobile-actions-pill {
-  background: rgba(18, 18, 20, 0.88);
-  border-color: rgba(255, 255, 255, 0.14);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+[data-theme="dark"] .mobile-mode-switch:not([hidden]),
+html.dark .mobile-mode-switch:not([hidden]) {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .mobile-mode-option.is-active,
+html.dark .mobile-mode-option.is-active {
+  background: #1e293b;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="dark"] .sidebar-footer,
@@ -20386,42 +20265,20 @@ html.dark .settings-danger-zone.is-pending-deletion {
 /* Dark Mode: AI Account Summary Card (Slate 950/900/800) */
 [data-theme="dark"] .ai-account-summary-card,
 html.dark .ai-account-summary-card {
-  background:
-    linear-gradient(#0f172a, #0f172a) padding-box,
-    linear-gradient(135deg, #6366f1 0%, #a855f7 25%, #38bdf8 50%, #4f6ee8 75%, #6366f1 100%) border-box;
-  background-size: 100% 100%, 300% 300%;
-  border-color: transparent;
-  box-shadow: 0 0 22px rgba(99, 102, 241, 0.22), 0 4px 20px rgba(0, 0, 0, 0.5);
+  background: #0f172a;
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 [data-theme="dark"] .ai-account-summary-card:hover,
 html.dark .ai-account-summary-card:hover {
-  border-color: transparent;
-  box-shadow: 0 0 30px rgba(99, 102, 241, 0.35), 0 6px 26px rgba(0, 0, 0, 0.65);
-}
-
-[data-theme="dark"] .ai-account-summary-card[open] .experience-accordion-icon,
-html.dark .ai-account-summary-card[open] .experience-accordion-icon {
-  background: rgba(99, 102, 241, 0.25);
-  color: #a5b4fc;
-}
-
-[data-theme="dark"] .ai-account-summary-header:hover,
-html.dark .ai-account-summary-header:hover {
-  background: rgba(99, 102, 241, 0.08);
-}
-
-[data-theme="dark"] .ai-summary-body,
-html.dark .ai-summary-body {
-  border-top-color: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.55);
 }
 
 [data-theme="dark"] .ai-account-summary-card.is-disabled-state,
 html.dark .ai-account-summary-card.is-disabled-state {
   background: #0b1120;
   border-color: #334155;
-  box-shadow: none;
-  animation: none;
 }
 
 [data-theme="dark"] .ai-summary-card-title,
