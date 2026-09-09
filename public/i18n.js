@@ -774,11 +774,13 @@ export const TRANSLATIONS = {
       desktopStep3Desc: "Helmer ayrıca müstəqil masaüstü tətbiqi pəncərəsində açılacaqdır.",
     },
 
-    // ── Announcement Bar ─────────────────────────────────────────────────────
+    // ── Helmer v3.5 Release Card ──────────────────────────────────────────────
     announcement: {
-      badge: "v3.0",
-      message: "Helmer v3.0 istifadənizdədir",
-      closeAria: "Elanı bağla",
+      title: "Helmer v3.5 istifadənizdədir",
+      body: "İnterfeys dəyişiklikləri, sistem sabitliyi və ümumi performans təkmilləşdirmələri.",
+      dontShow: "Bir daha göstərmə",
+      cta: "Anladım",
+      closeAria: "Bağla",
     },
   },
 
@@ -1541,11 +1543,13 @@ export const TRANSLATIONS = {
       desktopStep3Desc: "Helmer will open in its own distraction-free app window.",
     },
 
-    // ── Announcement Bar ─────────────────────────────────────────────────────
+    // ── Helmer v3.5 Release Card ──────────────────────────────────────────────
     announcement: {
-      badge: "v3.0",
-      message: "Helmer v3.0 is now available",
-      closeAria: "Dismiss announcement",
+      title: "Helmer v3.5 is now available",
+      body: "UI enhancements, system stabilization, and overall performance improvements.",
+      dontShow: "Don't show again",
+      cta: "Got it",
+      closeAria: "Close",
     },
   },
 };

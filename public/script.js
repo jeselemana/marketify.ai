@@ -8,6 +8,7 @@ import {
   setLanguage,
   formatDate as i18nFormatDate,
   LEGAL_DOCS_I18N,
+  TRANSLATIONS,
 } from "./i18n.js?v=8.5";
 
 const workspace = document.querySelector("#workspace");
@@ -12032,77 +12033,73 @@ window.addEventListener("drop", (e) => {
   }
 });
 
-function checkSupportBanner() {
-  const isEn = getLanguage() === "en";
-  const STORAGE_KEY = "helmer_support_notice_dismissed";
-  if (localStorage.getItem(STORAGE_KEY) === "dismissed") return;
-  if (document.querySelector("#supportNoticeToast")) return;
+export function showV35ReleaseToast() {
+  const STORAGE_KEY = "helmer_v3_5_release_toast_dismissed";
+  try {
+    if (localStorage.getItem(STORAGE_KEY) === "dismissed") return;
+  } catch {}
+  if (document.querySelector("#v35ReleaseToast")) return;
 
-  const AUTO_DISMISS_SECONDS = 12;
+  const AUTO_DISMISS_SECONDS = 16;
 
-  const toast = element("aside", "support-notice-toast");
-  toast.id = "supportNoticeToast";
+  const toast = element("aside", "v35-release-toast");
+  toast.id = "v35ReleaseToast";
   toast.setAttribute("role", "status");
   toast.setAttribute("aria-live", "polite");
-
-  const header = element("div", "support-notice-header");
-  const badge = element("div", "support-notice-badge");
-  badge.innerHTML = `
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-    <span>${isEn ? "Technical Support" : "Texniki dəstək"}</span>
-  `;
 
   let autoDismissTimer;
 
   const dismiss = () => {
     clearTimeout(autoDismissTimer);
     toast.classList.add("is-dismissing");
-    setTimeout(() => toast.remove(), 260);
+    setTimeout(() => toast.remove(), 280);
   };
 
   const dismissPermanently = () => {
-    localStorage.setItem(STORAGE_KEY, "dismissed");
+    try {
+      localStorage.setItem(STORAGE_KEY, "dismissed");
+    } catch {}
     dismiss();
   };
 
-  const closeBtn = button("✕", "support-notice-close", dismiss);
-  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
-  header.append(badge, closeBtn);
-
+  const header = element("div", "v35-toast-header");
   const title = element(
-    "p",
-    "support-notice-title",
-    isEn ? "Encountering technical challenges? Let us know" : "Texniki çətinliklə qarşılaşdığınız halda bizə məlumat verin"
+    "h3",
+    "v35-toast-title",
+    t("announcement.title")
   );
+  title.id = "v35ToastTitle";
+
+  const closeBtn = button("✕", "v35-toast-close", dismiss);
+  closeBtn.setAttribute("aria-label", t("announcement.closeAria"));
+  closeBtn.id = "v35ToastCloseBtn";
+  header.append(title, closeBtn);
 
   const body = element(
     "p",
-    "support-notice-body",
-    isEn
-      ? "If you run into any bug, unexpected behavior, or need assistance while using Helmer, reach out via the address below. Our engineering team will assist promptly."
-      : "Hər hansı bir xəta, gözlənilməz davranış və ya istifadə zamanı yaranan texniki problem barədə aşağıdakı ünvana yazaraq bizə bildirə bilərsiniz. Komandamız ən qısa zamanda sizə dəstək göstərəcək."
+    "v35-toast-body",
+    t("announcement.body")
   );
+  body.id = "v35ToastBody";
 
-  const emailLink = element("a", "support-notice-email");
-  emailLink.href = "mailto:helmerworkspace@googlegroups.com";
-  emailLink.textContent = "helmerworkspace@googlegroups.com";
-  emailLink.setAttribute("aria-label", isEn ? "Support email" : "Dəstək e-poçtu");
-
-  const actions = element("div", "support-notice-actions");
-  const dontShowBtn = button(isEn ? "Don't show again" : "Bir daha göstərmə", "secondary-button support-notice-dontshow-btn", dismissPermanently);
+  const actions = element("div", "v35-toast-actions");
+  const dontShowBtn = button(t("announcement.dontShow"), "secondary-button v35-toast-dontshow-btn", dismissPermanently);
   dontShowBtn.type = "button";
+  dontShowBtn.id = "v35ToastDontShowBtn";
 
-  const mailBtn = button(isEn ? "Send Email →" : "Mail yaz →", "primary-button support-notice-mail-btn", () => {
-    window.location.href = "mailto:helmerworkspace@googlegroups.com";
+  const ctaBtn = button(t("announcement.cta"), "primary-button v35-toast-cta-btn", () => {
+    dismissPermanently();
+    document.querySelector("#intakeQueryInput")?.focus();
   });
-  mailBtn.type = "button";
+  ctaBtn.type = "button";
+  ctaBtn.id = "v35ToastCtaBtn";
 
-  actions.append(dontShowBtn, mailBtn);
-  toast.append(header, title, body, emailLink, actions);
+  actions.append(dontShowBtn, ctaBtn);
+  toast.append(header, body, actions);
 
-  // Progress bar for auto-dismiss countdown
-  const progressWrap = element("div", "support-notice-progress-wrap");
-  const progressBar = element("div", "support-notice-progress-bar");
+  // Auto-dismiss progress bar
+  const progressWrap = element("div", "v35-toast-progress-wrap");
+  const progressBar = element("div", "v35-toast-progress-bar");
   progressWrap.appendChild(progressBar);
   toast.appendChild(progressWrap);
   progressBar.style.animationDuration = AUTO_DISMISS_SECONDS + "s";
@@ -12124,47 +12121,17 @@ function checkSupportBanner() {
     autoDismissTimer = setTimeout(dismiss, AUTO_DISMISS_SECONDS * 1000);
     progressBar.style.animationPlayState = "running";
   });
-}
 
-function initAnnouncementBar() {
-  const bar = document.querySelector("#announcementBar");
-  if (!bar) return;
-
-  const STORAGE_KEY = "helmer_v3_announcement_closed";
-  try {
-    if (localStorage.getItem(STORAGE_KEY) === "true") {
-      bar.hidden = true;
-      return;
-    }
-  } catch {}
-
-  const closeBtn = document.querySelector("#announcementCloseBtn");
-  const messageEl = document.querySelector("#announcementMessage");
-
-  const updateText = () => {
-    if (messageEl) messageEl.textContent = t("announcement.message");
+  // Language update listener
+  const updateToastLanguage = () => {
+    if (title) title.textContent = t("announcement.title");
+    if (body) body.textContent = t("announcement.body");
+    if (dontShowBtn) dontShowBtn.textContent = t("announcement.dontShow");
+    if (ctaBtn) ctaBtn.textContent = t("announcement.cta");
     if (closeBtn) closeBtn.setAttribute("aria-label", t("announcement.closeAria"));
   };
-
-  updateText();
-
-  if (closeBtn) {
-    closeBtn.addEventListener("click", () => {
-      bar.classList.add("is-dismissing");
-      try {
-        localStorage.setItem(STORAGE_KEY, "true");
-      } catch {}
-      setTimeout(() => {
-        bar.hidden = true;
-        bar.classList.remove("is-dismissing");
-      }, 240);
-    });
-  }
-
-  window.addEventListener("helmer:language-change", updateText);
+  window.addEventListener("helmer:language-change", updateToastLanguage);
 }
-
-initAnnouncementBar();
 
 // Global helmer:language-change handler to re-render components on language switch
 window.addEventListener("helmer:language-change", () => {
@@ -12214,5 +12181,5 @@ initializeAuthentication(async (user) => {
     openLegalModal("privacy");
   }
   setupRailArchiveHover();
-  checkSupportBanner();
+  showV35ReleaseToast();
 });

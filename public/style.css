@@ -1106,194 +1106,6 @@ body.sidebar-open .app-main {
   display: none;
 }
 
-/* Announcement Bar (v3.0) */
-.announcement-bar {
-  position: relative;
-  z-index: 55;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 8px 40px 8px 16px;
-  background: linear-gradient(90deg, rgba(79, 110, 232, 0.08) 0%, rgba(99, 102, 241, 0.12) 50%, rgba(139, 92, 246, 0.08) 100%);
-  border-bottom: 1px solid rgba(79, 110, 232, 0.16);
-  font-size: 13.5px;
-  line-height: 1.4;
-  color: var(--text-primary, #10141e);
-  transition: max-height 240ms cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 200ms ease,
-              padding 240ms ease,
-              transform 240ms ease;
-  max-height: 80px;
-  overflow: hidden;
-}
-
-[data-theme="dark"] .announcement-bar,
-html.dark .announcement-bar {
-  background: rgba(30, 27, 75, 0.6);
-  border-bottom: 1px solid rgba(49, 46, 129, 0.5);
-  color: #c7d2fe;
-}
-
-.announcement-bar.is-dismissing {
-  max-height: 0;
-  opacity: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  transform: translateY(-8px);
-  border-bottom-color: transparent;
-}
-
-.announcement-bar[hidden] {
-  display: none !important;
-}
-
-.announcement-bar-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-  text-align: center;
-  margin: 0 auto;
-}
-
-.announcement-indicator {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-.announcement-ping {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--accent, #4f6ee8);
-  opacity: 0.65;
-  animation: announcement-radar 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
-.announcement-dot {
-  position: relative;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent, #4f6ee8);
-  box-shadow: 0 0 6px rgba(79, 110, 232, 0.6);
-}
-
-@keyframes announcement-radar {
-  0% {
-    transform: scale(0.85);
-    opacity: 0.8;
-  }
-  65%, 100% {
-    transform: scale(2.2);
-    opacity: 0;
-  }
-}
-
-.announcement-message {
-  margin: 0;
-  font-weight: 500;
-  color: inherit;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.announcement-close-btn {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-tertiary, #64748b);
-  border: none;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
-}
-
-.announcement-close-btn:hover {
-  background: var(--bg-hover, rgba(0, 0, 0, 0.06));
-  color: var(--text-primary, #0f172a);
-}
-
-.announcement-close-btn:active {
-  transform: translateY(-50%) scale(0.92);
-}
-
-.announcement-close-btn:focus-visible {
-  outline: 2px solid var(--accent, #4f6ee8);
-  outline-offset: 1px;
-}
-
-@media (max-width: 767px) {
-  .announcement-bar {
-    padding: 8px 36px 8px 12px;
-    font-size: 12.5px;
-    min-height: 38px;
-  }
-
-  .announcement-bar-content {
-    gap: 7px;
-    justify-content: center;
-    text-align: center;
-  }
-
-  .announcement-message {
-    white-space: normal;
-    text-align: center;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    line-height: 1.35;
-  }
-
-  .announcement-close-btn {
-    right: 8px;
-    width: 26px;
-    height: 26px;
-  }
-}
-
-@media (max-width: 480px) {
-  .announcement-bar {
-    padding: 7px 32px 7px 10px;
-    font-size: 12px;
-  }
-
-  .announcement-indicator {
-    width: 12px;
-    height: 12px;
-  }
-
-  .announcement-dot {
-    width: 6px;
-    height: 6px;
-  }
-
-  .announcement-close-btn {
-    right: 6px;
-    width: 24px;
-    height: 24px;
-  }
-}
-
 .mobile-header {
   display: none;
   position: sticky;
@@ -13828,7 +13640,7 @@ html.dark .auth-footer-link:hover {
   .security-card-actions button { width: 100%; }
 }
 
-/* Helmer v3.0 release page — reuses workspace surfaces and controls. */
+/* Helmer v3.5 release page — reuses workspace surfaces and controls. */
 
 /* Native-feeling Build / Ask home layout. Desktop rules stay untouched. */
 @media (max-width: 767px) {
@@ -18122,40 +17934,49 @@ body.sidebar-open .planner-composer-card {
 }
 
 /* ==========================================================================
-   Technical Support Notice Toast
+   Helmer v3.5 Release Announcement Toast Card
    ========================================================================== */
 
-.support-notice-toast {
+.v35-release-toast {
   position: fixed;
   bottom: 24px;
   right: 24px;
   z-index: 1200;
-  max-width: 430px;
+  max-width: 440px;
   width: calc(100vw - 48px);
-  padding: 16px 18px;
-  border-radius: 14px;
-  background: var(--theme-surface, #ffffff);
-  border: 1px solid var(--theme-border, rgba(15, 23, 42, 0.1));
-  box-shadow: 0 20px 48px var(--theme-shadow-soft, rgba(15, 23, 42, 0.14)), 0 2px 8px var(--theme-shadow-soft, rgba(15, 23, 42, 0.06));
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--bg-elevated, #ffffff);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  box-shadow: 0 20px 50px -10px rgba(15, 23, 42, 0.18),
+              0 0 0 1px rgba(99, 102, 241, 0.12);
   opacity: 0;
   transform: translateY(20px) scale(0.97);
   transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
 }
 
-.support-notice-toast.is-visible {
+[data-theme="dark"] .v35-release-toast,
+html.dark .v35-release-toast {
+  background: #0f172a;
+  border-color: rgba(129, 140, 248, 0.3);
+  box-shadow: 0 24px 60px -10px rgba(0, 0, 0, 0.7),
+              0 0 0 1px rgba(129, 140, 248, 0.2);
+}
+
+.v35-release-toast.is-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
 }
 
-.support-notice-toast.is-dismissing {
+.v35-release-toast.is-dismissing {
   opacity: 0;
   transform: translateY(12px) scale(0.96);
   pointer-events: none;
 }
 
-.support-notice-header {
+.v35-toast-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -18163,23 +17984,23 @@ body.sidebar-open .planner-composer-card {
   margin-bottom: 6px;
 }
 
-.support-notice-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  font-weight: 650;
-  color: var(--theme-blue-ink, var(--accent, #4f6ee8));
+.v35-toast-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  margin: 0;
+  line-height: 1.35;
 }
 
-.support-notice-badge svg {
-  color: var(--theme-blue-ink, var(--accent, #4f6ee8));
+[data-theme="dark"] .v35-toast-title,
+html.dark .v35-toast-title {
+  color: #f8fafc;
 }
 
-.support-notice-close {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+.v35-toast-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   background: transparent;
   border: none;
   color: var(--text-tertiary, #94a3b8);
@@ -18189,105 +18010,122 @@ body.sidebar-open .planner-composer-card {
   justify-content: center;
   font-size: 13px;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
-.support-notice-close:hover {
-  background: var(--theme-wash, rgba(15, 23, 42, 0.06));
+.v35-toast-close:hover {
+  background: var(--bg-hover, rgba(15, 23, 42, 0.06));
   color: var(--text-primary, #0f172a);
 }
 
-.support-notice-title {
-  font-size: 13.5px;
-  font-weight: 650;
-  color: var(--text-primary, #0f172a);
-  margin: 0 0 4px;
-  line-height: 1.4;
+[data-theme="dark"] .v35-toast-close:hover,
+html.dark .v35-toast-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
 }
 
-.support-notice-body {
-  font-size: 12.5px;
+.v35-toast-body {
+  font-size: 13px;
   line-height: 1.55;
   color: var(--text-secondary, #475569);
-  margin: 0 0 8px;
+  margin: 0 0 14px;
 }
 
-.support-notice-email {
-  display: inline-block;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--theme-blue-ink, var(--accent, #1d4ed8));
-  text-decoration: none;
-  margin-bottom: 14px;
-  transition: color 0.15s ease;
+[data-theme="dark"] .v35-toast-body,
+html.dark .v35-toast-body {
+  color: #94a3b8;
 }
 
-.support-notice-email:hover {
-  color: var(--theme-blue-ink, #1e40af);
-  text-decoration: underline;
-}
-
-.support-notice-actions {
+.v35-toast-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
 }
 
-.support-notice-dontshow-btn {
+.v35-toast-dontshow-btn {
   font-size: 12px;
-  padding: 7px 12px;
+  padding: 7px 13px;
   border-radius: 8px;
-  background: var(--theme-surface, #f8fafc);
-  color: var(--theme-ink, #1e293b);
-  border: 1px solid var(--theme-border, #e2e8f0);
+  background: var(--bg-soft, #f8fafc);
+  color: var(--text-primary, #1e293b);
+  border: 1px solid var(--border-subtle, #e2e8f0);
   font-weight: 550;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.support-notice-dontshow-btn:hover {
-  background: var(--theme-surface-soft, #f1f5f9);
-  border-color: var(--theme-border, #cbd5e1);
+.v35-toast-dontshow-btn:hover {
+  background: var(--bg-hover, #f1f5f9);
+  border-color: var(--border-hover, #cbd5e1);
 }
 
-.support-notice-mail-btn {
+[data-theme="dark"] .v35-toast-dontshow-btn,
+html.dark .v35-toast-dontshow-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .v35-toast-dontshow-btn:hover,
+html.dark .v35-toast-dontshow-btn:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+.v35-toast-cta-btn {
   font-size: 12px;
-  padding: 7px 14px;
+  padding: 7px 15px;
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
+  background: linear-gradient(135deg, #4f6ee8 0%, #6366f1 100%);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(79, 110, 232, 0.3);
   transition: all 0.15s ease;
 }
 
+.v35-toast-cta-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 4px 12px rgba(79, 110, 232, 0.4);
+  transform: translateY(-1px);
+}
+
 /* Auto-dismiss progress bar */
-.support-notice-progress-wrap {
+.v35-toast-progress-wrap {
   margin-top: 12px;
   height: 3px;
   border-radius: 2px;
-  background: var(--theme-wash, rgba(15, 23, 42, 0.06));
+  background: rgba(15, 23, 42, 0.06);
   overflow: hidden;
 }
 
-.support-notice-progress-bar {
+[data-theme="dark"] .v35-toast-progress-wrap,
+html.dark .v35-toast-progress-wrap {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.v35-toast-progress-bar {
   height: 100%;
   width: 100%;
   border-radius: 2px;
-  background: linear-gradient(90deg, var(--accent, #4f6ee8), var(--theme-blue-surface, #93b0f8));
+  background: linear-gradient(90deg, #4f6ee8, #a855f7);
   transform-origin: left;
   transform: scaleX(1);
 }
 
-.support-notice-progress-bar.is-running {
-  animation: support-progress-shrink linear forwards;
+.v35-toast-progress-bar.is-running {
+  animation: v35-progress-shrink linear forwards;
 }
 
-@keyframes support-progress-shrink {
+@keyframes v35-progress-shrink {
   from { transform: scaleX(1); }
   to   { transform: scaleX(0); }
 }
 
 @media (max-width: 640px) {
-  .support-notice-toast {
+  .v35-release-toast {
     bottom: 16px;
     right: 16px;
     left: 16px;
