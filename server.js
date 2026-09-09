@@ -189,8 +189,12 @@ app.use(
     setHeaders: (res, filePath) => {
       if (filePath.endsWith(".html")) {
         res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
       } else if (filePath.endsWith(".css") || filePath.endsWith(".js")) {
-        res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
       }
     },
   })
@@ -1783,6 +1787,8 @@ app.get(["/terms", "/terms-of-service"], (req, res) => {
 // 🌐 Frontend üçün fallback
 app.get("*", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 

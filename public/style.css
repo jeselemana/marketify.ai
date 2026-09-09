@@ -13734,7 +13734,12 @@ html.dark .auth-footer-link:hover {
     justify-self: start;
     width: 42px;
     height: 42px;
+    padding: 0;
     border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
   }
 
   .mobile-header-spacer {
@@ -13769,8 +13774,16 @@ html.dark .auth-footer-link:hover {
   }
 
   .mobile-header-intake #mobileMenuButton span {
-    font-size: 22px;
+    font-size: 21px;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    transform: translateY(-2.5px);
+    margin: 0;
+    padding: 0;
   }
 
   /* Chat bar - hidden by default on intake, shown ONLY when .is-chat-active */
