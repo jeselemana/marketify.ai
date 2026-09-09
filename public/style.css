@@ -13691,6 +13691,8 @@ html.dark .auth-footer-link:hover {
     position: sticky;
     top: 0;
     z-index: 50;
+    min-height: 0;
+    padding: 0;
     border-bottom: none;
     background: transparent;
     box-shadow: none;
@@ -13704,9 +13706,9 @@ html.dark .auth-footer-link:hover {
     display: grid;
     grid-template-columns: 44px minmax(0, 1fr) 44px;
     align-items: center;
-    height: calc(60px + env(safe-area-inset-top));
-    min-height: calc(60px + env(safe-area-inset-top));
-    padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    height: calc(48px + env(safe-area-inset-top));
+    min-height: calc(48px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
     width: 100%;
     box-sizing: border-box;
   }
@@ -13714,9 +13716,9 @@ html.dark .auth-footer-link:hover {
   .mobile-header .icon-button,
   .mobile-header-intake .icon-button,
   .mobile-header-intake .mobile-new {
-    width: 44px;
-    height: 44px;
-    border-radius: 13px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
     background: rgba(var(--theme-surface-rgb, 255, 255, 255), 0.9);
     border: 1px solid var(--border-subtle, rgba(20, 27, 42, 0.08));
     box-shadow: 0 1px 2px var(--theme-shadow-soft, rgba(31, 41, 55, 0.04));
@@ -13729,12 +13731,16 @@ html.dark .auth-footer-link:hover {
 
   .mobile-header-intake #mobileMenuButton {
     grid-column: 1;
+    justify-self: start;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
   }
 
   .mobile-header-spacer {
     grid-column: 3;
     width: 44px;
-    height: 44px;
+    height: 42px;
   }
 
   .mobile-header-intake .mobile-new {
@@ -14576,13 +14582,12 @@ html.dark .auth-footer-link:hover {
 
 @media (max-width: 390px) {
   .mobile-header {
-    padding-right: max(14px, env(safe-area-inset-right));
-    padding-left: max(14px, env(safe-area-inset-left));
+    padding: 0;
   }
 
   .mobile-header-intake {
-    padding-right: max(14px, env(safe-area-inset-right));
-    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-left: max(12px, env(safe-area-inset-left));
   }
 
   .mobile-header-chat {
@@ -19785,6 +19790,10 @@ html.dark .mobile-header.is-chat-active {
   box-shadow: none;
 }
 
+[data-theme="dark"] .mobile-header-intake #mobileMenuButton,
+html.dark .mobile-header-intake #mobileMenuButton,
+[data-theme="dark"] .mobile-header-intake .icon-button,
+html.dark .mobile-header-intake .icon-button,
 [data-theme="dark"] .mobile-header .mobile-menu-pill-btn,
 html.dark .mobile-header .mobile-menu-pill-btn,
 [data-theme="dark"] .mobile-header #mobileChatMenuButton,

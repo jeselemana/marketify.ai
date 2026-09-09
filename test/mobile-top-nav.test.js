@@ -60,6 +60,7 @@ test("style.css: isolates intake vs active chat views, defines fading dark gradi
   // Intake view styling
   assert.ok(css.includes(".mobile-header-intake {"), "mobile-header-intake is defined");
   assert.ok(css.includes("grid-template-columns: 44px minmax(0, 1fr) 44px;"), "mobile-header-intake uses 3-column grid");
+  assert.ok(css.includes(".mobile-header-intake #mobileMenuButton"), "mobileMenuButton in intake view is styled");
 
   // Chat bar styling - edge alignment and full width
   assert.ok(css.includes(".mobile-header-chat {"), "mobile-header-chat is defined");
@@ -97,6 +98,7 @@ test("style.css: isolates intake vs active chat views, defines fading dark gradi
   // Dark mode parity
   assert.ok(css.includes('[data-theme="dark"] .mobile-header.is-chat-active') || css.includes('html.dark .mobile-header.is-chat-active'), "Dark mode mobile-header.is-chat-active styling is defined");
   assert.ok(css.includes('[data-theme="dark"] .mobile-header .mobile-new-pill-btn') || css.includes('html.dark .mobile-header .mobile-new-pill-btn'), "Dark mode mobile new button styling is defined");
+  assert.ok(css.includes('[data-theme="dark"] .mobile-header-intake #mobileMenuButton') || css.includes('html.dark .mobile-header-intake #mobileMenuButton'), "Dark mode mobile intake menu button styling is defined");
 });
 
 test("script.js: applies is-chat-active ONLY during active chat, wires model/profile dropdowns, and complies with Rule 4", async () => {
