@@ -10,7 +10,10 @@ import {
   ASSESSOR_PROMPT,
   REFINEMENT_PROMPT,
   STRATEGY_PROMPT,
+  buildAssessorPrompt,
   buildRefinementInput,
+  buildRefinementPrompt,
+  buildStrategyPrompt,
 } from "./prompts.js";
 
 function clarificationContext(answers) {
@@ -46,10 +49,12 @@ export async function assessBrief({
           : "Decide whether a targeted clarification round is materially useful.")
   }\n\n${languageDirective}`;
 
+  const instructions = buildAssessorPrompt({ brief, answers, personalizationContext });
+
   const result = await routeStructuredGeneration({
     schema: StrategyAssessmentSchema,
     name: "strategy_assessment",
-    instructions: `${ASSESSOR_PROMPT}${personalizationContext || ""}`,
+    instructions,
     input,
     maxOutputTokens: aiConfig.assessmentMaxOutputTokens,
     reasoning: "low",
@@ -96,10 +101,12 @@ export async function generateStrategy({
     assumptions.length ? assumptions.join("\n- ") : "None supplied."
   }${languageDirective}`;
 
+  const instructions = buildStrategyPrompt({ brief, answers, personalizationContext });
+
   const result = await routeStructuredGeneration({
     schema: StrategySchema,
     name: "helmer_strategy",
-    instructions: `${STRATEGY_PROMPT}${personalizationContext || ""}`,
+    instructions,
     input,
     maxOutputTokens: aiConfig.strategyMaxOutputTokens,
     reasoning: "medium",
@@ -118,10 +125,17 @@ export async function refineStrategy(payload, ownerId, signal, personalizationCo
     ? "\n\nLanguage Directive: The user has selected English. Maintain and output the refined strategy in professional English."
     : "";
 
+  const instructions = buildRefinementPrompt({
+    brief: payload.brief,
+    answers: payload.answers,
+    strategy: payload.strategy,
+    personalizationContext,
+  });
+
   const result = await routeStructuredGeneration({
     schema: StrategySchema,
     name: "helmer_refined_strategy",
-    instructions: `${REFINEMENT_PROMPT}${personalizationContext || ""}`,
+    instructions,
     input: `${buildRefinementInput(payload)}${languageDirective}`,
     maxOutputTokens: aiConfig.refinementMaxOutputTokens,
     reasoning: payload.action === "think_deeper" ? "high" : "medium",

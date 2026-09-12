@@ -8,6 +8,7 @@ import {
 } from "../domain/strategy.js";
 import { assessBrief, generateStrategy, refineStrategy } from "../services/ai/strategy-service.js";
 import { buildStrategyPersonalizationContext } from "../services/ai/personal-context.js";
+import { detectTargetMarket } from "../services/ai/prompts.js";
 import { aiConfig } from "../services/ai/config.js";
 import { logWithoutBlocking } from "../services/learning/learning-loop-service.js";
 
@@ -123,9 +124,10 @@ export function createStrategyRouter(repository, learningLoop = null) {
       const personalizationContext = buildStrategyPersonalizationContext({
         user: req.user,
       });
+      const marketMode = detectTargetMarket({ brief: payload.brief, answers: payload.answers });
       const tracked = await runTrackedBuild({
         learningLoop, ownerId: req.ownerId, taskType: "build_assess", userPrompt: payload.brief,
-        relevantContext: { personalizationApplied: Boolean(personalizationContext), language },
+        relevantContext: { personalizationApplied: Boolean(personalizationContext), language, marketMode },
         execute: (onUsage) => assessBrief({ ...payload, language, ownerId: req.ownerId, personalizationContext, signal: abortController.signal, onUsage }),
       });
       const assessment = tracked.result;
@@ -153,12 +155,13 @@ export function createStrategyRouter(repository, learningLoop = null) {
         const personalizationContext = buildStrategyPersonalizationContext({
           user,
         });
+        const marketMode = detectTargetMarket({ brief: payload.brief, answers: payload.answers });
         const tracked = await runTrackedBuild({
           learningLoop,
           ownerId,
           taskType: "build_generate",
           userPrompt: payload.brief,
-          relevantContext: { personalizationApplied: Boolean(personalizationContext), language },
+          relevantContext: { personalizationApplied: Boolean(personalizationContext), language, marketMode },
           execute: (onUsage) =>
             generateStrategy({
               ...payload,
@@ -291,9 +294,10 @@ export function createStrategyRouter(repository, learningLoop = null) {
       const personalizationContext = buildStrategyPersonalizationContext({
         user: req.user,
       });
+      const marketMode = detectTargetMarket({ brief: payload.brief, answers: payload.answers, strategy: payload.strategy });
       const tracked = await runTrackedBuild({
         learningLoop, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
-        relevantContext: { personalizationApplied: Boolean(personalizationContext), language },
+        relevantContext: { personalizationApplied: Boolean(personalizationContext), language, marketMode },
         execute: (onUsage) => refineStrategy({ ...payload, language }, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
       });
       const strategy = tracked.result;
