@@ -97,7 +97,7 @@ async function startSession(req, res, authStore, userId) {
   return sessionId;
 }
 
-export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, aiLearningRepository, appUrl }) {
+export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, aiLearningRepository, appUrl, telemetryService }) {
   // server.js loads dotenv after ESM imports have been evaluated. Resolve this
   // value when the router is created so the configured client ID is available.
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -256,6 +256,17 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       await plannerRepository.claimOwner(req.guestOwnerId, user.id);
     }
 
+    if (telemetryService) {
+      telemetryService.trackAuth({
+        ownerId: user.id,
+        sessionId: req.guestOwnerId,
+        action: "login",
+        provider: "google",
+        ip: req.ip || req.socket?.remoteAddress,
+        status: "success",
+      }).catch(() => {});
+    }
+
     return res.json({
       user: publicUser(user),
       restoredFromPendingDeletion,
@@ -267,6 +278,16 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     const payload = parseBody(SignupSchema, req.body);
     const passwordHash = await hashPassword(payload.password);
     const user = await userRepository.create({ ...payload, passwordHash });
+    if (telemetryService) {
+      telemetryService.trackAuth({
+        ownerId: user.id,
+        sessionId: req.guestOwnerId,
+        action: "signup",
+        provider: "credentials",
+        ip: req.ip || req.socket?.remoteAddress,
+        status: "success",
+      }).catch(() => {});
+    }
     try {
       await sendEmailVerificationCode(user);
       await startEmailVerificationCooldown(req, user.email);
@@ -341,6 +362,17 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     const user = await userRepository.findByIdentifier(payload.identifier);
     const valid = await verifyPassword(user?.passwordHash || DUMMY_PASSWORD_HASH, payload.password);
     if (!user || !valid) {
+      if (telemetryService) {
+        telemetryService.trackAuth({
+          ownerId: user?.id || null,
+          sessionId: req.guestOwnerId,
+          action: "login",
+          provider: "credentials",
+          ip: req.ip || req.socket?.remoteAddress,
+          status: "error",
+          reason: "Invalid credentials",
+        }).catch(() => {});
+      }
       return res.status(401).json({
         error: "E-poçt/istifadəçi adı və ya şifrə yanlışdır.",
         code: "INVALID_CREDENTIALS",
@@ -389,6 +421,16 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     if (req.guestOwnerId && plannerRepository?.claimOwner) {
       await plannerRepository.claimOwner(req.guestOwnerId, currentUser.id);
     }
+    if (telemetryService) {
+      telemetryService.trackAuth({
+        ownerId: currentUser.id,
+        sessionId: req.guestOwnerId,
+        action: "login",
+        provider: "credentials",
+        ip: req.ip || req.socket?.remoteAddress,
+        status: "success",
+      }).catch(() => {});
+    }
     return res.json({
       user: publicUser(updated || currentUser),
       restoredFromPendingDeletion,
@@ -401,6 +443,15 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   });
 
   router.post("/logout", asyncRoute(async (req, res) => {
+    if (telemetryService) {
+      telemetryService.trackAuth({
+        ownerId: req.user?.id || req.ownerId,
+        sessionId: req.auth?.sessionId || req.guestOwnerId,
+        action: "logout",
+        ip: req.ip || req.socket?.remoteAddress,
+        status: "success",
+      }).catch(() => {});
+    }
     if (req.auth?.sessionId) await authStore.deleteSession(req.auth.sessionId);
     clearSessionCookie(req, res);
     return res.status(204).end();

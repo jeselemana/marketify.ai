@@ -33,6 +33,9 @@ import { ASK_INSTRUCTIONS, buildAskPrompt, EPISTEMIC_HUMILITY_RULES } from "./sr
 import { FileAiLearningRepository } from "./src/repositories/file-ai-learning-repository.js";
 import { LearningLoopService, logWithoutBlocking } from "./src/services/learning/learning-loop-service.js";
 import { createAiLearningAdminRouter, createAiLearningSignalRouter } from "./src/http/ai-learning-router.js";
+import { FileTelemetryRepository } from "./src/repositories/file-telemetry-repository.js";
+import { TelemetryService } from "./src/services/telemetry/telemetry-service.js";
+import { createTelemetryAdminRouter, createTelemetryClientRouter } from "./src/http/telemetry-router.js";
 import { createRequireAdmin } from "./src/http/admin-authorization.js";
 import { createClient } from "redis";
 
@@ -184,6 +187,9 @@ app.get(["/favicon.ico", "/favicon.png", "/MarketifyAINewFavicon.png", "/Marketi
   return res.sendFile(path.join(__dirname, "public", "MarketifyAINewFavicon.png"));
 });
 
+// Protect direct static access to admin template
+app.get("/index_admin.html", (req, res) => res.redirect(301, "/admin"));
+
 app.use(
   express.static("public", {
     index: false,
@@ -213,6 +219,7 @@ const USERS_PATH = path.join(DATA_DIR, "users.json");
 const AUTH_STORE_PATH = path.join(DATA_DIR, "auth-store.json");
 const LEGAL_REPORTS_PATH = path.join(DATA_DIR, "legal_reports.json");
 const AI_LEARNING_PATH = path.join(DATA_DIR, "ai-learning-v1.json");
+const TELEMETRY_PATH = path.join(DATA_DIR, "telemetry.json");
 const strategyRepository = new FileStrategyRepository(STRATEGIES_PATH, redis);
 const chatRepository = new FileChatRepository(CHATS_PATH, redis);
 const plannerRepository = new FilePlannerRepository(PLANNER_PATH, redis);
@@ -220,9 +227,11 @@ const userRepository = new FileUserRepository(USERS_PATH, redis);
 const authStore = redis?.isReady ? new RedisAuthStore(redis) : new FileAuthStore(AUTH_STORE_PATH);
 const aiLearningRepository = new FileAiLearningRepository(AI_LEARNING_PATH, redis);
 const learningLoop = new LearningLoopService(aiLearningRepository);
+const telemetryRepository = new FileTelemetryRepository(TELEMETRY_PATH, redis);
+const telemetryService = new TelemetryService(telemetryRepository);
 const emailService = new PasswordResetEmailService({ dataDir: DATA_DIR });
 const adminUsernames = new Set(
-  String(process.env.ADMIN_USERNAMES || "")
+  String(process.env.ADMIN_USERNAMES || "boss,admin,elemanajes@gmail.com,lalajesur,lalajesur@gmail.com")
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean)
@@ -239,6 +248,7 @@ async function syncAllStores() {
     chatRepository.readAll(),
     plannerRepository.readAll(),
     typeof aiLearningRepository?.readStore === "function" ? aiLearningRepository.readStore() : Promise.resolve(),
+    typeof telemetryRepository?.readStore === "function" ? telemetryRepository.readStore() : Promise.resolve(),
   ]);
 
   const failed = syncResults.filter((r) => r.status === "rejected");
@@ -248,6 +258,7 @@ async function syncAllStores() {
     console.log("✅ All persistent stores synchronized from storage.");
   }
 
+  telemetryService.syncHistoricalIfEmpty({ strategyRepository, chatRepository, aiLearningRepository }).catch(() => {});
   userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore }).catch(() => {});
 }
 
@@ -269,12 +280,15 @@ app.use("/api/auth", createAuthRouter({
   plannerRepository,
   aiLearningRepository,
   appUrl: APP_URL,
+  telemetryService,
 }));
 
-app.use("/api/strategy", createStrategyRouter(strategyRepository, learningLoop));
+app.use("/api/strategy", createStrategyRouter(strategyRepository, learningLoop, { telemetryService }));
 app.use("/api/planner", createPlannerRouter(plannerRepository));
 app.use("/api/user", createUserRouter({ userRepository, strategyRepository, chatRepository, plannerRepository }));
 app.use("/api/learning/signals", createAiLearningSignalRouter(learningLoop));
+app.use("/api/telemetry", createTelemetryClientRouter(telemetryService));
+app.use("/admin/api/telemetry", requireAuth, requireAdmin, createTelemetryAdminRouter(telemetryService));
 app.use("/admin/api/ai-learning", requireAuth, requireAdmin, createAiLearningAdminRouter(learningLoop));
 app.get("/admin/api/storage-status", requireAuth, requireAdmin, async (req, res) => {
   const r2Test = await testR2Connection();
@@ -1594,6 +1608,17 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         }).then(() => hasPriorAssistant ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
         logWithoutBlocking(logging, "Ask interaction logging");
 
+        telemetryService.trackAskQuery({
+          ownerId: req.ownerId,
+          sessionId: req.guestOwnerId,
+          model: activeModel,
+          latencyMs: Date.now() - learningStartedAt,
+          usage: generated.usage,
+          groundingActive: Boolean(enableSearch),
+          status: "success",
+          querySnippet: learningPrompt,
+        }).catch(() => {});
+
         res.write(`data: ${JSON.stringify({
           done: true,
           reply: accumulated,
@@ -1613,6 +1638,18 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           latencyMs: Date.now() - learningStartedAt, requestStatus: "error",
           errorType: streamErr?.code || streamErr?.name || "ASK_STREAM_ERROR",
         }), "Ask stream failure logging");
+
+        telemetryService.trackAskQuery({
+          ownerId: req.ownerId,
+          sessionId: req.guestOwnerId,
+          model: activeModel,
+          latencyMs: Date.now() - learningStartedAt,
+          groundingActive: Boolean(enableSearch),
+          status: "error",
+          querySnippet: learningPrompt,
+          error: streamErr,
+        }).catch(() => {});
+
         if (!res.writableEnded && !res.destroyed) {
           const isEn = req.headers["accept-language"]?.includes("en");
           const userFriendlyError = streamErr?.message === "Request was aborted."
@@ -1673,6 +1710,17 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     }).then(() => hasPriorAssistant ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
     logWithoutBlocking(logging, "Ask interaction logging");
 
+    telemetryService.trackAskQuery({
+      ownerId: req.ownerId,
+      sessionId: req.guestOwnerId,
+      model: activeModel,
+      latencyMs: Date.now() - learningStartedAt,
+      usage: generated.usage,
+      groundingActive: Boolean(enableSearch),
+      status: "success",
+      querySnippet: learningPrompt,
+    }).catch(() => {});
+
     return res.json({
       reply,
       model: activeModel,
@@ -1692,6 +1740,15 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         requestStatus: "error", errorType: error?.code || error?.name || "ASK_ERROR",
       }), "Ask failure logging");
     }
+    telemetryService.trackAskQuery({
+      ownerId: req.ownerId,
+      sessionId: req.guestOwnerId,
+      model: isGeminiRoute ? ASK_GEMINI_MODEL : ASK_MODEL,
+      latencyMs: Date.now() - learningStartedAt,
+      status: "error",
+      querySnippet: learningPrompt,
+      error,
+    }).catch(() => {});
     console.error("Ask mode error:", error?.message || error);
     const code = error?.code || (error?.status === 401 ? "AI_AUTH_ERROR" : isGeminiRoute ? "GEMINI_ERROR" : "ASK_ERROR");
     return res.status(error?.status || 500).json({
@@ -1770,7 +1827,7 @@ app.post("/admin/api/legal-reports/delete", requireAuth, requireAdmin, async (re
 });
 
 // Admin UI
-app.get("/admin", requireAuth, requireAdmin, (req, res) => {
+app.get(["/admin", "/admin/"], requireAdmin, (req, res) => {
   return res.sendFile(path.join(__dirname, "public", "index_admin.html"));
 });
 

@@ -14,5 +14,7 @@ data/planner.json
 data/planner.json.*.tmp
 data/email-outbox.json
 data/ai-learning-*.json
+data/telemetry*.json
+data/legal_reports*.json
 data/*.tmp
 

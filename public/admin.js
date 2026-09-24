@@ -34,6 +34,7 @@ function escapeHtml(value) {
 function setupTabs() {
   const tabs = document.querySelectorAll(".nav-tab");
   const contents = {
+    telemetry: document.getElementById("tabContentTelemetry"),
     legal: document.getElementById("tabContentLegal"),
     learning: document.getElementById("tabContentLearning"),
   };
@@ -55,10 +56,359 @@ function setupTabs() {
         }
       });
 
+      if (target === "telemetry") loadTelemetry();
       if (target === "legal") loadLegalReports();
       if (target === "learning") loadAiLearning();
     });
   });
+}
+
+// -------------------------------------------------------------
+// 📊 TELEMETRY & AUDIT DASHBOARD (PRIVACY-FIRST)
+// -------------------------------------------------------------
+const telemetryState = {
+  page: 1,
+  pageSize: 20,
+  searchTimer: null,
+  liveInterval: null,
+  currentEvent: null,
+};
+
+function makeEl(tag, className = "", textContent = null) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (textContent !== null && textContent !== undefined) {
+    node.textContent = textContent;
+  }
+  return node;
+}
+
+function formatAzn(value) {
+  return `${(Number(value) || 0).toFixed(4)} ₼`;
+}
+
+function formatUsd(value) {
+  return `$${(Number(value) || 0).toFixed(4)}`;
+}
+
+function telemetryQuery(extra = {}) {
+  const params = new URLSearchParams();
+  const dateRange = document.getElementById("telemetryDateFilter")?.value || "today";
+  params.set("dateRange", dateRange);
+
+  const mode = document.getElementById("telemetryModeFilter")?.value;
+  if (mode && mode !== "all") params.set("mode", mode);
+
+  const market = document.getElementById("telemetryMarketFilter")?.value;
+  if (market && market !== "all") params.set("marketMode", market);
+
+  const model = document.getElementById("telemetryModelFilter")?.value;
+  if (model && model !== "all") params.set("model", model);
+
+  const status = document.getElementById("telemetryStatusFilter")?.value;
+  if (status && status !== "all") params.set("status", status);
+
+  const search = document.getElementById("telemetrySearchInput")?.value?.trim();
+  if (search) params.set("search", search);
+
+  params.set("page", String(extra.page || telemetryState.page));
+  params.set("pageSize", String(extra.pageSize || telemetryState.pageSize));
+
+  return params.toString();
+}
+
+function renderTelemetryKpis(data) {
+  if (!data) return;
+  const setTxt = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val ?? "–";
+  };
+
+  setTxt("stat-telemetry-dau", Number(data.dau || 0).toLocaleString());
+  setTxt("stat-telemetry-strategies", Number(data.totalStrategies || 0).toLocaleString());
+  setTxt("stat-telemetry-today-strategies", Number(data.todayStrategies || 0).toLocaleString());
+  setTxt("stat-telemetry-latency", data.avgLatencyMs ? `${data.avgLatencyMs} ms` : "–");
+  setTxt("stat-telemetry-cost-azn", formatAzn(data.todayCostAzn));
+  setTxt("stat-telemetry-cost-usd", `(${formatUsd(data.todayCostUsd)})`);
+  setTxt("stat-telemetry-total-events", Number(data.totalEvents || 0).toLocaleString());
+  setTxt("stat-telemetry-local-share", `${data.marketDistribution?.localPercent || 0}%`);
+  setTxt("stat-telemetry-alltime-cost", formatAzn(data.allTimeCostAzn));
+}
+
+function renderMarketDistribution(market) {
+  if (!market) return;
+  const localPct = Math.max(0, Math.min(100, Number(market.localPercent) || 50));
+  const globalPct = 100 - localPct;
+
+  const barLocal = document.getElementById("marketBarLocal");
+  const barGlobal = document.getElementById("marketBarGlobal");
+  if (barLocal) barLocal.style.width = `${localPct}%`;
+  if (barGlobal) barGlobal.style.width = `${globalPct}%`;
+
+  const setTxt = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  setTxt("stat-market-local-count", market.localCount ?? 0);
+  setTxt("stat-market-local-pct", `(${localPct}%)`);
+  setTxt("stat-market-global-count", market.globalCount ?? 0);
+  setTxt("stat-market-global-pct", `(${globalPct}%)`);
+}
+
+function renderModelDistribution(models) {
+  const tbody = document.getElementById("telemetryModelsBody");
+  if (!tbody) return;
+  tbody.textContent = "";
+
+  if (!Array.isArray(models) || models.length === 0) {
+    const tr = makeEl("tr");
+    const td = makeEl("td", "empty-cell", "Model statistikası mövcud deyil.");
+    td.setAttribute("colspan", "5");
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+
+  models.forEach((item) => {
+    const tr = makeEl("tr");
+
+    // Model name
+    const tdModel = makeEl("td");
+    const strongModel = makeEl("strong", "", item.model);
+    tdModel.appendChild(strongModel);
+
+    // Requests count
+    const tdCount = makeEl("td", "", Number(item.count).toLocaleString());
+
+    // Share % with progress bar
+    const tdShare = makeEl("td");
+    const shareWrap = makeEl("div", "model-share-cell");
+    const track = makeEl("div", "model-share-track");
+    const fill = makeEl("div", "model-share-fill");
+    fill.style.width = `${Math.min(100, Math.max(2, item.percentage))}%`;
+    track.appendChild(fill);
+    const pctText = makeEl("span", "", `${item.percentage}%`);
+    shareWrap.append(track, pctText);
+    tdShare.appendChild(shareWrap);
+
+    // Latency
+    const tdLatency = makeEl("td", "", item.avgLatencyMs ? `${item.avgLatencyMs} ms` : "–");
+
+    // Cost
+    const tdCost = makeEl("td", "", `${formatUsd(item.totalCostUsd)} / ${formatAzn(item.totalCostAzn)}`);
+
+    tr.append(tdModel, tdCount, tdShare, tdLatency, tdCost);
+    tbody.appendChild(tr);
+  });
+}
+
+function getEventIcon(eventType, mode) {
+  if (mode === "build") return "⚡";
+  if (mode === "ask") return "💬";
+  if (mode === "summary") return "📝";
+  if (mode === "export") return "📥";
+  if (mode === "auth") return "🔐";
+  if (mode === "system") return "⚠️";
+  return "●";
+}
+
+function renderTelemetryEvents(data) {
+  const tbody = document.getElementById("telemetryEventsBody");
+  if (!tbody) return;
+  tbody.textContent = "";
+
+  if (!Array.isArray(data.items) || data.items.length === 0) {
+    const tr = makeEl("tr");
+    const td = makeEl("td", "empty-cell", "Heç bir telemetriya hadisəsi tapılmadı.");
+    td.setAttribute("colspan", "9");
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    renderTelemetryPagination({ total: 0, page: 1, totalPages: 1 });
+    return;
+  }
+
+  data.items.forEach((event) => {
+    const tr = makeEl("tr", "clickable-row");
+    tr.dataset.telemetryId = event.id;
+
+    // 1. Event Type & summary preview
+    const tdEvent = makeEl("td");
+    const eventWrap = makeEl("div", "event-type-cell");
+    const eventName = makeEl("span", "event-type-name", `${getEventIcon(event.eventType, event.mode)} ${event.eventType}`);
+    const eventSub = makeEl("small", "event-type-sub", event.summary || event.category || "Hadisə");
+    eventWrap.append(eventName, eventSub);
+    if (event.groundingActive) {
+      const gBadge = makeEl("span", "grounding-indicator", "🌐 Search aktiv");
+      eventWrap.appendChild(gBadge);
+    }
+    tdEvent.appendChild(eventWrap);
+
+    // 2. Mode badge
+    const tdMode = makeEl("td");
+    const modeBadge = makeEl("span", `mode-pill mode-badge-${event.mode || "other"}`, event.mode || "other");
+    tdMode.appendChild(modeBadge);
+
+    // 3. Market Mode badge
+    const tdMarket = makeEl("td");
+    if (event.marketMode === "LOCAL_AZ_MODE") {
+      tdMarket.appendChild(makeEl("span", "market-pill-local", "🇦🇿 [LOCAL_AZ]"));
+    } else if (event.marketMode === "GLOBAL_MODE") {
+      tdMarket.appendChild(makeEl("span", "market-pill-global", "🌐 [GLOBAL]"));
+    } else {
+      tdMarket.appendChild(makeEl("span", "market-pill-neutral", "–"));
+    }
+
+    // 4. Model
+    const tdModel = makeEl("td", "", event.model || (event.format ? `format: ${event.format}` : "–"));
+
+    // 5. Masked User ID (Privacy-First)
+    const tdUser = makeEl("td");
+    const userCode = makeEl("code", "masked-id-code", event.maskedUserId || "usr_anon...00");
+    tdUser.appendChild(userCode);
+
+    // 6. Latency
+    const tdLatency = makeEl("td", "", event.latencyMs ? `${event.latencyMs} ms` : "–");
+
+    // 7. Token / Cost
+    const tdCost = makeEl("td");
+    const tok = event.tokens?.total ? `${event.tokens.total.toLocaleString()} tok` : "–";
+    const cost = event.costUsd > 0 ? ` · ${formatUsd(event.costUsd)}` : "";
+    tdCost.textContent = `${tok}${cost}`;
+
+    // 8. Status
+    const tdStatus = makeEl("td");
+    if (event.status === "success") {
+      tdStatus.appendChild(makeEl("span", "status-tag-success", "✓ Uğurlu"));
+    } else {
+      tdStatus.appendChild(makeEl("span", "status-tag-error", "✗ Xəta"));
+    }
+
+    // 9. Timestamp
+    const tdDate = makeEl("td", "", formatDate(event.timestamp));
+
+    tr.append(tdEvent, tdMode, tdMarket, tdModel, tdUser, tdLatency, tdCost, tdStatus, tdDate);
+    tbody.appendChild(tr);
+  });
+
+  renderTelemetryPagination(data);
+}
+
+function renderTelemetryPagination(data) {
+  const container = document.getElementById("telemetryPagination");
+  if (!container) return;
+  container.textContent = "";
+
+  if (!data || data.totalPages <= 1) {
+    container.appendChild(makeEl("span", "", `${data?.total || 0} hadisə`));
+    return;
+  }
+
+  const prevBtn = makeEl("button", "btn btn-ghost", "←");
+  prevBtn.disabled = data.page <= 1;
+  prevBtn.addEventListener("click", () => {
+    if (telemetryState.page > 1) {
+      telemetryState.page -= 1;
+      loadTelemetry({ onlyFeed: true });
+    }
+  });
+
+  const infoSpan = makeEl("span", "", `${data.page} / ${data.totalPages} · ${data.total} hadisə`);
+
+  const nextBtn = makeEl("button", "btn btn-ghost", "→");
+  nextBtn.disabled = data.page >= data.totalPages;
+  nextBtn.addEventListener("click", () => {
+    if (telemetryState.page < data.totalPages) {
+      telemetryState.page += 1;
+      loadTelemetry({ onlyFeed: true });
+    }
+  });
+
+  container.append(prevBtn, infoSpan, nextBtn);
+}
+
+async function openTelemetryModal(id) {
+  try {
+    const { event } = await fetchJSON(`/admin/api/telemetry/events/${encodeURIComponent(id)}`);
+    if (!event) return;
+
+    telemetryState.currentEvent = event;
+    const modal = document.getElementById("telemetryModal");
+    const titleEl = document.getElementById("telemetryModalTitle");
+    const chipsEl = document.getElementById("telemetryModalChips");
+    const jsonEl = document.getElementById("telemetryModalJson");
+
+    if (titleEl) {
+      titleEl.textContent = `${event.eventType} • ${event.maskedUserId}`;
+    }
+
+    if (chipsEl) {
+      chipsEl.textContent = "";
+      const chipData = [
+        ["Rejim", event.mode],
+        ["Bazar", event.marketMode || "Ümumi"],
+        ["Model", event.model || "–"],
+        ["Maskalanmış ID", event.maskedUserId],
+        ["Status", event.status],
+        ["Gecikmə", event.latencyMs ? `${event.latencyMs} ms` : "–"],
+        ["Token", event.tokens?.total ? Number(event.tokens.total).toLocaleString() : "–"],
+        ["Xərc (AZN)", formatAzn(event.costAzn)],
+        ["Xərc (USD)", formatUsd(event.costUsd)],
+        ["Tarix", formatDate(event.timestamp)],
+      ];
+      if (event.groundingActive) {
+        chipData.push(["Grounding", "Google Search Aktiv"]);
+      }
+      if (event.anonymizedIp) {
+        chipData.push(["Anonim IP", event.anonymizedIp]);
+      }
+      chipData.forEach(([label, value]) => {
+        if (!value) return;
+        const chip = makeEl("div", "modal-chip");
+        chip.appendChild(makeEl("span", "", `${label}: `));
+        chip.appendChild(makeEl("strong", "", String(value)));
+        chipsEl.appendChild(chip);
+      });
+    }
+
+    if (jsonEl) {
+      jsonEl.textContent = JSON.stringify(event, null, 2);
+    }
+
+    if (modal) {
+      modal.hidden = false;
+      document.body.style.overflow = "hidden";
+    }
+  } catch (err) {
+    console.error("Open telemetry modal error:", err);
+    alert(`Hadisə detalları açılmadı: ${err.message}`);
+  }
+}
+
+function closeTelemetryModal() {
+  const modal = document.getElementById("telemetryModal");
+  if (modal) modal.hidden = true;
+  document.body.style.overflow = "";
+}
+
+async function loadTelemetry({ onlyFeed = false } = {}) {
+  try {
+    const q = telemetryQuery();
+    if (!onlyFeed) {
+      const [overview, eventsData] = await Promise.all([
+        fetchJSON(`/admin/api/telemetry/overview?${q}`),
+        fetchJSON(`/admin/api/telemetry/events?${q}`),
+      ]);
+      renderTelemetryKpis(overview);
+      renderMarketDistribution(overview.marketDistribution);
+      renderModelDistribution(overview.modelDistribution);
+      renderTelemetryEvents(eventsData);
+    } else {
+      const eventsData = await fetchJSON(`/admin/api/telemetry/events?${q}`);
+      renderTelemetryEvents(eventsData);
+    }
+  } catch (error) {
+    console.error("Telemetry loading error:", error);
+  }
 }
 
 // -------------------------------------------------------------
@@ -401,6 +751,7 @@ function renderLegalReports() {
 // -------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
+  loadTelemetry();
   loadLegalReports();
 
   // Load AI Learning pending count badge on init
@@ -413,7 +764,64 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     .catch(() => {});
 
-  // Search & Filter event listeners
+  // Telemetry Search & Filter listeners
+  const teleSearch = document.getElementById("telemetrySearchInput");
+  teleSearch?.addEventListener("input", () => {
+    clearTimeout(telemetryState.searchTimer);
+    telemetryState.searchTimer = setTimeout(() => {
+      telemetryState.page = 1;
+      loadTelemetry({ onlyFeed: true });
+    }, 300);
+  });
+
+  ["telemetryModeFilter", "telemetryMarketFilter", "telemetryModelFilter", "telemetryStatusFilter", "telemetryDateFilter"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("change", () => {
+      telemetryState.page = 1;
+      loadTelemetry();
+    });
+  });
+
+  document.getElementById("btnRefreshTelemetry")?.addEventListener("click", () => {
+    loadTelemetry();
+  });
+
+  // Telemetry table row click -> modal
+  document.getElementById("telemetryEventsBody")?.addEventListener("click", (e) => {
+    const row = e.target.closest("[data-telemetry-id]");
+    if (row && row.dataset.telemetryId) {
+      openTelemetryModal(row.dataset.telemetryId);
+    }
+  });
+
+  // Telemetry Modal close
+  document.getElementById("telemetryModal")?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-close-telemetry-modal]")) {
+      closeTelemetryModal();
+    }
+  });
+
+  // Telemetry Copy JSON
+  document.getElementById("btnCopyTelemetryJson")?.addEventListener("click", () => {
+    if (!telemetryState.currentEvent) return;
+    navigator.clipboard.writeText(JSON.stringify(telemetryState.currentEvent, null, 2)).then(() => {
+      const btn = document.getElementById("btnCopyTelemetryJson");
+      if (btn) {
+        btn.textContent = "✓ Kopyalandı";
+        setTimeout(() => { btn.textContent = "📋 JSON Kopyala"; }, 1500);
+      }
+    });
+  });
+
+  // Telemetry Live polling interval (every 8s)
+  telemetryState.liveInterval = setInterval(() => {
+    const isLive = document.getElementById("telemetryLiveToggle")?.checked;
+    const isTelemetryActive = document.getElementById("tabContentTelemetry")?.classList.contains("is-active");
+    if (isLive && isTelemetryActive) {
+      loadTelemetry({ onlyFeed: true });
+    }
+  }, 8000);
+
+  // Search & Filter event listeners for Legal & Learning
   document.getElementById("legalSearchInput")?.addEventListener("input", renderLegalReports);
   document.getElementById("legalStatusFilter")?.addEventListener("change", renderLegalReports);
   document.getElementById("legalTypeFilter")?.addEventListener("change", renderLegalReports);
@@ -466,6 +874,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !document.getElementById("learningModal")?.hidden) closeLearningModal();
+    if (event.key === "Escape") {
+      if (!document.getElementById("telemetryModal")?.hidden) closeTelemetryModal();
+      if (!document.getElementById("learningModal")?.hidden) closeLearningModal();
+    }
   });
 });

@@ -388,6 +388,10 @@ async function completeAuthentication(user) {
   authRoot.hidden = true;
   appShell.hidden = false;
   document.body.classList.remove("auth-loading", "auth-active");
+  if (pendingReturnPath && (pendingReturnPath === "/admin" || pendingReturnPath.startsWith("/admin/") || pendingReturnPath.startsWith("/admin?"))) {
+    window.location.href = pendingReturnPath;
+    return;
+  }
   route(pendingReturnPath, true);
   await authenticatedCallback?.(user);
 }
@@ -1196,6 +1200,17 @@ export async function initializeAuthentication(onAuthenticated) {
     }
   });
   if (AUTH_PATHS.has(location.pathname)) {
+    try {
+      const data = await request("/api/auth/me");
+      if (data?.user) {
+        if (pendingReturnPath && (pendingReturnPath === "/admin" || pendingReturnPath.startsWith("/admin/") || pendingReturnPath.startsWith("/admin?"))) {
+          window.location.href = pendingReturnPath;
+          return;
+        }
+        await completeAuthentication(data.user);
+        return;
+      }
+    } catch {}
     renderRoute();
     return;
   }

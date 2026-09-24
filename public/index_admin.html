@@ -10,16 +10,16 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/png" href="/MarketifyAINewFavicon.png?v=4" />
     <link rel="shortcut icon" href="/favicon.ico?v=4" />
-    <link rel="stylesheet" href="admin.css?v=1.1" />
+    <link rel="stylesheet" href="/admin.css?v=1.2" />
     <link rel="stylesheet" href="/theme.css?v=1.1" />
   </head>
   <body>
     <div class="wrapper">
       <header class="admin-header">
         <div class="header-left">
-          <div class="brand-badge">Admin Panel</div>
+          <div class="brand-badge">Admin Panel • Privacy-First</div>
           <h1>Helmer İdarəetmə Mərkəzi</h1>
-          <p class="subtitle">Hüquqi müraciətləri və AI Learning əməliyyatlarını idarə edin.</p>
+          <p class="subtitle">Bütün istifadəçi və sistem fəaliyyətlərini anonim, real vaxt rejimində izləyin.</p>
         </div>
         <div class="header-right">
           <a href="/" class="btn btn-back">← Tətbiqə qayıt</a>
@@ -28,7 +28,12 @@
 
       <!-- Navigation Tabs -->
       <nav class="admin-nav-tabs" role="tablist">
-        <button class="nav-tab is-active" id="tabBtnLegal" data-tab="legal" type="button" role="tab">
+        <button class="nav-tab is-active" id="tabBtnTelemetry" data-tab="telemetry" type="button" role="tab">
+          <span class="tab-icon">📊</span>
+          <span>Telemetriya & Audit</span>
+          <span class="tab-badge telemetry-badge" id="badgeTelemetryLive">LIVE</span>
+        </button>
+        <button class="nav-tab" id="tabBtnLegal" data-tab="legal" type="button" role="tab">
           <span class="tab-icon">⚖️</span>
           <span>Hüquqi Müraciətlər</span>
           <span class="tab-badge" id="badgePendingLegal">0</span>
@@ -40,8 +45,231 @@
         </button>
       </nav>
 
-      <!-- TAB 1: LEGAL REPORTS -->
-      <main id="tabContentLegal" class="tab-content is-active">
+      <!-- TAB 1: TELEMETRY & AUDIT (PRIVACY-FIRST) -->
+      <main id="tabContentTelemetry" class="tab-content is-active">
+        <!-- Hero & Refresh Toolbar -->
+        <section class="card telemetry-hero">
+          <div class="section-top">
+            <div>
+              <div class="brand-badge badge-emerald">Real-Time Telemetry Stream</div>
+              <h2>Daxili Telemetriya və Əməliyyat Jurnalı</h2>
+              <p class="hint">Bütün Build, Ask, Xülasə, İxrac və Sistem hadisələri PII (şəxsi məlumatlar) qorunaraq qeydə alınır.</p>
+            </div>
+            <div class="action-buttons">
+              <label class="live-toggle-label" title="Hər 8 saniyədən bir avtomatik yenilə">
+                <input type="checkbox" id="telemetryLiveToggle" checked />
+                <span class="pulse-indicator"></span>
+                <span>Canlı izləmə</span>
+              </label>
+              <button class="btn btn-refresh" id="btnRefreshTelemetry" type="button">↻ Yenilə</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- KPI Metric Cards -->
+        <section class="card stats-card">
+          <div class="section-top" style="margin-bottom: 12px;">
+            <h2>Canlı Göstəricilər (Metric KPIs)</h2>
+            <div class="privacy-pill" title="Məlumatların məxfiliyi təmin olunur">
+              <span class="icon">🔒</span>
+              <span>100% PII Maskalanıb</span>
+            </div>
+          </div>
+          <div class="stats-grid stats-grid-4">
+            <div class="stat">
+              <span class="label">Günlük Aktiv Sessiyalar (DAU)</span>
+              <span class="value" id="stat-telemetry-dau">–</span>
+              <small class="stat-sub">Bugünkü unikal maskalanmış istifadəçilər</small>
+            </div>
+            <div class="stat stat-info">
+              <span class="label">Ümumi Strategiyalar</span>
+              <span class="value" id="stat-telemetry-strategies">–</span>
+              <small class="stat-sub">Bugün: <strong id="stat-telemetry-today-strategies">0</strong> generasiya</small>
+            </div>
+            <div class="stat stat-warning">
+              <span class="label">Orta Model Gecikməsi</span>
+              <span class="value" id="stat-telemetry-latency">–</span>
+              <small class="stat-sub">Sürət və cavab müddəti (ms)</small>
+            </div>
+            <div class="stat stat-success">
+              <span class="label">Günlük Təxmini API Xərci</span>
+              <div class="dual-currency-value">
+                <span class="value" id="stat-telemetry-cost-azn">– ₼</span>
+                <span class="value-sub" id="stat-telemetry-cost-usd">($–)</span>
+              </div>
+              <small class="stat-sub">1 USD = 1.70 AZN məzənnəsi ilə</small>
+            </div>
+          </div>
+
+          <!-- Secondary summary strip -->
+          <div class="telemetry-substrip">
+            <div class="substrip-item">
+              <span class="muted">Audit Qeydləri:</span>
+              <strong id="stat-telemetry-total-events">0</strong>
+            </div>
+            <div class="substrip-separator"></div>
+            <div class="substrip-item">
+              <span class="muted">Lokal Bazar Payı:</span>
+              <strong id="stat-telemetry-local-share">0%</strong>
+            </div>
+            <div class="substrip-separator"></div>
+            <div class="substrip-item">
+              <span class="muted">Bütün Dövr Xərci:</span>
+              <strong id="stat-telemetry-alltime-cost">– ₼</strong>
+            </div>
+            <div class="substrip-separator"></div>
+            <div class="substrip-item">
+              <span class="muted">Sistem Statusu:</span>
+              <span class="status-badge-inline status-badge-live">● Operativ</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Visual Distribution Charts & Load Balancing -->
+        <div class="analytics-grid">
+          <!-- Left: Market Mode Distribution -->
+          <section class="card">
+            <div class="section-top" style="margin-bottom: 8px;">
+              <div>
+                <h2>Bazar Rejimi Paylanması</h2>
+                <p class="hint"><code>[LOCAL_AZ_MODE]</code> vs <code>[GLOBAL_MODE]</code> nisbəti</p>
+              </div>
+            </div>
+            <div class="market-bar-wrapper">
+              <div class="market-split-bar" id="marketSplitBar">
+                <div class="bar-local" id="marketBarLocal" style="width: 50%;"></div>
+                <div class="bar-global" id="marketBarGlobal" style="width: 50%;"></div>
+              </div>
+              <div class="market-legend">
+                <div class="legend-item">
+                  <span class="legend-dot dot-local"></span>
+                  <span><strong>LOCAL_AZ_MODE</strong> (Azərbaycan):</span>
+                  <strong id="stat-market-local-count">0</strong>
+                  <span class="legend-pct" id="stat-market-local-pct">(50%)</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-dot dot-global"></span>
+                  <span><strong>GLOBAL_MODE</strong> (Beynəlxalq):</span>
+                  <strong id="stat-market-global-count">0</strong>
+                  <span class="legend-pct" id="stat-market-global-pct">(50%)</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Right: Model Load Balance -->
+          <section class="card">
+            <div class="section-top" style="margin-bottom: 8px;">
+              <div>
+                <h2>Modellər üzrə Yük Balansı</h2>
+                <p class="hint">Sorğuların modellər üzrə paylanması və orta gecikmə</p>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table class="learning-table model-balance-table">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Sorğu</th>
+                    <th>Pay</th>
+                    <th>Gecikmə</th>
+                    <th>Xərc (USD / AZN)</th>
+                  </tr>
+                </thead>
+                <tbody id="telemetryModelsBody">
+                  <tr><td colspan="5" class="empty-cell">Model məlumatı yüklənir...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- Live Audit Feed Table -->
+        <section class="card">
+          <div class="section-top">
+            <div>
+              <h2>Canlı Əməliyyat Jurnalı (Live Audit Feed)</h2>
+              <p class="hint">Hər hadisəyə klikləyərək təhlükəsiz metadata və parametrlərə baxın.</p>
+            </div>
+          </div>
+
+          <!-- Filter & Search Bar -->
+          <div class="telemetry-filter-bar">
+            <div class="search-input-wrap">
+              <input type="text" id="telemetrySearchInput" placeholder="Açar söz, maskalanmış ID və ya model axtar..." />
+            </div>
+            <div class="filter-select-wrap">
+              <select id="telemetryModeFilter">
+                <option value="all">Bütün rejimlər</option>
+                <option value="build">⚡ Build (Strategiya)</option>
+                <option value="ask">💬 Ask (Sorğu)</option>
+                <option value="summary">📝 Xülasə (Luna)</option>
+                <option value="export">📥 İxrac (Export)</option>
+                <option value="auth">🔐 Giriş / Qeydiyyat</option>
+                <option value="system">⚠️ Sistem Hadisələri</option>
+              </select>
+            </div>
+            <div class="filter-select-wrap">
+              <select id="telemetryMarketFilter">
+                <option value="all">Bütün bazarlar</option>
+                <option value="LOCAL_AZ_MODE">🇦🇿 LOCAL_AZ_MODE</option>
+                <option value="GLOBAL_MODE">🌐 GLOBAL_MODE</option>
+              </select>
+            </div>
+            <div class="filter-select-wrap">
+              <select id="telemetryModelFilter">
+                <option value="all">Bütün modellər</option>
+                <option value="gemini-3.8-flash">gemini-3.8-flash</option>
+                <option value="gemini-3.7-flash">gemini-3.7-flash</option>
+                <option value="gpt-5.6-luna">gpt-5.6-luna</option>
+                <option value="gpt-5.6-terra">gpt-5.6-terra</option>
+              </select>
+            </div>
+            <div class="filter-select-wrap">
+              <select id="telemetryStatusFilter">
+                <option value="all">Bütün statuslar</option>
+                <option value="success">✅ Uğurlu</option>
+                <option value="error">❌ Xəta</option>
+              </select>
+            </div>
+            <div class="filter-select-wrap">
+              <select id="telemetryDateFilter">
+                <option value="today">Bugün</option>
+                <option value="24h">Son 24 saat</option>
+                <option value="7d">Son 7 gün</option>
+                <option value="30d">Son 30 gün</option>
+                <option value="all">Bütün dövr</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Feed Table -->
+          <div class="table-scroll">
+            <table class="learning-table telemetry-table" id="telemetryTable">
+              <thead>
+                <tr>
+                  <th>Hadisə Növü</th>
+                  <th>Rejim</th>
+                  <th>Bazar</th>
+                  <th>Model</th>
+                  <th>Maskalanmış ID</th>
+                  <th>Müddət</th>
+                  <th>Token / Xərc</th>
+                  <th>Status</th>
+                  <th>Tarix / Saat</th>
+                </tr>
+              </thead>
+              <tbody id="telemetryEventsBody">
+                <tr><td colspan="9" class="empty-cell">Hadisələr yüklənir...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination" id="telemetryPagination"></div>
+        </section>
+      </main>
+
+      <!-- TAB 2: LEGAL REPORTS -->
+      <main id="tabContentLegal" class="tab-content" style="display:none;">
         <section class="card stats-card">
           <h2>Müraciət Statistikası</h2>
           <div class="stats-grid stats-grid-4">
@@ -104,6 +332,7 @@
         </section>
       </main>
 
+      <!-- TAB 3: AI LEARNING -->
       <main id="tabContentLearning" class="tab-content" style="display:none;">
         <section class="card learning-hero">
           <div class="section-top">
@@ -167,6 +396,38 @@
       </main>
     </div>
 
+    <!-- Safe Metadata Inspector Modal (Privacy-First) -->
+    <div class="telemetry-modal" id="telemetryModal" hidden>
+      <div class="telemetry-modal-backdrop" data-close-telemetry-modal></div>
+      <article class="telemetry-modal-panel" role="dialog" aria-modal="true" aria-labelledby="telemetryModalTitle">
+        <header class="telemetry-modal-header">
+          <div>
+            <div class="brand-badge badge-emerald">Privacy-First Audit Inspector</div>
+            <h2 id="telemetryModalTitle">Hadisə Metadatası</h2>
+          </div>
+          <button class="telemetry-modal-close" type="button" data-close-telemetry-modal aria-label="Bağla">×</button>
+        </header>
+
+        <div class="privacy-shield-banner">
+          <span class="shield-icon">🛡️</span>
+          <div>
+            <strong>Məxfilik Zəmanəti:</strong> Bütün fərdi identifikasiya məlumatları (ad, email, telefon, şifrə, API açarları) bu paneldə tam gizlədilib və anonimləşdirilib.
+          </div>
+        </div>
+
+        <div class="modal-chips-strip" id="telemetryModalChips"></div>
+
+        <div class="modal-json-section">
+          <div class="json-header">
+            <span>Sanitized JSON Payload</span>
+            <button class="btn btn-ghost btn-sm" id="btnCopyTelemetryJson" type="button">📋 JSON Kopyala</button>
+          </div>
+          <pre class="telemetry-json-viewer" id="telemetryModalJson"></pre>
+        </div>
+      </article>
+    </div>
+
+    <!-- AI Learning Review Modal -->
     <div class="learning-modal" id="learningModal" hidden>
       <div class="learning-modal-backdrop" data-close-learning-modal></div>
       <article class="learning-modal-panel" role="dialog" aria-modal="true" aria-labelledby="learningModalTitle">
@@ -175,6 +436,6 @@
       </article>
     </div>
 
-    <script src="admin.js" defer></script>
+    <script src="/admin.js?v=1.2" defer></script>
   </body>
 </html>

@@ -89,32 +89,61 @@ function resolveLanguage(req, payloadLang) {
   return "az";
 }
 
-async function runTrackedBuild({ learningLoop, ownerId, taskType, userPrompt, relevantContext, execute }) {
-  if (!learningLoop) return { result: await execute(() => {}), interactionId: null };
-  const interactionId = learningLoop.createInteractionId();
+async function runTrackedBuild({ learningLoop, telemetryService, ownerId, taskType, userPrompt, relevantContext, execute }) {
+  if (!learningLoop && !telemetryService) return { result: await execute(() => {}), interactionId: null };
+  const interactionId = learningLoop ? learningLoop.createInteractionId() : null;
   const startedAt = Date.now();
   let providerMeta = { provider: "google", model: aiConfig.strategyModel, usage: null };
   try {
     const result = await execute((meta) => { providerMeta = { ...providerMeta, ...meta }; });
-    logWithoutBlocking(learningLoop.recordInteraction({
-      id: interactionId, ownerId, mode: "build", taskType, userPrompt, relevantContext,
-      modelProvider: providerMeta.provider, modelName: providerMeta.model, modelResponse: result,
-      usage: providerMeta.usage, latencyMs: Date.now() - startedAt, requestStatus: "success",
-    }), `Build ${taskType} logging`);
+    if (learningLoop) {
+      logWithoutBlocking(learningLoop.recordInteraction({
+        id: interactionId, ownerId, mode: "build", taskType, userPrompt, relevantContext,
+        modelProvider: providerMeta.provider, modelName: providerMeta.model, modelResponse: result,
+        usage: providerMeta.usage, latencyMs: Date.now() - startedAt, requestStatus: "success",
+      }), `Build ${taskType} logging`);
+    }
+    if (telemetryService) {
+      telemetryService.trackBuildStrategy({
+        ownerId,
+        brief: userPrompt,
+        model: providerMeta.model,
+        latencyMs: Date.now() - startedAt,
+        usage: providerMeta.usage,
+        status: "success",
+        strategy: result,
+        action: taskType,
+      }).catch(() => {});
+    }
     return { result, interactionId, providerMeta };
   } catch (error) {
-    logWithoutBlocking(learningLoop.recordInteraction({
-      id: interactionId, ownerId, mode: "build", taskType, userPrompt, relevantContext,
-      modelProvider: providerMeta.provider, modelName: providerMeta.model, modelResponse: "",
-      usage: providerMeta.usage, latencyMs: Date.now() - startedAt, requestStatus: "error",
-      errorType: error?.code || error?.name || "BUILD_ERROR",
-    }), `Build ${taskType} failure logging`);
+    if (learningLoop) {
+      logWithoutBlocking(learningLoop.recordInteraction({
+        id: interactionId, ownerId, mode: "build", taskType, userPrompt, relevantContext,
+        modelProvider: providerMeta.provider, modelName: providerMeta.model, modelResponse: "",
+        usage: providerMeta.usage, latencyMs: Date.now() - startedAt, requestStatus: "error",
+        errorType: error?.code || error?.name || "BUILD_ERROR",
+      }), `Build ${taskType} failure logging`);
+    }
+    if (telemetryService) {
+      telemetryService.trackBuildStrategy({
+        ownerId,
+        brief: userPrompt,
+        model: providerMeta.model,
+        latencyMs: Date.now() - startedAt,
+        usage: providerMeta.usage,
+        status: "error",
+        error,
+        action: taskType,
+      }).catch(() => {});
+    }
     throw error;
   }
 }
 
 export function createStrategyRouter(repository, learningLoop = null, options = {}) {
   const router = express.Router();
+  const telemetryService = options?.telemetryService || null;
 
   router.use(rateLimit(30));
 
@@ -132,7 +161,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
       });
       const marketMode = detectTargetMarket({ brief: payload.brief, answers: payload.answers });
       const tracked = await runTrackedBuild({
-        learningLoop, ownerId: req.ownerId, taskType: "build_assess", userPrompt: payload.brief,
+        learningLoop, telemetryService, ownerId: req.ownerId, taskType: "build_assess", userPrompt: payload.brief,
         relevantContext: { personalizationApplied: Boolean(personalizationContext), language, marketMode },
         execute: (onUsage) => assessBrief({ ...payload, language, ownerId: req.ownerId, personalizationContext, signal: abortController.signal, onUsage }),
       });
@@ -164,6 +193,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         const marketMode = detectTargetMarket({ brief: payload.brief, answers: payload.answers });
         const tracked = await runTrackedBuild({
           learningLoop,
+          telemetryService,
           ownerId,
           taskType: "build_generate",
           userPrompt: payload.brief,
@@ -302,7 +332,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
       });
       const marketMode = detectTargetMarket({ brief: payload.brief, answers: payload.answers, strategy: payload.strategy });
       const tracked = await runTrackedBuild({
-        learningLoop, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
+        learningLoop, telemetryService, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
         relevantContext: { personalizationApplied: Boolean(personalizationContext), language, marketMode },
         execute: (onUsage) => refineStrategy({ ...payload, language }, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
       });
@@ -340,16 +370,44 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
     }
 
     const client = options.openAiClient || options.client || null;
+    const summaryStartedAt = Date.now();
+    let summaryUsage = null;
 
-    const summary = await summarizeStrategyWithLuna({
-      strategy,
-      language,
-      client,
-      signal: abortController.signal,
-    });
+    try {
+      const summary = await summarizeStrategyWithLuna({
+        strategy,
+        language,
+        client,
+        signal: abortController.signal,
+        onUsage: (u) => { summaryUsage = u; },
+      });
 
-    if (!res.writableEnded) {
-      res.json({ summary });
+      if (telemetryService) {
+        telemetryService.trackSummary({
+          ownerId: req.ownerId,
+          sessionId: req.guestOwnerId,
+          model: aiConfig.strategySummaryModel || "gpt-5.6-luna",
+          latencyMs: Date.now() - summaryStartedAt,
+          usage: summaryUsage,
+          status: "success",
+        }).catch(() => {});
+      }
+
+      if (!res.writableEnded) {
+        res.json({ summary });
+      }
+    } catch (summaryErr) {
+      if (telemetryService) {
+        telemetryService.trackSummary({
+          ownerId: req.ownerId,
+          sessionId: req.guestOwnerId,
+          model: aiConfig.strategySummaryModel || "gpt-5.6-luna",
+          latencyMs: Date.now() - summaryStartedAt,
+          status: "error",
+          error: summaryErr,
+        }).catch(() => {});
+      }
+      throw summaryErr;
     }
   });
 

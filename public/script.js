@@ -1757,6 +1757,20 @@ function buildProfileMenuItems() {
 
   section1.append(profileItem, personalizationItem, securityItem, legalItem);
 
+  const isAdminUser = ["boss", "admin", "lalajesur"].includes(state.currentUser?.username?.toLowerCase()) ||
+    ["elemanajes@gmail.com", "lalajesur@gmail.com"].includes(state.currentUser?.email?.toLowerCase());
+  if (isAdminUser) {
+    const adminItem = createItem({
+      iconSvg: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
+      label: isEn ? "Admin & Telemetry" : "Admin & Telemetriya",
+      hasChevron: true,
+      onClick: () => {
+        window.location.href = "/admin";
+      },
+    });
+    section1.appendChild(adminItem);
+  }
+
   // Divider 2
   const divider2 = element("div", "profile-menu-divider");
   divider2.setAttribute("role", "separator");
@@ -7819,6 +7833,18 @@ async function saveStrategy() {
   }
 }
 
+function sendExportTelemetry(format, title = "") {
+  fetch("/api/telemetry/event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      eventType: "export_requested",
+      format,
+      title: title || state?.strategy?.title || "",
+    }),
+  }).catch(() => {});
+}
+
 function buildExportMenu(trigger) {
   const isEn = getLanguage() === "en";
   const menu = element("div", "export-menu");
@@ -7828,6 +7854,7 @@ function buildExportMenu(trigger) {
 
   const pdf = button(isEn ? "PDF Document (.pdf)" : "PDF sənədi (.pdf)", "export-option", () => {
     trackEvent("export_requested", { format: "pdf" });
+    sendExportTelemetry("pdf");
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
     showToast(isEn ? "Generating and opening PDF…" : "PDF generasiya edilir və açılır…");
@@ -7836,6 +7863,7 @@ function buildExportMenu(trigger) {
 
   const doc = button(isEn ? "HTML Report (.html)" : "HTML sənədi (.html)", "export-option", () => {
     trackEvent("export_requested", { format: "document" });
+    sendExportTelemetry("html");
     downloadExport(createDocumentExport(state.strategy));
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
@@ -7843,6 +7871,7 @@ function buildExportMenu(trigger) {
 
   const excel = button(isEn ? "Excel Spreadsheet (.xls)" : "Excel cədvəli (.xls)", "export-option", () => {
     trackEvent("export_requested", { format: "excel" });
+    sendExportTelemetry("excel");
     downloadExport(createExcelExport(state.strategy));
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
@@ -7850,6 +7879,7 @@ function buildExportMenu(trigger) {
 
   const csv = button(isEn ? "CSV Data (.csv)" : "CSV / Cədvəl (.csv)", "export-option", () => {
     trackEvent("export_requested", { format: "spreadsheet" });
+    sendExportTelemetry("csv");
     downloadExport(createSpreadsheetExport(state.strategy));
     menu.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
