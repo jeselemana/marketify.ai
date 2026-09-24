@@ -31,6 +31,7 @@ export const TRANSLATIONS = {
       planner: "Planlaşdırılanlar",
       limits: "İstifadə",
       installApp: "Tətbiqi yüklə",
+      whatsNew: "Yeniliklər",
       settings: "Parametrlər",
       search: "Axtarış",
       searchChats: "Axtarış",
@@ -799,6 +800,79 @@ export const TRANSLATIONS = {
       cta: "Anladım",
       closeAria: "Bağla",
     },
+
+    // ── Changelog / What's New ────────────────────────────────────────────────
+    changelog: {
+      title: "Yeniliklər",
+      subtitle: "Helmer-in inkişaf və təkamül xronologiyası",
+      closeAria: "Yeniliklər pəncərəsini bağla",
+      currentBadge: "Cari versiya",
+      historyBadge: "Əvvəlki buraxılış",
+      feedbackBtn: "Rəy bildir",
+      feedbackSubject: "Helmer Rəyi və Təklifi",
+      versions: [
+        {
+          version: "v4.0",
+          name: "Helmer v4.0",
+          subtitle: "Növbəti Nəsil İntellekt & Tam Həcmli Avtonom İcra",
+          status: "Tezliklə",
+          date: "Tezliklə",
+          isCurrent: false,
+          isUpcoming: true,
+          highlights: [
+            "Helmer-in ən iddialı yeniliyi: Strateji düşüncədən real bazar tətbiqinə qədər bütün zənciri tam əhatə edən növbəti nəsil intellektual arxitektura.",
+            "Dərin avtonom icra: Çoxagentli koordinasiya, real vaxtda adaptiv bazar analitikası və qərar qəbulu mexanizmləri.",
+            "Biznes və marketinq idarəçiliyində keyfiyyətcə yeni standart: Strateji vizyondan operativ addımlara qədər qüsursuz sinxronizasiya.",
+          ],
+        },
+        {
+          version: "v3.5",
+          name: "Helmer v3.5",
+          subtitle: "Dərin Kalibrasiya & Yerli Bazar Mühərriki",
+          status: "Cari versiya",
+          date: "Sentyabr 2026",
+          isCurrent: true,
+          highlights: [
+            "Dərin model kalibrasiyası: Epistemic humility, faktiki dəqiqlik, hallüsinasiya risklərinin minimuma endirilməsi və canlı web search grounding.",
+            "Context-Aware Azerbaijan Market Engine: Yerli istehlakçı psixologiyası, ödənişlər, B2C/B2B kanalları və bazar reallıqları üzrə adaptasiya.",
+            "İnterfeys təkmilləşdirmələri: UI/UX cilalanması, sistem sabitliyi və qarşılıqlı əlaqə xətalarının aradan qaldırılması.",
+          ],
+        },
+        {
+          version: "v3.0",
+          name: "Helmer v3.0",
+          subtitle: "Avtonom Planlama & Çoxmərhələli İş Axınları",
+          status: "Buraxılış",
+          date: "Avqust 2026",
+          isCurrent: false,
+          highlights: [
+            "Avtonom iş axınları: Çoxmərhələli iş axınları və dərindən strukturlaşdırılmış icra planlaması.",
+          ],
+        },
+        {
+          version: "v2.0",
+          name: "Helmer v2.0",
+          subtitle: "Avtonom İş Rejimi & Dinamik Strategiya",
+          status: "Buraxılış",
+          date: "İyul 2026",
+          isCurrent: false,
+          highlights: [
+            "Avtonom iş rejiminə keçid və dinamik strategiya generasiyası.",
+          ],
+        },
+        {
+          version: "v1.0",
+          name: "Helmer v1.0",
+          subtitle: "Təməl Arxitektura & MVP",
+          status: "MVP",
+          date: "Dekabr 2024",
+          isCurrent: false,
+          highlights: [
+            "İlkin təməl arxitektura və platformanın ilkin MVP buraxılışı.",
+          ],
+        },
+      ],
+    },
   },
 
   en: {
@@ -824,6 +898,7 @@ export const TRANSLATIONS = {
       planner: "Planner",
       limits: "Usage",
       installApp: "Install App",
+      whatsNew: "What's new",
       settings: "Settings",
       search: "Search",
       searchChats: "Search",
@@ -1584,6 +1659,79 @@ export const TRANSLATIONS = {
       dontShow: "Don't show again",
       cta: "Got it",
       closeAria: "Close",
+    },
+
+    // ── Changelog / What's New ────────────────────────────────────────────────
+    changelog: {
+      title: "What's new",
+      subtitle: "Helmer's evolution and release chronology",
+      closeAria: "Close What's new dialog",
+      currentBadge: "Current Version",
+      historyBadge: "Previous Release",
+      feedbackBtn: "Send Feedback",
+      feedbackSubject: "Helmer Feedback & Suggestions",
+      versions: [
+        {
+          version: "v4.0",
+          name: "Helmer v4.0",
+          subtitle: "Next-Generation Intelligence & Full-Scale Autonomous Execution",
+          status: "Coming Soon",
+          date: "Coming Soon",
+          isCurrent: false,
+          isUpcoming: true,
+          highlights: [
+            "Helmer's most ambitious milestone: A next-generation intelligence architecture bridging the entire loop from strategic vision to real-world market execution.",
+            "Deep autonomous execution: Multi-agent coordination, real-time adaptive market analytics, and autonomous decision-making mechanisms.",
+            "A transformative standard for business strategy: Seamless synchronization from high-level objectives to operative execution.",
+          ],
+        },
+        {
+          version: "v3.5",
+          name: "Helmer v3.5",
+          subtitle: "Deep Calibration & Local Market Engine",
+          status: "Current Version",
+          date: "September 2026",
+          isCurrent: true,
+          highlights: [
+            "Deep model calibration: Epistemic humility, factual accuracy, minimized hallucination risk, and grounded live web search retrieval.",
+            "Context-Aware Azerbaijan Market Engine: Local consumer psychology, payment rails, B2C/B2B channels, and market realities.",
+            "Interface enhancements: UI/UX refinement, system stabilization, and interaction polish.",
+          ],
+        },
+        {
+          version: "v3.0",
+          name: "Helmer v3.0",
+          subtitle: "Autonomous Planning & Multi-step Workflows",
+          status: "Release",
+          date: "August 2026",
+          isCurrent: false,
+          highlights: [
+            "Autonomous workflows: Multi-step workflows and deeply structured execution planning.",
+          ],
+        },
+        {
+          version: "v2.0",
+          name: "Helmer v2.0",
+          subtitle: "Autonomous Mode & Dynamic Strategy",
+          status: "Release",
+          date: "July 2026",
+          isCurrent: false,
+          highlights: [
+            "Transition to autonomous execution mode and dynamic strategy generation.",
+          ],
+        },
+        {
+          version: "v1.0",
+          name: "Helmer v1.0",
+          subtitle: "Foundational Architecture & MVP",
+          status: "MVP",
+          date: "December 2024",
+          isCurrent: false,
+          highlights: [
+            "Foundational architecture and initial MVP platform launch.",
+          ],
+        },
+      ],
     },
   },
 };

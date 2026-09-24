@@ -34,6 +34,7 @@ const strategiesNav = document.querySelector("#strategiesNav");
 const plannerNav = document.querySelector("#plannerNav");
 const limitsNav = document.querySelector("#limitsNav");
 const installAppNav = document.querySelector("#installAppNav");
+const whatsNewNav = document.querySelector("#whatsNewNav");
 const settingsNav = document.querySelector("#settingsNav");
 const railLimitsButton = document.querySelector("#railLimitsButton");
 const railInstallAppButton = document.querySelector("#railInstallAppButton");
@@ -53,6 +54,7 @@ const sidebarAskModeButton = document.querySelector("#sidebarAskModeButton");
 const keyboardShortcutsButton = document.querySelector("#keyboardShortcutsBtn");
 const keyboardShortcutsOverlay = document.querySelector("#keyboardShortcutsOverlay");
 const installAppModalOverlay = document.querySelector("#installAppModalOverlay");
+const changelogModalOverlay = document.querySelector("#changelogModalOverlay");
 const mobileBottomSheetOverlay = document.querySelector("#mobileBottomSheetOverlay");
 const mobileModelSheetOverlay = document.querySelector("#mobileModelSheetOverlay");
 const mobileProfileSheetOverlay = document.querySelector("#mobileProfileSheetOverlay");
@@ -694,10 +696,291 @@ function closeInstallAppModal() {
   installAppModalOverlay.replaceChildren();
   if (
     (!keyboardShortcutsOverlay || keyboardShortcutsOverlay.hidden) &&
+    (!changelogModalOverlay || changelogModalOverlay.hidden) &&
     document.querySelector("#legalModalOverlay[hidden]")
   ) {
     document.body.style.overflow = "";
   }
+}
+
+function createChangelogSvgIcon(name) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.75");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+
+  if (name === "sparkles") {
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "18");
+    svg.setAttribute("height", "18");
+    const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path1.setAttribute("d", "m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z");
+    const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path2.setAttribute("d", "M5 3v4M3 5h4M19 17v4M17 19h4");
+    svg.append(path1, path2);
+  } else if (name === "check") {
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "13");
+    svg.setAttribute("height", "13");
+    const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    poly.setAttribute("points", "20 6 9 17 4 12");
+    svg.append(poly);
+  } else if (name === "close") {
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "16");
+    svg.setAttribute("height", "16");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "m18 6-12 12M6 6l12 12");
+    svg.append(path);
+  } else if (name === "mail") {
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "15");
+    svg.setAttribute("height", "15");
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", "2");
+    rect.setAttribute("y", "4");
+    rect.setAttribute("width", "20");
+    rect.setAttribute("height", "16");
+    rect.setAttribute("rx", "2");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7");
+    svg.append(rect, path);
+  }
+  return svg;
+}
+
+function buildChangelogFooter(currentLang, dict) {
+  const footer = element("footer", "changelog-modal-footer");
+
+  const feedbackLink = element("a", "changelog-feedback-btn");
+  feedbackLink.href = `mailto:helmerworkspace@googlegroups.com?subject=${encodeURIComponent(dict.feedbackSubject || "Helmer Feedback")}`;
+  feedbackLink.setAttribute("target", "_blank");
+  feedbackLink.setAttribute("rel", "noopener noreferrer");
+  const mailIcon = createChangelogSvgIcon("mail");
+  const feedbackText = element("span", "changelog-feedback-text", dict.feedbackBtn || (currentLang === "en" ? "Send Feedback" : "Rəy bildir"));
+  feedbackLink.append(mailIcon, feedbackText);
+
+  footer.append(feedbackLink);
+  return footer;
+}
+
+function buildChangelogTimeline() {
+  const currentLang = getLanguage() === "en" ? "en" : "az";
+  const versionsData = TRANSLATIONS[currentLang]?.changelog?.versions || TRANSLATIONS.az.changelog.versions;
+
+  const timeline = element("div", "changelog-timeline");
+  timeline.setAttribute("role", "list");
+
+  versionsData.forEach((entry, index) => {
+    const itemClasses = ["changelog-timeline-item"];
+    if (entry.isCurrent) itemClasses.push("is-current");
+    if (entry.isUpcoming) itemClasses.push("is-upcoming");
+    const item = element("div", itemClasses.join(" "));
+    item.setAttribute("role", "listitem");
+
+    // Track & Dot
+    const marker = element("div", "changelog-timeline-marker");
+    const dotClasses = ["changelog-timeline-dot"];
+    if (entry.isCurrent) dotClasses.push("is-current");
+    if (entry.isUpcoming) dotClasses.push("is-upcoming");
+    const dot = element("div", dotClasses.join(" "));
+    if (entry.isCurrent || entry.isUpcoming) {
+      const pulse = element("div", `changelog-dot-pulse${entry.isUpcoming ? " is-upcoming" : ""}`);
+      dot.appendChild(pulse);
+    }
+    marker.appendChild(dot);
+    if (index < versionsData.length - 1) {
+      const line = element("div", "changelog-timeline-line");
+      marker.appendChild(line);
+    }
+
+    // Content Box
+    const contentClasses = ["changelog-timeline-content"];
+    if (entry.isCurrent) contentClasses.push("is-current");
+    if (entry.isUpcoming) contentClasses.push("is-upcoming");
+    const content = element("div", contentClasses.join(" "));
+
+    // Header: version tag, status badge, date
+    const itemHeader = element("div", "changelog-item-header");
+    const tag = element("span", "changelog-version-tag", entry.version);
+    const pillClasses = ["changelog-status-pill"];
+    if (entry.isCurrent) pillClasses.push("is-current");
+    if (entry.isUpcoming) pillClasses.push("is-upcoming");
+    const statusPill = element("span", pillClasses.join(" "), entry.status);
+    const date = element("span", "changelog-release-date", entry.date);
+    itemHeader.append(tag, statusPill, date);
+
+    // Title
+    const itemTitle = element("h3", "changelog-item-title", entry.name ? `${entry.name} — ${entry.subtitle}` : entry.subtitle);
+
+    // Feature highlights list
+    const featureList = element("ul", "changelog-feature-list");
+    (entry.highlights || []).forEach((text) => {
+      const li = element("li", "changelog-feature-item");
+      const bulletClasses = ["changelog-feature-bullet"];
+      if (entry.isCurrent) bulletClasses.push("is-current");
+      if (entry.isUpcoming) bulletClasses.push("is-upcoming");
+      const bulletIcon = element("span", bulletClasses.join(" "));
+      bulletIcon.appendChild(createChangelogSvgIcon(entry.isUpcoming ? "sparkles" : "check"));
+      const textSpan = element("span", "changelog-feature-text", text);
+      li.append(bulletIcon, textSpan);
+      featureList.appendChild(li);
+    });
+
+    content.append(itemHeader, itemTitle, featureList);
+    item.append(marker, content);
+    timeline.appendChild(item);
+  });
+
+  return timeline;
+}
+
+export function openChangelogModal() {
+  if (!changelogModalOverlay) return;
+
+  const isMobile =
+    window.innerWidth <= 767 ||
+    (typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(max-width: 767px)").matches);
+  const currentLang = getLanguage() === "en" ? "en" : "az";
+  const dict = TRANSLATIONS[currentLang]?.changelog || TRANSLATIONS.az.changelog;
+
+  closeSidebar();
+  changelogModalOverlay.replaceChildren();
+  changelogModalOverlay.hidden = false;
+  changelogModalOverlay.setAttribute("aria-hidden", "false");
+  changelogModalOverlay.classList.remove("is-closing");
+  document.body.style.overflow = "hidden";
+
+  if (isMobile) {
+    // Mobile Native Bottom Sheet
+    changelogModalOverlay.classList.add("is-mobile");
+    closeMobileBottomSheet();
+    closeMobileModelSheet();
+    closeUserProfileMenu();
+
+    const sheet = element("div", "mobile-action-sheet changelog-sheet");
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    sheet.setAttribute("aria-label", dict.title);
+
+    // Drag handle area
+    const dragArea = element("div", "mobile-sheet-drag-area");
+    dragArea.appendChild(element("div", "mobile-sheet-drag-handle"));
+
+    // Header (includes mobile-sheet-header for touch swipe gestures)
+    const header = element("header", "changelog-modal-header changelog-sheet-header mobile-sheet-header");
+    const headerLeft = element("div", "changelog-header-left");
+    const iconBadge = element("div", "changelog-icon-badge");
+    iconBadge.appendChild(createChangelogSvgIcon("sparkles"));
+
+    const titleGroup = element("div", "changelog-title-group");
+    const title = element("h2", "changelog-modal-title", dict.title);
+    title.id = "changelogModalTitle";
+    const subtitle = element("p", "changelog-modal-subtitle", dict.subtitle);
+    titleGroup.append(title, subtitle);
+    headerLeft.append(iconBadge, titleGroup);
+
+    const closeBtn = button("✕", "changelog-modal-close", closeChangelogModal);
+    closeBtn.setAttribute("aria-label", dict.closeAria);
+    header.append(headerLeft, closeBtn);
+
+    // Scrollable Body
+    const body = element("div", "changelog-modal-body changelog-sheet-body");
+    body.appendChild(buildChangelogTimeline());
+
+    // Footer
+    const footer = buildChangelogFooter(currentLang, dict);
+    footer.classList.add("changelog-sheet-footer");
+
+    sheet.append(dragArea, header, body, footer);
+    changelogModalOverlay.appendChild(sheet);
+
+    attachSwipeDownToClose(sheet, closeChangelogModal);
+
+    requestAnimationFrame(() => {
+      changelogModalOverlay.classList.add("is-open");
+    });
+  } else {
+    // Desktop Centered Modal
+    changelogModalOverlay.classList.remove("is-mobile");
+
+    const card = element("div", "changelog-modal-card");
+    card.setAttribute("role", "dialog");
+    card.setAttribute("aria-modal", "true");
+    card.setAttribute("aria-labelledby", "changelogModalTitle");
+
+    // Header
+    const header = element("header", "changelog-modal-header");
+    const headerLeft = element("div", "changelog-header-left");
+    const iconBadge = element("div", "changelog-icon-badge");
+    iconBadge.appendChild(createChangelogSvgIcon("sparkles"));
+
+    const titleGroup = element("div", "changelog-title-group");
+    const title = element("h2", "changelog-modal-title", dict.title);
+    title.id = "changelogModalTitle";
+    const subtitle = element("p", "changelog-modal-subtitle", dict.subtitle);
+    titleGroup.append(title, subtitle);
+    headerLeft.append(iconBadge, titleGroup);
+
+    const closeBtn = button("✕", "changelog-modal-close", closeChangelogModal);
+    closeBtn.setAttribute("aria-label", dict.closeAria);
+    header.append(headerLeft, closeBtn);
+
+    // Scrollable Body
+    const body = element("div", "changelog-modal-body");
+    body.appendChild(buildChangelogTimeline());
+
+    // Footer with Feedback link and close button
+    const footer = buildChangelogFooter(currentLang, dict);
+
+    card.append(header, body, footer);
+    changelogModalOverlay.appendChild(card);
+
+    requestAnimationFrame(() => {
+      changelogModalOverlay.classList.add("is-open");
+    });
+    closeBtn.focus();
+  }
+}
+
+export function closeChangelogModal() {
+  if (!changelogModalOverlay || changelogModalOverlay.hidden) return;
+
+  const isMobile = changelogModalOverlay.classList.contains("is-mobile");
+  changelogModalOverlay.classList.remove("is-open");
+  changelogModalOverlay.classList.add("is-closing");
+
+  if (
+    (!keyboardShortcutsOverlay || keyboardShortcutsOverlay.hidden) &&
+    (!installAppModalOverlay || installAppModalOverlay.hidden) &&
+    document.querySelector("#legalModalOverlay[hidden]")
+  ) {
+    document.body.style.overflow = "";
+  }
+
+  let cleanedUp = false;
+  const finishClose = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    changelogModalOverlay.hidden = true;
+    changelogModalOverlay.setAttribute("aria-hidden", "true");
+    changelogModalOverlay.classList.remove("is-closing", "is-mobile");
+    changelogModalOverlay.replaceChildren();
+  };
+
+  const animTarget = isMobile
+    ? changelogModalOverlay.querySelector(".changelog-sheet")
+    : changelogModalOverlay.querySelector(".changelog-modal-card");
+
+  if (animTarget) {
+    animTarget.addEventListener("transitionend", finishClose, { once: true });
+  }
+  setTimeout(finishClose, 260);
 }
 
 function isPersonalIntelligenceActive() {
@@ -2289,6 +2572,15 @@ function syncNav() {
   const settingsLabel = settingsNav?.querySelector("span");
   if (settingsLabel) {
     settingsLabel.textContent = t("nav.settings");
+  }
+
+  const whatsNewLabel = whatsNewNav?.querySelector(".whats-new-label");
+  if (whatsNewLabel) {
+    whatsNewLabel.textContent = t("nav.whatsNew");
+  }
+  if (whatsNewNav) {
+    whatsNewNav.setAttribute("aria-label", t("nav.whatsNew"));
+    whatsNewNav.setAttribute("data-tooltip", t("nav.whatsNew"));
   }
 
   if (newStrategyButton) {
@@ -12200,6 +12492,10 @@ settingsNav.addEventListener("click", () => {
   render();
   closeSidebar();
 });
+whatsNewNav?.addEventListener("click", () => {
+  openChangelogModal();
+  closeSidebar();
+});
 accountButton?.addEventListener("click", (e) => {
   e.stopPropagation();
   openUserProfileMenu(accountButton);
@@ -12224,6 +12520,9 @@ keyboardShortcutsOverlay?.addEventListener("click", (event) => {
 });
 installAppModalOverlay?.addEventListener("click", (event) => {
   if (event.target === installAppModalOverlay) closeInstallAppModal();
+});
+changelogModalOverlay?.addEventListener("click", (event) => {
+  if (event.target === changelogModalOverlay) closeChangelogModal();
 });
 mobileBottomSheetOverlay?.addEventListener("click", (event) => {
   if (event.target === mobileBottomSheetOverlay) closeMobileBottomSheet();
@@ -12313,11 +12612,16 @@ function handleKeyboardShortcut(event) {
       closeSearchModal();
       return;
     }
+    if (changelogModalOverlay && !changelogModalOverlay.hidden) {
+      closeChangelogModal();
+      return;
+    }
     const hadOverlay = Boolean(
       (mobileOverlay && !mobileOverlay.hidden) ||
       document.querySelector("#legalModalOverlay:not([hidden])") ||
       document.querySelector("#keyboardShortcutsOverlay:not([hidden])") ||
       document.querySelector("#installAppModalOverlay:not([hidden])") ||
+      document.querySelector("#changelogModalOverlay:not([hidden])") ||
       document.querySelector("#mobileBottomSheetOverlay:not([hidden])") ||
       document.querySelector("#mobileModelSheetOverlay:not([hidden])") ||
       document.querySelector("#mobileProfileSheetOverlay:not([hidden])") ||
@@ -12328,6 +12632,7 @@ function handleKeyboardShortcut(event) {
     closeLegalModal();
     closeShortcutModal();
     closeInstallAppModal();
+    closeChangelogModal();
     closeMobileBottomSheet();
     closeMobileModelSheet();
     closeUserProfileMenu();
