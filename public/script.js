@@ -2603,7 +2603,7 @@ function syncNav() {
     workspaceMeta.textContent = state.currentUser ? t("brand.personalAccount") : t("brand.guestAccount");
   }
 
-  document.title = "Helmer Workspace | Build. Ask. Act.";
+  document.title = "Helmer | Build, Ask & Act";
 
   renderRecentList();
   syncLanguageControls();

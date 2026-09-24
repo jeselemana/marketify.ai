@@ -48,7 +48,7 @@ test("index.html head includes title, description, canonical link, robots, and O
   const indexPath = path.join(publicDir, "index.html");
   const content = await fs.readFile(indexPath, "utf8");
 
-  assert.ok(content.includes("<title>Helmer Workspace | Build. Ask. Act.</title>"), "Must have title");
+  assert.ok(content.includes("<title>Helmer | Build, Ask & Act</title>"), "Must have title");
   assert.ok(content.includes('name="description"'), "Must have meta description");
   assert.ok(
     content.includes('<link rel="canonical" href="https://helmerworkspace.com/" />') ||
