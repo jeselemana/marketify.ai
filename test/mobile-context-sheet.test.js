@@ -123,3 +123,39 @@ test("script.js implements clean lifecycle, swipe gestures, and Rule 4 complianc
   assert.ok(js.includes("isBuildMode"), "openMobileContextSheet distinguishes build mode");
   assert.ok(js.includes('mode: "build"'), "renderBuildForm invokes openMobileContextSheet in build mode");
 });
+
+test("style.css and script.js properly separate and format mobile context sub-list cards", async () => {
+  const css = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
+  const js = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
+
+  // List layout
+  assert.ok(css.includes(".mobile-sheet-sub-list"), ".mobile-sheet-sub-list is defined");
+  assert.ok(css.includes("flex-direction: column"), "sub-list uses column flex");
+  assert.ok(/gap:\s*1[0-2]px/.test(css), "sub-list specifies vertical gap (gap-2.5/gap-3 spacing)");
+
+  // Independent card item styling
+  assert.ok(css.includes(".mobile-sheet-sub-item"), ".mobile-sheet-sub-item is defined");
+  assert.ok(css.includes("flex-shrink: 0"), "sub-item prevents shrinking under flex overflow");
+  assert.ok(/padding:\s*1[4-6]px/.test(css), "sub-item has comfortable internal padding (p-3.5/p-4)");
+  assert.ok(/border-radius:\s*1[4-6]px/.test(css), "sub-item has fully rounded card borders (rounded-xl/2xl)");
+  assert.ok(css.includes("border: 1px solid"), "sub-item has independent 1px fine border");
+
+  // Dark and Light theme parity
+  assert.ok(css.includes('[data-theme="light"] .mobile-sheet-sub-item'), "light theme card styling exists");
+  assert.ok(css.includes('.mobile-sheet-sub-item.is-selected'), "selected state styling exists");
+
+  // Typography separation
+  assert.ok(css.includes(".mobile-sheet-sub-item strong"), "card title strong element is styled");
+  assert.ok(css.includes(".mobile-sheet-sub-item small"), "card date/meta small element is styled");
+  assert.ok(css.includes("mobile-sheet-sub-item-title"), "semantic title class is styled");
+  assert.ok(css.includes("mobile-sheet-sub-item-meta"), "semantic meta class is styled");
+
+  // JS script implementation & accessibility
+  assert.ok(js.includes('mobile-sheet-sub-item-title'), "script.js applies title class");
+  assert.ok(js.includes('mobile-sheet-sub-item-meta'), "script.js applies meta class");
+  assert.ok(js.includes('aria-selected'), "script.js applies aria-selected attribute");
+
+  // Desktop popover integrity (untouched)
+  assert.ok(css.includes(".ask-context-item"), "desktop ask-context-item styles are preserved");
+});
+

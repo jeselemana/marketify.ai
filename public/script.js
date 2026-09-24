@@ -1030,9 +1030,10 @@ function openMobileContextSheet(handlers = {}) {
             handlers.onSelectStrategy?.(strat.id);
           });
           item.type = "button";
+          item.setAttribute("aria-selected", isSelected ? "true" : "false");
           item.append(
-            element("strong", "", strat.title),
-            element("small", "", isSelected ? (getLanguage() === "en" ? "Selected" : "Seçilib") : formatDate(strat.updatedAt))
+            element("strong", "mobile-sheet-sub-item-title", strat.title),
+            element("small", "mobile-sheet-sub-item-meta", isSelected ? (getLanguage() === "en" ? "Selected" : "Seçilib") : formatDate(strat.updatedAt))
           );
           list.appendChild(item);
         });
@@ -1063,9 +1064,10 @@ function openMobileContextSheet(handlers = {}) {
             handlers.onSelectTask?.(task.id);
           });
           item.type = "button";
+          item.setAttribute("aria-selected", isSelected ? "true" : "false");
           item.append(
-            element("strong", "", task.text),
-            element("small", "", isSelected ? (getLanguage() === "en" ? "Selected" : "Seçilib") : (task.groupLabel || (getLanguage() === "en" ? "General" : "Ümumi")))
+            element("strong", "mobile-sheet-sub-item-title", task.text),
+            element("small", "mobile-sheet-sub-item-meta", isSelected ? (getLanguage() === "en" ? "Selected" : "Seçilib") : (task.groupLabel || (getLanguage() === "en" ? "General" : "Ümumi")))
           );
           list.appendChild(item);
         });
@@ -1093,8 +1095,8 @@ function openMobileContextSheet(handlers = {}) {
         });
         item.type = "button";
         item.append(
-          element("strong", "", prompt.title),
-          element("small", "", prompt.text)
+          element("strong", "mobile-sheet-sub-item-title", prompt.title),
+          element("small", "mobile-sheet-sub-item-meta", prompt.text)
         );
         list.appendChild(item);
       });
