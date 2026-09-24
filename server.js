@@ -29,6 +29,7 @@ import { resolveAskModelRoute } from "./src/services/ai/ask-routing.js";
 import { geminiFileCache } from "./src/services/ai/gemini-file-cache.js";
 import { evaluateSearchRoute } from "./src/services/ai/search-router.js";
 import { buildPersonalizationContext } from "./src/services/ai/personal-context.js";
+import { ASK_INSTRUCTIONS, buildAskPrompt, EPISTEMIC_HUMILITY_RULES } from "./src/services/ai/prompts.js";
 import { FileAiLearningRepository } from "./src/repositories/file-ai-learning-repository.js";
 import { LearningLoopService, logWithoutBlocking } from "./src/services/learning/learning-loop-service.js";
 import { createAiLearningAdminRouter, createAiLearningSignalRouter } from "./src/http/ai-learning-router.js";
@@ -458,14 +459,6 @@ app.post("/api/legal-report", async (req, res) => {
 const ASK_MODEL = aiConfig.askModel;
 const ASK_COMPLEX_MODEL = aiConfig.askComplexModel;
 const ASK_GEMINI_MODEL = aiConfig.askGeminiModel;
-const ASK_INSTRUCTIONS = `You are Helmer Ask, a precise, fast, and helpful AI assistant inside Helmer.
-Answer the user's question directly, clearly, and completely in the language they use.
-Avoid unnecessary preamble or boilerplate introductory phrases.
-Always complete your thoughts, explanations, and analyses fully without leaving sentences, bullet points, or sections truncated or cut off.
-Never claim to have performed actions, searches, or analysis that you did not perform.
-When answering queries regarding new AI models, model names or unreleased versions (e.g., Gemini 3.8 Flash, GPT-6 Astra, new Claude/Llama/DeepSeek releases), upcoming product releases, technical innovations, current events, real-time facts, or unfamiliar entities, never rely on internal training cutoff to conclude that something does not exist; verify live facts, news, and official announcements.
-If reference context (such as a saved strategy or task) is provided, thoroughly analyze it to address the user's specific request while preserving depth and structural completeness.
-If the user wants to build a complete business or marketing strategy, explain that the Build mode is optimized for the structured strategy workflow, while still answering their immediate question.`;
 
 function askSafetyIdentifier(ownerId) {
   return createHash("sha256").update(ownerId).digest("hex").slice(0, 32);
@@ -893,10 +886,14 @@ Google Search Grounding tool is actively configured and available for this conve
   * If and only if thorough Google Search returns no credible trace or confirms non-existence, you may state that based on current live web search results and official announcements, no such release has been confirmed.
 - GROUNDING & TRANSPARENCY:
   * Never state that you cannot browse the internet, that you lack web access, or that live search is disabled.
-  * Deliver clear, comprehensive, and grounded answers in the language of the user's prompt.`
+  * Deliver clear, comprehensive, and grounded answers in the language of the user's prompt.
+- EPISTEMIC HUMILITY, ACCURACY & PROACTIVE LEADERSHIP:
+  * If live search or facts do not confirm an exact metric, figure, or market statistic, NEVER hallucinate an invented number or feign certainty. Honestly state that official statistics or data are unavailable.
+  * Never give a dead-end refusal or stop at "bilmirəm"; proactively provide realistic ranges, industry benchmarks, and actionable alternative scenarios ("A və B yolları").
+  * Avoid cowardly disclaimer clichés ("Mən sadəcə süni intellektəm", "Maliyyə məsləhəti deyil"); maintain an experienced, confident, and direct problem-solving executive tone.`
     : "";
 
-  const fullSystemInstruction = (instructions || "") + searchGuidance + fileGuidance;
+  const fullSystemInstruction = (instructions || ASK_INSTRUCTIONS) + searchGuidance + fileGuidance;
 
   let geminiCachedContentName = null;
   const firstFileMsg = messages.find((m) => m && m.role === "user" && m.file);
@@ -1137,10 +1134,14 @@ Google Search Grounding tool is actively configured and available for this conve
   * If and only if thorough Google Search returns no credible trace or confirms non-existence, you may state that based on current live web search results and official announcements, no such release has been confirmed.
 - GROUNDING & TRANSPARENCY:
   * Never state that you cannot browse the internet, that you lack web access, or that live search is disabled.
-  * Deliver clear, comprehensive, and grounded answers in the language of the user's prompt.`
+  * Deliver clear, comprehensive, and grounded answers in the language of the user's prompt.
+- EPISTEMIC HUMILITY, ACCURACY & PROACTIVE LEADERSHIP:
+  * If live search or facts do not confirm an exact metric, figure, or market statistic, NEVER hallucinate an invented number or feign certainty. Honestly state that official statistics or data are unavailable.
+  * Never give a dead-end refusal or stop at "bilmirəm"; proactively provide realistic ranges, industry benchmarks, and actionable alternative scenarios ("A və B yolları").
+  * Avoid cowardly disclaimer clichés ("Mən sadəcə süni intellektəm", "Maliyyə məsləhəti deyil"); maintain an experienced, confident, and direct problem-solving executive tone.`
     : "";
 
-  const fullSystemInstruction = (instructions || "") + searchGuidance + fileGuidance;
+  const fullSystemInstruction = (instructions || ASK_INSTRUCTIONS) + searchGuidance + fileGuidance;
 
   let geminiCachedContentName = null;
   const firstFileMsg = messages.find((m) => m && m.role === "user" && m.file);
@@ -1464,7 +1465,11 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       });
     }
 
-    const fullInstructions = `${ASK_INSTRUCTIONS}${strategyContext}${taskContext}${personalizationContext}`;
+    const fullInstructions = buildAskPrompt({
+      strategyContext,
+      taskContext,
+      personalizationContext,
+    });
     let reply = "";
     let activeModel = "luna";
     const selectedAskModel = isGemini ? ASK_GEMINI_MODEL : route === "terra" ? ASK_COMPLEX_MODEL : ASK_MODEL;

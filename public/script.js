@@ -1837,6 +1837,11 @@ const state = {
     return false;
   })(),
   strategyAskOpen: false,
+  strategySummaryOpen: false,
+  strategySummaryLoading: false,
+  strategySummaryError: "",
+  strategySummaryData: null,
+  strategySummaryCachedId: null,
   refinementOpen: false,
   currentUser: null,
   settingsTab: "account",
@@ -6732,6 +6737,351 @@ function buildStrategyAskAssistant() {
   return root;
 }
 
+function openStrategySummary() {
+  if (!state.strategy) return;
+  state.strategySummaryOpen = true;
+  state.strategySummaryError = "";
+
+  const strategyKey = state.savedId || state.strategy.title || "active";
+  if (state.strategySummaryCachedId !== strategyKey) {
+    state.strategySummaryData = null;
+    state.strategySummaryCachedId = strategyKey;
+  }
+
+  const root = document.querySelector(".strategy-summary-root");
+  const summaryBtn = document.querySelector(".dock-summary-btn");
+  if (summaryBtn) summaryBtn.setAttribute("aria-expanded", "true");
+
+  if (!state.strategySummaryData && !state.strategySummaryLoading) {
+    loadStrategySummary();
+  }
+
+  if (root) {
+    root.classList.add("is-open");
+    updateSummaryModalView();
+  } else {
+    render();
+  }
+}
+
+function closeStrategySummary() {
+  state.strategySummaryOpen = false;
+  const root = document.querySelector(".strategy-summary-root");
+  const summaryBtn = document.querySelector(".dock-summary-btn");
+  if (summaryBtn) summaryBtn.setAttribute("aria-expanded", "false");
+  if (root) {
+    root.classList.remove("is-open");
+  }
+}
+
+async function loadStrategySummary() {
+  if (!state.strategy) return;
+  state.strategySummaryLoading = true;
+  state.strategySummaryError = "";
+  updateSummaryModalView();
+
+  try {
+    const lang = getLanguage() === "en" ? "en" : "az";
+    const bodyPayload = {
+      strategy: state.strategy,
+      language: lang,
+    };
+    if (state.savedId && /^[0-9a-f-]{36}$/i.test(state.savedId)) {
+      bodyPayload.strategyId = state.savedId;
+    }
+
+    const response = await fetch("/api/strategy/summary", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Helmer-Language": lang,
+      },
+      body: JSON.stringify(bodyPayload),
+    });
+
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => ({}));
+      throw new Error(errJson.error || (getLanguage() === "en" ? "Failed to generate strategy summary." : "Strategiya xülasəsi hazırlana bilmədi."));
+    }
+
+    const result = await response.json();
+    state.strategySummaryData = result.summary;
+    state.strategySummaryLoading = false;
+  } catch (err) {
+    state.strategySummaryError = err.message || (getLanguage() === "en" ? "Failed to generate strategy summary." : "Strategiya xülasəsi hazırlana bilmədi.");
+    state.strategySummaryLoading = false;
+  }
+
+  updateSummaryModalView();
+}
+
+function copySummaryToClipboard(data, feedbackBtn) {
+  if (!data) return;
+  const isEn = getLanguage() === "en";
+  const lines = [];
+  lines.push(data.title || (isEn ? "Strategy Summary" : "Strategiyanın Xülasəsi"));
+  lines.push("─".repeat(40));
+  if (data.objective) {
+    lines.push(`🎯 ${isEn ? "Objective & Focus" : "Hədəf və Fokus"}:\n${data.objective}\n`);
+  }
+  if (data.keyMoves && data.keyMoves.length) {
+    lines.push(`⚡ ${isEn ? "Critical Strategic Moves" : "Əsas Strateji Gedişlər"}:`);
+    data.keyMoves.forEach((m, idx) => lines.push(`  ${idx + 1}. ${m}`));
+    lines.push("");
+  }
+  if (data.execution) {
+    lines.push(`🧭 ${isEn ? "Execution Direction" : "İcra İstiqaməti"}:\n${data.execution}\n`);
+  }
+  if (data.kpisAndBudget) {
+    lines.push(`📊 ${isEn ? "Budget & KPIs" : "Büdcə və KPI-lar"}:\n${data.kpisAndBudget}\n`);
+  }
+  if (data.takeaway || data.summary) {
+    lines.push(`💡 ${isEn ? "Executive Takeaway" : "Kəsərli Yekun"}:\n${data.takeaway || data.summary}`);
+  }
+  const fullText = lines.join("\n").trim();
+  const notifySuccess = () => {
+    if (feedbackBtn) {
+      const textSpan = feedbackBtn.querySelector(".strategy-summary-btn-text");
+      if (textSpan) {
+        const prev = textSpan.textContent;
+        textSpan.textContent = t("strategy.summary.copied");
+        setTimeout(() => { textSpan.textContent = prev; }, 2000);
+      }
+    }
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(fullText).then(notifySuccess).catch(() => {});
+  } else {
+    try {
+      const tempArea = document.createElement("textarea");
+      tempArea.value = fullText;
+      tempArea.style.position = "fixed";
+      tempArea.style.opacity = "0";
+      document.body.appendChild(tempArea);
+      tempArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(tempArea);
+      notifySuccess();
+    } catch {}
+  }
+}
+
+function populateSummaryBody(body) {
+  body.replaceChildren();
+
+  if (state.strategySummaryLoading) {
+    const skeleton = element("div", "strategy-summary-skeleton");
+    skeleton.setAttribute("aria-busy", "true");
+    skeleton.setAttribute("aria-label", t("strategy.summary.loading"));
+
+    const pulseStatus = element("div", "strategy-summary-skeleton-status");
+    const pulseOrb = element("span", "strategy-summary-skeleton-orb");
+    const pulseLabel = element("span", "", t("strategy.summary.loading"));
+    pulseStatus.append(pulseOrb, pulseLabel);
+
+    skeleton.appendChild(pulseStatus);
+
+    for (let i = 0; i < 4; i++) {
+      const card = element("div", "strategy-summary-skeleton-card");
+      const titleLine = element("div", "strategy-summary-skeleton-line strategy-summary-skeleton-title");
+      const textLine1 = element("div", "strategy-summary-skeleton-line");
+      const textLine2 = element("div", "strategy-summary-skeleton-line strategy-summary-skeleton-short");
+      card.append(titleLine, textLine1, textLine2);
+      skeleton.appendChild(card);
+    }
+    body.appendChild(skeleton);
+    return;
+  }
+
+  if (state.strategySummaryError) {
+    const errorContainer = element("div", "strategy-summary-error-container");
+    const errorIcon = element("span", "strategy-summary-error-icon", "⚠️");
+    const errorMsg = element("p", "strategy-summary-error-msg", state.strategySummaryError);
+    const retryBtn = button(t("strategy.summary.retry"), "btn btn-primary strategy-summary-retry-btn", (e) => {
+      e.preventDefault();
+      loadStrategySummary();
+    });
+    errorContainer.append(errorIcon, errorMsg, retryBtn);
+    body.appendChild(errorContainer);
+    return;
+  }
+
+  const data = state.strategySummaryData;
+  if (!data) {
+    const emptyMsg = element("p", "strategy-summary-empty", t("strategy.summary.loading"));
+    body.appendChild(emptyMsg);
+    return;
+  }
+
+  // 1. Objective & Focus
+  if (data.objective) {
+    const card = element("div", "strategy-summary-card strategy-summary-card--objective");
+    const cardTitle = element("h4", "strategy-summary-card-heading");
+    cardTitle.append(element("span", "strategy-summary-card-icon", "🎯"), document.createTextNode(t("strategy.summary.objectiveTitle")));
+    const cardText = element("p", "strategy-summary-card-text", data.objective);
+    card.append(cardTitle, cardText);
+    body.appendChild(card);
+  }
+
+  // 2. Critical Strategic Moves
+  if (data.keyMoves && data.keyMoves.length > 0) {
+    const card = element("div", "strategy-summary-card strategy-summary-card--moves");
+    const cardTitle = element("h4", "strategy-summary-card-heading");
+    cardTitle.append(element("span", "strategy-summary-card-icon", "⚡"), document.createTextNode(t("strategy.summary.movesTitle")));
+    const list = element("ul", "strategy-summary-moves-list");
+    data.keyMoves.forEach((move, idx) => {
+      const item = element("li", "strategy-summary-move-item");
+      const num = element("span", "strategy-summary-move-badge", String(idx + 1).padStart(2, "0"));
+      const text = element("span", "strategy-summary-move-text", move);
+      item.append(num, text);
+      list.appendChild(item);
+    });
+    card.append(cardTitle, list);
+    body.appendChild(card);
+  }
+
+  // 3. Execution Direction
+  if (data.execution) {
+    const card = element("div", "strategy-summary-card strategy-summary-card--execution");
+    const cardTitle = element("h4", "strategy-summary-card-heading");
+    cardTitle.append(element("span", "strategy-summary-card-icon", "🧭"), document.createTextNode(t("strategy.summary.executionTitle")));
+    const cardText = element("p", "strategy-summary-card-text", data.execution);
+    card.append(cardTitle, cardText);
+    body.appendChild(card);
+  }
+
+  // 4. Budget & KPIs
+  if (data.kpisAndBudget) {
+    const card = element("div", "strategy-summary-card strategy-summary-card--kpis");
+    const cardTitle = element("h4", "strategy-summary-card-heading");
+    cardTitle.append(element("span", "strategy-summary-card-icon", "📊"), document.createTextNode(t("strategy.summary.kpiTitle")));
+    const cardText = element("p", "strategy-summary-card-text", data.kpisAndBudget);
+    card.append(cardTitle, cardText);
+    body.appendChild(card);
+  }
+
+  // 5. Executive Takeaway
+  if (data.takeaway || data.summary) {
+    const card = element("div", "strategy-summary-card strategy-summary-card--takeaway");
+    const cardTitle = element("h4", "strategy-summary-card-heading");
+    cardTitle.append(element("span", "strategy-summary-card-icon", "💡"), document.createTextNode(t("strategy.summary.takeawayTitle")));
+    const cardText = element("p", "strategy-summary-card-text", data.takeaway || data.summary);
+    card.append(cardTitle, cardText);
+    body.appendChild(card);
+  }
+}
+
+function updateSummaryModalView() {
+  const body = document.querySelector("#strategySummaryBody");
+  if (body) {
+    populateSummaryBody(body);
+  }
+  const root = document.querySelector(".strategy-summary-root");
+  if (root) {
+    root.classList.toggle("is-open", Boolean(state.strategySummaryOpen));
+  }
+}
+
+function buildStrategySummaryModal() {
+  const isEn = getLanguage() === "en";
+  const root = element(
+    "div",
+    `strategy-summary-root${state.strategySummaryOpen ? " is-open" : ""}`
+  );
+  root.id = "strategySummaryRoot";
+
+  const backdrop = button("", "strategy-summary-backdrop", (e) => {
+    e.preventDefault();
+    closeStrategySummary();
+  });
+  backdrop.type = "button";
+  backdrop.setAttribute("aria-label", t("strategy.summary.close"));
+  backdrop.tabIndex = -1;
+
+  const modal = element("section", "strategy-summary-modal");
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-labelledby", "strategySummaryModalTitle");
+
+  // Mobile grab bar handle
+  const grabHandle = element("div", "strategy-summary-grab-handle");
+  grabHandle.setAttribute("aria-hidden", "true");
+
+  // Header
+  const header = element("header", "strategy-summary-header");
+  const headingWrap = element("div", "strategy-summary-heading");
+
+  const kicker = element("div", "strategy-summary-kicker");
+  const kickerIcon = element("span", "strategy-summary-kicker-spark", "✦");
+  const kickerText = element("span", "", t("strategy.summary.badge"));
+  kicker.append(kickerIcon, kickerText);
+
+  const title = element("h3", "strategy-summary-title", t("strategy.summary.title"));
+  title.id = "strategySummaryModalTitle";
+
+  const subtitle = element(
+    "p",
+    "strategy-summary-subtitle",
+    state.strategy?.title || t("strategy.summary.subtitle")
+  );
+
+  headingWrap.append(kicker, title, subtitle);
+
+  const headerActions = element("div", "strategy-summary-header-actions");
+
+  const copyBtn = button("", "strategy-summary-action-btn strategy-summary-copy-btn", (e) => {
+    e.preventDefault();
+    if (state.strategySummaryData) {
+      copySummaryToClipboard(state.strategySummaryData, copyBtn);
+    }
+  });
+  copyBtn.type = "button";
+  copyBtn.setAttribute("aria-label", t("strategy.summary.copy"));
+  copyBtn.title = t("strategy.summary.copy");
+  copyBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+    </svg>
+    <span class="strategy-summary-btn-text">${t("strategy.summary.copy")}</span>
+  `;
+
+  const closeBtn = button("", "strategy-summary-action-btn strategy-summary-close-btn", (e) => {
+    e.preventDefault();
+    closeStrategySummary();
+  });
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", t("strategy.summary.close"));
+  closeBtn.title = t("strategy.summary.close");
+  closeBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  `;
+
+  headerActions.append(copyBtn, closeBtn);
+  header.append(headingWrap, headerActions);
+
+  // Body
+  const body = element("div", "strategy-summary-body");
+  body.id = "strategySummaryBody";
+  populateSummaryBody(body);
+
+  // Footer
+  const footer = element("footer", "strategy-summary-footer");
+  const metaText = element("span", "strategy-summary-footer-meta", isEn ? "Grounded in active strategy context" : "Aktiv strategiya konteksti əsasında formalaşdırılıb");
+  const footerClose = button(t("strategy.summary.close"), "btn btn-secondary strategy-summary-footer-close", () => {
+    closeStrategySummary();
+  });
+  footer.append(metaText, footerClose);
+
+  modal.append(grabHandle, header, body, footer);
+  root.append(backdrop, modal);
+
+  return root;
+}
+
 function renderStrategyWorkspace() {
   const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-document");
@@ -6832,7 +7182,7 @@ function renderStrategyWorkspace() {
 
   const shell = element("div", "strategy-local-shell");
   shell.append(toc, documentCanvas);
-  view.append(toolbar, shell, buildRefinementPanel(), buildStrategyAskAssistant());
+  view.append(toolbar, shell, buildRefinementPanel(), buildStrategyAskAssistant(), buildStrategySummaryModal());
 
   if (state.status === "refining") {
     const working = element("div", "refining-banner");
@@ -6961,6 +7311,21 @@ function buildRefinementPanel() {
     <span>${state.savedId ? (isEn ? "Saved" : "Yadda saxlanıldı") : (isEn ? "Save" : "Yadda saxla")}</span>
   `;
 
+  const summarySeparator = element("span", "dock-toolbar-separator dock-summary-separator");
+  summarySeparator.setAttribute("aria-hidden", "true");
+
+  const summaryBtn = button("", "dock-action-btn dock-summary-btn", (e) => {
+    e.preventDefault();
+    openStrategySummary();
+  });
+  summaryBtn.type = "button";
+  summaryBtn.setAttribute("aria-label", isEn ? "Strategy Summary" : "Strategiyanın Xülasəsi");
+  summaryBtn.setAttribute("aria-expanded", String(Boolean(state.strategySummaryOpen)));
+  summaryBtn.innerHTML = `
+    <svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    <span>${isEn ? "Summary" : "Xülasə"}</span>
+  `;
+
   const askSeparator = element("span", "dock-toolbar-separator dock-ask-separator");
   askSeparator.setAttribute("aria-hidden", "true");
 
@@ -6992,7 +7357,7 @@ function buildRefinementPanel() {
     <span>${isEn ? "Ask Strategy Copilot" : "Strategiya barədə soruş"}</span>
   `;
 
-  actionsStrip.append(refineToggle, exportWrap, toolbarSeparator, saveBtn, askSeparator, askBtn);
+  actionsStrip.append(refineToggle, exportWrap, toolbarSeparator, saveBtn, summarySeparator, summaryBtn, askSeparator, askBtn);
 
   // Suggestions are presented as an animated placeholder instead of controls.
   const form = element("form", "refinement-form");
@@ -11938,6 +12303,10 @@ railModeToggleButton?.addEventListener("dblclick", (event) => {
 
 function handleKeyboardShortcut(event) {
   if (event.key === "Escape") {
+    if (state.strategySummaryOpen) {
+      closeStrategySummary();
+      return;
+    }
     if (searchModalOverlay) {
       closeSearchModal();
       return;

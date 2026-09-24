@@ -4,9 +4,15 @@ import {
   GenerateRequestSchema,
   RefineRequestSchema,
   SaveStrategyRequestSchema,
+  StrategySummaryRequestSchema,
   formatValidationError,
 } from "../domain/strategy.js";
-import { assessBrief, generateStrategy, refineStrategy } from "../services/ai/strategy-service.js";
+import {
+  assessBrief,
+  generateStrategy,
+  refineStrategy,
+  summarizeStrategyWithLuna,
+} from "../services/ai/strategy-service.js";
 import { buildStrategyPersonalizationContext } from "../services/ai/personal-context.js";
 import { detectTargetMarket } from "../services/ai/prompts.js";
 import { aiConfig } from "../services/ai/config.js";
@@ -107,7 +113,7 @@ async function runTrackedBuild({ learningLoop, ownerId, taskType, userPrompt, re
   }
 }
 
-export function createStrategyRouter(repository, learningLoop = null) {
+export function createStrategyRouter(repository, learningLoop = null, options = {}) {
   const router = express.Router();
 
   router.use(rateLimit(30));
@@ -306,6 +312,49 @@ export function createStrategyRouter(repository, learningLoop = null) {
       }
     }),
   );
+
+  const handleSummary = asyncRoute(async (req, res) => {
+    const abortController = new AbortController();
+    res.on("close", () => {
+      if (!res.writableEnded) abortController.abort();
+    });
+
+    const payload = parse(StrategySummaryRequestSchema, req.body);
+    const language = resolveLanguage(req, payload.language);
+
+    let strategy = payload.strategy;
+
+    // Tenant isolation & IDOR check: If strategyId is provided, enforce ownerId match (Rule 3)
+    if (payload.strategyId) {
+      const existing = await repository.getById(payload.strategyId, req.ownerId);
+      if (!existing) {
+        return res.status(404).json({ error: "Strategiya tapılmadı.", code: "NOT_FOUND" });
+      }
+      if (!strategy) {
+        strategy = existing.strategy;
+      }
+    }
+
+    if (!strategy) {
+      return res.status(400).json({ error: "Strategiya məlumatı tələb olunur.", code: "VALIDATION_ERROR" });
+    }
+
+    const client = options.openAiClient || options.client || null;
+
+    const summary = await summarizeStrategyWithLuna({
+      strategy,
+      language,
+      client,
+      signal: abortController.signal,
+    });
+
+    if (!res.writableEnded) {
+      res.json({ summary });
+    }
+  });
+
+  router.post("/summary", handleSummary);
+  router.post("/summarize", handleSummary);
 
   router.post(
     "/save",

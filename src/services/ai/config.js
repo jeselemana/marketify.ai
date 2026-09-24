@@ -20,6 +20,7 @@ export const aiConfig = Object.freeze({
   strategyMaxOutputTokens: 9000,
   refinementMaxOutputTokens: 9000,
   accountSummaryModel: process.env.OPENAI_ACCOUNT_SUMMARY_MODEL || "gpt-5.6-luna",
+  strategySummaryModel: process.env.OPENAI_STRATEGY_SUMMARY_MODEL || "gpt-5.6-luna",
 });
 
 export function hasOpenAIConfiguration() {

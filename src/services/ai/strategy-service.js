@@ -1,11 +1,14 @@
 import {
   StrategyAssessmentSchema,
   StrategySchema,
+  StrategySummaryOutputSchema,
+  serializeStrategyContext,
   analyzeBriefSignals,
   validateAssessment,
 } from "../../domain/strategy.js";
-import { aiConfig } from "./config.js";
-import { routeStructuredGeneration } from "./llm-router.js";
+import { aiConfig, hasOpenAIConfiguration } from "./config.js";
+import { getOpenAIClient } from "./client.js";
+import { LLMProviderError, routeStructuredGeneration } from "./llm-router.js";
 import {
   ASSESSOR_PROMPT,
   REFINEMENT_PROMPT,
@@ -146,4 +149,133 @@ export async function refineStrategy(payload, ownerId, signal, personalizationCo
   });
 
   return result.data;
+}
+
+export async function summarizeStrategyWithLuna({
+  strategy,
+  language = "az",
+  client = null,
+  signal = null,
+  onUsage = null,
+}) {
+  const isEn = language === "en";
+  const modelName = aiConfig.strategySummaryModel || "gpt-5.6-luna";
+
+  if (!client && !hasOpenAIConfiguration()) {
+    const err = new Error("OpenAI is not configured.");
+    err.code = "AI_NOT_CONFIGURED";
+    err.model = modelName;
+    throw err;
+  }
+
+  const openaiClient = client || getOpenAIClient();
+  const strategyContext = serializeStrategyContext(strategy);
+
+  const systemPrompt = isEn
+    ? `You are an elite Chief Strategy Officer and executive advisor.
+Analyze the complete business and marketing strategy provided below and produce an incisive, high-impact executive summary.
+
+STRICT REQUIREMENTS:
+1. No fluff, no boilerplate corporate buzzwords. Present direct, actionable points, key metrics, and decisive strategic moves.
+2. The summary must be comprehensive yet punchy, precisely covering every critical pillar of the strategy:
+   - Objective: core business goal, target market, and primary audience
+   - Key Moves: decisive strategic and tactical differentiators (at least 3-5 concrete moves)
+   - Execution Direction: implementation roadmap, key phases, and sequencing
+   - Budget & KPIs: budget allocation logic, target metrics, and measurable benchmarks
+   - Executive Takeaway: decisive bottom-line verdict and strategic priority for leadership
+3. Return ONLY a valid JSON object matching this structure:
+{
+  "title": "Strategy Title",
+  "objective": "Concise summary of core objectives and market focus",
+  "keyMoves": [
+    "Critical strategic move 1",
+    "Critical strategic move 2",
+    "Critical strategic move 3"
+  ],
+  "execution": "Execution roadmap and phase breakdown",
+  "kpisAndBudget": "Budget considerations and target KPIs",
+  "takeaway": "Decisive executive takeaway for leadership",
+  "summary": "Cohesive, high-impact executive summary paragraph uniting all points"
+}`
+    : `Sən yüksək səviyyəli strateq və icraçı direktorsan (Chief Strategy Officer).
+Sənə təqdim olunan marketinq və biznes strategiyasının tam məzmununu dərindən təhlil edib, qərarvericilər üçün kəsərli, konkret və dolğun xülasə hazırlamalısan.
+
+CİDDİ TƏLƏBLƏR:
+1. Boş söz yığını, ümumi bəlağətli ifadələr qətiyyən olmamalıdır. Birbaşa konkret faktlar, rəqəmlər və əsas qərarlar verilməlidir.
+2. Xülasə yığcam, lakin strategiyanın bütün kritik bəndlərini dəqiq əks etdirən ətraflı xülasə formatında olmalıdır:
+   - Hədəf: biznesin əsas məqsədi, hədəf kütləsi və bazar fokusu
+   - Əsas gedişlər: strategiyanı fərqləndirən və qələbə gətirən ən mühüm taktiki və strateji addımlar (ən azı 3-5 konkret addım)
+   - İcra istiqaməti: icra mərhələləri, ardıcıllıq və əsas addımlar
+   - Büdcə və KPI: büdcə istiqamətləri və ölçülə bilən əsas nəticə göstəriciləri
+   - Kəsərli yekun: qərarverici üçün ən mühüm strateji nəticə və rəhbərlik üçün əsas mesaj
+3. Cavab YALNIZ aşağıdakı struktura uyğun valid JSON formatında olmalıdır:
+{
+  "title": "Strategiyanın adı",
+  "objective": "Konkret hədəf və bazar fokusunun xülasəsi",
+  "keyMoves": [
+    "1-ci kritik strateji gediş",
+    "2-ci kritik strateji gediş",
+    "3-cü kritik strateji gediş"
+  ],
+  "execution": "İcra ardıcıllığı və əsas mərhələlərin xülasəsi",
+  "kpisAndBudget": "Büdcə bölgüsü və əsas ölçülə bilən KPI hədəfləri",
+  "takeaway": "Qərarverici üçün kəsərli strateji yekun",
+  "summary": "Bütün bu məqamları birləşdirən bütöv, axıcı və kəsərli xülasə mətni"
+}`;
+
+  const userContent = isEn
+    ? `Generate an incisive, high-impact executive summary for this strategy:\n\n${strategyContext}`
+    : `Aşağıdakı strategiya üçün kəsərli, dolğun və konkret icraçı xülasəsini tərtib et:\n\n${strategyContext}`;
+
+  const completion = await openaiClient.chat.completions.create(
+    {
+      model: modelName,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      response_format: { type: "json_object" },
+    },
+    signal ? { signal } : undefined,
+  );
+
+  if (typeof onUsage === "function" && completion.usage) {
+    onUsage({
+      provider: "openai",
+      model: modelName,
+      usage: {
+        inputTokens: completion.usage.prompt_tokens,
+        outputTokens: completion.usage.completion_tokens,
+        totalTokens: completion.usage.total_tokens,
+      },
+    });
+  }
+
+  const rawContent = completion.choices?.[0]?.message?.content?.trim() || "{}";
+  let parsed;
+  try {
+    parsed = JSON.parse(rawContent);
+  } catch (jsonErr) {
+    throw new LLMProviderError("Model etibarsız JSON cavabı qaytardı.", {
+      code: "AI_INVALID_OUTPUT",
+      status: 502,
+      model: modelName,
+      cause: jsonErr,
+    });
+  }
+
+  const validated = StrategySummaryOutputSchema.parse({
+    title: parsed.title || strategy?.title || (isEn ? "Strategy Summary" : "Strategiya Xülasəsi"),
+    objective: parsed.objective || "",
+    keyMoves: Array.isArray(parsed.keyMoves) ? parsed.keyMoves.map(String) : [],
+    execution: parsed.execution || "",
+    kpisAndBudget: parsed.kpisAndBudget || "",
+    takeaway: parsed.takeaway || "",
+    summary: parsed.summary || "",
+  });
+
+  return {
+    ...validated,
+    model: modelName,
+  };
 }

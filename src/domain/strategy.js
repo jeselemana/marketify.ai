@@ -161,6 +161,59 @@ export const SaveStrategyRequestSchema = z.object({
     .max(100),
 });
 
+export const StrategySummaryRequestSchema = z
+  .object({
+    strategy: StrategySchema.optional(),
+    strategyId: z.string().trim().regex(/^[0-9a-f-]{36}$/i).optional(),
+    language: z.enum(["az", "en"]).optional(),
+  })
+  .strict()
+  .refine((data) => Boolean(data.strategy || data.strategyId), {
+    message: "Strategiya məlumatı və ya ID-si tələb olunur.",
+  });
+
+export const StrategySummaryOutputSchema = z
+  .object({
+    title: z.string().trim().default("Strategiya Xülasəsi"),
+    objective: z.string().trim().default(""),
+    keyMoves: z.array(z.string().trim()).default([]),
+    execution: z.string().trim().default(""),
+    kpisAndBudget: z.string().trim().default(""),
+    takeaway: z.string().trim().default(""),
+    summary: z.string().trim().default(""),
+  })
+  .strict();
+
+export function serializeStrategyContext(strategy) {
+  if (!strategy) return "";
+  const parts = [];
+  if (strategy.title) parts.push(`TITLE: ${strategy.title}`);
+  if (strategy.summary) parts.push(`EXECUTIVE OVERVIEW:\n${strategy.summary}`);
+  if (strategy.context) {
+    const { business, objective, market, targetAudience } = strategy.context;
+    parts.push(`CONTEXT:\n- Business: ${business || ""}\n- Objective: ${objective || ""}\n- Market: ${market || ""}\n- Target Audience: ${targetAudience || ""}`);
+  }
+  if (strategy.priorities?.length) {
+    parts.push(`STRATEGIC PRIORITIES:\n` + strategy.priorities.map((p) => `- [${(p.priority || "PRIORITY").toUpperCase()}] ${p.title}: ${p.description}`).join("\n"));
+  }
+  if (strategy.sections?.length) {
+    parts.push(`SECTIONS:\n` + strategy.sections.map((s) => `### ${s.title}\n${s.summary || ""}\n${s.content || ""}\n${s.bullets?.length ? s.bullets.map((b) => `* ${b}`).join("\n") : ""}`).join("\n\n"));
+  }
+  if (strategy.actionPlan?.length) {
+    parts.push(`ACTION PLAN:\n` + strategy.actionPlan.map((a) => `Phase: ${a.phase}\nActions:\n${(a.actions || []).map((act) => `* ${act}`).join("\n")}\nExpected Outcome: ${a.expectedOutcome}`).join("\n\n"));
+  }
+  if (strategy.kpis?.length) {
+    parts.push(`KPIS:\n` + strategy.kpis.map((k) => `- ${k.name} (Target: ${k.target}): ${k.reason}`).join("\n"));
+  }
+  if (strategy.risks?.length) {
+    parts.push(`RISKS & MITIGATIONS:\n` + strategy.risks.map((r) => `- Risk: ${r.risk}\n  Mitigation: ${r.mitigation}`).join("\n"));
+  }
+  if (strategy.nextSteps?.length) {
+    parts.push(`NEXT STEPS:\n` + strategy.nextSteps.map((n) => `- ${n}`).join("\n"));
+  }
+  return parts.join("\n\n");
+}
+
 export function validateAssessment(value) {
   const assessment = StrategyAssessmentSchema.parse(value);
 
