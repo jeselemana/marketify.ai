@@ -756,7 +756,7 @@ function buildChangelogFooter(currentLang, dict) {
   const footer = element("footer", "changelog-modal-footer");
 
   const feedbackLink = element("a", "changelog-feedback-btn");
-  feedbackLink.href = `mailto:helmerworkspace@googlegroups.com?subject=${encodeURIComponent(dict.feedbackSubject || "Helmer Feedback")}`;
+  feedbackLink.href = `mailto:support@helmerworkspace.com?subject=${encodeURIComponent(dict.feedbackSubject || "Helmer Feedback")}`;
   feedbackLink.setAttribute("target", "_blank");
   feedbackLink.setAttribute("rel", "noopener noreferrer");
   const mailIcon = createChangelogSvgIcon("mail");
@@ -8171,6 +8171,10 @@ function renderRecentList() {
 function updateWorkspaceIdentity(user) {
   state.currentUser = user;
   const isEn = getLanguage() === "en";
+  const supportTooltip = document.querySelector(".support-chat-tooltip-text");
+  if (supportTooltip) {
+    supportTooltip.textContent = getSupportGreeting();
+  }
   if (!user) {
     workspaceAvatar.textContent = "H";
     railWorkspaceAvatar.textContent = "H";
@@ -8283,6 +8287,136 @@ function buildLanguageSelectorSection() {
   return row;
 }
 
+function getSupportGreeting() {
+  const name = getUserFirstName();
+  if (name) {
+    return t("supportBubble.greeting", { name });
+  }
+  return t("supportBubble.greetingGuest");
+}
+
+function buildSupportChatBubble() {
+  const isEn = getLanguage() === "en";
+  const widget = element("div", "support-chat-widget");
+
+  const tooltip = element("div", "support-chat-tooltip");
+  tooltip.setAttribute("role", "tooltip");
+
+  const tooltipText = element("span", "support-chat-tooltip-text");
+  tooltipText.textContent = getSupportGreeting();
+  tooltip.appendChild(tooltipText);
+
+  const popover = element("div", "support-chat-popover");
+  popover.setAttribute("role", "dialog");
+  popover.setAttribute("aria-label", t("supportBubble.popoverTitle") || (isEn ? "Help & Support" : "Kömək və Dəstək"));
+  popover.hidden = true;
+
+  const popoverHeader = element("div", "support-popover-header");
+  const titleWrap = element("div", "support-popover-title-wrap");
+  titleWrap.append(
+    element("strong", "support-popover-title", t("supportBubble.popoverTitle") || (isEn ? "Help & Support" : "Kömək və Dəstək")),
+    element("p", "support-popover-subtitle", t("supportBubble.popoverSubtitle") || (isEn ? "Get in touch with us for questions or feedback." : "Suallarınız və ya təklifləriniz üçün bizə yazın."))
+  );
+
+  const closeBtn = button("", "support-popover-close", (e) => {
+    e.stopPropagation();
+    closePopover();
+  });
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", t("supportBubble.close") || (isEn ? "Close" : "Bağla"));
+  closeBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+  popoverHeader.append(titleWrap, closeBtn);
+
+  const emailLink = element("a", "support-email-option");
+  emailLink.href = "mailto:support@helmerworkspace.com";
+  emailLink.innerHTML = `
+    <div class="support-email-icon-wrap" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="20" height="16" x="2" y="4" rx="2"/>
+        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+      </svg>
+    </div>
+    <div class="support-email-text-wrap">
+      <span class="support-email-label">${escapeHtml(t("supportBubble.emailOptionLabel") || (isEn ? "Send an email" : "E-poçt vasitəsilə yazın"))}</span>
+      <span class="support-email-address">support@helmerworkspace.com</span>
+    </div>
+    <div class="support-email-arrow" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </div>
+  `;
+
+  const copyBtn = button(t("supportBubble.copyEmail") || (isEn ? "Copy email" : "Ünvanı kopyala"), "support-copy-email-btn", async (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      await navigator.clipboard.writeText("support@helmerworkspace.com");
+      copyBtn.textContent = t("supportBubble.copied") || (isEn ? "Copied!" : "Kopyalandı!");
+      setTimeout(() => {
+        copyBtn.textContent = t("supportBubble.copyEmail") || (isEn ? "Copy email" : "Ünvanı kopyala");
+      }, 2000);
+    } catch {}
+  });
+  copyBtn.type = "button";
+
+  const optionsList = element("div", "support-popover-options");
+  optionsList.append(emailLink, copyBtn);
+
+  popover.append(popoverHeader, optionsList);
+
+  const bubble = button("", "support-chat-bubble", (e) => {
+    e.stopPropagation();
+    togglePopover();
+  });
+  bubble.type = "button";
+  bubble.setAttribute("aria-label", t("supportBubble.ariaLabel") || (isEn ? "Support & Contact" : "Kömək və Dəstək"));
+  bubble.setAttribute("aria-expanded", "false");
+  bubble.innerHTML = `
+    <svg class="support-chat-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+    </svg>
+    <span class="support-chat-status-dot" aria-hidden="true"></span>
+  `;
+
+  function openPopover() {
+    popover.hidden = false;
+    bubble.setAttribute("aria-expanded", "true");
+    widget.classList.add("is-popover-open");
+  }
+
+  function closePopover() {
+    popover.hidden = true;
+    bubble.setAttribute("aria-expanded", "false");
+    widget.classList.remove("is-popover-open");
+  }
+
+  function togglePopover() {
+    if (popover.hidden) {
+      openPopover();
+    } else {
+      closePopover();
+    }
+  }
+
+  const handleOutsideClick = (e) => {
+    if (!widget.contains(e.target) && !popover.hidden) {
+      closePopover();
+    }
+  };
+  document.addEventListener("click", handleOutsideClick);
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape" && !popover.hidden) {
+      closePopover();
+    }
+  };
+  document.addEventListener("keydown", handleKeyDown);
+
+  widget.append(tooltip, popover, bubble);
+  return widget;
+}
 
 function renderSettings() {
   const isEn = getLanguage() === "en";
@@ -9581,33 +9715,9 @@ function renderSettings() {
     docsList.append(termsRow, privacyRow, reportRow);
     panel.appendChild(docsList);
     view.appendChild(panel);
-
-    // Legal & Policy Direct Contact Card (Completely separate card outside and below the legal panel)
-    const contactCard = element("div", "settings-legal-contact-card");
-    contactCard.innerHTML = `
-      <div class="legal-contact-left">
-        <div class="legal-contact-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect width="20" height="16" x="2" y="4" rx="2"/>
-            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-          </svg>
-        </div>
-        <div class="legal-contact-text">
-          <strong>${escapeHtml(isEn ? "Legal & Policy Contact" : "Hüquq və Qaydalar üzrə Əlaqə")}</strong>
-          <p>${escapeHtml(isEn ? "For privacy inquiries, terms feedback, or compliance questions, reach our team." : "Məxfilik sorğuları, istifadə qaydaları və hüquqi məsələlər üçün bizimlə əlaqə saxlayın.")}</p>
-        </div>
-      </div>
-      <a href="mailto:helmerworkspace@googlegroups.com" class="legal-contact-email-btn">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect width="20" height="16" x="2" y="4" rx="2"/>
-          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-        </svg>
-        <span>${escapeHtml(isEn ? "Contact us" : "Əlaqə saxla")}</span>
-      </a>
-    `;
-    view.appendChild(contactCard);
   }
   view.appendChild(tabs);
+  view.appendChild(buildSupportChatBubble());
   workspace.appendChild(view);
 }
 
@@ -11392,7 +11502,7 @@ function openLegalModal(type) {
   footer.appendChild(button(isEn ? "Close" : "Bağla", "primary-button", closeLegalModal));
 
   card.append(header, body, footer);
-  overlay.appendChild(card);
+  overlay.append(card, buildSupportChatBubble());
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
 }

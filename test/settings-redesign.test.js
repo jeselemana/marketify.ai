@@ -152,11 +152,8 @@ test("Settings: Security tab has realistic protection descriptions, Legal has di
   assert.ok(script.includes("Session & Account Safety"), "Uses clear Session & Account Safety tile");
   assert.ok(script.includes("Data Control"), "Uses clear Data Control tile");
 
-  // Legal & Policy tab has direct contact card with requested email
-  assert.ok(script.includes("settings-legal-contact-card"), "Contact card container is rendered");
-  assert.ok(script.includes("mailto:helmerworkspace@googlegroups.com"), "Direct mailto link is present");
-  assert.ok(script.includes("Əlaqə saxla"), "Button displays 'Əlaqə saxla'");
-  assert.ok(!script.includes("bizimlə əlaqə saxlayın:"), "Colon has been eliminated from contact subtext");
+  // Legal & Policy tab removed redundant contact card in favor of floating support widget
+  assert.ok(!script.includes("settings-legal-contact-card"), "Contact card container is removed from Legal tab");
 
   // CSS defines contact card and mobile responsiveness
   assert.ok(css.includes(".settings-legal-contact-card {"), "CSS defines .settings-legal-contact-card");

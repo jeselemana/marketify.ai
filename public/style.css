@@ -24256,6 +24256,452 @@ html.dark .changelog-feedback-btn:hover {
   border-color: rgba(147, 197, 253, 0.4);
 }
 
+/* ==========================================================================
+   Support Chat Bubble (Minimalist & Premium Floating Action)
+   ========================================================================== */
+
+.support-chat-widget {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.support-chat-widget:hover {
+  transform: translateY(-2px);
+}
+
+.support-chat-bubble {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 9999px;
+  background: #0b1f3a;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 10px 25px -4px rgba(11, 31, 58, 0.3), 0 4px 10px -2px rgba(11, 31, 58, 0.18);
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.support-chat-widget:hover .support-chat-bubble {
+  background: #132d52;
+  box-shadow: 0 14px 32px -4px rgba(11, 31, 58, 0.38), 0 6px 14px -2px rgba(11, 31, 58, 0.22);
+  transform: scale(1.04);
+}
+
+.support-chat-widget:active .support-chat-bubble {
+  transform: scale(0.96);
+}
+
+.support-chat-icon {
+  width: 22px;
+  height: 22px;
+  transition: transform 200ms ease;
+}
+
+.support-chat-widget:hover .support-chat-icon {
+  transform: scale(1.05);
+}
+
+.support-chat-status-dot {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3);
+}
+
+/* Tooltip speech bubble */
+.support-chat-tooltip {
+  position: absolute;
+  right: calc(100% + 14px);
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.1), 0 4px 10px -2px rgba(0, 0, 0, 0.04);
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 180ms;
+}
+
+/* Tail pointing toward bubble */
+.support-chat-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -5px;
+  transform: translateY(-50%) rotate(45deg);
+  width: 9px;
+  height: 9px;
+  background: rgba(255, 255, 255, 0.95);
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.support-chat-widget:hover .support-chat-tooltip,
+.support-chat-widget:focus-visible .support-chat-tooltip {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Dark Theme Support */
+[data-theme="dark"] .support-chat-bubble,
+html.dark .support-chat-bubble {
+  background: #f8fafc;
+  color: #0b0f17;
+  border-color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.6), 0 2px 10px rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .support-chat-widget:hover .support-chat-bubble,
+html.dark .support-chat-widget:hover .support-chat-bubble {
+  background: #ffffff;
+  box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.7), 0 4px 14px rgba(255, 255, 255, 0.18);
+}
+
+[data-theme="dark"] .support-chat-status-dot,
+html.dark .support-chat-status-dot {
+  border-color: #0f172a;
+}
+
+[data-theme="dark"] .support-chat-tooltip,
+html.dark .support-chat-tooltip {
+  background: rgba(15, 23, 42, 0.94);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .support-chat-tooltip::after,
+html.dark .support-chat-tooltip::after {
+  background: rgba(15, 23, 42, 0.94);
+  border-right-color: rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .support-chat-widget {
+    right: 18px;
+    bottom: 18px;
+  }
+  .support-chat-bubble {
+    width: 46px;
+    height: 46px;
+  }
+  .support-chat-icon {
+    width: 20px;
+    height: 20px;
+  }
+  .support-chat-tooltip {
+    right: 0;
+    top: auto;
+    bottom: calc(100% + 10px);
+    transform: translateY(6px);
+    max-width: calc(100vw - 36px);
+  }
+  .support-chat-tooltip::after {
+    top: auto;
+    bottom: -5px;
+    right: 18px;
+    transform: rotate(45deg);
+    border-top: none;
+    border-right: 1px solid rgba(15, 23, 42, 0.08);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  }
+  [data-theme="dark"] .support-chat-tooltip::after,
+  html.dark .support-chat-tooltip::after {
+    border-right-color: rgba(255, 255, 255, 0.12);
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+  }
+  .support-chat-widget:hover .support-chat-tooltip,
+  .support-chat-widget:focus-visible .support-chat-tooltip {
+    transform: translateY(0);
+  }
+}
+
+/* When popover is open, suppress hover tooltip */
+.support-chat-widget.is-popover-open .support-chat-tooltip {
+  display: none !important;
+}
+
+/* Popover Card */
+.support-chat-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 14px);
+  width: 320px;
+  max-width: calc(100vw - 36px);
+  padding: 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  animation: popoverFadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  z-index: 100;
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.support-popover-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.support-popover-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.support-popover-title {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text-primary, #0f172a);
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.support-popover-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary, #64748b);
+  line-height: 1.45;
+}
+
+.support-popover-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  transition: all 140ms ease;
+  margin-top: -2px;
+  margin-right: -2px;
+}
+
+.support-popover-close:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--text-primary, #0f172a);
+}
+
+.support-popover-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Email Option Link */
+.support-email-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: rgba(11, 31, 58, 0.04);
+  border: 1px solid rgba(11, 31, 58, 0.08);
+  color: var(--text-primary, #0f172a);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.support-email-option:hover {
+  background: rgba(11, 31, 58, 0.08);
+  border-color: rgba(11, 31, 58, 0.18);
+  transform: translateY(-1px);
+}
+
+.support-email-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: #0b1f3a;
+  color: #ffffff;
+}
+
+.support-email-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.support-email-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+  letter-spacing: -0.01em;
+}
+
+.support-email-address {
+  font-size: 11.5px;
+  color: var(--text-secondary, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.support-email-arrow {
+  color: var(--text-secondary, #94a3b8);
+  display: flex;
+  align-items: center;
+  transition: transform 140ms ease, color 140ms ease;
+}
+
+.support-email-option:hover .support-email-arrow {
+  transform: translateX(2px);
+  color: var(--text-primary, #0f172a);
+}
+
+/* Copy email button */
+.support-copy-email-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 32px;
+  border: 1px dashed rgba(15, 23, 42, 0.15);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  font-size: 11.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.support-copy-email-btn:hover {
+  background: rgba(15, 23, 42, 0.04);
+  color: var(--text-primary, #0f172a);
+  border-color: rgba(15, 23, 42, 0.25);
+}
+
+/* Dark Mode */
+[data-theme="dark"] .support-chat-popover,
+html.dark .support-chat-popover {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 48px -10px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .support-popover-title,
+html.dark .support-popover-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .support-popover-subtitle,
+html.dark .support-popover-subtitle {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .support-popover-close,
+html.dark .support-popover-close {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .support-popover-close:hover,
+html.dark .support-popover-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .support-email-option,
+html.dark .support-email-option {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .support-email-option:hover,
+html.dark .support-email-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .support-email-icon-wrap,
+html.dark .support-email-icon-wrap {
+  background: #ffffff;
+  color: #0b0f17;
+}
+
+[data-theme="dark"] .support-email-label,
+html.dark .support-email-label {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .support-email-address,
+html.dark .support-email-address {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .support-copy-email-btn,
+html.dark .support-copy-email-btn {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .support-copy-email-btn:hover,
+html.dark .support-copy-email-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+
 
 
 
