@@ -756,7 +756,7 @@ function buildChangelogFooter(currentLang, dict) {
   const footer = element("footer", "changelog-modal-footer");
 
   const feedbackLink = element("a", "changelog-feedback-btn");
-  feedbackLink.href = `mailto:support@helmerworkspace.com?subject=${encodeURIComponent(dict.feedbackSubject || "Helmer Feedback")}`;
+  feedbackLink.href = `mailto:support@helmeros.com?subject=${encodeURIComponent(dict.feedbackSubject || "Helmer Feedback")}`;
   feedbackLink.setAttribute("target", "_blank");
   feedbackLink.setAttribute("rel", "noopener noreferrer");
   const mailIcon = createChangelogSvgIcon("mail");
@@ -8329,7 +8329,7 @@ function buildSupportChatBubble() {
   popoverHeader.append(titleWrap, closeBtn);
 
   const emailLink = element("a", "support-email-option");
-  emailLink.href = "mailto:support@helmerworkspace.com";
+  emailLink.href = "mailto:support@helmeros.com";
   emailLink.innerHTML = `
     <div class="support-email-icon-wrap" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -8339,7 +8339,7 @@ function buildSupportChatBubble() {
     </div>
     <div class="support-email-text-wrap">
       <span class="support-email-label">${escapeHtml(t("supportBubble.emailOptionLabel") || (isEn ? "Send an email" : "E-poçt vasitəsilə yazın"))}</span>
-      <span class="support-email-address">support@helmerworkspace.com</span>
+      <span class="support-email-address">support@helmeros.com</span>
     </div>
     <div class="support-email-arrow" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -8352,7 +8352,7 @@ function buildSupportChatBubble() {
     e.stopPropagation();
     e.preventDefault();
     try {
-      await navigator.clipboard.writeText("support@helmerworkspace.com");
+      await navigator.clipboard.writeText("support@helmeros.com");
       copyBtn.textContent = t("supportBubble.copied") || (isEn ? "Copied!" : "Kopyalandı!");
       setTimeout(() => {
         copyBtn.textContent = t("supportBubble.copyEmail") || (isEn ? "Copy email" : "Ünvanı kopyala");

@@ -110,8 +110,8 @@ test("script.js: changelog modal functions comply with Frontend XSS rules (Rule 
   assert.ok(changelogBlock.includes('element("div", "changelog-timeline")'), "Builds timeline safely via element()");
   assert.ok(changelogBlock.includes('document.createElementNS("http://www.w3.org/2000/svg"'), "Creates SVG icons safely via createElementNS");
 
-  // Feedback button points to support@helmerworkspace.com
-  assert.ok(changelogBlock.includes("support@helmerworkspace.com"), "Send Feedback button redirects to support@helmerworkspace.com");
+  // Feedback button points to support@helmeros.com
+  assert.ok(changelogBlock.includes("support@helmeros.com"), "Send Feedback button redirects to support@helmeros.com");
   assert.ok(changelogBlock.includes("changelog-feedback-btn"), "Feedback button has class changelog-feedback-btn");
 
   // Event wiring

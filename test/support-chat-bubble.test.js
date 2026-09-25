@@ -16,7 +16,7 @@ test("Support Chat Bubble: script.js implements minimalist & premium bubble, gre
   assert.ok(js.includes("togglePopover"), "Clicking bubble toggles popover instead of direct mailto jump");
 
   // Mailto redirect target on the email choice
-  assert.ok(js.includes('emailLink.href = "mailto:support@helmerworkspace.com"'), "Email option redirects to support@helmerworkspace.com");
+  assert.ok(js.includes('emailLink.href = "mailto:support@helmeros.com"'), "Email option redirects to support@helmeros.com");
 
   // Appended in renderSettings (covers Profile, Personalization, Security, Legal tabs)
   assert.ok(js.includes("view.appendChild(buildSupportChatBubble());"), "Appended to settings view for all tabs");
@@ -97,7 +97,7 @@ test("Support Chat Bubble: terms.html and privacy.html contain the widget with e
   const privacyHtml = await fs.readFile(path.join(process.cwd(), "public/privacy.html"), "utf8");
 
   // terms.html
-  assert.ok(termsHtml.includes('href="mailto:support@helmerworkspace.com"'), "terms.html links to support@helmerworkspace.com");
+  assert.ok(termsHtml.includes('href="mailto:support@helmeros.com"'), "terms.html links to support@helmeros.com");
   assert.ok(termsHtml.includes("support-chat-widget"), "terms.html has support-chat-widget");
   assert.ok(termsHtml.includes("support-chat-popover"), "terms.html has support-chat-popover");
   assert.ok(termsHtml.includes("support-email-option"), "terms.html has support-email-option");
@@ -105,7 +105,7 @@ test("Support Chat Bubble: terms.html and privacy.html contain the widget with e
   assert.ok(termsHtml.includes("updateSupportChat"), "terms.html updates greeting dynamically");
 
   // privacy.html
-  assert.ok(privacyHtml.includes('href="mailto:support@helmerworkspace.com"'), "privacy.html links to support@helmerworkspace.com");
+  assert.ok(privacyHtml.includes('href="mailto:support@helmeros.com"'), "privacy.html links to support@helmeros.com");
   assert.ok(privacyHtml.includes("support-chat-widget"), "privacy.html has support-chat-widget");
   assert.ok(privacyHtml.includes("support-chat-popover"), "privacy.html has support-chat-popover");
   assert.ok(privacyHtml.includes("support-email-option"), "privacy.html has support-email-option");
