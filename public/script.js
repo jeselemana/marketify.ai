@@ -2763,6 +2763,56 @@ async function setDefaultWorkspaceMode(mode) {
   );
 }
 
+function isAutoSaveStrategiesEnabled() {
+  if (!state.currentUser || state.currentUser?.settings?.personalIntelligence !== true) {
+    return false;
+  }
+  if (typeof state.currentUser.settings.autoSaveStrategies === "boolean") {
+    return state.currentUser.settings.autoSaveStrategies;
+  }
+  const cookieVal = getCookie("helmer_auto_save_strategies");
+  if (cookieVal !== null && cookieVal !== undefined && cookieVal !== "") {
+    return cookieVal !== "false";
+  }
+  try {
+    const localVal = localStorage.getItem("helmer_auto_save_strategies");
+    if (localVal !== null && localVal !== undefined && localVal !== "") {
+      return localVal !== "false";
+    }
+  } catch { }
+  return true; // Default is ON (açıq)
+}
+
+async function setAutoSaveStrategies(enabled) {
+  const boolVal = Boolean(enabled);
+  setCookie("helmer_auto_save_strategies", String(boolVal));
+  try {
+    localStorage.setItem("helmer_auto_save_strategies", String(boolVal));
+  } catch { }
+
+  if (state.currentUser) {
+    if (!state.currentUser.settings) state.currentUser.settings = {};
+    state.currentUser.settings.autoSaveStrategies = boolVal;
+
+    try {
+      const currentSettings = state.currentUser.settings || {};
+      const payload = {
+        ...currentSettings,
+        autoSaveStrategies: boolVal,
+      };
+      const data = await authRequest("/api/auth/settings", {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      if (data?.user) {
+        updateWorkspaceIdentity(data.user);
+      }
+    } catch (err) {
+      console.warn("Could not persist auto-save to account settings:", err);
+    }
+  }
+}
+
 function setMode(mode, { persistDefault = false } = {}) {
   if (!['build', 'ask'].includes(mode)) return;
   try {
@@ -5030,15 +5080,18 @@ async function resumeBackgroundJobs() {
       continue;
     }
 
-    // If ready but not saved to server yet, retry autoSave
+    // If ready but not saved to server yet, retry autoSave if enabled
     if (job.status === "ready" && job.strategy && !job.savedId) {
-      await autoSaveBackgroundJob(job);
+      if (isAutoSaveStrategiesEnabled()) {
+        await autoSaveBackgroundJob(job);
+      }
       continue;
     }
 
     if (job.status !== "generating") continue;
 
     try {
+      const autoSaveActive = isAutoSaveStrategiesEnabled();
       const data = await api("/api/strategy/generate", {
         method: "POST",
         body: JSON.stringify({
@@ -5046,6 +5099,7 @@ async function resumeBackgroundJobs() {
           answers: job.answers,
           assumptions: job.assumptions,
           idempotencyKey: job.idempotencyKey,
+          autoSave: autoSaveActive,
         }),
       });
 
@@ -5054,19 +5108,24 @@ async function resumeBackgroundJobs() {
         state.strategy = data.strategy;
         state.updatedAt = new Date().toISOString();
         state.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: isEn ? "Initial Strategy" : "İlkin strategiya", createdAt: state.updatedAt }];
+        if (data.savedId) state.savedId = data.savedId;
         removeBackgroundJob(job.id);
-        setStatus("ready");
+        setStatus(data.savedId ? "saved" : "ready");
         render();
-        showToast(isEn ? "Strategy is ready ✓" : "Strategiya hazırdır ✓");
+        showToast(data.savedId ? (isEn ? "Strategy generated and saved to archive ✓" : "Strategiya hazırlandı və arxivə saxlanıldı ✓") : (isEn ? "Strategy is ready ✓" : "Strategiya hazırdır ✓"));
+        if (data.savedId) await loadSavedStrategies();
         return;
       }
 
       job.status = "ready";
       job.strategy = data.strategy;
+      if (data.savedId) job.savedId = data.savedId;
       job.completedAt = new Date().toISOString();
       job.versions = [{ versionNumber: 1, data: data.strategy, changeRequest: isEn ? "Initial Strategy" : "İlkin strategiya", createdAt: job.completedAt }];
       persistBackgroundJobs();
-      await autoSaveBackgroundJob(job);
+      if (autoSaveActive && !job.savedId) {
+        await autoSaveBackgroundJob(job);
+      }
     } catch (err) {
       if (err.name === "AbortError") continue;
 
@@ -5723,7 +5782,10 @@ async function startGeneration() {
   render();
 
   try {
+    const autoSaveActive = isAutoSaveStrategiesEnabled();
     let finalStrategy = null;
+    let savedStrategy = null;
+    let savedId = null;
     try {
       const response = await fetch("/api/strategy/generate-stream", {
         method: "POST",
@@ -5739,6 +5801,7 @@ async function startGeneration() {
           assumptions: state.assumptions,
           idempotencyKey: state.clientSaveId,
           language: getLanguage(),
+          autoSave: autoSaveActive,
         }),
         signal: currentAbortController.signal,
       });
@@ -5793,6 +5856,8 @@ async function startGeneration() {
 
               if (evt.done && evt.strategy) {
                 finalStrategy = evt.strategy;
+                if (evt.savedId) savedId = evt.savedId;
+                if (evt.savedStrategy) savedStrategy = evt.savedStrategy;
               }
             } catch (pErr) {
               if (pErr.code || (pErr.message && !pErr.message.includes("JSON"))) throw pErr;
@@ -5802,6 +5867,8 @@ async function startGeneration() {
       } else {
         const data = await response.json();
         finalStrategy = data.strategy;
+        if (data.savedId) savedId = data.savedId;
+        if (data.savedStrategy) savedStrategy = data.savedStrategy;
       }
     } catch (streamFetchErr) {
       if (streamFetchErr.name === "AbortError" || currentAbortController?.signal?.aborted) throw streamFetchErr;
@@ -5817,9 +5884,12 @@ async function startGeneration() {
           assumptions: state.assumptions,
           idempotencyKey: state.clientSaveId,
           language: getLanguage(),
+          autoSave: autoSaveActive,
         }),
       });
       finalStrategy = data.strategy;
+      if (data.savedId) savedId = data.savedId;
+      if (data.savedStrategy) savedStrategy = data.savedStrategy;
     }
 
     if (!finalStrategy) {
@@ -5833,10 +5903,13 @@ async function startGeneration() {
     if (bgJob) {
       bgJob.status = "ready";
       bgJob.strategy = finalStrategy;
+      if (savedId) bgJob.savedId = savedId;
       bgJob.completedAt = new Date().toISOString();
       bgJob.versions = [{ versionNumber: 1, data: finalStrategy, changeRequest: "İlkin strategiya", createdAt: bgJob.completedAt }];
       persistBackgroundJobs();
-      autoSaveBackgroundJob(bgJob);
+      if (autoSaveActive && !bgJob.savedId) {
+        autoSaveBackgroundJob(bgJob);
+      }
       return;
     }
 
@@ -5851,8 +5924,55 @@ async function startGeneration() {
       },
     ];
     trackEvent("strategy_generated", { clarificationRounds: state.round, model: "gemini-3.8-flash" });
-    setStatus("ready");
-    render();
+
+    const isEn = getLanguage() === "en";
+    if (autoSaveActive) {
+      if (savedId) {
+        state.savedId = savedId;
+        if (savedStrategy) {
+          state.updatedAt = savedStrategy.updatedAt || state.updatedAt;
+          if (Array.isArray(savedStrategy.versions) && savedStrategy.versions.length) {
+            state.versions = savedStrategy.versions;
+          }
+        }
+        setStatus("saved");
+        render();
+        showToast(isEn ? "Strategy generated and saved to archive ✓" : "Strategiya hazırlandı və arxivə saxlanıldı ✓");
+        await loadSavedStrategies();
+      } else {
+        // Fallback: auto-save via /api/strategy/save if not returned by generator
+        try {
+          const saveData = await api("/api/strategy/save", {
+            method: "POST",
+            body: JSON.stringify({
+              clientSaveId: state.clientSaveId,
+              brief: state.brief,
+              answers: state.answers,
+              strategy: state.strategy,
+              versions: state.versions,
+              acceptForLearning: true,
+            }),
+          });
+          state.savedId = saveData.strategy.id;
+          state.updatedAt = saveData.strategy.updatedAt;
+          state.versions = saveData.strategy.versions;
+          setStatus("saved");
+          render();
+          showToast(isEn ? "Strategy generated and saved to archive ✓" : "Strategiya hazırlandı və arxivə saxlanıldı ✓");
+          await loadSavedStrategies();
+        } catch (saveErr) {
+          console.error("Auto-save fallback failed:", saveErr);
+          setStatus("ready");
+          render();
+          showToast(isEn ? "Strategy is ready ✓" : "Strategiya hazırdır ✓");
+        }
+      }
+    } else {
+      state.savedId = null;
+      setStatus("ready");
+      render();
+      showToast(isEn ? "Strategy is ready ✓" : "Strategiya hazırdır ✓");
+    }
   } catch (error) {
     if (error.name === "AbortError" || currentAbortController?.signal?.aborted) {
       return;
@@ -8262,6 +8382,31 @@ function renderSettings() {
     return details;
   }
 
+  function createExperienceCategorySection({ title, desc, iconSvg, contentNodes = [] }) {
+    const section = element("div", "experience-category-section");
+    const header = element("div", "experience-category-header");
+
+    if (iconSvg) {
+      const iconWrap = element("span", "experience-category-icon");
+      iconWrap.setAttribute("aria-hidden", "true");
+      iconWrap.innerHTML = iconSvg;
+      header.appendChild(iconWrap);
+    }
+
+    const textWrap = element("div", "experience-category-text");
+    textWrap.appendChild(element("h3", "experience-category-title", title));
+    if (desc) {
+      textWrap.appendChild(element("p", "experience-category-desc", desc));
+    }
+    header.appendChild(textWrap);
+
+    const cardsContainer = element("div", "experience-category-cards");
+    contentNodes.filter(Boolean).forEach((node) => cardsContainer.appendChild(node));
+
+    section.append(header, cardsContainer);
+    return { section, cardsContainer };
+  }
+
   function buildAiAccountSummaryCard() {
     const card = element("section", "ai-account-summary-card");
     const isPersonalizationEnabled = Boolean(
@@ -8534,6 +8679,9 @@ function renderSettings() {
     let currentTone = userSettings.tone || "professional";
     let memoriesList = Array.isArray(userSettings.memories) ? [...userSettings.memories] : [];
 
+    // Personalization categories container (collapses when deactivated)
+    const personalizationContainer = element("div", "experience-personalization-group");
+
     // Master AI Intelligence Switch Card
     const masterCard = element("div", "experience-hero-toggle");
     const masterLeft = element("div", "experience-hero-left");
@@ -8549,6 +8697,15 @@ function renderSettings() {
     const syncMasterToggle = () => {
       masterToggle.classList.toggle("is-active", isMasterEnabled);
       masterToggle.setAttribute("aria-checked", String(isMasterEnabled));
+      if (personalizationContainer) {
+        personalizationContainer.classList.toggle("is-collapsed", !isMasterEnabled);
+        personalizationContainer.style.display = isMasterEnabled ? "" : "none";
+        if (!isMasterEnabled) {
+          personalizationContainer.querySelectorAll("details.experience-accordion").forEach((d) => {
+            d.open = false;
+          });
+        }
+      }
     };
     masterToggle.appendChild(element("span", "settings-toggle-thumb"));
     syncMasterToggle();
@@ -8615,6 +8772,61 @@ function renderSettings() {
       badgeNode: modeBadge,
       isOpen: true,
       contentNode: modeGrid,
+    });
+
+    // Strategy Auto-Save Studio (Build Mode - Collapsible, Open by default)
+    let isAutoSave = isAutoSaveStrategiesEnabled();
+    const autoSaveBadge = element(
+      "span",
+      "experience-summary-badge",
+      isAutoSave
+        ? (t("settings.experience.autoSaveActive") || (isEn ? "Active" : "Aktiv"))
+        : (t("settings.experience.autoSaveInactive") || (isEn ? "Inactive" : "Deaktiv"))
+    );
+
+    const autoSaveCard = element("div", "settings-toggle-row");
+    const autoSaveCopy = element("div", "settings-toggle-copy");
+    autoSaveCopy.append(
+      element("strong", "", t("settings.experience.autoSaveToggleTitle") || (isEn ? "Auto-Save to Archive" : "Arxivə Avtomatik Saxlama")),
+      element("p", "", t("settings.experience.autoSaveToggleDesc") || (isEn ? "Automatically preserve newly generated strategies in your workspace archive upon completion." : "Build rejimində generasiya edilən hər yeni strategiya tamamlandıqda birbaşa arxivə əlavə edilsin."))
+    );
+    const autoSaveToggle = element("button", "settings-toggle");
+    autoSaveToggle.type = "button";
+    autoSaveToggle.setAttribute("role", "switch");
+    autoSaveToggle.setAttribute("aria-label", t("settings.experience.autoSaveTitle") || (isEn ? "Strategy Auto-Save (Build Mode)" : "Strategiyaların Avtomatik Saxlanılması (Build)"));
+
+    let syncScopesAutoSave = null;
+    const syncAutoSaveToggle = () => {
+      autoSaveToggle.classList.toggle("is-active", isAutoSave);
+      autoSaveToggle.setAttribute("aria-checked", String(isAutoSave));
+      autoSaveBadge.textContent = isAutoSave
+        ? (t("settings.experience.autoSaveActive") || (isEn ? "Active" : "Aktiv"))
+        : (t("settings.experience.autoSaveInactive") || (isEn ? "Inactive" : "Deaktiv"))
+      if (typeof syncScopesAutoSave === "function") {
+        syncScopesAutoSave(isAutoSave);
+      }
+    };
+    autoSaveToggle.appendChild(element("span", "settings-toggle-thumb"));
+    syncAutoSaveToggle();
+
+    autoSaveToggle.addEventListener("click", () => {
+      isAutoSave = !isAutoSave;
+      syncAutoSaveToggle();
+      setAutoSaveStrategies(isAutoSave);
+      showToast(
+        isAutoSave
+          ? (t("settings.experience.autoSaveToastActive") || (isEn ? "Strategy auto-save enabled." : "Build rejimində avtomatik arxivləmə aktiv edildi."))
+          : (t("settings.experience.autoSaveToastInactive") || (isEn ? "Strategy auto-save disabled." : "Build rejimində avtomatik arxivləmə deaktiv edildi."))
+      );
+    });
+    autoSaveCard.append(autoSaveCopy, autoSaveToggle);
+
+    const autoSaveAccordion = createExperienceAccordion({
+      title: t("settings.experience.autoSaveTitle") || (isEn ? "Strategy Auto-Save (Build Mode)" : "Strategiyaların Avtomatik Saxlanılması (Build)"),
+      desc: t("settings.experience.autoSaveDesc") || (isEn ? "Configure whether strategies created in Build mode are automatically saved to your archive." : "Build rejimində hazırlanan strategiyaların avtomatik olaraq arxivə köçürülməsini tənzimləyin."),
+      badgeNode: autoSaveBadge,
+      isOpen: true,
+      contentNode: autoSaveCard,
     });
 
     // Visual Theme Picker Studio (Both Authenticated & Guest - Collapsible, Closed by default)
@@ -8738,9 +8950,28 @@ function renderSettings() {
       contentNode: toneGrid,
     });
 
+    const aiCategory = createExperienceCategorySection({
+      title: t("settings.experience.categories.ai.title") || (isEn ? "AI Intelligence & Memory" : "AI İntellekti və Yaddaş"),
+      desc: t("settings.experience.categories.ai.desc") || (isEn ? "Tailored AI responses, strategy auto-save, and persistent strategic memories." : "Fərdiləşdirilmiş AI cavabları, strategiyaların avtomatik saxlanılması və daimi yaddaş qeydləri."),
+      iconSvg: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1-1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>',
+    });
+
+    const brandCategory = createExperienceCategorySection({
+      title: t("settings.experience.categories.brand.title") || (isEn ? "Brand & Business Identity" : "Brend və Biznes Kimliyi"),
+      desc: t("settings.experience.categories.brand.desc") || (isEn ? "Company facts, target market audience, and analytical response tone." : "Şirkət məlumatları, hədəf kütlə və analitik cavab tonu."),
+      iconSvg: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
+    });
+
+    const workspaceCategory = createExperienceCategorySection({
+      title: t("settings.experience.categories.workspace.title") || (isEn ? "Workspace & Interface" : "İş Mühiti və Görünüş"),
+      desc: t("settings.experience.categories.workspace.desc") || (isEn ? "Default launch workspace and surface appearance tone." : "İlkin açılış rejimi və vizual rəng mövzusu."),
+      iconSvg: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>',
+    });
+
+    workspaceCategory.cardsContainer.append(modeAccordion, themeAccordion);
+
     if (state.currentUser) {
       const form = element("form", "settings-form experience-settings-form");
-      form.append(masterCard, modeAccordion, themeAccordion, toneAccordion);
 
       // Business Profile Accordion (Collapsed by default)
       const profileGrid = element("div", "experience-grid-fields");
@@ -8756,7 +8987,6 @@ function renderSettings() {
         isOpen: false,
         contentNode: profileGrid,
       });
-      form.appendChild(profileAccordion);
 
       // Memory Hub (Secondary - Collapsible)
       const memoryWrapper = element("div", "experience-memory-wrapper");
@@ -8957,7 +9187,6 @@ function renderSettings() {
       isOpen: false,
       contentNode: memoryWrapper,
     });
-    form.appendChild(memoryAccordion);
 
     // 5. Scopes (Secondary - Collapsible)
     const scopesWrapper = element("div", "experience-scopes-wrapper");
@@ -8984,13 +9213,30 @@ function renderSettings() {
         onToggle(active);
       });
       row.append(copy, toggle);
-      return row;
+      return {
+        row,
+        setValue: (val) => {
+          active = val;
+          sync();
+        },
+      };
     };
 
-    scopesWrapper.append(
-      createScopeRow("Ask", isEn ? "Automatically draws relevant context from past chats and strategies when answering questions." : "Cari sualınızla bağlı olduqda keçmiş söhbətlər və strategiyalardan faydalı məlumatlar avtomatik cəlb edilir.", isAutoContext, (v) => { isAutoContext = v; }),
-      createScopeRow("Build", isEn ? "Applies your brand profile and tone when generating and refining strategies." : "Yeni strategiya yaradarkən və dəqiqləşdirərkən yuxarıdakı brend profili və ton nəzərə alınır.", isStrategyPersonalization, (v) => { isStrategyPersonalization = v; }),
+    const askScope = createScopeRow("Ask", isEn ? "Automatically draws relevant context from past chats and strategies when answering questions." : "Cari sualınızla bağlı olduqda keçmiş söhbətlər və strategiyalardan faydalı məlumatlar avtomatik cəlb edilir.", isAutoContext, (v) => { isAutoContext = v; });
+    const buildScope = createScopeRow("Build", isEn ? "Applies your brand profile and tone when generating and refining strategies." : "Yeni strategiya yaradarkən və dəqiqləşdirərkən yuxarıdakı brend profili və ton nəzərə alınır.", isStrategyPersonalization, (v) => { isStrategyPersonalization = v; });
+    const autoSaveScope = createScopeRow(
+      t("settings.experience.scopeAutoSaveTitle") || (isEn ? "Build Auto-Save" : "Build Arxivləmə"),
+      t("settings.experience.scopeAutoSaveDesc") || (isEn ? "Automatically saves and archives strategies generated in Build mode." : "Build rejimində hazırlanan strategiyaları avtomatik olaraq arxivə köçürür və saxlayır."),
+      isAutoSave,
+      (v) => {
+        isAutoSave = v;
+        syncAutoSaveToggle();
+        setAutoSaveStrategies(v);
+      }
     );
+    syncScopesAutoSave = (val) => autoSaveScope.setValue(val);
+
+    scopesWrapper.append(askScope.row, buildScope.row, autoSaveScope.row);
 
     const scopesAccordion = createExperienceAccordion({
       title: t("settings.experience.scopesTitle"),
@@ -8998,14 +9244,18 @@ function renderSettings() {
       isOpen: false,
       contentNode: scopesWrapper,
     });
-    form.appendChild(scopesAccordion);
+
+    aiCategory.cardsContainer.append(autoSaveAccordion, memoryAccordion, scopesAccordion);
+    brandCategory.cardsContainer.append(profileAccordion, toneAccordion);
+    personalizationContainer.append(aiCategory.section, brandCategory.section);
+    syncMasterToggle();
 
     // Save bar
     const formActions = element("div", "experience-form-actions");
     const save = button(t("settings.experience.saveBtn"), "primary-button experience-save-btn");
     save.type = "submit";
     formActions.appendChild(save);
-    form.appendChild(formActions);
+    form.append(masterCard, personalizationContainer, workspaceCategory.section, formActions);
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -9023,6 +9273,7 @@ function renderSettings() {
         memories: memoriesList,
         autoContext: isAutoContext,
         strategyPersonalization: isStrategyPersonalization,
+        autoSaveStrategies: isAutoSave,
         defaultMode: currentDefaultMode,
       };
       try {
@@ -9031,6 +9282,7 @@ function renderSettings() {
           body: JSON.stringify(payload),
         });
         updateWorkspaceIdentity(data.user);
+        setAutoSaveStrategies(isAutoSave);
         setCookie("helmer_default_mode", currentDefaultMode);
         try {
           localStorage.removeItem("helmer_default_mode");
@@ -9051,7 +9303,6 @@ function renderSettings() {
     panel.appendChild(form);
   } else {
       const guestStack = element("div", "experience-cards-stack");
-      guestStack.append(masterCard, modeAccordion, themeAccordion, toneAccordion);
 
       // Guest Experience Preview Card
       const guestExpCard = element("div", "experience-preview-card");
@@ -9095,7 +9346,11 @@ function renderSettings() {
         button(isEn ? "Log in" : "Daxil ol", "secondary-button", () => { window.location.href = "/login?returnTo=/workspace"; })
       );
       guestExpCta.append(guestExpLeft, guestExpActions);
-      guestStack.append(guestExpCard, guestExpCta);
+      aiCategory.cardsContainer.append(guestExpCard, guestExpCta);
+      brandCategory.cardsContainer.append(toneAccordion);
+      personalizationContainer.append(aiCategory.section, brandCategory.section);
+      syncMasterToggle();
+      guestStack.append(masterCard, personalizationContainer, workspaceCategory.section);
       panel.appendChild(guestStack);
     }
     view.appendChild(panel);

@@ -121,6 +121,7 @@ export const GenerateRequestSchema = z.object({
   assumptions: z.array(shortText).max(12).default([]),
   idempotencyKey: z.string().trim().min(8).max(120),
   language: z.enum(["az", "en"]).optional(),
+  autoSave: z.boolean().optional().default(true),
 });
 
 export const RefineRequestSchema = z

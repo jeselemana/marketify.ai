@@ -252,6 +252,7 @@ export class FileUserRepository {
           memories: [],
           autoContext: true,
           strategyPersonalization: true,
+          autoSaveStrategies: true,
           defaultMode: "build",
           language: "az",
         },

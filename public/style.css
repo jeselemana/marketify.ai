@@ -12253,8 +12253,68 @@ html.dark .auth-footer-link:hover {
 .experience-cards-stack {
   max-width: 100%;
   display: grid;
-  gap: 14px;
-  margin-top: 20px;
+  gap: 28px;
+  margin-top: 24px;
+}
+
+.experience-category-section {
+  display: grid;
+  gap: 12px;
+}
+
+.experience-category-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px 2px;
+}
+
+.experience-category-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--accent-soft, rgba(79, 110, 232, 0.1));
+  color: var(--accent, #4f6ee8);
+  flex-shrink: 0;
+}
+
+.experience-category-text {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.experience-category-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+
+.experience-category-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.experience-category-cards {
+  display: grid;
+  gap: 12px;
+}
+
+.experience-personalization-group {
+  display: grid;
+  gap: 28px;
+}
+
+.experience-personalization-group.is-collapsed {
+  display: none !important;
 }
 
 .experience-hero-toggle {
@@ -13613,6 +13673,17 @@ html.dark .auth-footer-link:hover {
   .settings-legal-row .secondary-button { width: 100%; justify-content: center; }
   .settings-legal-contact-card { flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px; }
   .legal-contact-email-btn { width: 100%; justify-content: center; box-sizing: border-box; }
+  .experience-hero-toggle { padding: 14px 16px; gap: 14px; }
+  .experience-hero-left strong { font-size: 13.5px; }
+  .experience-hero-left p { font-size: 11.5px; }
+  .experience-category-section { gap: 10px; }
+  .experience-category-header { gap: 9px; padding: 0 1px 2px; }
+  .experience-category-icon { width: 26px; height: 26px; border-radius: 7px; }
+  .experience-category-title { font-size: 14px; }
+  .experience-category-desc { font-size: 11.5px; }
+  .experience-personalization-group { gap: 20px; }
+  .experience-settings-form,
+  .experience-cards-stack { gap: 20px; margin-top: 18px; }
 }
 
 @media (max-width: 480px) {
@@ -13632,6 +13703,16 @@ html.dark .auth-footer-link:hover {
   .account-settings-form { grid-template-columns: 1fr; }
   .account-settings-form .settings-field:nth-child(3) { grid-column: auto; }
   .theme-cards-grid { grid-template-columns: 1fr; }
+  .experience-hero-toggle { padding: 12px 14px; gap: 10px; }
+  .experience-hero-left strong { font-size: 13px; }
+  .experience-hero-left p { font-size: 11px; line-height: 1.4; }
+  .experience-category-header { gap: 8px; }
+  .experience-category-title { font-size: 13px; }
+  .experience-category-desc { font-size: 11px; }
+  .experience-category-icon { width: 24px; height: 24px; border-radius: 6px; }
+  .experience-category-icon svg { width: 14px; height: 14px; }
+  .experience-form-actions { width: 100%; }
+  .experience-save-btn { width: 100%; justify-content: center; }
   .experience-accordion-summary { padding: 13px 14px; gap: 10px; }
   .experience-accordion-title-row { gap: 6px; flex-wrap: wrap; }
   .experience-accordion-content { padding: 14px 14px 18px; }
@@ -21266,6 +21347,12 @@ html.dark .settings-legal-contact-card,
 html.dark .settings-legal-notice {
   background: #1e293b;
   border-color: #334155;
+}
+
+[data-theme="dark"] .experience-category-icon,
+html.dark .experience-category-icon {
+  background: rgba(79, 110, 232, 0.18);
+  color: #93c5fd;
 }
 
 [data-theme="dark"] .legal-contact-email-btn,

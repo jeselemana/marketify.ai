@@ -19,6 +19,7 @@ function migrateUser(user) {
       memories: Array.isArray(currentSettings.memories) ? currentSettings.memories : [],
       autoContext: currentSettings.autoContext !== false,
       strategyPersonalization: currentSettings.strategyPersonalization !== false,
+      ...(currentSettings.autoSaveStrategies !== undefined ? { autoSaveStrategies: currentSettings.autoSaveStrategies !== false } : {}),
       defaultMode: currentSettings.defaultMode === "ask" ? "ask" : "build",
       language: currentSettings.language === "en" ? "en" : "az",
     },

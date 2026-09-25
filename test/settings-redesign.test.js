@@ -102,9 +102,22 @@ test("Settings: Profile Card is open by default with arrow on right, Theme is co
     "Appearance & Surface Tone accordion is configured with isOpen: false"
   );
   assert.ok(
-    script.includes("form.append(masterCard, modeAccordion, themeAccordion, toneAccordion);") &&
-    script.includes("guestStack.append(masterCard, modeAccordion, themeAccordion, toneAccordion);"),
+    script.includes("workspaceCategory.cardsContainer.append(modeAccordion, themeAccordion);") &&
+    script.includes("guestStack.append(masterCard, personalizationContainer, workspaceCategory.section);"),
     "Theme studio accordion is integrated into Personalization (experience) tab for both auth and guest"
+  );
+  assert.ok(
+    script.includes("aiCategory.cardsContainer.append(autoSaveAccordion, memoryAccordion, scopesAccordion);"),
+    "Strategy Auto-Save is positioned up in AI category and is omitted from guest stack"
+  );
+  assert.ok(
+    script.includes("form.append(masterCard, personalizationContainer, workspaceCategory.section, formActions);"),
+    "Master AI toggle card is positioned at top of form, above personalizationContainer"
+  );
+  assert.ok(
+    css.includes(".experience-personalization-group.is-collapsed {") &&
+    script.includes('personalizationContainer.classList.toggle("is-collapsed", !isMasterEnabled);'),
+    "Personalization container collapses when AI personalization is deactivated"
   );
 
   // Default Workspace Mode in Experience tab should be an accordion, open by default, and unique

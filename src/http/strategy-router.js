@@ -179,7 +179,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
     const allRecords = await repository.readAll();
     const existing = allRecords.find((r) => r.ownerId === ownerId && r.clientSaveId === payload.idempotencyKey);
     if (existing) {
-      return { result: existing.strategy, interactionId: existing.learningInteractionId || null, fromStore: true };
+      return { result: existing.strategy, interactionId: existing.learningInteractionId || null, savedRecord: existing, fromStore: true };
     }
 
     // 2. Check if already generating in background
@@ -211,31 +211,38 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         });
         const strategy = tracked.result;
 
-        // Automatically save completed strategy to server repository so it is never lost if user closes browser
-        try {
-          const now = new Date().toISOString();
-          await repository.create(
-            {
-              clientSaveId: payload.idempotencyKey,
-              brief: payload.brief,
-              answers: payload.answers,
-              strategy,
-              versions: [
-                {
-                  versionNumber: 1,
-                  data: strategy,
-                  changeRequest: "İlkin strategiya",
-                  createdAt: now,
-                },
-              ],
-              learningInteractionId: tracked.interactionId,
-            },
-            ownerId,
-          );
-        } catch (saveErr) {
-          console.error("Auto-save on server failed:", saveErr);
+        const shouldAutoSave = payload.autoSave !== undefined
+          ? payload.autoSave
+          : (user?.settings?.autoSaveStrategies !== false);
+
+        let savedRecord = null;
+        if (shouldAutoSave) {
+          // Automatically save completed strategy to server repository so it is never lost if user closes browser
+          try {
+            const now = new Date().toISOString();
+            savedRecord = await repository.create(
+              {
+                clientSaveId: payload.idempotencyKey,
+                brief: payload.brief,
+                answers: payload.answers,
+                strategy,
+                versions: [
+                  {
+                    versionNumber: 1,
+                    data: strategy,
+                    changeRequest: "İlkin strategiya",
+                    createdAt: now,
+                  },
+                ],
+                learningInteractionId: tracked.interactionId,
+              },
+              ownerId,
+            );
+          } catch (saveErr) {
+            console.error("Auto-save on server failed:", saveErr);
+          }
         }
-        return tracked;
+        return { ...tracked, savedRecord };
       })();
 
       activeGenerations.set(requestKey, generation);
@@ -259,8 +266,13 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         req,
       });
       const strategy = tracked.result;
+      const savedRecord = tracked.savedRecord || null;
       if (!res.writableEnded) {
-        res.json({ strategy });
+        res.json({
+          strategy,
+          savedStrategy: savedRecord ? publicRecord(savedRecord) : null,
+          savedId: savedRecord ? savedRecord.id : null,
+        });
       }
     }),
   );
@@ -290,8 +302,14 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           onChunk: ({ chunk, finishReason, model }) => sendEvent({ chunk, finishReason, model }),
         });
         const strategy = tracked.result;
+        const savedRecord = tracked.savedRecord || null;
 
-        sendEvent({ done: true, strategy });
+        sendEvent({
+          done: true,
+          strategy,
+          savedStrategy: savedRecord ? publicRecord(savedRecord) : null,
+          savedId: savedRecord ? savedRecord.id : null,
+        });
         res.write("data: [DONE]\n\n");
         res.end();
       } catch (streamError) {
