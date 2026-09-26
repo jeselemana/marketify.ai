@@ -1360,7 +1360,7 @@ export const TRANSLATIONS = {
       priorityModelBadge: "Separated by AI",
       priorityBannerTitle: "Priorities classified by AI",
       priorityBannerSubtitle: "High-leverage tasks isolated for immediate breakthrough and execution.",
-      reprioritizeWithLuna: "Re-prioritize (AI)",
+      reprioritizeWithLuna: "Re-prioritize",
       prioritizingWithLuna: "Analyzing and separating tasks...",
       prioritizeSuccess: "Separated {count} priority tasks ✓",
       noPriorityTasks: "No priority tasks yet",
@@ -2302,7 +2302,7 @@ export function getLanguage() {
     if (stored && SUPPORTED_LANGUAGES.has(stored)) {
       return stored;
     }
-  } catch {}
+  } catch { }
   return DEFAULT_LANGUAGE;
 }
 
@@ -2316,7 +2316,7 @@ export function setLanguage(lang, persist = true) {
   if (persist) {
     try {
       localStorage.setItem(STORAGE_KEY, target);
-    } catch {}
+    } catch { }
   }
   if (typeof document !== "undefined" && document.documentElement) {
     document.documentElement.lang = target;
@@ -2481,4 +2481,4 @@ try {
   if (typeof document !== "undefined" && document.documentElement) {
     document.documentElement.lang = activeLang;
   }
-} catch {}
+} catch { }

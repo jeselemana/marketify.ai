@@ -991,7 +991,7 @@ function isPersonalIntelligenceActive() {
   try {
     const saved = localStorage.getItem("helmer_personal_intelligence");
     if (saved !== null) return saved === "true";
-  } catch {}
+  } catch { }
   return false;
 }
 
@@ -1011,7 +1011,7 @@ async function togglePersonalIntelligence(enable) {
   } else {
     try {
       localStorage.setItem("helmer_personal_intelligence", String(enable));
-    } catch {}
+    } catch { }
   }
 }
 
@@ -1022,7 +1022,7 @@ function isModelImprovementActive() {
   try {
     const saved = localStorage.getItem("helmer_model_improvement");
     if (saved !== null) return saved !== "false";
-  } catch {}
+  } catch { }
   return true;
 }
 
@@ -1035,7 +1035,7 @@ async function toggleModelImprovement(enable) {
       localStorage.setItem("helmer_personal_intelligence", "false");
       setCookie("helmer_personal_intelligence", "false");
     }
-  } catch {}
+  } catch { }
   if (!enable) {
     // When deactivating: Along with it, Personal Intelligence is ALSO deactivated!
     if (state.currentUser) {
@@ -1542,7 +1542,7 @@ function openMobileModelSheet() {
   // Flash Card
   const flashCard = button("", `mobile-model-option-card${isFlashSelected ? " is-active" : ""}`, () => {
     state.askModel = "gemini-3.7-flash";
-    try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch {}
+    try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
     closeMobileModelSheet();
     syncMode();
     if (state.mode === "ask") render();
@@ -1565,7 +1565,7 @@ function openMobileModelSheet() {
   // Auto Card
   const autoCard = button("", `mobile-model-option-card${!isFlashSelected ? " is-active" : ""}`, () => {
     state.askModel = "auto";
-    try { localStorage.setItem("helmer_ask_model", "auto"); } catch {}
+    try { localStorage.setItem("helmer_ask_model", "auto"); } catch { }
     closeMobileModelSheet();
     syncMode();
     if (state.mode === "ask") render();
@@ -1606,7 +1606,7 @@ function openMobileModelSheet() {
     toggleInput.addEventListener("change", (e) => {
       e.stopPropagation();
       state.askThinking = toggleInput.checked;
-      try { localStorage.setItem("helmer_ask_thinking", String(state.askThinking)); } catch {}
+      try { localStorage.setItem("helmer_ask_thinking", String(state.askThinking)); } catch { }
       thinkingStatus.textContent = state.askThinking ? t("ask.modelSheet.thinkingOn") : t("ask.modelSheet.thinkingOff");
       trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
     });
@@ -1683,11 +1683,11 @@ function buildProfileMenuItems() {
   const avatarEl = element("div", "workspace-avatar profile-menu-avatar");
   const avatarText = user
     ? (user.fullName || user.username || "U")
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0]?.toLocaleUpperCase("az"))
-        .join("") || "H"
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toLocaleUpperCase("az"))
+      .join("") || "H"
     : "H";
   avatarEl.textContent = avatarText;
 
@@ -2388,19 +2388,19 @@ function abortAskMessage() {
   if (currentAskAbortController) {
     try {
       currentAskAbortController.abort();
-    } catch {}
+    } catch { }
     currentAskAbortController = null;
   }
   if (activeAskReader) {
     try {
-      activeAskReader.cancel().catch(() => {});
-    } catch {}
+      activeAskReader.cancel().catch(() => { });
+    } catch { }
     activeAskReader = null;
   }
   if (activeAskTypewriter) {
     try {
       activeAskTypewriter.flush();
-    } catch {}
+    } catch { }
     activeAskTypewriter = null;
   }
   state.askLoading = false;
@@ -6987,10 +6987,10 @@ function buildNextStepsSection(strategy, isEn, isRoadmap = false) {
         const summarizedTasks = Array.isArray(res.tasks) && res.tasks.length > 0
           ? res.tasks
           : itemsToSummarize.map((t) => ({
-              title: cleanTaskText(t.title || t.text),
-              timeframe: t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün"),
-              status: "todo",
-            }));
+            title: cleanTaskText(t.title || t.text),
+            timeframe: t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün"),
+            status: "todo",
+          }));
 
         triggerModalWithTasks(summarizedTasks);
       } catch (err) {
@@ -8042,7 +8042,7 @@ function copySummaryToClipboard(data, feedbackBtn) {
     }
   };
   if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(fullText).then(notifySuccess).catch(() => {});
+    navigator.clipboard.writeText(fullText).then(notifySuccess).catch(() => { });
   } else {
     try {
       const tempArea = document.createElement("textarea");
@@ -8054,7 +8054,7 @@ function copySummaryToClipboard(data, feedbackBtn) {
       document.execCommand("copy");
       document.body.removeChild(tempArea);
       notifySuccess();
-    } catch {}
+    } catch { }
   }
 }
 
@@ -8730,7 +8730,7 @@ function sendExportTelemetry(format, title = "") {
       format,
       title: title || state?.strategy?.title || "",
     }),
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 function buildExportMenu(trigger) {
@@ -8964,7 +8964,7 @@ function updateWorkspaceIdentity(user) {
     try {
       localStorage.setItem("helmer_model_improvement", String(user.settings.modelImprovement));
       setCookie("helmer_model_improvement", String(user.settings.modelImprovement));
-    } catch {}
+    } catch { }
   }
 }
 
@@ -9131,7 +9131,7 @@ function buildSupportChatBubble() {
       setTimeout(() => {
         copyBtn.textContent = t("supportBubble.copyEmail") || (isEn ? "Copy email" : "Ünvanı kopyala");
       }, 2000);
-    } catch {}
+    } catch { }
   });
   copyBtn.type = "button";
 
@@ -9825,7 +9825,7 @@ function renderSettings() {
         root.dataset.theme = choice;
         if (choice === "dark") root.classList.add("dark");
         else root.classList.remove("dark");
-        try { localStorage.setItem("theme", choice); } catch {}
+        try { localStorage.setItem("theme", choice); } catch { }
         themeCardsGrid.querySelectorAll(".theme-preview-card").forEach((c) => {
           c.classList.toggle("is-active", c.dataset.themeChoice === choice);
         });
@@ -9958,311 +9958,311 @@ function renderSettings() {
         constraint: isEn ? "Constraint" : "Məhdudiyyət",
         general: isEn ? "General Note" : "Qeyd",
       };
-    const memoryFilters = [
-      { id: "all", label: t("common.all") },
-      { id: "preference", label: isEn ? "Preferences" : "Üstünlüklər" },
-      { id: "constraint", label: isEn ? "Constraints" : "Məhdudiyyətlər" },
-      { id: "business", label: isEn ? "Business Facts" : "Biznes faktları" },
-    ];
-    let activeMemoryFilter = "all";
+      const memoryFilters = [
+        { id: "all", label: t("common.all") },
+        { id: "preference", label: isEn ? "Preferences" : "Üstünlüklər" },
+        { id: "constraint", label: isEn ? "Constraints" : "Məhdudiyyətlər" },
+        { id: "business", label: isEn ? "Business Facts" : "Biznes faktları" },
+      ];
+      let activeMemoryFilter = "all";
 
-    const memoryFilterBar = element("div", "experience-memory-filters");
-    memoryFilterBar.setAttribute("role", "tablist");
-    memoryFilterBar.setAttribute("aria-label", isEn ? "Memory category" : "Yaddaş kateqoriyası");
+      const memoryFilterBar = element("div", "experience-memory-filters");
+      memoryFilterBar.setAttribute("role", "tablist");
+      memoryFilterBar.setAttribute("aria-label", isEn ? "Memory category" : "Yaddaş kateqoriyası");
 
-    const updateMemoryFilterState = () => {
-      const counts = memoriesList.reduce((result, memory) => {
-        result[memory.category || "general"] = (result[memory.category || "general"] || 0) + 1;
-        return result;
-      }, {});
-      memoryFilterBar.querySelectorAll(".memory-filter-btn").forEach((filterButton) => {
-        const filter = filterButton.dataset.filter;
-        const count = filter === "all" ? memoriesList.length : (counts[filter] || 0);
-        const countNode = filterButton.querySelector(".memory-filter-count");
-        if (countNode) countNode.textContent = count;
-        const selected = activeMemoryFilter === filter;
-        filterButton.classList.toggle("is-active", selected);
-        filterButton.setAttribute("aria-selected", String(selected));
+      const updateMemoryFilterState = () => {
+        const counts = memoriesList.reduce((result, memory) => {
+          result[memory.category || "general"] = (result[memory.category || "general"] || 0) + 1;
+          return result;
+        }, {});
+        memoryFilterBar.querySelectorAll(".memory-filter-btn").forEach((filterButton) => {
+          const filter = filterButton.dataset.filter;
+          const count = filter === "all" ? memoriesList.length : (counts[filter] || 0);
+          const countNode = filterButton.querySelector(".memory-filter-count");
+          if (countNode) countNode.textContent = count;
+          const selected = activeMemoryFilter === filter;
+          filterButton.classList.toggle("is-active", selected);
+          filterButton.setAttribute("aria-selected", String(selected));
+        });
+      };
+
+      memoryFilters.forEach(({ id, label }) => {
+        const filterButton = button("", "memory-filter-btn", () => {
+          activeMemoryFilter = id;
+          updateMemoryFilterState();
+          renderMemories();
+        });
+        filterButton.dataset.filter = id;
+        filterButton.setAttribute("role", "tab");
+        filterButton.setAttribute("aria-selected", String(id === "all"));
+        filterButton.append(element("span", "memory-filter-label", label), element("span", "memory-filter-count", "0"));
+        memoryFilterBar.appendChild(filterButton);
       });
-    };
 
-    memoryFilters.forEach(({ id, label }) => {
-      const filterButton = button("", "memory-filter-btn", () => {
-        activeMemoryFilter = id;
+      const renderMemories = () => {
+        memoryListContainer.replaceChildren();
+        memoryBadge.textContent = isEn ? `${memoriesList.length} memories` : `${memoriesList.length} qeyd`;
         updateMemoryFilterState();
-        renderMemories();
-      });
-      filterButton.dataset.filter = id;
-      filterButton.setAttribute("role", "tab");
-      filterButton.setAttribute("aria-selected", String(id === "all"));
-      filterButton.append(element("span", "memory-filter-label", label), element("span", "memory-filter-count", "0"));
-      memoryFilterBar.appendChild(filterButton);
-    });
-
-    const renderMemories = () => {
-      memoryListContainer.replaceChildren();
-      memoryBadge.textContent = isEn ? `${memoriesList.length} memories` : `${memoriesList.length} qeyd`;
-      updateMemoryFilterState();
-      const visibleMemories = activeMemoryFilter === "all"
-        ? memoriesList
-        : memoriesList.filter((memory) => memory.category === activeMemoryFilter);
-      if (!visibleMemories.length) {
-        const emptyText = memoriesList.length
-          ? (isEn ? "No memories found in this category." : "Bu kateqoriyada yaddaş qeydi yoxdur.")
-          : (isEn ? "No memory entries stored yet." : "Hələ heç bir yaddaş qeydi saxlanılmayıb.");
-        const empty = element("p", "experience-memory-empty", emptyText);
-        memoryListContainer.appendChild(empty);
-        return;
-      }
-      visibleMemories.forEach((mem) => {
-        const item = element("div", "experience-memory-item");
-        const catLabel = categoryNames[mem.category] || (isEn ? "Note" : "Qeyd");
-        item.innerHTML = `
+        const visibleMemories = activeMemoryFilter === "all"
+          ? memoriesList
+          : memoriesList.filter((memory) => memory.category === activeMemoryFilter);
+        if (!visibleMemories.length) {
+          const emptyText = memoriesList.length
+            ? (isEn ? "No memories found in this category." : "Bu kateqoriyada yaddaş qeydi yoxdur.")
+            : (isEn ? "No memory entries stored yet." : "Hələ heç bir yaddaş qeydi saxlanılmayıb.");
+          const empty = element("p", "experience-memory-empty", emptyText);
+          memoryListContainer.appendChild(empty);
+          return;
+        }
+        visibleMemories.forEach((mem) => {
+          const item = element("div", "experience-memory-item");
+          const catLabel = categoryNames[mem.category] || (isEn ? "Note" : "Qeyd");
+          item.innerHTML = `
           <div class="memory-item-content">
             <span class="memory-category-tag tag-${escapeHtml(mem.category || "general")}">${escapeHtml(catLabel)}</span>
             <span class="memory-text">${escapeHtml(mem.text)}</span>
           </div>
         `;
-        const delBtn = button("", "memory-delete-btn", () => {
-          memoriesList = memoriesList.filter((m) => m.id !== mem.id);
-          renderMemories();
+          const delBtn = button("", "memory-delete-btn", () => {
+            memoriesList = memoriesList.filter((m) => m.id !== mem.id);
+            renderMemories();
+          });
+          delBtn.type = "button";
+          delBtn.setAttribute("aria-label", isEn ? "Delete memory entry" : "Yaddaş qeydini sil");
+          delBtn.title = isEn ? "Delete memory" : "Yaddaş qeydini sil";
+          delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="m6 7 1 13h10l1-13"/><path d="M9 7V4h6v3"/></svg>';
+          item.appendChild(delBtn);
+          memoryListContainer.appendChild(item);
         });
-        delBtn.type = "button";
-        delBtn.setAttribute("aria-label", isEn ? "Delete memory entry" : "Yaddaş qeydini sil");
-        delBtn.title = isEn ? "Delete memory" : "Yaddaş qeydini sil";
-        delBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="m6 7 1 13h10l1-13"/><path d="M9 7V4h6v3"/></svg>';
-        item.appendChild(delBtn);
-        memoryListContainer.appendChild(item);
-      });
-    };
-    renderMemories();
-
-    const memoryComposer = element("div", "experience-memory-composer is-collapsed");
-    const composerHeading = element("div", "experience-memory-composer-heading");
-    const composerHeadingCopy = element("div", "experience-memory-composer-heading-copy");
-    composerHeadingCopy.append(
-      element("span", "experience-memory-composer-title", isEn ? "New memory entry" : "Yeni yaddaş qeydi"),
-      element("span", "experience-memory-composer-hint", isEn ? "Keep it concise and factual for best results" : "Model üçün qısa və konkret saxlayın"),
-    );
-    const setMemoryComposerOpen = (isOpen) => {
-      memoryComposer.classList.toggle("is-open", isOpen);
-      memoryComposer.classList.toggle("is-collapsed", !isOpen);
-      memoryFilterBar.classList.toggle("is-collapsed", isOpen);
-      memoryListContainer.classList.toggle("is-collapsed", isOpen);
-      composerToggle.setAttribute("aria-expanded", String(isOpen));
-      composerToggle.title = isOpen ? (isEn ? "Close composer" : "Yaddaş qeydini bağla") : (isEn ? "Add new memory" : "Yeni yaddaş qeydi əlavə et");
-    };
-    const composerToggle = button("", "memory-composer-toggle", () => setMemoryComposerOpen(false));
-    composerToggle.type = "button";
-    composerToggle.setAttribute("aria-label", isEn ? "Close composer" : "Yaddaş qeydini bağla");
-    composerToggle.setAttribute("aria-expanded", "false");
-    composerToggle.title = isEn ? "Close composer" : "Yaddaş qeydini bağla";
-    composerToggle.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
-    composerHeading.append(
-      composerHeadingCopy,
-      composerToggle,
-    );
-
-    const addMemoryRow = element("div", "experience-add-memory-row");
-    const memoryInput = element("input", "settings-input");
-    memoryInput.type = "text";
-    memoryInput.placeholder = isEn ? "Add new business fact... e.g. We only work with B2B SaaS companies" : "Yeni fakt əlavə et... məs. Biz yalnız B2B şirkətlərlə işləyirik";
-    memoryInput.maxLength = 500;
-    memoryInput.setAttribute("aria-label", isEn ? "New memory fact" : "Yeni yaddaş qeydi");
-
-    const memoryCategorySelect = element("select", "settings-input settings-select");
-    memoryCategorySelect.setAttribute("aria-label", isEn ? "Memory category" : "Yaddaş qeydi kateqoriyası");
-    [
-      { val: "business", label: isEn ? "Business Fact" : "Biznes Faktı" },
-      { val: "preference", label: isEn ? "Preference" : "Üstünlük" },
-      { val: "constraint", label: isEn ? "Constraint" : "Məhdudiyyət" },
-    ].forEach((c) => {
-      const opt = element("option", "", c.label);
-      opt.value = c.val;
-      memoryCategorySelect.appendChild(opt);
-    });
-
-    const addMemoryBtn = button(isEn ? "Save memory" : "Yaddaşı saxla", "primary-button experience-add-btn", () => {
-      const text = memoryInput.value.trim();
-      if (!text) return;
-      const sensitiveWarning = checkSensitiveData(text);
-      if (sensitiveWarning) {
-        showToast(sensitiveWarning, "error");
-        return;
-      }
-      if (memoriesList.length >= 50) {
-        showToast(isEn ? "Maximum 50 memory entries allowed." : "Maksimum 50 yaddaş qeydi saxlanıla bilər.", "error");
-        return;
-      }
-      memoriesList.unshift({
-        id: `mem_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-        text,
-        category: memoryCategorySelect.value,
-        createdAt: new Date().toISOString(),
-      });
-      memoryInput.value = "";
-      setMemoryComposerOpen(false);
+      };
       renderMemories();
-    });
-    addMemoryBtn.type = "button";
 
-    addMemoryRow.append(memoryInput, memoryCategorySelect, addMemoryBtn);
-    memoryComposer.append(composerHeading, addMemoryRow);
+      const memoryComposer = element("div", "experience-memory-composer is-collapsed");
+      const composerHeading = element("div", "experience-memory-composer-heading");
+      const composerHeadingCopy = element("div", "experience-memory-composer-heading-copy");
+      composerHeadingCopy.append(
+        element("span", "experience-memory-composer-title", isEn ? "New memory entry" : "Yeni yaddaş qeydi"),
+        element("span", "experience-memory-composer-hint", isEn ? "Keep it concise and factual for best results" : "Model üçün qısa və konkret saxlayın"),
+      );
+      const setMemoryComposerOpen = (isOpen) => {
+        memoryComposer.classList.toggle("is-open", isOpen);
+        memoryComposer.classList.toggle("is-collapsed", !isOpen);
+        memoryFilterBar.classList.toggle("is-collapsed", isOpen);
+        memoryListContainer.classList.toggle("is-collapsed", isOpen);
+        composerToggle.setAttribute("aria-expanded", String(isOpen));
+        composerToggle.title = isOpen ? (isEn ? "Close composer" : "Yaddaş qeydini bağla") : (isEn ? "Add new memory" : "Yeni yaddaş qeydi əlavə et");
+      };
+      const composerToggle = button("", "memory-composer-toggle", () => setMemoryComposerOpen(false));
+      composerToggle.type = "button";
+      composerToggle.setAttribute("aria-label", isEn ? "Close composer" : "Yaddaş qeydini bağla");
+      composerToggle.setAttribute("aria-expanded", "false");
+      composerToggle.title = isEn ? "Close composer" : "Yaddaş qeydini bağla";
+      composerToggle.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+      composerHeading.append(
+        composerHeadingCopy,
+        composerToggle,
+      );
 
-    const memoryActionArea = element("div", "experience-memory-action-area");
-    const memoryPrimaryActions = element("div", "experience-memory-primary-actions");
-    const addMemoryActionBtn = button(isEn ? "+ Add memory" : "+ Yaddaş əlavə et", "primary-button memory-add-action-btn", () => {
-      setMemoryComposerOpen(true);
-      window.requestAnimationFrame(() => memoryInput.focus());
-    });
-    addMemoryActionBtn.type = "button";
-    const importMemoryInlineBtn = button(isEn ? "Import from other AI" : "Başqa AI-dan köçür", "secondary-button experience-import-inline-btn", () => {
-      openImportMemoryModal({
-        userSettings: state.currentUser?.settings || {},
-        onImportSuccess: (updatedUser) => {
-          updateWorkspaceIdentity(updatedUser);
-          renderSettings();
-        },
+      const addMemoryRow = element("div", "experience-add-memory-row");
+      const memoryInput = element("input", "settings-input");
+      memoryInput.type = "text";
+      memoryInput.placeholder = isEn ? "Add new business fact... e.g. We only work with B2B SaaS companies" : "Yeni fakt əlavə et... məs. Biz yalnız B2B şirkətlərlə işləyirik";
+      memoryInput.maxLength = 500;
+      memoryInput.setAttribute("aria-label", isEn ? "New memory fact" : "Yeni yaddaş qeydi");
+
+      const memoryCategorySelect = element("select", "settings-input settings-select");
+      memoryCategorySelect.setAttribute("aria-label", isEn ? "Memory category" : "Yaddaş qeydi kateqoriyası");
+      [
+        { val: "business", label: isEn ? "Business Fact" : "Biznes Faktı" },
+        { val: "preference", label: isEn ? "Preference" : "Üstünlük" },
+        { val: "constraint", label: isEn ? "Constraint" : "Məhdudiyyət" },
+      ].forEach((c) => {
+        const opt = element("option", "", c.label);
+        opt.value = c.val;
+        memoryCategorySelect.appendChild(opt);
       });
-    });
-    importMemoryInlineBtn.type = "button";
-    memoryPrimaryActions.append(addMemoryActionBtn, importMemoryInlineBtn);
 
-    const clearMemoriesBtn = button(isEn ? "Clear all memories" : "Bütün yaddaşı təmizlə", "danger-text-button", () => {
-      if (confirm(isEn ? "Are you sure you want to delete all stored memories?" : "Bütün yaddaş qeydlərini silmək istədiyinizdən əminsiniz?")) {
-        memoriesList = [];
-        renderMemories();
-      }
-    });
-    clearMemoriesBtn.type = "button";
-    memoryActionArea.append(memoryPrimaryActions, clearMemoriesBtn);
-
-    memoryWrapper.append(memoryFilterBar, memoryListContainer, memoryComposer, memoryActionArea);
-
-    const memoryAccordion = createExperienceAccordion({
-      title: "Memory Hub",
-      desc: t("settings.experience.memoryDesc"),
-      badgeNode: memoryBadge,
-      isOpen: false,
-      contentNode: memoryWrapper,
-    });
-
-    // 5. Scopes (Secondary - Collapsible)
-    const scopesWrapper = element("div", "experience-scopes-wrapper");
-    let isAutoContext = userSettings.autoContext !== false;
-    let isStrategyPersonalization = userSettings.strategyPersonalization !== false;
-
-    const createScopeRow = (title, desc, initialVal, onToggle) => {
-      const row = element("div", "settings-toggle-row");
-      const copy = element("div", "settings-toggle-copy");
-      copy.append(element("strong", "", title), element("p", "", desc));
-      const toggle = element("button", "settings-toggle");
-      toggle.type = "button";
-      toggle.setAttribute("role", "switch");
-      let active = initialVal;
-      const sync = () => {
-        toggle.classList.toggle("is-active", active);
-        toggle.setAttribute("aria-checked", String(active));
-      };
-      toggle.appendChild(element("span", "settings-toggle-thumb"));
-      sync();
-      toggle.addEventListener("click", () => {
-        active = !active;
-        sync();
-        onToggle(active);
-      });
-      row.append(copy, toggle);
-      return {
-        row,
-        setValue: (val) => {
-          active = val;
-          sync();
-        },
-      };
-    };
-
-    const askScope = createScopeRow("Ask", isEn ? "Automatically draws relevant context from past chats and strategies when answering questions." : "Cari sualınızla bağlı olduqda keçmiş söhbətlər və strategiyalardan faydalı məlumatlar avtomatik cəlb edilir.", isAutoContext, (v) => { isAutoContext = v; });
-    const buildScope = createScopeRow("Build", isEn ? "Applies your brand profile and tone when generating and refining strategies." : "Yeni strategiya yaradarkən və dəqiqləşdirərkən yuxarıdakı brend profili və ton nəzərə alınır.", isStrategyPersonalization, (v) => { isStrategyPersonalization = v; });
-    const autoSaveScope = createScopeRow(
-      t("settings.experience.scopeAutoSaveTitle") || (isEn ? "Build Auto-Save" : "Build Arxivləmə"),
-      t("settings.experience.scopeAutoSaveDesc") || (isEn ? "Automatically saves and archives strategies generated in Build mode." : "Build rejimində hazırlanan strategiyaları avtomatik olaraq arxivə köçürür və saxlayır."),
-      isAutoSave,
-      (v) => {
-        isAutoSave = v;
-        syncAutoSaveToggle();
-        setAutoSaveStrategies(v);
-      }
-    );
-    syncScopesAutoSave = (val) => autoSaveScope.setValue(val);
-
-    scopesWrapper.append(askScope.row, buildScope.row, autoSaveScope.row);
-
-    const scopesAccordion = createExperienceAccordion({
-      title: t("settings.experience.scopesTitle"),
-      desc: t("settings.experience.scopesDesc"),
-      isOpen: false,
-      contentNode: scopesWrapper,
-    });
-
-    aiCategory.cardsContainer.append(autoSaveAccordion, memoryAccordion, scopesAccordion);
-    aiCategory.cardsContainer.appendChild(plannerNotifAccordion);
-    brandCategory.cardsContainer.append(profileAccordion, toneAccordion);
-    personalizationContainer.append(aiCategory.section, brandCategory.section);
-    syncMasterToggle();
-
-    // Save bar
-    const formActions = element("div", "experience-form-actions");
-    const save = button(t("settings.experience.saveBtn"), "primary-button experience-save-btn");
-    save.type = "submit";
-    formActions.appendChild(save);
-    form.append(masterCard, personalizationContainer, workspaceCategory.section, formActions);
-
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      save.disabled = true;
-      save.textContent = isEn ? "Saving…" : "Saxlanılır…";
-      const formData = new FormData(form);
-      const payload = {
-        personalIntelligence: isMasterEnabled,
-        brandName: String(formData.get("brandName") || "").trim(),
-        industry: String(formData.get("industry") || "").trim(),
-        primaryMarket: String(formData.get("primaryMarket") || "").trim(),
-        targetAudience: String(formData.get("targetAudience") || "").trim(),
-        tone: currentTone,
-        customInstructions: String(formData.get("customInstructions") || "").trim(),
-        memories: memoriesList,
-        autoContext: isAutoContext,
-        strategyPersonalization: isStrategyPersonalization,
-        autoSaveStrategies: isAutoSave,
-        plannerNotifications: isPlannerNotif,
-        defaultMode: currentDefaultMode,
-      };
-      try {
-        const data = await authRequest("/api/auth/settings", {
-          method: "PATCH",
-          body: JSON.stringify(payload),
+      const addMemoryBtn = button(isEn ? "Save memory" : "Yaddaşı saxla", "primary-button experience-add-btn", () => {
+        const text = memoryInput.value.trim();
+        if (!text) return;
+        const sensitiveWarning = checkSensitiveData(text);
+        if (sensitiveWarning) {
+          showToast(sensitiveWarning, "error");
+          return;
+        }
+        if (memoriesList.length >= 50) {
+          showToast(isEn ? "Maximum 50 memory entries allowed." : "Maksimum 50 yaddaş qeydi saxlanıla bilər.", "error");
+          return;
+        }
+        memoriesList.unshift({
+          id: `mem_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+          text,
+          category: memoryCategorySelect.value,
+          createdAt: new Date().toISOString(),
         });
-        updateWorkspaceIdentity(data.user);
-        setAutoSaveStrategies(isAutoSave);
-        setCookie("helmer_default_mode", currentDefaultMode);
+        memoryInput.value = "";
+        setMemoryComposerOpen(false);
+        renderMemories();
+      });
+      addMemoryBtn.type = "button";
+
+      addMemoryRow.append(memoryInput, memoryCategorySelect, addMemoryBtn);
+      memoryComposer.append(composerHeading, addMemoryRow);
+
+      const memoryActionArea = element("div", "experience-memory-action-area");
+      const memoryPrimaryActions = element("div", "experience-memory-primary-actions");
+      const addMemoryActionBtn = button(isEn ? "+ Add memory" : "+ Yaddaş əlavə et", "primary-button memory-add-action-btn", () => {
+        setMemoryComposerOpen(true);
+        window.requestAnimationFrame(() => memoryInput.focus());
+      });
+      addMemoryActionBtn.type = "button";
+      const importMemoryInlineBtn = button(isEn ? "Import from other AI" : "Başqa AI-dan köçür", "secondary-button experience-import-inline-btn", () => {
+        openImportMemoryModal({
+          userSettings: state.currentUser?.settings || {},
+          onImportSuccess: (updatedUser) => {
+            updateWorkspaceIdentity(updatedUser);
+            renderSettings();
+          },
+        });
+      });
+      importMemoryInlineBtn.type = "button";
+      memoryPrimaryActions.append(addMemoryActionBtn, importMemoryInlineBtn);
+
+      const clearMemoriesBtn = button(isEn ? "Clear all memories" : "Bütün yaddaşı təmizlə", "danger-text-button", () => {
+        if (confirm(isEn ? "Are you sure you want to delete all stored memories?" : "Bütün yaddaş qeydlərini silmək istədiyinizdən əminsiniz?")) {
+          memoriesList = [];
+          renderMemories();
+        }
+      });
+      clearMemoriesBtn.type = "button";
+      memoryActionArea.append(memoryPrimaryActions, clearMemoriesBtn);
+
+      memoryWrapper.append(memoryFilterBar, memoryListContainer, memoryComposer, memoryActionArea);
+
+      const memoryAccordion = createExperienceAccordion({
+        title: "Memory Hub",
+        desc: t("settings.experience.memoryDesc"),
+        badgeNode: memoryBadge,
+        isOpen: false,
+        contentNode: memoryWrapper,
+      });
+
+      // 5. Scopes (Secondary - Collapsible)
+      const scopesWrapper = element("div", "experience-scopes-wrapper");
+      let isAutoContext = userSettings.autoContext !== false;
+      let isStrategyPersonalization = userSettings.strategyPersonalization !== false;
+
+      const createScopeRow = (title, desc, initialVal, onToggle) => {
+        const row = element("div", "settings-toggle-row");
+        const copy = element("div", "settings-toggle-copy");
+        copy.append(element("strong", "", title), element("p", "", desc));
+        const toggle = element("button", "settings-toggle");
+        toggle.type = "button";
+        toggle.setAttribute("role", "switch");
+        let active = initialVal;
+        const sync = () => {
+          toggle.classList.toggle("is-active", active);
+          toggle.setAttribute("aria-checked", String(active));
+        };
+        toggle.appendChild(element("span", "settings-toggle-thumb"));
+        sync();
+        toggle.addEventListener("click", () => {
+          active = !active;
+          sync();
+          onToggle(active);
+        });
+        row.append(copy, toggle);
+        return {
+          row,
+          setValue: (val) => {
+            active = val;
+            sync();
+          },
+        };
+      };
+
+      const askScope = createScopeRow("Ask", isEn ? "Automatically draws relevant context from past chats and strategies when answering questions." : "Cari sualınızla bağlı olduqda keçmiş söhbətlər və strategiyalardan faydalı məlumatlar avtomatik cəlb edilir.", isAutoContext, (v) => { isAutoContext = v; });
+      const buildScope = createScopeRow("Build", isEn ? "Applies your brand profile and tone when generating and refining strategies." : "Yeni strategiya yaradarkən və dəqiqləşdirərkən yuxarıdakı brend profili və ton nəzərə alınır.", isStrategyPersonalization, (v) => { isStrategyPersonalization = v; });
+      const autoSaveScope = createScopeRow(
+        t("settings.experience.scopeAutoSaveTitle") || (isEn ? "Build Auto-Save" : "Build Arxivləmə"),
+        t("settings.experience.scopeAutoSaveDesc") || (isEn ? "Automatically saves and archives strategies generated in Build mode." : "Build rejimində hazırlanan strategiyaları avtomatik olaraq arxivə köçürür və saxlayır."),
+        isAutoSave,
+        (v) => {
+          isAutoSave = v;
+          syncAutoSaveToggle();
+          setAutoSaveStrategies(v);
+        }
+      );
+      syncScopesAutoSave = (val) => autoSaveScope.setValue(val);
+
+      scopesWrapper.append(askScope.row, buildScope.row, autoSaveScope.row);
+
+      const scopesAccordion = createExperienceAccordion({
+        title: t("settings.experience.scopesTitle"),
+        desc: t("settings.experience.scopesDesc"),
+        isOpen: false,
+        contentNode: scopesWrapper,
+      });
+
+      aiCategory.cardsContainer.append(autoSaveAccordion, memoryAccordion, scopesAccordion);
+      aiCategory.cardsContainer.appendChild(plannerNotifAccordion);
+      brandCategory.cardsContainer.append(profileAccordion, toneAccordion);
+      personalizationContainer.append(aiCategory.section, brandCategory.section);
+      syncMasterToggle();
+
+      // Save bar
+      const formActions = element("div", "experience-form-actions");
+      const save = button(t("settings.experience.saveBtn"), "primary-button experience-save-btn");
+      save.type = "submit";
+      formActions.appendChild(save);
+      form.append(masterCard, personalizationContainer, workspaceCategory.section, formActions);
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        save.disabled = true;
+        save.textContent = isEn ? "Saving…" : "Saxlanılır…";
+        const formData = new FormData(form);
+        const payload = {
+          personalIntelligence: isMasterEnabled,
+          brandName: String(formData.get("brandName") || "").trim(),
+          industry: String(formData.get("industry") || "").trim(),
+          primaryMarket: String(formData.get("primaryMarket") || "").trim(),
+          targetAudience: String(formData.get("targetAudience") || "").trim(),
+          tone: currentTone,
+          customInstructions: String(formData.get("customInstructions") || "").trim(),
+          memories: memoriesList,
+          autoContext: isAutoContext,
+          strategyPersonalization: isStrategyPersonalization,
+          autoSaveStrategies: isAutoSave,
+          plannerNotifications: isPlannerNotif,
+          defaultMode: currentDefaultMode,
+        };
         try {
-          localStorage.removeItem("helmer_default_mode");
-        } catch { }
-        state.mode = currentDefaultMode;
-        syncMode();
-        syncNav();
-        settingsMessage(form, isEn ? "Personalized intelligence settings updated successfully." : "Fərdiləşdirilmiş təcrübə parametrləri uğurla yeniləndi.", "success");
-        showToast(isEn ? "Settings saved." : "Parametrlər yadda saxlanıldı.");
-      } catch (error) {
-        settingsMessage(form, error.message);
-        showToast(error.message, "error");
-      } finally {
-        save.disabled = false;
-        save.textContent = t("settings.experience.saveBtn");
-      }
-    });
-    panel.appendChild(form);
-  } else {
+          const data = await authRequest("/api/auth/settings", {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          });
+          updateWorkspaceIdentity(data.user);
+          setAutoSaveStrategies(isAutoSave);
+          setCookie("helmer_default_mode", currentDefaultMode);
+          try {
+            localStorage.removeItem("helmer_default_mode");
+          } catch { }
+          state.mode = currentDefaultMode;
+          syncMode();
+          syncNav();
+          settingsMessage(form, isEn ? "Personalized intelligence settings updated successfully." : "Fərdiləşdirilmiş təcrübə parametrləri uğurla yeniləndi.", "success");
+          showToast(isEn ? "Settings saved." : "Parametrlər yadda saxlanıldı.");
+        } catch (error) {
+          settingsMessage(form, error.message);
+          showToast(error.message, "error");
+        } finally {
+          save.disabled = false;
+          save.textContent = t("settings.experience.saveBtn");
+        }
+      });
+      panel.appendChild(form);
+    } else {
       const guestStack = element("div", "experience-cards-stack");
 
       // Guest Experience Preview Card
@@ -12232,7 +12232,7 @@ function renderPlannerView() {
           <polyline points="1 20 1 14 7 14"/>
           <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
         </svg>
-        <span>${t("planner.reprioritizeWithLuna") || (isEn ? "Re-prioritize (AI)" : "Yenidən ayır (AI)")}</span>
+        <span>${t("planner.reprioritizeWithLuna") || (isEn ? "Re-prioritize" : "Yenidən ayır")}</span>
       `;
 
       banner.append(bannerLeft, reprioritizeBtn);
@@ -14547,7 +14547,7 @@ railLangToggleButton?.addEventListener("click", async () => {
   }
   showToast(
     t("settings.languageSelector.toastChanged", {}, nextLang) ||
-      (nextLang === "en" ? "Interface language updated." : "İnterfeys dili dəyişdirildi."),
+    (nextLang === "en" ? "Interface language updated." : "İnterfeys dili dəyişdirildi."),
     "success"
   );
 });
@@ -14574,13 +14574,13 @@ if (recentCollapseToggle && recentSection) {
       recentSection.classList.add("is-collapsed");
       recentCollapseToggle.setAttribute("aria-expanded", "false");
     }
-  } catch {}
+  } catch { }
   recentCollapseToggle.addEventListener("click", () => {
     const isCollapsed = recentSection.classList.toggle("is-collapsed");
     recentCollapseToggle.setAttribute("aria-expanded", String(!isCollapsed));
     try {
       localStorage.setItem("helmer_recent_collapsed", String(isCollapsed));
-    } catch {}
+    } catch { }
   });
 }
 homeNav.addEventListener("click", () => {
@@ -14844,7 +14844,7 @@ export function showV35ReleaseToast() {
   const STORAGE_KEY = "helmer_v3_5_release_toast_dismissed";
   try {
     if (localStorage.getItem(STORAGE_KEY) === "dismissed") return;
-  } catch {}
+  } catch { }
   if (document.querySelector("#v35ReleaseToast")) return;
 
   const AUTO_DISMISS_SECONDS = 16;
@@ -14865,7 +14865,7 @@ export function showV35ReleaseToast() {
   const dismissPermanently = () => {
     try {
       localStorage.setItem(STORAGE_KEY, "dismissed");
-    } catch {}
+    } catch { }
     dismiss();
   };
 
