@@ -6,6 +6,7 @@ import os from "node:os";
 import { FilePlannerRepository } from "../src/repositories/file-planner-repository.js";
 import { fallbackPrioritizeTasks, prioritizeTasksWithLuna } from "../src/services/ai/strategy-service.js";
 import { PrioritizeTasksSchema } from "../src/http/planner-router.js";
+import { UserSettingsSchema } from "../src/auth/validation.js";
 
 test("planner repository persists tasks, handles completion, deletion, and owner claiming", async () => {
   const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-planner-test-"));
@@ -216,4 +217,44 @@ test("planner router: PrioritizeTasksSchema validates strictly (Rule 2 & Rule 3)
 
   const invalidId = PrioritizeTasksSchema.safeParse({ taskIds: ["not-a-uuid"] });
   assert.equal(invalidId.success, false);
+});
+
+test("planner notifications: notification bell, site visit greeting, and user preferences", async () => {
+  const scriptContent = await fs.readFile(path.resolve("public/script.js"), "utf8");
+  const styleContent = await fs.readFile(path.resolve("public/style.css"), "utf8");
+  const i18nContent = await fs.readFile(path.resolve("public/i18n.js"), "utf8");
+
+  // 1. Planner header notification button and popover
+  assert.ok(scriptContent.includes("planner-notif-btn"), "script.js defines planner-notif-btn");
+  assert.ok(scriptContent.includes("planner-notif-bell-icon"), "script.js renders bell icon");
+  assert.ok(scriptContent.includes("togglePlannerNotificationPopover"), "script.js defines togglePlannerNotificationPopover");
+  assert.ok(scriptContent.includes("planner-notif-popover"), "script.js creates planner-notif-popover");
+  assert.ok(styleContent.includes(".planner-notif-btn"), "style.css styles .planner-notif-btn");
+  assert.ok(styleContent.includes(".planner-notif-popover"), "style.css styles .planner-notif-popover");
+
+  // 2. Exact greeting message format
+  assert.ok(scriptContent.includes("Planlaşdırılanlarda hələ də icra gözləyən prioritet tapşırıq(ların) mövcuddur. Nəzərdən keçirməyi unutma."), "script.js contains exact required greeting in AZ");
+  assert.ok(scriptContent.includes("You still have pending priority task(s) in Planner waiting for execution. Don't forget to review them."), "script.js contains exact greeting in EN");
+
+  // 3. Remind me later and Deactivate options
+  assert.ok(scriptContent.includes("snoozePlannerNotification"), "script.js implements snoozePlannerNotification");
+  assert.ok(scriptContent.includes("setPlannerNotificationsEnabled"), "script.js implements setPlannerNotificationsEnabled");
+  assert.ok(scriptContent.includes("planner-visit-toast"), "script.js renders planner-visit-toast");
+  assert.ok(styleContent.includes(".planner-visit-toast"), "style.css styles .planner-visit-toast");
+
+  // 4. UserSettingsSchema supports plannerNotifications (Rule 2)
+  const defaultSettings = UserSettingsSchema.parse({});
+  assert.equal(defaultSettings.plannerNotifications, true);
+
+  const disabledSettings = UserSettingsSchema.parse({ plannerNotifications: false });
+  assert.equal(disabledSettings.plannerNotifications, false);
+
+  const enabledSettings = UserSettingsSchema.parse({ plannerNotifications: true });
+  assert.equal(enabledSettings.plannerNotifications, true);
+
+  // 5. i18n keys exist
+  assert.ok(i18nContent.includes('notifRemindLater: "Daha sonra xatırlat"'), "AZ i18n contains notifRemindLater");
+  assert.ok(i18nContent.includes('notifRemindLater: "Remind me later"'), "EN i18n contains notifRemindLater");
+  assert.ok(i18nContent.includes('plannerNotifTitle: "Planlaşdırılanlar Xatırlatmaları"'), "AZ settings i18n contains plannerNotifTitle");
+  assert.ok(i18nContent.includes('plannerNotifTitle: "Planner Priority Reminders"'), "EN settings i18n contains plannerNotifTitle");
 });

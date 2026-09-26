@@ -9735,6 +9735,52 @@ function renderSettings() {
       contentNode: autoSaveCard,
     });
 
+    // Planner Notifications Accordion in Settings Experience
+    let isPlannerNotif = isPlannerNotificationsEnabled();
+    const plannerNotifBadge = element(
+      "span",
+      "experience-summary-badge",
+      isPlannerNotif
+        ? (t("settings.experience.autoSaveActive") || (isEn ? "Active" : "Aktiv"))
+        : (t("settings.experience.autoSaveInactive") || (isEn ? "Inactive" : "Deaktiv"))
+    );
+
+    const plannerNotifCard = element("div", "settings-toggle-row");
+    const plannerNotifCopy = element("div", "settings-toggle-copy");
+    plannerNotifCopy.append(
+      element("strong", "", t("settings.experience.plannerNotifToggleTitle") || (isEn ? "Priority Task Notifications" : "Prioritet Tapşırıq Bildirişləri")),
+      element("p", "", t("settings.experience.plannerNotifToggleDesc") || (isEn ? "Display reminders about pending priority tasks each time you open the workspace." : "Sayta hər dəfə daxil olduqda icra gözləyən prioritet tapşırıqlar barədə bildiriş göstərilsin."))
+    );
+    const plannerNotifToggle = element("button", "settings-toggle");
+    plannerNotifToggle.type = "button";
+    plannerNotifToggle.setAttribute("role", "switch");
+    plannerNotifToggle.setAttribute("aria-label", t("settings.experience.plannerNotifTitle") || (isEn ? "Planner Priority Reminders" : "Planlaşdırılanlar Xatırlatmaları"));
+
+    const syncPlannerNotifToggle = () => {
+      plannerNotifToggle.classList.toggle("is-active", isPlannerNotif);
+      plannerNotifToggle.setAttribute("aria-checked", String(isPlannerNotif));
+      plannerNotifBadge.textContent = isPlannerNotif
+        ? (t("settings.experience.autoSaveActive") || (isEn ? "Active" : "Aktiv"))
+        : (t("settings.experience.autoSaveInactive") || (isEn ? "Inactive" : "Deaktiv"));
+    };
+    plannerNotifToggle.appendChild(element("span", "settings-toggle-thumb"));
+    syncPlannerNotifToggle();
+
+    plannerNotifToggle.addEventListener("click", async () => {
+      isPlannerNotif = !isPlannerNotif;
+      syncPlannerNotifToggle();
+      await setPlannerNotificationsEnabled(isPlannerNotif);
+    });
+    plannerNotifCard.append(plannerNotifCopy, plannerNotifToggle);
+
+    const plannerNotifAccordion = createExperienceAccordion({
+      title: t("settings.experience.plannerNotifTitle") || (isEn ? "Planner Priority Reminders" : "Planlaşdırılanlar Xatırlatmaları"),
+      desc: t("settings.experience.plannerNotifDesc") || (isEn ? "Receive reminders about pending priority and urgent tasks when opening the workspace." : "İş mühitinə daxil olduqda icra gözləyən prioritet və təcili tapşırıqlar barədə xatırlatma al."),
+      badgeNode: plannerNotifBadge,
+      isOpen: true,
+      contentNode: plannerNotifCard,
+    });
+
     // Visual Theme Picker Studio (Both Authenticated & Guest - Collapsible, Closed by default)
     const currentTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
     const themeBadge = element("span", "experience-summary-badge", currentTheme === "dark" ? (isEn ? "Dark Mode" : "Qaranlıq Rejim") : (isEn ? "Light Mode" : "Açıq Rejim"));
@@ -10157,6 +10203,7 @@ function renderSettings() {
     });
 
     aiCategory.cardsContainer.append(autoSaveAccordion, memoryAccordion, scopesAccordion);
+    aiCategory.cardsContainer.appendChild(plannerNotifAccordion);
     brandCategory.cardsContainer.append(profileAccordion, toneAccordion);
     personalizationContainer.append(aiCategory.section, brandCategory.section);
     syncMasterToggle();
@@ -10185,6 +10232,7 @@ function renderSettings() {
         autoContext: isAutoContext,
         strategyPersonalization: isStrategyPersonalization,
         autoSaveStrategies: isAutoSave,
+        plannerNotifications: isPlannerNotif,
         defaultMode: currentDefaultMode,
       };
       try {
@@ -11352,6 +11400,7 @@ async function loadPlannerTasks() {
     const data = await authRequest("/api/planner");
     state.plannerTasks = Array.isArray(data.tasks) ? data.tasks : [];
     updatePlannerBadge();
+    checkAndShowPlannerVisitNotification();
     if (state.view === "planner") render();
   } catch (error) {
     console.error("Failed to load planner tasks:", error);
@@ -11363,6 +11412,290 @@ function updatePlannerBadge() {
     const activeCount = state.plannerTasks.filter((t) => !t.completed).length;
     plannerCount.textContent = String(activeCount);
   }
+}
+
+function isPlannerNotificationsEnabled() {
+  if (state.currentUser && state.currentUser.settings && typeof state.currentUser.settings.plannerNotifications === "boolean") {
+    return state.currentUser.settings.plannerNotifications;
+  }
+  const localVal = localStorage.getItem("helmer_planner_notif_enabled");
+  return localVal !== "false";
+}
+
+async function setPlannerNotificationsEnabled(enabled) {
+  const isEn = getLanguage() === "en";
+  localStorage.setItem("helmer_planner_notif_enabled", enabled ? "true" : "false");
+  if (state.currentUser) {
+    if (!state.currentUser.settings) state.currentUser.settings = {};
+    state.currentUser.settings.plannerNotifications = enabled;
+    try {
+      await authRequest("/api/auth/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ plannerNotifications: enabled }),
+      });
+    } catch (err) {
+      console.error("Failed to update planner notification settings:", err);
+    }
+  }
+  showToast(
+    enabled
+      ? (t("planner.notifEnabledToast") || (isEn ? "Planner notifications enabled" : "Planlaşdırılanlar bildirişləri aktiv edildi"))
+      : (t("planner.notifDisabledToast") || (isEn ? "Planner notifications disabled" : "Planlaşdırılanlar bildirişləri deaktiv edildi")),
+    "info"
+  );
+}
+
+function isPlannerNotificationSnoozed() {
+  const snoozeUntil = Number(localStorage.getItem("helmer_planner_snooze_until") || 0);
+  return Date.now() < snoozeUntil;
+}
+
+function snoozePlannerNotification(hours = 2) {
+  const isEn = getLanguage() === "en";
+  const snoozeTime = Date.now() + hours * 60 * 60 * 1000;
+  localStorage.setItem("helmer_planner_snooze_until", String(snoozeTime));
+  showToast(
+    t("planner.notifSnoozedToast") || (isEn ? "Reminder snoozed for 2 hours" : "Xatırlatma 2 saatlıq təxirə salındı"),
+    "info"
+  );
+}
+
+function getUrgentPlannerTasks() {
+  if (!Array.isArray(state.plannerTasks)) return [];
+  const urgentGroupLabels = new Set([
+    "Bu gün",
+    "Today",
+    "Növbəti 48 saat",
+    "Next 48 Hours",
+    "Gecikmiş",
+    "Overdue",
+  ]);
+  return state.plannerTasks.filter((t) => {
+    if (t.completed) return false;
+    const isPriority = Boolean(t.isPriority || t.priority === "high");
+    const isDueSoon = Boolean(t.groupLabel && urgentGroupLabels.has(t.groupLabel));
+    return isPriority || isDueSoon;
+  });
+}
+
+function checkAndShowPlannerVisitNotification() {
+  if (!isPlannerNotificationsEnabled()) return;
+  if (isPlannerNotificationSnoozed()) return;
+  if (sessionStorage.getItem("helmer_planner_visit_notif_shown") === "true") return;
+
+  const urgentTasks = getUrgentPlannerTasks();
+  if (!urgentTasks.length) return;
+
+  sessionStorage.setItem("helmer_planner_visit_notif_shown", "true");
+
+  const isEn = getLanguage() === "en";
+  const rawName = getUserFirstName() || (isEn ? "Leader" : "Lider");
+
+  document.querySelectorAll(".planner-visit-toast").forEach((el) => el.remove());
+
+  const toast = element("div", "planner-visit-toast");
+  toast.setAttribute("role", "alert");
+  toast.setAttribute("aria-live", "polite");
+
+  const topRow = element("div", "planner-visit-toast-top");
+  const iconWrap = element("div", "planner-visit-toast-icon");
+  iconWrap.innerHTML = `
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  `;
+  const titleWrap = element("div", "planner-visit-toast-title-wrap");
+  const title = element("strong", "planner-visit-toast-title", isEn ? "Planner Reminder" : "Planlaşdırılanlar Xatırlatması");
+  const taskCountBadge = element(
+    "span",
+    "planner-visit-toast-badge",
+    isEn ? `${urgentTasks.length} pending` : `${urgentTasks.length} icra gözləyən`
+  );
+  titleWrap.append(title, taskCountBadge);
+
+  const closeBtn = button("✕", "planner-visit-toast-close", () => {
+    toast.remove();
+  });
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
+
+  topRow.append(iconWrap, titleWrap, closeBtn);
+
+  const messageText = isEn
+    ? `Hello, ${rawName}! You still have pending priority task(s) in Planner waiting for execution. Don't forget to review them.`
+    : `Salam, ${rawName}! Planlaşdırılanlarda hələ də icra gözləyən prioritet tapşırıq(ların) mövcuddur. Nəzərdən keçirməyi unutma.`;
+
+  const messageEl = element("p", "planner-visit-toast-message", messageText);
+
+  const actionsRow = element("div", "planner-visit-toast-actions");
+
+  const reviewBtn = button(
+    t("planner.notifReviewTasks") || (isEn ? "Review tasks" : "Nəzərdən keçir"),
+    "planner-visit-btn-review primary-button",
+    () => {
+      toast.remove();
+      state.view = "planner";
+      state.plannerFilter = "priority";
+      syncNav();
+      render();
+    }
+  );
+  reviewBtn.type = "button";
+
+  const remindLaterBtn = button(
+    t("planner.notifRemindLater") || (isEn ? "Remind me later" : "Daha sonra xatırlat"),
+    "planner-visit-btn-snooze secondary-button",
+    () => {
+      toast.remove();
+      snoozePlannerNotification(2);
+    }
+  );
+  remindLaterBtn.type = "button";
+
+  actionsRow.append(reviewBtn, remindLaterBtn);
+
+  const bottomRow = element("div", "planner-visit-toast-bottom");
+  const disableBtn = button(
+    t("planner.notifDeactivate") || (isEn ? "Turn off reminders" : "Bildirişləri deaktiv et"),
+    "planner-visit-btn-disable",
+    async () => {
+      toast.remove();
+      await setPlannerNotificationsEnabled(false);
+    }
+  );
+  disableBtn.type = "button";
+  bottomRow.appendChild(disableBtn);
+
+  toast.append(topRow, messageEl, actionsRow, bottomRow);
+  document.body.appendChild(toast);
+}
+
+function togglePlannerNotificationPopover(anchorBtn) {
+  const isEn = getLanguage() === "en";
+  const existing = document.querySelector(".planner-notif-popover");
+  if (existing) {
+    existing.remove();
+    anchorBtn.classList.remove("is-active");
+    return;
+  }
+
+  anchorBtn.classList.add("is-active");
+  const popover = element("div", "planner-notif-popover");
+
+  const header = element("div", "planner-notif-popover-header");
+  const title = element("strong", "planner-notif-popover-title", t("planner.notifications") || (isEn ? "Notifications" : "Bildirişlər"));
+
+  const toggleWrap = element("div", "planner-notif-popover-toggle-wrap");
+  const toggleLabel = element("span", "planner-notif-toggle-label", t("planner.notifRemindersActive") || (isEn ? "Reminders active" : "Xatırlatmalar aktivdir"));
+  const toggleBtn = element("button", `settings-toggle${isPlannerNotificationsEnabled() ? " is-active" : ""}`);
+  toggleBtn.type = "button";
+  toggleBtn.setAttribute("role", "switch");
+  toggleBtn.setAttribute("aria-label", t("planner.notifRemindersActive") || (isEn ? "Reminders active" : "Xatırlatmalar"));
+  toggleBtn.appendChild(element("span", "settings-toggle-thumb"));
+  toggleBtn.addEventListener("click", async () => {
+    const nextState = !isPlannerNotificationsEnabled();
+    toggleBtn.classList.toggle("is-active", nextState);
+    await setPlannerNotificationsEnabled(nextState);
+    renderNotifBody();
+  });
+  toggleWrap.append(toggleLabel, toggleBtn);
+  header.append(title, toggleWrap);
+
+  const body = element("div", "planner-notif-popover-body");
+
+  const renderNotifBody = () => {
+    body.replaceChildren();
+    const isEnabled = isPlannerNotificationsEnabled();
+    if (!isEnabled) {
+      const disabledCard = element("div", "planner-notif-empty-state");
+      disabledCard.innerHTML = `
+        <p>${escapeHtml(isEn ? "Priority task reminders are disabled." : "Prioritet tapşırıq xatırlatmaları deaktiv edilib.")}</p>
+      `;
+      body.appendChild(disabledCard);
+      return;
+    }
+
+    const urgentTasks = getUrgentPlannerTasks();
+    if (!urgentTasks.length) {
+      const emptyState = element("div", "planner-notif-empty-state");
+      emptyState.innerHTML = `
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="planner-notif-empty-icon">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <strong>${escapeHtml(t("planner.notifAllCaughtUp") || (isEn ? "All caught up" : "Hər şey qaydasındadır"))}</strong>
+        <p>${escapeHtml(t("planner.notifAllCaughtUpDesc") || (isEn ? "No pending priority tasks waiting for execution ✓" : "İcra gözləyən prioritet tapşırıq yoxdur ✓"))}</p>
+      `;
+      body.appendChild(emptyState);
+      return;
+    }
+
+    const rawName = getUserFirstName() || (isEn ? "Leader" : "Lider");
+    const greetingBox = element("div", "planner-notif-greeting");
+    const greetingMsg = isEn
+      ? `Hello, ${rawName}! You still have pending priority task(s) in Planner waiting for execution. Don't forget to review them.`
+      : `Salam, ${rawName}! Planlaşdırılanlarda hələ də icra gözləyən prioritet tapşırıq(ların) mövcuddur. Nəzərdən keçirməyi unutma.`;
+    greetingBox.textContent = greetingMsg;
+    body.appendChild(greetingBox);
+
+    const list = element("div", "planner-notif-task-list");
+    urgentTasks.slice(0, 5).forEach((task) => {
+      const item = element("div", "planner-notif-task-item");
+      const dot = element("span", "planner-notif-task-dot");
+      const text = element("span", "planner-notif-task-text", task.text);
+      const badge = element("span", "planner-notif-task-badge", task.groupLabel || (isEn ? "Priority" : "Prioritet"));
+      item.append(dot, text, badge);
+      item.addEventListener("click", () => {
+        popover.remove();
+        anchorBtn.classList.remove("is-active");
+        state.plannerFilter = "priority";
+        render();
+      });
+      list.appendChild(item);
+    });
+    body.appendChild(list);
+
+    const actionButtons = element("div", "planner-notif-popover-actions");
+    const viewAllBtn = button(
+      isEn ? "View all priorities" : "Bütün prioritetlərə bax",
+      "primary-button",
+      () => {
+        popover.remove();
+        anchorBtn.classList.remove("is-active");
+        state.plannerFilter = "priority";
+        render();
+      }
+    );
+    viewAllBtn.type = "button";
+
+    const snoozeBtn = button(
+      t("planner.notifRemindLater") || (isEn ? "Remind me later" : "Daha sonra xatırlat"),
+      "secondary-button",
+      () => {
+        popover.remove();
+        anchorBtn.classList.remove("is-active");
+        snoozePlannerNotification(2);
+      }
+    );
+    snoozeBtn.type = "button";
+
+    actionButtons.append(viewAllBtn, snoozeBtn);
+    body.appendChild(actionButtons);
+  };
+
+  renderNotifBody();
+  popover.append(header, body);
+  anchorBtn.parentElement.appendChild(popover);
+
+  const closeOnOutside = (e) => {
+    if (!popover.contains(e.target) && !anchorBtn.contains(e.target)) {
+      popover.remove();
+      anchorBtn.classList.remove("is-active");
+      document.removeEventListener("click", closeOnOutside);
+    }
+  };
+  setTimeout(() => document.addEventListener("click", closeOnOutside), 10);
 }
 
 function executePlannerTask(task) {
@@ -11528,7 +11861,29 @@ function renderPlannerView() {
     element("p", "", t("planner.subtitle"))
   );
 
-  headerRow.append(headerText);
+  const headerActions = element("div", "planner-header-actions");
+  const notifBtn = button("", "planner-notif-btn", (e) => {
+    e.stopPropagation();
+    togglePlannerNotificationPopover(notifBtn);
+  });
+  notifBtn.type = "button";
+  notifBtn.setAttribute("aria-label", t("planner.notifications") || (isEn ? "Notifications" : "Bildirişlər"));
+  notifBtn.setAttribute("title", t("planner.notificationsTooltip") || (isEn ? "Planner notifications" : "Planlaşdırılanlar bildirişləri"));
+  notifBtn.innerHTML = `
+    <svg class="planner-notif-bell-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  `;
+  const urgentTasks = getUrgentPlannerTasks();
+  if (urgentTasks.length > 0) {
+    const badge = element("span", "planner-notif-badge");
+    badge.textContent = urgentTasks.length > 9 ? "9+" : String(urgentTasks.length);
+    notifBtn.appendChild(badge);
+  }
+  headerActions.appendChild(notifBtn);
+
+  headerRow.append(headerText, headerActions);
   view.appendChild(headerRow);
 
   // Persistent task composer
@@ -14506,6 +14861,7 @@ initializeAuthentication(async (user) => {
   render();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks(), loadUsageStats()]);
   resumeBackgroundJobs();
+  checkAndShowPlannerVisitNotification();
   if (window.location.hash === "#terms" || window.location.pathname === "/terms") {
     openLegalModal("terms");
   } else if (window.location.hash === "#privacy" || window.location.pathname === "/privacy") {

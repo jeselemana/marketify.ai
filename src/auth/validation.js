@@ -215,6 +215,7 @@ export const UserSettingsSchema = z.object({
   autoContext: z.boolean().optional().default(true),
   strategyPersonalization: z.boolean().optional().default(true),
   autoSaveStrategies: z.boolean().optional().default(true),
+  plannerNotifications: z.boolean().optional().default(true),
   defaultMode: z.enum(["build", "ask"]).optional().default("build"),
   language: z.enum(["az", "en"]).optional().default("az"),
 }).strict();

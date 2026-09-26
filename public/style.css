@@ -16804,6 +16804,505 @@ html.dark .ask-active-context-chip {
   to { opacity: 1; transform: scale(1); }
 }
 
+/* Planner Header Actions & Notification Bell */
+.planner-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.planner-notif-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--theme-surface, #ffffff);
+  border: 1px solid var(--theme-border, #e2e8f0);
+  color: var(--theme-muted, #64748b);
+  cursor: pointer;
+  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px var(--theme-shadow-soft, rgba(15, 23, 42, 0.03));
+}
+
+.planner-notif-btn:hover {
+  color: var(--theme-ink, #0f172a);
+  border-color: var(--theme-border-strong, #cbd5e1);
+  background: var(--theme-surface-soft, #f8fafc);
+  transform: translateY(-0.5px);
+}
+
+.planner-notif-btn:active {
+  transform: translateY(0);
+}
+
+.planner-notif-btn.is-active {
+  border-color: var(--accent, #4f6ee8);
+  color: var(--accent, #4f6ee8);
+  background: var(--accent-soft, rgba(79, 110, 232, 0.08));
+}
+
+[data-theme="dark"] .planner-notif-btn,
+html.dark .planner-notif-btn {
+  background: var(--bg-surface, #141b2b);
+  border-color: var(--border-subtle, rgba(255, 255, 255, 0.1));
+  color: #94a3b8;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .planner-notif-btn:hover,
+html.dark .planner-notif-btn:hover {
+  background: var(--bg-hover, #1a233a);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .planner-notif-btn.is-active,
+html.dark .planner-notif-btn.is-active {
+  background: rgba(99, 128, 255, 0.14);
+  border-color: rgba(99, 128, 255, 0.5);
+  color: var(--theme-blue-ink, #cbd4ff);
+}
+
+.planner-notif-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4.5px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  border: 2px solid var(--theme-surface, #ffffff);
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.4);
+  pointer-events: none;
+  animation: planner-badge-pulse 2.2s infinite ease-in-out;
+}
+
+[data-theme="dark"] .planner-notif-badge,
+html.dark .planner-notif-badge {
+  border-color: #141b2b;
+}
+
+@keyframes planner-badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
+/* Planner Notification Popover */
+.planner-notif-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  border-radius: 16px;
+  background: var(--theme-surface, #ffffff);
+  border: 1px solid var(--theme-border, #e2e8f0);
+  box-shadow: 0 20px 48px -10px rgba(15, 23, 42, 0.18), 0 4px 14px rgba(15, 23, 42, 0.06);
+  z-index: 120;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: planner-fade-in 140ms ease-out;
+}
+
+[data-theme="dark"] .planner-notif-popover,
+html.dark .planner-notif-popover {
+  background: #141b2b;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.55);
+}
+
+.planner-notif-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--theme-border, #e2e8f0);
+}
+
+[data-theme="dark"] .planner-notif-popover-header,
+html.dark .planner-notif-popover-header {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.planner-notif-popover-title {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--theme-ink, #0f172a);
+}
+
+[data-theme="dark"] .planner-notif-popover-title,
+html.dark .planner-notif-popover-title {
+  color: #f1f5f9;
+}
+
+.planner-notif-popover-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.planner-notif-toggle-label {
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--theme-muted, #64748b);
+}
+
+[data-theme="dark"] .planner-notif-toggle-label,
+html.dark .planner-notif-toggle-label {
+  color: #94a3b8;
+}
+
+.planner-notif-popover-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.planner-notif-greeting {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--theme-ink, #0f172a);
+  background: rgba(79, 110, 232, 0.05);
+  border: 1px solid rgba(79, 110, 232, 0.18);
+  border-radius: 11px;
+  padding: 10px 12px;
+}
+
+[data-theme="dark"] .planner-notif-greeting,
+html.dark .planner-notif-greeting {
+  background: rgba(99, 128, 255, 0.09);
+  border-color: rgba(99, 128, 255, 0.22);
+  color: #f1f5f9;
+}
+
+.planner-notif-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.planner-notif-task-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--theme-surface-soft, #f8fafc);
+  border: 1px solid var(--theme-border, #e2e8f0);
+  cursor: pointer;
+  transition: all 130ms ease;
+}
+
+.planner-notif-task-item:hover {
+  background: var(--theme-surface, #ffffff);
+  border-color: var(--accent, #4f6ee8);
+  transform: translateX(1px);
+}
+
+[data-theme="dark"] .planner-notif-task-item,
+html.dark .planner-notif-task-item {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .planner-notif-task-item:hover,
+html.dark .planner-notif-task-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(99, 128, 255, 0.4);
+}
+
+.planner-notif-task-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  flex-shrink: 0;
+}
+
+.planner-notif-task-text {
+  font-size: 12px;
+  color: var(--theme-ink, #0f172a);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .planner-notif-task-text,
+html.dark .planner-notif-task-text {
+  color: #f1f5f9;
+}
+
+.planner-notif-task-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .planner-notif-task-badge,
+html.dark .planner-notif-task-badge {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+}
+
+.planner-notif-popover-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.planner-notif-popover-actions .primary-button,
+.planner-notif-popover-actions .secondary-button {
+  flex: 1;
+  height: 32px;
+  font-size: 11.5px;
+  border-radius: 8px;
+  justify-content: center;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.planner-notif-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 18px 8px 12px;
+  gap: 6px;
+}
+
+.planner-notif-empty-icon {
+  color: #10b981;
+  margin-bottom: 2px;
+}
+
+.planner-notif-empty-state strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-ink, #0f172a);
+}
+
+[data-theme="dark"] .planner-notif-empty-state strong,
+html.dark .planner-notif-empty-state strong {
+  color: #f1f5f9;
+}
+
+.planner-notif-empty-state p {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--theme-muted, #64748b);
+  line-height: 1.4;
+}
+
+[data-theme="dark"] .planner-notif-empty-state p,
+html.dark .planner-notif-empty-state p {
+  color: #94a3b8;
+}
+
+/* Floating Site-Visit Planner Notification Banner / Toast */
+.planner-visit-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 390px;
+  max-width: calc(100vw - 32px);
+  background: var(--theme-surface, #ffffff);
+  border: 1px solid var(--theme-border, #cbd5e1);
+  border-radius: 18px;
+  padding: 16px 18px;
+  box-shadow: 0 20px 48px -10px rgba(15, 23, 42, 0.2), 0 4px 14px rgba(15, 23, 42, 0.08);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  backdrop-filter: blur(12px);
+  animation: planner-toast-slide-up 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes planner-toast-slide-up {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+[data-theme="dark"] .planner-visit-toast,
+html.dark .planner-visit-toast {
+  background: rgba(20, 27, 43, 0.95);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.65);
+}
+
+.planner-visit-toast-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.planner-visit-toast-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .planner-visit-toast-icon,
+html.dark .planner-visit-toast-icon {
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.planner-visit-toast-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.planner-visit-toast-title {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--theme-ink, #0f172a);
+}
+
+[data-theme="dark"] .planner-visit-toast-title,
+html.dark .planner-visit-toast-title {
+  color: #f1f5f9;
+}
+
+.planner-visit-toast-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1.5px 7px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .planner-visit-toast-badge,
+html.dark .planner-visit-toast-badge {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.planner-visit-toast-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--theme-muted, #64748b);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 120ms ease;
+  flex-shrink: 0;
+}
+
+.planner-visit-toast-close:hover {
+  background: var(--theme-surface-soft, #f1f5f9);
+  color: var(--theme-ink, #0f172a);
+}
+
+[data-theme="dark"] .planner-visit-toast-close:hover,
+html.dark .planner-visit-toast-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.planner-visit-toast-message {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.48;
+  color: var(--theme-ink, #1e293b);
+  background: rgba(79, 110, 232, 0.04);
+  border: 1px solid rgba(79, 110, 232, 0.14);
+  border-radius: 11px;
+  padding: 11px 13px;
+}
+
+[data-theme="dark"] .planner-visit-toast-message,
+html.dark .planner-visit-toast-message {
+  background: rgba(99, 128, 255, 0.08);
+  border-color: rgba(99, 128, 255, 0.2);
+  color: #f1f5f9;
+}
+
+.planner-visit-toast-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.planner-visit-toast-actions .primary-button,
+.planner-visit-toast-actions .secondary-button {
+  flex: 1;
+  height: 34px;
+  font-size: 12px;
+  border-radius: 9px;
+  justify-content: center;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.planner-visit-toast-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.planner-visit-btn-disable {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--theme-muted, #94a3b8);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 130ms ease;
+}
+
+.planner-visit-btn-disable:hover {
+  color: var(--theme-danger-ink, #dc2626);
+}
+
 @media (max-width: 767px) {
   .planner-view {
     padding: 24px 16px calc(120px + env(safe-area-inset-bottom));
@@ -16811,6 +17310,28 @@ html.dark .ask-active-context-chip {
 
   .planner-header-row {
     margin-bottom: 18px;
+    align-items: flex-start;
+  }
+
+  .planner-notif-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .planner-notif-popover {
+    right: -4px;
+    width: calc(100vw - 32px);
+    max-width: 350px;
+  }
+
+  .planner-visit-toast {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    right: 16px;
+    left: 16px;
+    width: auto;
+    max-width: none;
+    padding: 14px 16px;
   }
 
   .planner-header-text .section-kicker {

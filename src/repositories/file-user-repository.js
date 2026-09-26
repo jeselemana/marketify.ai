@@ -254,6 +254,7 @@ export class FileUserRepository {
           autoContext: true,
           strategyPersonalization: true,
           autoSaveStrategies: true,
+          plannerNotifications: true,
           defaultMode: "build",
           language: "az",
         },
