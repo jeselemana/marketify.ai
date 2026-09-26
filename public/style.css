@@ -15760,6 +15760,9 @@ body.sidebar-open .planner-composer-card {
 
 .planner-filter-pill {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: none;
   background: transparent;
   color: var(--theme-muted, #64748b);
@@ -15789,6 +15792,241 @@ body.sidebar-open .planner-composer-card {
   height: 2.5px;
   border-radius: 2px;
   background: var(--accent, #4f6ee8);
+}
+
+/* Priority Filter Pill "New" Badge */
+.planner-pill-new-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5px 6.5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffffff;
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  border-radius: 999px;
+  box-shadow: 0 1.5px 6px rgba(99, 102, 241, 0.35);
+  transform: translateY(-0.5px);
+  transition: all 180ms ease;
+}
+
+.planner-filter-pill:hover .planner-pill-new-badge {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.45);
+}
+
+.planner-filter-pill.is-active .planner-pill-new-badge {
+  background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%);
+  box-shadow: 0 2px 9px rgba(79, 70, 229, 0.45);
+}
+
+[data-theme="dark"] .planner-pill-new-badge,
+html.dark .planner-pill-new-badge,
+body.dark .planner-pill-new-badge {
+  background: linear-gradient(135deg, #6366f1 0%, #9333ea 100%);
+  box-shadow: 0 1.5px 7px rgba(99, 102, 241, 0.5);
+}
+
+/* Planner Priority AI Banner */
+.planner-priority-ai-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.06);
+}
+
+.planner-priority-banner-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.planner-ai-model-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 999px;
+  text-transform: lowercase;
+}
+
+.planner-priority-banner-title {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--theme-ink, #0f172a);
+  margin: 2px 0 0;
+}
+
+.planner-priority-banner-desc {
+  font-size: 12.5px;
+  color: var(--theme-muted, #64748b);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.planner-reprioritize-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #4f46e5;
+  background: #ffffff;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.planner-reprioritize-btn:hover {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: #6366f1;
+  color: #4338ca;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(99, 102, 241, 0.14);
+}
+
+.planner-reprioritize-btn:active {
+  transform: translateY(0);
+}
+
+.planner-reprioritize-btn.is-loading svg {
+  animation: spin 1s linear infinite;
+}
+
+/* Priority Card & Badge */
+.planner-card-priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 650;
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.planner-task-card.is-priority {
+  border-left: 3px solid #f59e0b;
+}
+
+/* Priority Action Button in Empty State */
+.planner-priority-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+  transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.planner-priority-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+}
+
+.planner-priority-action-btn:active {
+  transform: translateY(0);
+}
+
+/* Dark Theme Parity for Priority */
+[data-theme="dark"] .planner-priority-ai-banner,
+html.dark .planner-priority-ai-banner,
+body.dark .planner-priority-ai-banner {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.08) 100%);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .planner-ai-model-tag,
+html.dark .planner-ai-model-tag,
+body.dark .planner-ai-model-tag {
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+[data-theme="dark"] .planner-priority-banner-title,
+html.dark .planner-priority-banner-title,
+body.dark .planner-priority-banner-title {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .planner-priority-banner-desc,
+html.dark .planner-priority-banner-desc,
+body.dark .planner-priority-banner-desc {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .planner-reprioritize-btn,
+html.dark .planner-reprioritize-btn,
+body.dark .planner-reprioritize-btn {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(99, 102, 241, 0.35);
+  color: #a5b4fc;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .planner-reprioritize-btn:hover,
+html.dark .planner-reprioritize-btn:hover,
+body.dark .planner-reprioritize-btn:hover {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: #818cf8;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .planner-card-priority-badge,
+html.dark .planner-card-priority-badge,
+body.dark .planner-card-priority-badge {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.32);
+}
+
+[data-theme="dark"] .planner-task-card.is-priority,
+html.dark .planner-task-card.is-priority,
+body.dark .planner-task-card.is-priority {
+  border-left-color: #f59e0b;
+}
+
+[data-theme="dark"] .planner-priority-action-btn,
+html.dark .planner-priority-action-btn,
+body.dark .planner-priority-action-btn {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
 }
 
 /* Planner Tasks Container & Groups */
@@ -16144,6 +16382,428 @@ body.sidebar-open .planner-composer-card {
   font-size: 13px;
 }
 
+/* Planner Card Actions & Execute Button */
+.planner-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.planner-execute-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 8px;
+  border: 1px solid var(--theme-border, #e2e8f0);
+  background: var(--theme-surface, #ffffff);
+  color: var(--theme-ink, #0f172a);
+  font-size: 12px;
+  font-weight: 550;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+  user-select: none;
+  box-shadow: 0 1px 2px var(--theme-shadow-soft, rgba(15, 23, 42, 0.03));
+}
+
+.planner-execute-btn:hover {
+  background: var(--theme-surface-soft, #f8fafc);
+  border-color: var(--accent, #4f6ee8);
+  color: var(--accent, #4f6ee8);
+  transform: translateY(-0.5px);
+  box-shadow: 0 2px 6px var(--theme-shadow-soft, rgba(79, 110, 232, 0.1));
+}
+
+.planner-execute-btn:active {
+  transform: translateY(0);
+}
+
+.planner-execute-icon {
+  color: var(--accent, #4f6ee8);
+  flex-shrink: 0;
+  transition: transform 140ms ease;
+}
+
+.planner-execute-btn:hover .planner-execute-icon {
+  transform: scale(1.1);
+}
+
+[data-theme="dark"] .planner-execute-btn,
+html.dark .planner-execute-btn {
+  background: var(--bg-surface, #141b2b);
+  border-color: var(--border-subtle, rgba(255, 255, 255, 0.1));
+  color: var(--text-primary, #f1f5f9);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .planner-execute-btn:hover,
+html.dark .planner-execute-btn:hover {
+  background: var(--bg-hover, #1a233a);
+  border-color: rgba(99, 128, 255, 0.4);
+  color: var(--theme-blue-ink, #cbd4ff);
+}
+
+/* Category Actions: Roadmap and Select-All */
+.planner-group-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.planner-group-title.is-collapsible-trigger {
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+}
+
+.planner-group-title.is-collapsible-trigger:hover .planner-group-name {
+  color: var(--theme-ink, #172033);
+}
+
+.planner-select-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 13px;
+  border-radius: 12px;
+  border: 1px solid var(--theme-border, #eaedf3);
+  background: var(--theme-surface, #ffffff);
+  color: var(--theme-ink, #0f172a);
+  font-size: 12px;
+  font-weight: 550;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease, background 150ms ease;
+  white-space: nowrap;
+  user-select: none;
+  box-shadow: 0 1px 3px var(--theme-shadow-soft, rgba(15, 23, 42, 0.03)), 0 2px 6px var(--theme-shadow-soft, rgba(15, 23, 42, 0.02));
+}
+
+.planner-select-all-box {
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
+  border: 1.8px solid var(--theme-border, #cbd5e1);
+  background: var(--theme-surface, #ffffff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 140ms ease;
+  flex-shrink: 0;
+}
+
+.planner-select-all-btn:hover {
+  border-color: var(--theme-border, #cbd5e1);
+  box-shadow: 0 4px 14px -2px var(--theme-shadow-soft, rgba(15, 23, 42, 0.07)), 0 2px 4px var(--theme-shadow-soft, rgba(15, 23, 42, 0.03));
+  transform: translateY(-0.5px);
+}
+
+.planner-select-all-btn:hover .planner-select-all-box {
+  border-color: var(--accent, #4f6ee8);
+}
+
+.planner-select-all-btn.is-all-selected {
+  background: var(--theme-surface, #ffffff);
+  border-color: rgba(79, 110, 232, 0.45);
+  color: var(--accent, #4f6ee8);
+  box-shadow: 0 0 0 1.5px rgba(79, 110, 232, 0.35), 0 2px 8px rgba(79, 110, 232, 0.08);
+}
+
+.planner-select-all-btn.is-all-selected .planner-select-all-box {
+  background: var(--accent, #4f6ee8);
+  border-color: var(--accent, #4f6ee8);
+}
+
+.planner-select-all-btn.is-all-selected .planner-select-all-box::after {
+  content: "";
+  display: block;
+  width: 4.5px;
+  height: 8px;
+  border: solid #ffffff;
+  border-width: 0 1.8px 1.8px 0;
+  transform: rotate(45deg) translate(-0.5px, -1px);
+}
+
+[data-theme="dark"] .planner-select-all-btn,
+html.dark .planner-select-all-btn {
+  background: var(--bg-surface, #141b2b);
+  border-color: var(--border-subtle, rgba(255, 255, 255, 0.1));
+  color: var(--text-primary, #f1f5f9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .planner-select-all-box,
+html.dark .planner-select-all-box {
+  background: #141b2b;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="dark"] .planner-select-all-btn:hover,
+html.dark .planner-select-all-btn:hover {
+  background: var(--bg-hover, #1a233a);
+  color: var(--text-primary, #f1f5f9);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+[data-theme="dark"] .planner-select-all-btn.is-all-selected,
+html.dark .planner-select-all-btn.is-all-selected {
+  background: var(--bg-surface, #141b2b);
+  border-color: rgba(99, 128, 255, 0.5);
+  color: var(--theme-blue-ink, #cbd4ff);
+  box-shadow: 0 0 0 1.5px rgba(99, 128, 255, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.planner-roadmap-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #102a45 0%, #1e3a8a 100%);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(16, 42, 69, 0.16);
+  animation: planner-fade-in 140ms ease-out;
+}
+
+.planner-roadmap-btn:hover {
+  background: linear-gradient(135deg, #163659 0%, #2563eb 100%);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  transform: translateY(-0.5px);
+}
+
+.planner-roadmap-btn:active {
+  transform: translateY(0);
+}
+
+[data-theme="dark"] .planner-roadmap-btn,
+html.dark .planner-roadmap-btn {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .planner-roadmap-btn:hover,
+html.dark .planner-roadmap-btn:hover {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+}
+
+/* Card Selected State */
+.planner-task-card.is-selected {
+  border-color: rgba(79, 110, 232, 0.5) !important;
+  background: rgba(79, 110, 232, 0.035) !important;
+  box-shadow: 0 0 0 1.5px rgba(79, 110, 232, 0.4), 0 4px 14px var(--theme-shadow-soft, rgba(15, 23, 42, 0.04)) !important;
+}
+
+[data-theme="dark"] .planner-task-card.is-selected,
+html.dark .planner-task-card.is-selected {
+  border-color: rgba(99, 128, 255, 0.6) !important;
+  background: rgba(99, 128, 255, 0.07) !important;
+  box-shadow: 0 0 0 1.5px rgba(99, 128, 255, 0.4), 0 4px 14px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Hide "İcra et" on selected task cards or when category has bulk selection */
+.planner-task-card.is-selected .planner-execute-btn,
+.planner-group.has-bulk-selection .planner-execute-btn {
+  display: none !important;
+}
+
+/* Hide search bar and composer when tasks are selected */
+.planner-view.has-selection .planner-search-bar,
+.planner-search-bar.is-hidden-by-selection,
+.planner-view.has-selection .planner-composer-card,
+.planner-composer-card.is-hidden-by-selection {
+  display: none !important;
+}
+
+/* Floating Bottom Dock for Selected Planner Tasks */
+.planner-floating-actions {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.planner-floating-actions.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.planner-floating-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px 8px 18px;
+  border-radius: 999px;
+  background: var(--theme-surface, #ffffff);
+  border: 1px solid var(--theme-border, #cbd5e1);
+  box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="dark"] .planner-floating-content,
+html.dark .planner-floating-content {
+  background: rgba(20, 27, 43, 0.95);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.4);
+}
+
+.planner-floating-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-ink, #0f172a);
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .planner-floating-count,
+html.dark .planner-floating-count {
+  color: #f1f5f9;
+}
+
+.planner-floating-roadmap-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #102a45 0%, #1e3a8a 100%);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .planner-floating-roadmap-btn,
+html.dark .planner-floating-roadmap-btn {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.planner-floating-roadmap-btn:hover {
+  transform: translateY(-0.5px);
+  filter: brightness(1.1);
+}
+
+.planner-floating-clear-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  background: var(--theme-surface-soft, #f1f5f9);
+  color: var(--theme-muted, #64748b);
+  cursor: pointer;
+  transition: all 130ms ease;
+  font-size: 11px;
+}
+
+.planner-floating-clear-btn:hover {
+  background: var(--theme-border, #e2e8f0);
+  color: var(--theme-ink, #0f172a);
+}
+
+[data-theme="dark"] .planner-floating-clear-btn,
+html.dark .planner-floating-clear-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .planner-floating-clear-btn:hover,
+html.dark .planner-floating-clear-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+/* Active Context Chip in Ask Mode */
+.ask-active-context-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  margin-bottom: 8px;
+  background: var(--accent-soft, rgba(79, 110, 232, 0.08));
+  border: 1px solid rgba(79, 110, 232, 0.25);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--theme-blue-ink, var(--accent, #4f6ee8));
+  max-width: 100%;
+}
+
+.ask-active-context-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ask-active-context-label {
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ask-active-context-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.65;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+  border-radius: 4px;
+}
+
+.ask-active-context-remove:hover {
+  opacity: 1;
+}
+
+[data-theme="dark"] .ask-active-context-chip,
+html.dark .ask-active-context-chip {
+  background: rgba(99, 128, 255, 0.12);
+  border-color: rgba(99, 128, 255, 0.3);
+  color: var(--theme-blue-ink, #cbd4ff);
+}
+
+@keyframes planner-fade-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 @media (max-width: 767px) {
   .planner-view {
     padding: 24px 16px calc(120px + env(safe-area-inset-bottom));
@@ -16190,14 +16850,52 @@ body.sidebar-open .planner-composer-card {
   }
 
   .planner-filter-pills {
-    gap: 20px;
+    gap: 14px;
     width: 100%;
-    padding-bottom: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .planner-filter-pills::-webkit-scrollbar {
+    display: none;
   }
 
   .planner-filter-pill {
     font-size: 13px;
     padding: 6px 2px 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .planner-pill-new-badge {
+    padding: 1px 5.5px;
+    font-size: 8.5px;
+  }
+
+  .planner-priority-ai-banner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    border-radius: 12px;
+  }
+
+  .planner-priority-banner-title {
+    font-size: 13.5px;
+  }
+
+  .planner-priority-banner-desc {
+    font-size: 12px;
+  }
+
+  .planner-reprioritize-btn {
+    width: 100%;
+    justify-content: center;
+    height: 36px;
+    font-size: 12px;
   }
 
   .planner-group {
@@ -16207,6 +16905,9 @@ body.sidebar-open .planner-composer-card {
   .planner-group-header {
     margin-bottom: 10px;
     padding: 0 1px 2px;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
   }
 
   .planner-group-header.is-collapsible {
@@ -16231,22 +16932,50 @@ body.sidebar-open .planner-composer-card {
     padding: 0 6px;
   }
 
+  .planner-group-actions {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .planner-select-all-btn {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 11px;
+    border-radius: 9px;
+    gap: 6px;
+  }
+
+  .planner-select-all-box {
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+  }
+
+  .planner-roadmap-btn {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+
   .planner-task-list {
     gap: 9px;
   }
 
   .planner-task-card {
-    padding: 13px 14px 13px 12px;
+    padding: 12px 13px 12px 12px;
     border-radius: 13px;
   }
 
   .planner-card-main {
-    gap: 11px;
-    align-items: flex-start;
+    gap: 9px 10px;
+    align-items: center;
+    flex-wrap: wrap;
   }
 
   .planner-check-wrap {
-    margin-top: 1.5px;
+    margin-top: 0;
+    flex-shrink: 0;
   }
 
   .planner-custom-checkbox {
@@ -16258,6 +16987,34 @@ body.sidebar-open .planner-composer-card {
   .planner-task-text {
     font-size: 13.5px;
     line-height: 1.48;
+    flex: 1 1 calc(100% - 36px);
+    min-width: 0;
+  }
+
+  .planner-card-priority-badge {
+    font-size: 9.5px;
+    padding: 1.5px 6px;
+    gap: 3px;
+  }
+
+  .planner-card-actions {
+    margin-left: auto;
+    gap: 6px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .planner-execute-btn {
+    height: 27px;
+    padding: 0 9px;
+    font-size: 11px;
+    border-radius: 8px;
+    gap: 4px;
+  }
+
+  .planner-execute-icon {
+    width: 11px;
+    height: 11px;
   }
 
   .planner-menu-btn {
@@ -16269,6 +17026,37 @@ body.sidebar-open .planner-composer-card {
   .planner-dropdown-menu {
     min-width: 175px;
     max-width: calc(100vw - 32px);
+  }
+
+  .planner-floating-actions {
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: 12px;
+    right: 12px;
+    transform: translateY(80px);
+    width: auto;
+    max-width: none;
+  }
+
+  .planner-floating-actions.is-visible {
+    transform: translateY(0);
+  }
+
+  .planner-floating-content {
+    width: 100%;
+    padding: 7px 10px 7px 14px;
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .planner-floating-count {
+    font-size: 12px;
+  }
+
+  .planner-floating-roadmap-btn {
+    height: 30px;
+    padding: 0 11px;
+    font-size: 11.5px;
+    gap: 5px;
   }
 
   .planner-composer-card {

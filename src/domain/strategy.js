@@ -190,6 +190,8 @@ export const PlannerTaskSummaryItemSchema = z
     title: z.string().trim().min(1).max(500),
     timeframe: z.string().trim().min(1).max(100).default("Today"),
     status: z.enum(["todo", "in_progress", "completed"]).default("todo"),
+    isPriority: z.boolean().optional(),
+    priority: z.enum(["high", "medium", "low", "priority", "normal"]).optional(),
   })
   .strict();
 
@@ -197,6 +199,14 @@ export const PlannerTaskSummaryOutputSchema = z
   .object({
     tasks: z.array(PlannerTaskSummaryItemSchema).min(1),
     model: z.string().optional(),
+  })
+  .strict();
+
+export const PlannerTaskPriorityOutputSchema = z
+  .object({
+    prioritizedTaskIds: z.array(z.string()).default([]),
+    priorityTaskTitles: z.array(z.string()).default([]),
+    model: z.string().default("gpt-6-luna"),
   })
   .strict();
 

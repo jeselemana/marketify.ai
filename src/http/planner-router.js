@@ -1,6 +1,6 @@
 import express from "express";
 import { z } from "zod";
-import { summarizeTasksWithLuna } from "../services/ai/strategy-service.js";
+import { summarizeTasksWithLuna, prioritizeTasksWithLuna } from "../services/ai/strategy-service.js";
 import { aiConfig } from "../services/ai/config.js";
 
 export const TaskInputSchema = z.object({
@@ -10,6 +10,8 @@ export const TaskInputSchema = z.object({
   groupLabel: z.string().trim().max(100).optional(),
   status: z.enum(["todo", "in_progress", "completed"]).optional(),
   completed: z.boolean().optional(),
+  isPriority: z.boolean().optional(),
+  priority: z.enum(["high", "medium", "low", "priority", "normal"]).optional(),
   strategyId: z.string().regex(/^[0-9a-f-]{36}$/i, "Geçərsiz strategiya ID").nullable().optional(),
   strategyTitle: z.string().trim().max(300).nullable().optional(),
 }).strict().refine((data) => Boolean(data.text || data.title), {
@@ -27,6 +29,8 @@ export const UpdateTaskSchema = z.object({
   status: z.enum(["todo", "in_progress", "completed"]).optional(),
   timeframe: z.string().trim().max(100).optional(),
   groupLabel: z.string().trim().max(100).optional(),
+  isPriority: z.boolean().optional(),
+  priority: z.enum(["high", "medium", "low", "priority", "normal"]).optional(),
 }).strict();
 
 export const SummarizeTasksSchema = z.object({
@@ -38,11 +42,18 @@ export const SummarizeTasksSchema = z.object({
         title: z.string().trim().min(1).max(1000).optional(),
         timeframe: z.string().trim().max(100).optional(),
         groupLabel: z.string().trim().max(100).optional(),
+        isPriority: z.boolean().optional(),
+        priority: z.enum(["high", "medium", "low", "priority", "normal"]).optional(),
       }).strict(),
     ])
   ).min(1).max(50).optional(),
   strategyId: z.string().regex(/^[0-9a-f-]{36}$/i, "Geçərsiz strategiya ID").nullable().optional(),
   strategyTitle: z.string().trim().max(300).nullable().optional(),
+  language: z.enum(["az", "en"]).optional(),
+}).strict();
+
+export const PrioritizeTasksSchema = z.object({
+  taskIds: z.array(z.string().regex(/^[0-9a-f-]{36}$/i, "Geçərsiz tapşırıq ID")).max(100).optional(),
   language: z.enum(["az", "en"]).optional(),
 }).strict();
 
@@ -79,12 +90,16 @@ export function createPlannerRouter(plannerRepository, options = {}) {
         const timeframe = item.timeframe || item.groupLabel || "Ümumi";
         const groupLabel = item.groupLabel || timeframe;
         const status = item.status || (item.completed ? "completed" : "todo");
+        const isPriority = Boolean(item.isPriority || item.priority === "high");
+        const priority = item.priority || (isPriority ? "high" : "normal");
         return {
           title,
           text,
           timeframe,
           groupLabel,
           status,
+          isPriority,
+          priority,
           strategyId: item.strategyId || null,
           strategyTitle: item.strategyTitle || null,
           completed: status === "completed" || Boolean(item.completed),
@@ -117,6 +132,8 @@ export function createPlannerRouter(plannerRepository, options = {}) {
       const timeframe = data.timeframe || data.groupLabel || "Ümumi";
       const groupLabel = data.groupLabel || timeframe;
       const status = data.status || (data.completed ? "completed" : "todo");
+      const isPriority = Boolean(data.isPriority || data.priority === "high");
+      const priority = data.priority || (isPriority ? "high" : "normal");
 
       const added = await plannerRepository.addBatch(req.ownerId, [
         {
@@ -125,6 +142,8 @@ export function createPlannerRouter(plannerRepository, options = {}) {
           timeframe,
           groupLabel,
           status,
+          isPriority,
+          priority,
           strategyId: data.strategyId || null,
           strategyTitle: data.strategyTitle || null,
           completed: status === "completed" || Boolean(data.completed),
@@ -199,6 +218,90 @@ export function createPlannerRouter(plannerRepository, options = {}) {
     } catch (error) {
       console.error("Planner summarize error:", error);
       return res.status(500).json({ error: error.message || "Tapşırıqları xülasələndirmək mümkün olmadı." });
+    }
+  });
+
+  router.post("/prioritize", async (req, res) => {
+    try {
+      const parsed = PrioritizeTasksSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || "Məlumatları yoxlayın.",
+          code: "VALIDATION_ERROR",
+          details: parsed.error.issues,
+        });
+      }
+
+      const { taskIds, language = "az" } = parsed.data;
+
+      // Tenant isolation: fetch owner's tasks strictly scoped to req.ownerId (Rule 3)
+      const allUserTasks = await plannerRepository.list(req.ownerId);
+      if (!allUserTasks.length) {
+        return res.json({
+          tasks: [],
+          prioritizedTaskIds: [],
+          model: aiConfig.plannerPriorityModel || "gpt-6-luna",
+          count: 0,
+        });
+      }
+
+      let tasksToEvaluate = allUserTasks;
+      if (Array.isArray(taskIds) && taskIds.length > 0) {
+        const idFilter = new Set(taskIds);
+        tasksToEvaluate = allUserTasks.filter((t) => idFilter.has(t.id));
+      }
+
+      if (!tasksToEvaluate.length) {
+        return res.json({
+          tasks: allUserTasks,
+          prioritizedTaskIds: [],
+          model: aiConfig.plannerPriorityModel || "gpt-6-luna",
+          count: 0,
+        });
+      }
+
+      const client = options.openAiClient || options.client || null;
+      const startedAt = Date.now();
+      let priorityUsage = null;
+
+      const result = await prioritizeTasksWithLuna({
+        tasks: tasksToEvaluate,
+        language,
+        client,
+        onUsage: (u) => { priorityUsage = u; },
+      });
+
+      const priorityIds = new Set(result.prioritizedTaskIds || []);
+      const updatedTasks = typeof plannerRepository.updatePriorities === "function"
+        ? await plannerRepository.updatePriorities(req.ownerId, priorityIds)
+        : allUserTasks.map((t) => ({
+            ...t,
+            isPriority: priorityIds.has(t.id),
+            priority: priorityIds.has(t.id) ? "high" : "normal",
+          }));
+
+      if (telemetryService && typeof telemetryService.trackSummary === "function") {
+        telemetryService.trackSummary({
+          ownerId: req.ownerId,
+          sessionId: req.guestOwnerId,
+          model: result.model || aiConfig.plannerPriorityModel || "gpt-6-luna",
+          latencyMs: Date.now() - startedAt,
+          usage: priorityUsage,
+          status: "success",
+        }).catch(() => {});
+      }
+
+      const priorityCount = updatedTasks.filter((t) => t.isPriority).length;
+
+      return res.json({
+        tasks: updatedTasks,
+        prioritizedTaskIds: result.prioritizedTaskIds,
+        model: result.model || "gpt-6-luna",
+        count: priorityCount,
+      });
+    } catch (error) {
+      console.error("Planner prioritize error:", error);
+      return res.status(500).json({ error: error.message || "Tapşırıqları prioritetləşdirmək mümkün olmadı." });
     }
   });
 

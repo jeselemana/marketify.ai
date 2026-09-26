@@ -2172,6 +2172,8 @@ const state = {
   plannerTasks: [],
   plannerFilter: "all",
   plannerCollapsedGroups: new Set(["Ümumi"]),
+  plannerSelectedTaskIds: new Set(),
+  isPrioritizingPlanner: false,
   askMessages: [],
   askDraft: "",
   askLoading: false,
@@ -4077,6 +4079,36 @@ function renderAsk() {
     chipRemove.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
     pendingChip.append(chipIcon, chipMeta, chipRemove);
     composerBody.appendChild(pendingChip);
+  }
+  if (selectedStrategy || selectedTask) {
+    const contextChip = element("div", "ask-active-context-chip");
+    const chipIcon = element("span", "ask-active-context-icon");
+    chipIcon.innerHTML = `
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+        <path d="M6 6h10"/>
+        <path d="M6 10h10"/>
+      </svg>
+    `;
+    const chipLabel = element(
+      "span",
+      "ask-active-context-label",
+      selectedStrategy ? (isEn ? `Strategy: ${selectedStrategy.title}` : `Strategiya: ${selectedStrategy.title}`) : (isEn ? `Task: ${selectedTask.text}` : `Tapşırıq: ${selectedTask.text}`)
+    );
+    const chipRemove = button("", "ask-active-context-remove", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      state.askStrategyId = "";
+      state.askTaskId = "";
+      state.askPromptHintStrategyId = "";
+      render();
+    });
+    chipRemove.type = "button";
+    chipRemove.setAttribute("aria-label", isEn ? "Remove context" : "Konteksti sil");
+    chipRemove.title = isEn ? "Remove context" : "Konteksti sil";
+    chipRemove.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+    contextChip.append(chipIcon, chipLabel, chipRemove);
+    composerBody.appendChild(contextChip);
   }
   composerBody.append(label, input);
 
@@ -11333,6 +11365,153 @@ function updatePlannerBadge() {
   }
 }
 
+function executePlannerTask(task) {
+  if (!task) return;
+  const isEn = getLanguage() === "en";
+
+  setMode("ask");
+
+  let matchedStrategy = null;
+  if (task.strategyId) {
+    matchedStrategy = state.savedStrategies.find((s) => s.id === task.strategyId) || null;
+    state.askStrategyId = task.strategyId;
+    state.askPromptHintStrategyId = task.strategyId;
+  } else if (task.strategyTitle) {
+    matchedStrategy = state.savedStrategies.find((s) => s.title === task.strategyTitle) || null;
+    if (matchedStrategy) {
+      state.askStrategyId = matchedStrategy.id;
+      state.askPromptHintStrategyId = matchedStrategy.id;
+    } else {
+      state.askStrategyId = "";
+      state.askPromptHintStrategyId = "";
+    }
+  } else {
+    state.askStrategyId = "";
+    state.askPromptHintStrategyId = "";
+  }
+
+  state.askTaskId = task.id || "";
+  state.askChatId = null;
+  state.askMessages = [];
+  state.askError = "";
+
+  const taskPrompt = isEn
+    ? `How can I execute this task step-by-step: "${task.text}"? Provide a practical, concrete action plan.`
+    : `"${task.text}" tapşırığını necə icra edə bilərəm? Mənə addım-addım konkret və praktiki icra planı təqdim et.`;
+  state.askDraft = taskPrompt;
+
+  render();
+
+  requestAnimationFrame(() => {
+    const askInput = document.querySelector("#askInput");
+    if (askInput) {
+      askInput.focus();
+      try {
+        askInput.setSelectionRange(askInput.value.length, askInput.value.length);
+      } catch { }
+    }
+  });
+
+  const toastMsg = matchedStrategy
+    ? (isEn ? `Context loaded: ${matchedStrategy.title}` : `Strategiya konteksti yükləndi: ${matchedStrategy.title}`)
+    : (isEn ? "Task context loaded" : "Tapşırıq kontekst kimi seçildi");
+  showToast(toastMsg, "info");
+}
+
+function generateExecutionRoadmapForTasks(tasks, groupName = "") {
+  if (!tasks || !tasks.length) return;
+  const isEn = getLanguage() === "en";
+
+  const primaryStrategyId = tasks.find((t) => t.strategyId)?.strategyId || "";
+  let matchedStrategy = null;
+  if (primaryStrategyId) {
+    matchedStrategy = state.savedStrategies.find((s) => s.id === primaryStrategyId) || null;
+    state.askStrategyId = primaryStrategyId;
+    state.askPromptHintStrategyId = primaryStrategyId;
+  } else {
+    const primaryTitle = tasks.find((t) => t.strategyTitle)?.strategyTitle;
+    if (primaryTitle) {
+      matchedStrategy = state.savedStrategies.find((s) => s.title === primaryTitle) || null;
+      if (matchedStrategy) {
+        state.askStrategyId = matchedStrategy.id;
+        state.askPromptHintStrategyId = matchedStrategy.id;
+      } else {
+        state.askStrategyId = "";
+        state.askPromptHintStrategyId = "";
+      }
+    } else {
+      state.askStrategyId = "";
+      state.askPromptHintStrategyId = "";
+    }
+  }
+
+  state.askTaskId = "";
+  setMode("ask");
+  state.askChatId = null;
+  state.askMessages = [];
+  state.askError = "";
+
+  const taskListBullets = tasks.map((t, idx) => `${idx + 1}. ${t.text}`).join("\n");
+  const groupLabel = groupName ? ` (${groupName})` : "";
+  const roadmapPrompt = isEn
+    ? `Prepare a detailed execution roadmap for the following planned tasks${groupLabel}:\n\n${taskListBullets}\n\nPlease format the execution roadmap with:\n1. Phased timeline & priority sequencing\n2. Detailed tactical execution steps per task\n3. Required resources, team ownership & marketing channels\n4. Risk analysis, bottlenecks & proactive solutions\n5. Measurable checkpoints and KPI targets`
+    : `Aşağıdakı planlaşdırılan tapşırıqlar${groupLabel} üçün detallı icra xəritəsi hazırla:\n\n${taskListBullets}\n\nZəhmət olmasa icra xəritəsini aşağıdakı aydın strukturda təqdim et:\n1. Mərhələli icra qrafiki və prioritet ardıcıllığı\n2. Hər tapşırıq üzrə addım-addım konkret taktiki plan\n3. Lazımi resurslar, məsuliyyət bölgüsü və marketinq kanalları\n4. Gözlənilən risklər, potensial maneələr və qabaqlayıcı həllər\n5. Ölçülə bilən yoxlama nöqtələri və əsas KPI hədəfləri`;
+
+  submitAskMessage(roadmapPrompt);
+}
+
+async function prioritizePlannerTasksWithLuna({ forceRefresh = false } = {}) {
+  const isEn = getLanguage() === "en";
+  if (!Array.isArray(state.plannerTasks) || state.plannerTasks.length === 0) {
+    return [];
+  }
+
+  if (state.isPrioritizingPlanner) return state.plannerTasks;
+  state.isPrioritizingPlanner = true;
+
+  try {
+    showToast(
+      isEn
+        ? "AI is analyzing tasks to isolate priorities…"
+        : "Tapşırıqlar təhlil edilir və prioritetlər ayrılır…",
+      "info"
+    );
+
+    const activeTasks = state.plannerTasks.filter((t) => !t.completed);
+    const targetTaskIds = (activeTasks.length > 0 ? activeTasks : state.plannerTasks).map((t) => t.id);
+
+    const res = await authRequest("/api/planner/prioritize", {
+      method: "POST",
+      body: JSON.stringify({
+        taskIds: targetTaskIds,
+        language: isEn ? "en" : "az",
+      }),
+    });
+
+    if (res && Array.isArray(res.tasks)) {
+      state.plannerTasks = res.tasks;
+      updatePlannerBadge();
+      const count = res.count !== undefined ? res.count : state.plannerTasks.filter((t) => t.isPriority || t.priority === "high").length;
+      showToast(
+        isEn
+          ? `Separated ${count} priority task${count === 1 ? "" : "s"} ✓`
+          : `${count} prioritet tapşırıq ayrıldı ✓`,
+        "success"
+      );
+    }
+    return state.plannerTasks;
+  } catch (err) {
+    console.error("Planner prioritization failed:", err);
+    showToast(
+      err.message || (isEn ? "Failed to prioritize tasks" : "Prioritetləri ayırmaq mümkün olmadı"),
+      "error"
+    );
+    return state.plannerTasks;
+  } finally {
+    state.isPrioritizingPlanner = false;
+  }
+}
+
 function renderPlannerView() {
   const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-list");
@@ -11442,6 +11621,8 @@ function renderPlannerView() {
         body: JSON.stringify({
           text,
           groupLabel: groupSelect.value,
+          isPriority: state.plannerFilter === "priority",
+          priority: state.plannerFilter === "priority" ? "high" : "normal",
         }),
       });
       if (res.task) {
@@ -11476,15 +11657,34 @@ function renderPlannerView() {
   const filterRow = element("div", "planner-filter-row");
   const filterPills = element("div", "planner-filter-pills");
   const filterOptions = [
-    { key: "all", label: t("common.all") },
+    { key: "all", label: t("common.all") || (isEn ? "All" : "Hamısı") },
     { key: "active", label: isEn ? "Active" : "Aktiv" },
     { key: "completed", label: isEn ? "Completed" : "Tamamlanmış" },
+    { key: "priority", label: t("planner.filterPriority") || (isEn ? "Priority" : "Prioritet"), isNew: true },
   ];
   filterOptions.forEach((opt) => {
-    const btn = button(opt.label, `planner-filter-pill${state.plannerFilter === opt.key ? " is-active" : ""}`, () => {
+    const btn = element(
+      "button",
+      `planner-filter-pill${state.plannerFilter === opt.key ? " is-active" : ""}${opt.isNew ? " is-priority-pill" : ""}`
+    );
+    btn.type = "button";
+    const labelSpan = element("span", "planner-filter-pill-label", opt.label);
+    btn.appendChild(labelSpan);
+    if (opt.isNew) {
+      const newBadge = element("span", "planner-pill-new-badge", "New");
+      btn.appendChild(newBadge);
+    }
+    btn.addEventListener("click", async () => {
       state.plannerFilter = opt.key;
       [...filterPills.children].forEach((b) => b.classList.remove("is-active"));
       btn.classList.add("is-active");
+
+      if (opt.key === "priority") {
+        const hasPriority = state.plannerTasks.some((t) => t.isPriority || t.priority === "high");
+        if (!hasPriority && state.plannerTasks.length > 0) {
+          await prioritizePlannerTasksWithLuna();
+        }
+      }
       drawPlannerList();
     });
     filterPills.appendChild(btn);
@@ -11496,12 +11696,39 @@ function renderPlannerView() {
   const listContainer = element("div", "planner-tasks-container");
   view.appendChild(listContainer);
 
+  const floatingBar = element("div", "planner-floating-actions");
+  const floatingContent = element("div", "planner-floating-content");
+  const floatingCount = element("span", "planner-floating-count", "");
+  const floatingRoadmapBtn = button("", "planner-floating-roadmap-btn", () => {
+    const selectedTasks = state.plannerTasks.filter((t) => state.plannerSelectedTaskIds.has(t.id));
+    generateExecutionRoadmapForTasks(selectedTasks);
+  });
+  floatingRoadmapBtn.type = "button";
+  floatingRoadmapBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+      <path d="M13 2L3 14h7v8l10-12h-7z"/>
+    </svg>
+    <span>${t("planner.generateRoadmap") || (isEn ? "Prepare execution map" : "İcra xəritəsi hazırla")}</span>
+  `;
+  const floatingClearBtn = button("✕", "planner-floating-clear-btn", () => {
+    state.plannerSelectedTaskIds.clear();
+    drawPlannerList();
+  });
+  floatingClearBtn.type = "button";
+  floatingClearBtn.setAttribute("aria-label", t("planner.deselectAll") || (isEn ? "Clear selection" : "Seçimi təmizlə"));
+  floatingClearBtn.setAttribute("title", t("planner.deselectAll") || (isEn ? "Clear selection" : "Seçimi təmizlə"));
+
+  floatingContent.append(floatingCount, floatingRoadmapBtn, floatingClearBtn);
+  floatingBar.appendChild(floatingContent);
+  view.appendChild(floatingBar);
+
   const drawPlannerList = () => {
     const query = searchInput.value.trim().toLocaleLowerCase(isEn ? "en" : "az");
     let tasks = state.plannerTasks;
 
     if (state.plannerFilter === "active") tasks = tasks.filter((t) => !t.completed);
     else if (state.plannerFilter === "completed") tasks = tasks.filter((t) => t.completed);
+    else if (state.plannerFilter === "priority") tasks = tasks.filter((t) => Boolean(t.isPriority || t.priority === "high"));
 
     if (query) {
       tasks = tasks.filter((t) =>
@@ -11513,13 +11740,69 @@ function renderPlannerView() {
 
     listContainer.replaceChildren();
 
+    // If in Priority filter, render top AI Banner
+    if (state.plannerFilter === "priority") {
+      const banner = element("div", "planner-priority-ai-banner");
+      const bannerLeft = element("div", "planner-priority-banner-left");
+      const modelTag = element("div", "planner-ai-model-tag");
+      modelTag.innerHTML = `
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
+          <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.2-6.3-4.6-6.3 4.6 2.3-7.2-6-4.6h7.6z"/>
+        </svg>
+        <span>AI</span>
+      `;
+      const bannerTitle = element("h3", "planner-priority-banner-title", t("planner.priorityBannerTitle") || (isEn ? "Priorities classified by AI" : "AI ilə ayrılmış prioritetlər"));
+      const bannerDesc = element("p", "planner-priority-banner-desc", t("planner.priorityBannerSubtitle") || (isEn ? "High-leverage tasks isolated for immediate breakthrough and execution." : "Biznesin inkişafı və kritik icra üçün ən yüksək təsirə malik tapşırıqlar."));
+      bannerLeft.append(modelTag, bannerTitle, bannerDesc);
+
+      const reprioritizeBtn = button("", "planner-reprioritize-btn", async () => {
+        reprioritizeBtn.disabled = true;
+        reprioritizeBtn.classList.add("is-loading");
+        await prioritizePlannerTasksWithLuna({ forceRefresh: true });
+        drawPlannerList();
+      });
+      reprioritizeBtn.type = "button";
+      reprioritizeBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="23 4 23 10 17 10"/>
+          <polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+        <span>${t("planner.reprioritizeWithLuna") || (isEn ? "Re-prioritize (AI)" : "Yenidən ayır (AI)")}</span>
+      `;
+
+      banner.append(bannerLeft, reprioritizeBtn);
+      listContainer.appendChild(banner);
+    }
+
     if (!tasks.length) {
       const empty = element("div", "planner-empty-state");
-      empty.append(
-        element("h2", "", isEn ? "No tasks found" : "Tapşırıq tapılmadı"),
-        element("p", "", isEn ? "Change the filter or add a new task." : "Filteri dəyiş və ya yeni tapşırıq əlavə et.")
-      );
+      if (state.plannerFilter === "priority") {
+        empty.append(
+          element("h2", "", t("planner.noPriorityTasks") || (isEn ? "No priority tasks yet" : "Hələ prioritet tapşırıq yoxdur")),
+          element("p", "", t("planner.noPriorityDesc") || (isEn ? "Run the AI model to automatically isolate your high-impact strategic tasks." : "Tapşırıqlarınızdan yüksək təsirli olanları avtomatik ayırmaq üçün AI modelini işə salın."))
+        );
+        const prioritizeNowBtn = button("", "planner-priority-action-btn", async () => {
+          prioritizeNowBtn.disabled = true;
+          await prioritizePlannerTasksWithLuna({ forceRefresh: true });
+          drawPlannerList();
+        });
+        prioritizeNowBtn.type = "button";
+        prioritizeNowBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+            <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.2-6.3-4.6-6.3 4.6 2.3-7.2-6-4.6h7.6z"/>
+          </svg>
+          <span>${t("planner.prioritizeBtn") || (isEn ? "Prioritize tasks" : "Prioritetləri ayır")}</span>
+        `;
+        empty.appendChild(prioritizeNowBtn);
+      } else {
+        empty.append(
+          element("h2", "", isEn ? "No tasks found" : "Tapşırıq tapılmadı"),
+          element("p", "", isEn ? "Change the filter or add a new task." : "Filteri dəyiş və ya yeni tapşırıq əlavə et.")
+        );
+      }
       listContainer.appendChild(empty);
+      floatingBar.classList.remove("is-visible");
       return;
     }
 
@@ -11572,6 +11855,28 @@ function renderPlannerView() {
       return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
     });
 
+    const allRenderedTaskCards = [];
+    const groupActionUpdaters = [];
+
+    const updateSelectionUi = () => {
+      allRenderedTaskCards.forEach(({ task, card }) => {
+        const isSelected = state.plannerSelectedTaskIds.has(task.id);
+        card.classList.toggle("is-selected", isSelected);
+      });
+
+      groupActionUpdaters.forEach((updater) => updater());
+
+      const totalSelected = state.plannerSelectedTaskIds.size;
+      const hasSelection = totalSelected > 0;
+      view.classList.toggle("has-selection", hasSelection);
+      searchBar.classList.toggle("is-hidden-by-selection", hasSelection);
+      composer.classList.toggle("is-hidden-by-selection", hasSelection);
+      floatingBar.classList.toggle("is-visible", hasSelection);
+      floatingCount.textContent = isEn
+        ? `${totalSelected} task${totalSelected > 1 ? "s" : ""} selected`
+        : `${totalSelected} tapşırıq seçildi`;
+    };
+
     sortedGroupNames.forEach((groupName) => {
       const groupTasks = groups[groupName];
       if (!groupTasks.length) return;
@@ -11579,49 +11884,157 @@ function renderPlannerView() {
       const groupEl = element("div", "planner-group");
       const isCollapsible = groupName === "Ümumi" || groupName === "General";
       const isCollapsed = isCollapsible && state.plannerCollapsedGroups.has(groupName);
-      const groupHeader = isCollapsible
-        ? button("", "planner-group-header is-collapsible")
-        : element("div", "planner-group-header");
+
+      const groupHeader = element("div", "planner-group-header");
       const activeCount = groupTasks.filter((t) => !t.completed).length;
-      const groupTitle = element("div", "planner-group-title");
+
+      const groupTitle = isCollapsible
+        ? button("", "planner-group-title is-collapsible-trigger")
+        : element("div", "planner-group-title");
+
       groupTitle.append(
         element("h3", "planner-group-name", groupName.toUpperCase()),
         element("span", "planner-group-badge", `${activeCount} ${isEn ? "Active" : "aktiv"}`)
       );
-      groupHeader.appendChild(groupTitle);
+
       if (isCollapsible) {
-        groupHeader.setAttribute("aria-expanded", String(!isCollapsed));
-        groupHeader.setAttribute("aria-label", isEn ? `${isCollapsed ? "Expand" : "Collapse"} general tasks` : `Ümumi tapşırıqları ${isCollapsed ? "aç" : "bağla"}`);
-        groupHeader.insertAdjacentHTML("beforeend", `
+        groupTitle.setAttribute("aria-expanded", String(!isCollapsed));
+        groupTitle.setAttribute(
+          "aria-label",
+          isEn
+            ? `${isCollapsed ? "Expand" : "Collapse"} general tasks`
+            : `Ümumi tapşırıqları ${isCollapsed ? "aç" : "bağla"}`
+        );
+        groupTitle.insertAdjacentHTML(
+          "beforeend",
+          `
           <svg class="planner-group-chevron" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="6 9 12 15 18 9"/>
           </svg>
-        `);
-        if (isCollapsed) groupHeader.classList.add("is-collapsed");
-        groupHeader.addEventListener("click", () => {
+        `
+        );
+        if (isCollapsed) groupTitle.classList.add("is-collapsed");
+        groupTitle.addEventListener("click", () => {
           if (state.plannerCollapsedGroups.has(groupName)) state.plannerCollapsedGroups.delete(groupName);
           else state.plannerCollapsedGroups.add(groupName);
           drawPlannerList();
         });
       }
+      groupHeader.appendChild(groupTitle);
+
+      const groupActions = element("div", "planner-group-actions");
+
+      // "İcra xəritəsi hazırla" button (appears when any task in this category is selected)
+      const groupRoadmapBtn = button("", "planner-roadmap-btn", (e) => {
+        e.stopPropagation();
+        const selectedInGroup = groupTasks.filter((t) => state.plannerSelectedTaskIds.has(t.id));
+        const tasksToUse = selectedInGroup.length > 0 ? selectedInGroup : groupTasks;
+        generateExecutionRoadmapForTasks(tasksToUse, groupName);
+      });
+      groupRoadmapBtn.type = "button";
+      groupRoadmapBtn.style.display = "none";
+      groupRoadmapBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
+          <path d="M13 2L3 14h7v8l10-12h-7z"/>
+        </svg>
+        <span class="planner-roadmap-btn-label">${t("planner.generateRoadmap") || (isEn ? "Prepare execution map" : "İcra xəritəsi hazırla")}</span>
+      `;
+
+      // "Hamısını seç" button
+      const selectAllBtn = button("", "planner-select-all-btn", (e) => {
+        e.stopPropagation();
+        const allGroupSelected = groupTasks.length > 0 && groupTasks.every((t) => state.plannerSelectedTaskIds.has(t.id));
+        if (allGroupSelected) {
+          groupTasks.forEach((t) => state.plannerSelectedTaskIds.delete(t.id));
+        } else {
+          groupTasks.forEach((t) => state.plannerSelectedTaskIds.add(t.id));
+        }
+        updateSelectionUi();
+      });
+      selectAllBtn.type = "button";
+      selectAllBtn.setAttribute("aria-label", isEn ? "Select all tasks in this group" : "Bu qrupdakı bütün tapşırıqları seç");
+      const selectAllBox = element("span", "planner-select-all-box");
+      const selectAllText = element("span", "planner-select-all-text", t("planner.selectAll") || (isEn ? "Select all" : "Hamısını seç"));
+      selectAllBtn.append(selectAllBox, selectAllText);
+
+      groupActions.append(groupRoadmapBtn, selectAllBtn);
+      groupHeader.appendChild(groupActions);
       groupEl.appendChild(groupHeader);
+
+      const updateThisGroup = () => {
+        const selectedInGroup = groupTasks.filter((t) => state.plannerSelectedTaskIds.has(t.id));
+        const allSelected = groupTasks.length > 0 && selectedInGroup.length === groupTasks.length;
+        groupEl.classList.toggle("has-bulk-selection", allSelected);
+        selectAllBtn.classList.toggle("is-all-selected", allSelected);
+        selectAllText.textContent = allSelected
+          ? (t("planner.deselectAll") || (isEn ? "Deselect all" : "Seçimi ləğv et"))
+          : (t("planner.selectAll") || (isEn ? "Select all" : "Hamısını seç"));
+
+        const hasSelected = selectedInGroup.length > 0;
+        groupRoadmapBtn.style.display = hasSelected ? "inline-flex" : "none";
+        const roadmapLabel = groupRoadmapBtn.querySelector(".planner-roadmap-btn-label");
+        if (roadmapLabel) {
+          roadmapLabel.textContent = hasSelected
+            ? `${t("planner.generateRoadmap") || (isEn ? "Prepare execution map" : "İcra xəritəsi hazırla")} (${selectedInGroup.length})`
+            : (t("planner.generateRoadmap") || (isEn ? "Prepare execution map" : "İcra xəritəsi hazırla"));
+        }
+      };
+      groupActionUpdaters.push(updateThisGroup);
 
       const taskList = element("div", "planner-task-list");
       taskList.hidden = isCollapsed;
+
       groupTasks.forEach((task) => {
-        const card = element("div", `planner-task-card${task.completed ? " is-done" : ""}`);
+        const isSelected = state.plannerSelectedTaskIds.has(task.id);
+        const card = element("div", `planner-task-card${task.completed ? " is-done" : ""}${isSelected ? " is-selected" : ""}`);
+        allRenderedTaskCards.push({ task, card });
 
         const cardMain = element("div", "planner-card-main");
 
         // Custom checkbox
         const checkWrap = element("label", "planner-check-wrap");
+        checkWrap.title = task.completed ? (isEn ? "Mark active" : "Aktiv et") : (isEn ? "Mark completed" : "Tamamla");
+        checkWrap.addEventListener("click", (e) => e.stopPropagation());
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.checked = Boolean(task.completed);
         const customBox = element("span", "planner-custom-checkbox");
         checkWrap.append(checkbox, customBox);
 
+        const isPriority = Boolean(task.isPriority || task.priority === "high");
+        if (isPriority) card.classList.add("is-priority");
+
         const textEl = element("p", "planner-task-text", task.text);
+        if (isPriority) {
+          const priorityBadge = element("span", "planner-card-priority-badge");
+          priorityBadge.title = isEn ? "High priority task" : "Prioritet tapşırıq";
+          priorityBadge.innerHTML = `
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">
+              <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.2-6.3-4.6-6.3 4.6 2.3-7.2-6-4.6h7.6z"/>
+            </svg>
+            <span>${isEn ? "Priority" : "Prioritet"}</span>
+          `;
+          cardMain.append(checkWrap, textEl, priorityBadge);
+        } else {
+          cardMain.append(checkWrap, textEl);
+        }
+
+        const cardActions = element("div", "planner-card-actions");
+
+        // "İcra et" button (to the left of 3-dots button)
+        const executeBtn = button("", "planner-execute-btn", (e) => {
+          e.stopPropagation();
+          executePlannerTask(task);
+        });
+        executeBtn.type = "button";
+        executeBtn.setAttribute("aria-label", t("planner.executeTask") || (isEn ? "Execute" : "İcra et"));
+        executeBtn.setAttribute("title", isEn ? "Execute this task in Ask mode" : "Bu tapşırığı Ask rejimində icra et");
+        executeBtn.innerHTML = `
+          <svg class="planner-execute-icon" viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
+            <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86a1 1 0 0 0-1.5.86z"/>
+          </svg>
+          <span>${t("planner.executeTask") || (isEn ? "Execute" : "İcra et")}</span>
+        `;
 
         const menuWrap = element("div", "planner-menu-wrap");
         const menuBtn = button("", "planner-menu-btn", (e) => {
@@ -11664,6 +12077,36 @@ function renderPlannerView() {
             `;
             dropdown.appendChild(timeItem);
           }
+          const priorityToggleItem = button("", "planner-dropdown-item", async (ev) => {
+            ev.stopPropagation();
+            dropdown.remove();
+            card.classList.remove("has-open-menu");
+            const nextVal = !Boolean(task.isPriority || task.priority === "high");
+            try {
+              await authRequest(`/api/planner/${task.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ isPriority: nextVal, priority: nextVal ? "high" : "normal" }),
+              });
+              task.isPriority = nextVal;
+              task.priority = nextVal ? "high" : "normal";
+              drawPlannerList();
+              showToast(
+                nextVal
+                  ? (isEn ? "Task marked as priority ✓" : "Tapşırıq prioritet edildi ✓")
+                  : (isEn ? "Removed from priority" : "Prioritetdən çıxarıldı"),
+                "info"
+              );
+            } catch (err) {
+              showToast(err.message || (isEn ? "Failed to update" : "Yeniləmək mümkün olmadı"), "error");
+            }
+          });
+          priorityToggleItem.innerHTML = `
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="${isPriority ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <span class="planner-dropdown-source-copy"><strong>${isPriority ? (t("planner.unmarkPriority") || (isEn ? "Remove from priority" : "Prioritetdən çıxar")) : (t("planner.markPriority") || (isEn ? "Mark as priority" : "Prioritet et"))}</strong></span>
+          `;
+          dropdown.appendChild(priorityToggleItem);
           const deleteItem = button("", "planner-dropdown-item is-danger", async (ev) => {
             ev.stopPropagation();
             dropdown.remove();
@@ -11675,6 +12118,7 @@ function renderPlannerView() {
             try {
               await authRequest(`/api/planner/${task.id}`, { method: "DELETE" });
               state.plannerTasks = state.plannerTasks.filter((t) => t.id !== task.id);
+              state.plannerSelectedTaskIds.delete(task.id);
               updatePlannerBadge();
               drawPlannerList();
               showToast(isEn ? "Task deleted ✓" : "Tapşırıq silindi ✓", "info");
@@ -11703,7 +12147,26 @@ function renderPlannerView() {
         `;
         menuWrap.appendChild(menuBtn);
 
-        cardMain.append(checkWrap, textEl, menuWrap);
+        cardActions.append(executeBtn, menuWrap);
+        cardMain.append(checkWrap, textEl, cardActions);
+
+        // Click card to toggle selection
+        card.addEventListener("click", (e) => {
+          if (
+            e.target.closest(".planner-check-wrap") ||
+            e.target.closest(".planner-execute-btn") ||
+            e.target.closest(".planner-menu-wrap") ||
+            e.target.closest(".planner-dropdown-menu")
+          ) {
+            return;
+          }
+          if (state.plannerSelectedTaskIds.has(task.id)) {
+            state.plannerSelectedTaskIds.delete(task.id);
+          } else {
+            state.plannerSelectedTaskIds.add(task.id);
+          }
+          updateSelectionUi();
+        });
 
         checkbox.addEventListener("change", async () => {
           task.completed = checkbox.checked;
@@ -11730,6 +12193,8 @@ function renderPlannerView() {
       groupEl.appendChild(taskList);
       listContainer.appendChild(groupEl);
     });
+
+    updateSelectionUi();
   };
 
   const onDocClick = (e) => {

@@ -3,6 +3,7 @@ import {
   StrategySchema,
   StrategySummaryOutputSchema,
   PlannerTaskSummaryOutputSchema,
+  PlannerTaskPriorityOutputSchema,
   serializeStrategyContext,
   analyzeBriefSignals,
   validateAssessment,
@@ -296,10 +297,13 @@ export function fallbackSummarizeTasks(tasks = [], language = "az", model = "gpt
     const fallbackTf = defaultTimeframes[groupIndex] || defaultTimeframes[0];
     const tf = (typeof item === "object" && (item.timeframe || item.groupLabel)) ? (item.timeframe || item.groupLabel) : fallbackTf;
 
+    const isPriority = groupIndex === 0 || index === 0;
     return {
       title: cleaned || rawText,
       timeframe: tf,
       status: "todo",
+      isPriority,
+      priority: isPriority ? "high" : "normal",
     };
   }).filter((t) => Boolean(t.title));
 
@@ -421,10 +425,13 @@ CİDDİ TƏLƏBLƏR:
   const validatedTasks = rawTasksList.map((t) => {
     const rawTitle = typeof t === "string" ? t : (t.title || t.text || "");
     const cleaned = String(rawTitle).replace(/^[\s\-*•\d.)\]]+/, "").trim();
+    const isPriority = Boolean(t.isPriority);
     return {
       title: cleaned || rawTitle,
       timeframe: t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün"),
       status: "todo",
+      isPriority,
+      priority: t.priority || (isPriority ? "high" : "normal"),
     };
   }).filter((t) => Boolean(t.title));
 
@@ -436,4 +443,173 @@ CİDDİ TƏLƏBLƏR:
   });
 
   return validatedOutput;
+}
+
+export function fallbackPrioritizeTasks(tasks = [], language = "az", model = "gpt-6-luna") {
+  const priorityKeywords = [
+    "təcili", "launch", "audit", "təsdiqlə", "başlat", "satış", "büdcə", "əlaqə", "müştəri", "kampaniya", "vacib",
+    "urgent", "critical", "priority", "revenue", "contract", "financial", "pricing", "target", "roadmap", "immediate"
+  ];
+
+  const prioritizedIds = [];
+  const prioritizedTitles = [];
+
+  const validated = tasks.map((item, index) => {
+    const rawId = item.id || null;
+    const rawTitle = typeof item === "string" ? item : (item.title || item.text || "");
+    const cleaned = String(rawTitle).replace(/^[\s\-*•\d.)\]]+/, "").trim() || rawTitle;
+    const tf = (typeof item === "object" && (item.timeframe || item.groupLabel)) ? String(item.timeframe || item.groupLabel).toLowerCase() : "";
+    const lowerTitle = cleaned.toLowerCase();
+
+    const isImmediateTimeframe = tf.includes("bu gün") || tf.includes("today") || tf.includes("48");
+    const hasPriorityKeyword = priorityKeywords.some((kw) => lowerTitle.includes(kw));
+
+    const isPriority = item.isPriority === true || isImmediateTimeframe || hasPriorityKeyword || (tasks.length > 0 && index === 0);
+    if (isPriority) {
+      if (rawId) prioritizedIds.push(rawId);
+      prioritizedTitles.push(cleaned);
+    }
+
+    return {
+      ...(typeof item === "object" ? item : {}),
+      id: rawId,
+      title: cleaned,
+      text: cleaned,
+      isPriority,
+      priority: isPriority ? "high" : "normal",
+    };
+  });
+
+  return {
+    tasks: validated,
+    prioritizedTaskIds: prioritizedIds,
+    priorityTaskTitles: prioritizedTitles,
+    model,
+  };
+}
+
+export async function prioritizeTasksWithLuna({
+  tasks = [],
+  language = "az",
+  client = null,
+  signal = null,
+  onUsage = null,
+}) {
+  const isEn = language === "en";
+  const modelName = aiConfig.plannerPriorityModel || aiConfig.plannerSummaryModel || "gpt-6-luna";
+
+  if (!tasks.length) {
+    return { tasks: [], prioritizedTaskIds: [], priorityTaskTitles: [], model: modelName };
+  }
+
+  if (!client && !hasOpenAIConfiguration()) {
+    return fallbackPrioritizeTasks(tasks, language, modelName);
+  }
+
+  const openaiClient = client || getOpenAIClient();
+
+  const taskLines = tasks
+    .map((item, idx) => {
+      const idStr = item.id ? `[ID: ${item.id}] ` : "";
+      const tfStr = (item.timeframe || item.groupLabel) ? `[Müddət: ${item.timeframe || item.groupLabel}] ` : "";
+      const text = item.title || item.text || (typeof item === "string" ? item : "");
+      return `${idx + 1}. ${idStr}${tfStr}${text}`;
+    })
+    .join("\n");
+
+  const systemPrompt = isEn
+    ? `You are an elite strategic prioritization AI powered by gpt-6-luna.
+Your role is to deeply evaluate the provided task list and isolate ONLY the highest-impact, time-critical, strategic, and revenue/growth-essential tasks as "PRIORITY".
+
+STRICT RULES:
+1. Filter out routine, administrative, or low-leverage tasks.
+2. Select ONLY the top high-leverage tasks that drive immediate breakthrough, critical dependencies, or pivotal business milestones (typically top 20-40% of tasks).
+3. Return ONLY a valid JSON object matching this structure:
+{
+  "prioritizedTaskIds": ["id1", "id2"],
+  "priorityTaskTitles": ["Exact or closely matching task title 1"]
+}`
+    : `Sən gpt-6-luna tərəfindən gücləndirilmiş icra və strateji prioritetləşdirmə üzrə ixtisaslaşmış süni intellekt köməkçisisən.
+Vəzifən istifadəçinin təqdim olunan tapşırıqlar siyahısını dərindən təhlil edib, yalnız ən yüksək təsirə malik (high-impact), vaxt baxımından kritik, strateji əhəmiyyətli və biznesin inkişafı üçün həlledici olan tapşırıqları "PRIORITY" (prioritet) olaraq ayırmaqdır.
+
+CİDDİ TƏLƏBLƏR:
+1. Rutin, xırda və ya ikinci dərəcəli tapşırıqları prioritet etmə.
+2. Yalnız biznesin inkişafı, gəlir artımı, ilkin mərhələnin açarı və ya kritik asılılıq yaradan ən vacib tapşırıqları (ümumi sayın 20-40%-ni) prioritet seç.
+3. Cavab YALNIZ aşağıdakı struktura uyğun valid JSON formatında olmalıdır:
+{
+  "prioritizedTaskIds": ["id1", "id2"],
+  "priorityTaskTitles": ["Dəqiq və ya ən yaxın tapşırıq başlığı 1"]
+}`;
+
+  const userContent = isEn
+    ? `Task list to prioritize:\n${taskLines}`
+    : `Prioritetlərə ayrılmalı olan tapşırıqlar siyahısı:\n${taskLines}`;
+
+  const completion = await openaiClient.chat.completions.create(
+    {
+      model: modelName,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      response_format: { type: "json_object" },
+    },
+    signal ? { signal } : undefined,
+  );
+
+  if (typeof onUsage === "function" && completion.usage) {
+    onUsage({
+      provider: "openai",
+      model: modelName,
+      usage: {
+        inputTokens: completion.usage.prompt_tokens,
+        outputTokens: completion.usage.completion_tokens,
+        totalTokens: completion.usage.total_tokens,
+      },
+    });
+  }
+
+  const rawContent = completion.choices?.[0]?.message?.content?.trim() || "{}";
+  let parsed;
+  try {
+    parsed = JSON.parse(rawContent);
+  } catch (jsonErr) {
+    throw new LLMProviderError("Model etibarsız JSON cavabı qaytardı.", {
+      code: "AI_INVALID_OUTPUT",
+      status: 502,
+      model: modelName,
+      cause: jsonErr,
+    });
+  }
+
+  const prioritizedIds = new Set(Array.isArray(parsed.prioritizedTaskIds) ? parsed.prioritizedTaskIds : []);
+  const prioritizedTitles = (Array.isArray(parsed.priorityTaskTitles) ? parsed.priorityTaskTitles : []).map((t) =>
+    String(t).toLowerCase().trim()
+  );
+
+  const validatedTasks = tasks.map((item) => {
+    const rawId = item.id || null;
+    const rawText = item.title || item.text || (typeof item === "string" ? item : "");
+    const lowerText = String(rawText).toLowerCase().trim();
+
+    const matchesId = Boolean(rawId && prioritizedIds.has(rawId));
+    const matchesTitle = prioritizedTitles.some((pt) => pt && (lowerText.includes(pt) || pt.includes(lowerText)));
+    const isPriority = matchesId || matchesTitle;
+
+    return {
+      ...(typeof item === "object" ? item : {}),
+      id: rawId,
+      title: item.title || rawText,
+      text: item.text || rawText,
+      isPriority,
+      priority: isPriority ? "high" : "normal",
+    };
+  });
+
+  return {
+    tasks: validatedTasks,
+    prioritizedTaskIds: Array.from(prioritizedIds),
+    priorityTaskTitles: prioritizedTitles,
+    model: modelName,
+  };
 }

@@ -137,6 +137,8 @@ export class FilePlannerRepository {
       );
 
       if (!isDuplicate) {
+        const isPriority = Boolean(item.isPriority || item.priority === "high");
+        const priority = item.priority || (isPriority ? "high" : "normal");
         const newTask = {
           id: randomUUID(),
           ownerId,
@@ -147,6 +149,8 @@ export class FilePlannerRepository {
           status,
           strategyId,
           strategyTitle,
+          isPriority,
+          priority,
           completed: status === "completed" || Boolean(item.completed),
           completedAt: (status === "completed" || item.completed) ? now : null,
           createdAt: now,
@@ -175,6 +179,11 @@ export class FilePlannerRepository {
       ? safeChanges.completed
       : (safeChanges.status ? safeChanges.status === "completed" : records[index].completed);
 
+    const isPriority = typeof safeChanges.isPriority === "boolean"
+      ? safeChanges.isPriority
+      : (safeChanges.priority ? safeChanges.priority === "high" : Boolean(records[index].isPriority));
+    const priority = safeChanges.priority || (isPriority ? "high" : (records[index].priority || "normal"));
+
     const status = safeChanges.status || (completed ? "completed" : (records[index].status || "todo"));
     const title = safeChanges.title || safeChanges.text || records[index].title || records[index].text;
     const text = safeChanges.text || safeChanges.title || records[index].text || records[index].title;
@@ -192,6 +201,8 @@ export class FilePlannerRepository {
       timeframe,
       groupLabel,
       status,
+      isPriority,
+      priority,
       completed,
       completedAt: completed ? (records[index].completedAt || now) : null,
       updatedAt: now,
@@ -199,6 +210,30 @@ export class FilePlannerRepository {
 
     await this.writeAll(records);
     return records[index];
+  }
+
+  async updatePriorities(ownerId, priorityTaskIds = []) {
+    const records = await this.readAll();
+    const idSet = priorityTaskIds instanceof Set ? priorityTaskIds : new Set(priorityTaskIds);
+    let updatedCount = 0;
+    const now = new Date().toISOString();
+    for (const record of records) {
+      if (record.ownerId === ownerId) {
+        const shouldBePriority = idSet.has(record.id);
+        if (Boolean(record.isPriority) !== shouldBePriority || record.priority !== (shouldBePriority ? "high" : "normal")) {
+          record.isPriority = shouldBePriority;
+          record.priority = shouldBePriority ? "high" : "normal";
+          record.updatedAt = now;
+          updatedCount++;
+        }
+      }
+    }
+    if (updatedCount > 0) {
+      await this.writeAll(records);
+    }
+    return records
+      .filter((task) => task.ownerId === ownerId)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }
 
   async delete(id, ownerId) {
