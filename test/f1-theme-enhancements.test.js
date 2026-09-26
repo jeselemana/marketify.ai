@@ -82,4 +82,28 @@ describe("F1 Grand Prix Theme Enhancements (Brief Loading & Results Transition)"
     assert.match(styleContent, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.f1-tire-spinner/);
     assert.match(styleContent, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.f1-car-flyby-stage/);
   });
+
+  it("6. Requirement: Ask and Build send buttons use top-down minimalist F1 bolid silhouette icon with Halo and wings", () => {
+    // createAskSendIcon generates .ask-f1-icon with clean vector silhouette
+    assert.match(scriptContent, /function createAskSendIcon\(\)/);
+    assert.match(scriptContent, /fill-rule="evenodd"/);
+    assert.match(scriptContent, /M10\.96 3\.18/);
+
+    // Build mode submit button uses createAskSendIcon()
+    assert.match(scriptContent, /const submit = button\("", "ask-submit"\);[\s\S]*?submit\.appendChild\(createAskSendIcon\(\)\);/);
+
+    // Ask mode submit button uses createAskSendIcon()
+    assert.match(scriptContent, /submit\.appendChild\(createAskSendIcon\(\)\);[\s\S]*?ask-model-selector-menu/);
+
+    // style.css defines .ask-f1-icon and dark mode rules
+    assert.match(styleContent, /\.ask-f1-icon\s*\{/);
+    assert.match(styleContent, /\.ask-f1-icon\s*\*\s*\{[^}]*stroke:\s*none !important;/);
+    assert.match(styleContent, /\[data-theme="dark"\] \.ask-submit:not\(:disabled\) \.ask-f1-icon/);
+    assert.match(styleContent, /\[data-theme="dark"\] \.ask-submit:disabled \.ask-f1-icon/);
+
+    // Rapid upward launch animation on click/submit
+    assert.match(scriptContent, /function triggerF1Launch\(/);
+    assert.match(styleContent, /@keyframes f1-launch/);
+    assert.match(styleContent, /\.ask-submit:active:not\(:disabled\) \.ask-f1-icon/);
+  });
 });

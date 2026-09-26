@@ -8052,6 +8052,8 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
   font-weight: 500;
   transition: background 150ms ease, transform 120ms ease, opacity 150ms ease;
   flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
 }
 
 .ask-submit:hover:not(:disabled) {
@@ -8095,6 +8097,93 @@ body:not([data-is-home="true"]) .rail-mode-toggle {
 html.dark .ask-stop-icon {
   stroke: none !important;
   fill: #0b0f17 !important;
+}
+
+.ask-f1-icon {
+  display: block;
+  width: 23px;
+  height: 23px;
+  stroke: none !important;
+  fill: currentColor;
+  transition: transform 140ms ease;
+}
+
+.ask-f1-icon * {
+  stroke: none !important;
+}
+
+.ask-submit:hover:not(:disabled) .ask-f1-icon {
+  transform: translateY(-1.5px);
+}
+
+.ask-submit:active:not(:disabled) .ask-f1-icon {
+  transform: translateY(-2px);
+}
+
+.ask-f1-icon.is-launching {
+  animation: f1-launch 220ms cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  will-change: transform, opacity;
+}
+
+@keyframes f1-launch {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-36px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-submit:active:not(:disabled) .ask-f1-icon,
+  .ask-f1-icon.is-launching {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+[data-theme="dark"] .ask-f1-icon,
+html.dark .ask-f1-icon {
+  stroke: none !important;
+}
+
+[data-theme="dark"] .ask-submit:not(:disabled) .ask-f1-icon,
+html.dark .ask-submit:not(:disabled) .ask-f1-icon {
+  fill: #0b0f17 !important;
+}
+
+[data-theme="dark"] .ask-submit:disabled .ask-f1-icon,
+html.dark .ask-submit:disabled .ask-f1-icon {
+  fill: #64748b !important;
+}
+
+.ask-f1-icon ellipse,
+.ask-f1-icon .ask-f1-cockpit {
+  fill: #0b1f3a;
+}
+
+.ask-submit:disabled .ask-f1-icon ellipse,
+.ask-submit:disabled .ask-f1-icon .ask-f1-cockpit {
+  fill: var(--bg-soft, #f3f4f6) !important;
+}
+
+[data-theme="dark"] .ask-submit:not(:disabled) .ask-f1-icon ellipse,
+[data-theme="dark"] .ask-submit:not(:disabled) .ask-f1-icon .ask-f1-cockpit,
+html.dark .ask-submit:not(:disabled) .ask-f1-icon ellipse,
+html.dark .ask-submit:not(:disabled) .ask-f1-icon .ask-f1-cockpit {
+  fill: #ffffff !important;
+}
+
+[data-theme="dark"] .ask-submit:disabled .ask-f1-icon ellipse,
+[data-theme="dark"] .ask-submit:disabled .ask-f1-icon .ask-f1-cockpit,
+html.dark .ask-submit:disabled .ask-f1-icon ellipse,
+html.dark .ask-submit:disabled .ask-f1-icon .ask-f1-cockpit {
+  fill: #1e293b !important;
 }
 
 .ask-model-selector-menu {
@@ -14812,6 +14901,11 @@ html.dark .model-info-popover-close:hover {
     width: 48px;
     height: 48px;
     border-radius: 16px;
+  }
+
+  .ask-submit .ask-f1-icon {
+    width: 28px;
+    height: 28px;
   }
 
   /* Keep the shared Build/Ask + menu above the mobile composer. */

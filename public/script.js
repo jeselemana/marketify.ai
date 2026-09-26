@@ -2338,7 +2338,27 @@ function createAskStopIcon() {
 }
 
 function createAskSendIcon() {
-  return element("span", "ask-submit-icon", "↑");
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "23");
+  svg.setAttribute("height", "23");
+  svg.setAttribute("fill", "currentColor");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("ask-submit-icon", "ask-f1-icon");
+  svg.innerHTML = `<path fill-rule="evenodd" d="M10.96 3.18 L11.17 3.13 L11.13 3.46 L10.40 3.61 L8.93 4.18 L7.37 4.58 L7.28 4.54 L7.28 4.11 L9.70 3.50 L10.57 3.21 Z M13.43 3.21 L14.30 3.50 L16.72 4.11 L16.72 4.54 L16.63 4.58 L15.07 4.18 L13.60 3.61 L12.87 3.46 L12.83 3.13 L13.04 3.18 Z M7.02 3.28 L7.02 5.11 L6.98 5.19 L6.81 5.22 L6.68 5.11 L6.68 3.72 L6.81 3.39 Z M17.19 3.39 L17.32 3.72 L17.32 5.11 L17.19 5.22 L17.02 5.19 L16.98 5.11 L16.98 3.28 Z M10.96 3.67 L11.09 3.64 L11.04 4.00 L10.57 4.11 L9.57 4.68 L8.36 5.00 L7.28 5.11 L7.28 4.79 L7.41 4.72 L8.84 4.40 L10.01 4.00 L10.53 3.75 Z M13.47 3.75 L13.99 4.00 L15.16 4.40 L16.59 4.72 L16.72 4.79 L16.72 5.11 L15.64 5.00 L14.43 4.68 L13.43 4.11 L12.96 4.00 L12.91 3.64 L13.04 3.67 Z M10.35 5.19 L10.92 5.15 L10.87 5.87 L10.35 5.87 Z M13.65 5.87 L13.13 5.87 L13.08 5.15 L13.65 5.19 Z M6.85 5.73 L8.10 5.69 L8.36 5.83 L8.41 8.27 L8.19 8.49 L6.81 8.49 L6.55 8.27 L6.55 5.94 L6.68 5.76 Z M17.32 5.76 L17.45 5.94 L17.45 8.27 L17.19 8.49 L15.81 8.49 L15.59 8.27 L15.64 5.83 L15.90 5.69 L17.15 5.73 Z M10.66 6.27 L10.79 6.23 L10.79 6.44 L10.70 6.48 L9.88 6.59 L9.18 6.76 L10.74 6.65 L10.74 6.87 L9.01 7.02 L10.57 7.67 L10.61 7.92 L8.67 7.13 L8.67 6.59 Z M15.33 6.59 L15.33 7.13 L13.39 7.92 L13.43 7.67 L14.99 7.02 L13.26 6.87 L13.26 6.65 L14.82 6.76 L14.12 6.59 L13.30 6.48 L13.21 6.44 L13.21 6.23 L13.34 6.27 Z M8.67 7.38 L8.75 7.35 L9.75 7.78 L9.79 7.84 L10.48 8.09 L10.57 8.17 L10.53 8.38 L8.67 7.59 Z M15.33 7.59 L13.47 8.38 L13.43 8.17 L13.52 8.09 L14.21 7.84 L14.25 7.78 L15.25 7.35 L15.33 7.38 Z M9.23 9.46 L9.53 9.43 L9.62 9.63 L10.35 9.63 L10.53 9.82 L10.48 9.89 L10.27 9.82 L9.44 9.82 L8.62 10.07 L8.62 9.71 L8.75 9.60 Z M15.25 9.60 L15.38 9.71 L15.38 10.07 L14.56 9.82 L13.73 9.82 L13.52 9.89 L13.47 9.82 L13.65 9.63 L14.38 9.63 L14.47 9.43 L14.77 9.46 Z M8.19 11.90 L8.23 12.77 L8.54 13.91 L8.93 14.78 L9.83 16.40 L9.83 16.50 L9.70 16.61 L8.93 17.08 L8.84 17.08 L8.80 16.64 L8.58 16.35 L8.10 16.18 L8.06 12.26 Z M15.94 12.26 L15.90 16.18 L15.42 16.35 L15.20 16.64 L15.16 17.08 L15.07 17.08 L14.30 16.61 L14.17 16.50 L14.17 16.40 L15.07 14.78 L15.46 13.91 L15.77 12.77 L15.81 11.90 Z M6.59 16.68 L7.93 16.64 L8.15 16.75 L8.23 16.89 L8.23 19.19 L7.97 19.44 L6.55 19.44 L6.29 19.19 L6.29 16.94 L6.33 16.83 Z M17.67 16.83 L17.71 16.94 L17.71 19.19 L17.45 19.44 L16.03 19.44 L15.77 19.19 L15.77 16.89 L15.85 16.75 L16.07 16.64 L17.41 16.68 Z M9.88 16.75 L9.96 16.72 L10.01 16.94 L8.97 17.58 L8.84 17.72 L8.75 17.72 L8.75 17.79 L10.22 17.62 L10.31 17.83 L9.01 17.97 L8.97 18.05 L10.31 18.26 L10.40 18.33 L10.40 18.51 L8.49 18.16 L8.49 17.62 Z M15.51 17.62 L15.51 18.16 L13.60 18.51 L13.60 18.33 L13.69 18.26 L15.03 18.05 L14.99 17.97 L13.69 17.83 L13.78 17.62 L15.25 17.79 L15.25 17.72 L15.16 17.72 L15.03 17.58 L13.99 16.94 L14.04 16.72 L14.12 16.75 Z M8.84 18.70 L8.84 21.82 L8.62 21.89 L8.54 21.82 L8.54 19.02 L8.62 18.84 Z M15.38 18.84 L15.46 19.02 L15.46 21.82 L15.38 21.89 L15.16 21.82 L15.16 18.70 Z M9.10 19.05 L11.61 19.02 L11.61 20.16 L9.10 20.20 Z M14.90 20.20 L12.39 20.16 L12.39 19.02 L14.90 19.05 Z M11.82 2.10 L12.34 2.10 L15.41 2.96 L16.67 3.24 L16.71 3.93 L13.55 3.07 L12.78 2.96 L12.60 2.64 L12.17 2.34 L11.82 2.34 L11.61 2.42 L11.35 2.67 L11.22 2.96 L10.70 2.99 L7.32 3.93 L7.28 3.28 L7.41 3.21 L8.28 3.04 L11.48 2.13 Z M11.82 2.60 L12.21 2.60 L12.39 2.74 L12.56 3.13 L13.21 8.52 L13.34 9.03 L13.55 9.43 L13.29 9.63 L13.16 9.63 L13.03 9.49 L12.56 9.25 L12.34 8.92 L12.30 8.49 L12.13 8.38 L11.87 8.38 L11.69 8.49 L11.61 9.00 L11.17 9.43 L10.83 9.63 L10.70 9.63 L10.44 9.46 L10.79 8.57 L11.43 3.07 L11.65 2.67 Z M11.91 8.63 L12.08 8.63 L12.13 9.00 L12.34 9.35 L13.29 9.96 L13.68 10.50 L13.77 10.79 L13.81 12.69 L14.03 12.63 L14.03 10.76 L13.90 10.36 L13.73 10.14 L13.77 10.03 L14.20 10.03 L14.81 10.36 L15.33 10.87 L15.50 11.40 L15.50 12.55 L15.28 13.56 L14.85 14.59 L13.90 16.29 L13.42 17.65 L13.34 18.44 L13.16 18.76 L12.39 18.76 L12.34 18.22 L12.08 18.08 L11.91 18.08 L11.69 18.19 L11.61 18.33 L11.61 18.76 L10.79 18.73 L10.27 16.68 L8.93 14.13 L8.49 12.63 L8.49 11.33 L8.67 10.87 L8.93 10.54 L9.70 10.07 L10.18 10.03 L10.27 10.14 L10.14 10.25 L9.96 10.68 L9.96 12.63 L10.05 12.69 L10.22 12.66 L10.22 10.79 L10.35 10.39 L10.87 9.82 L11.65 9.35 L11.87 9.00 Z M11.74 9.89 L11.52 9.93 L11.00 10.17 L10.57 10.71 L10.48 11.11 L10.53 12.01 L10.61 12.09 L10.74 12.04 L10.74 10.93 L10.96 10.50 L11.09 10.36 L11.17 10.36 L11.17 11.72 L11.39 11.98 L11.65 12.09 L12.30 12.09 L12.73 11.87 L12.82 11.72 L12.82 10.39 L12.91 10.39 L13.16 10.68 L13.25 10.90 L13.25 12.01 L13.42 12.04 L13.47 10.87 L13.34 10.54 L12.99 10.17 L12.56 9.96 L12.30 9.89 Z M11.13 12.33 L10.96 12.44 L10.96 13.09 L11.17 13.20 L11.04 13.70 L11.04 14.34 L11.39 16.40 L11.65 17.29 L11.35 14.78 L11.30 13.91 L11.39 13.31 L11.48 13.20 L11.65 13.20 L11.74 13.45 L11.91 13.52 L12.21 13.48 L12.39 13.20 L12.56 13.20 L12.60 13.31 L12.65 14.74 L12.39 16.50 L12.39 17.18 L12.86 15.07 L12.95 13.74 L12.82 13.20 L13.03 13.05 L13.03 12.44 L12.91 12.33 Z M11.22 12.58 L12.78 12.55 L12.78 12.98 L12.17 12.98 L12.08 13.26 L11.95 13.31 L11.82 12.98 L11.22 12.98 Z M11.91 18.37 L12.13 18.37 L12.08 20.20 L11.87 20.16 Z M9.10 20.46 L11.78 20.41 L11.87 20.49 L12.13 20.49 L12.21 20.41 L14.90 20.41 L14.90 21.14 L9.10 21.14 Z" />`;
+  return svg;
+}
+
+function triggerF1Launch(btn) {
+  const icon = btn?.querySelector?.(".ask-f1-icon");
+  if (!icon || icon.classList.contains("is-launching")) return;
+  icon.classList.add("is-launching");
+  const cleanup = () => {
+    icon.classList.remove("is-launching");
+    icon.removeEventListener("animationend", cleanup);
+  };
+  icon.addEventListener("animationend", cleanup, { once: true });
+  setTimeout(cleanup, 260);
 }
 
 function createStrategyAskSendIcon() {
@@ -3126,7 +3146,7 @@ function renderIntake() {
   submit.type = "submit";
   submit.disabled = state.brief.trim().length < 8;
   submit.setAttribute("aria-label", isEn ? "Build strategy" : "Strategiyanı qur");
-  submit.appendChild(element("span", "", "↑"));
+  submit.appendChild(createAskSendIcon());
 
   const composerActions = element("div", "ask-composer-actions");
   composerActions.append(submit);
@@ -3228,7 +3248,10 @@ function renderIntake() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     state.brief = textarea.value.trim();
-    if (state.brief.length >= 8) startAssessment();
+    if (state.brief.length >= 8) {
+      triggerF1Launch(submit);
+      startAssessment();
+    }
   });
 
   const banner = errorBanner();
@@ -4135,6 +4158,8 @@ function renderAsk() {
       event.preventDefault();
       event.stopPropagation();
       abortAskMessage();
+    } else if (!submit.disabled) {
+      triggerF1Launch(submit);
     }
   });
   form.addEventListener("submit", (event) => {
@@ -4146,6 +4171,7 @@ function renderAsk() {
     const message = input.value.trim();
     const hasFile = Boolean(state.askPendingFile);
     if (message.length >= 2 || hasFile) {
+      triggerF1Launch(submit);
       state.askDraft = "";
       submitAskMessage(message, state.askPendingFile);
     }
@@ -4637,6 +4663,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   state.askError = "";
   freshAskResponses.add(assistantMsg);
   trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: chosenModel, hasFile: Boolean(fileToAttach) });
+  await new Promise((resolve) => setTimeout(resolve, 220));
   render();
 
   let typewriter = null;
@@ -5939,6 +5966,7 @@ async function startAssessment() {
       sessionStorage.setItem("hasSeenF1Countdown", state.clientSaveId);
     } catch { }
   }
+  await new Promise((resolve) => setTimeout(resolve, 220));
   render();
   try {
     const [data] = await Promise.all([
