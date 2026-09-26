@@ -185,6 +185,21 @@ export const StrategySummaryOutputSchema = z
   })
   .strict();
 
+export const PlannerTaskSummaryItemSchema = z
+  .object({
+    title: z.string().trim().min(1).max(500),
+    timeframe: z.string().trim().min(1).max(100).default("Today"),
+    status: z.enum(["todo", "in_progress", "completed"]).default("todo"),
+  })
+  .strict();
+
+export const PlannerTaskSummaryOutputSchema = z
+  .object({
+    tasks: z.array(PlannerTaskSummaryItemSchema).min(1),
+    model: z.string().optional(),
+  })
+  .strict();
+
 export function serializeStrategyContext(strategy) {
   if (!strategy) return "";
   const parts = [];

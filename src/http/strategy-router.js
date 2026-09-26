@@ -17,6 +17,7 @@ import { buildStrategyPersonalizationContext } from "../services/ai/personal-con
 import { detectTargetMarket } from "../services/ai/prompts.js";
 import { aiConfig } from "../services/ai/config.js";
 import { logWithoutBlocking } from "../services/learning/learning-loop-service.js";
+import { isModelImprovementEnabled } from "./auth-middleware.js";
 
 const activeGenerations = new Map();
 const requestWindows = new Map();
@@ -89,52 +90,89 @@ function resolveLanguage(req, payloadLang) {
   return "az";
 }
 
-async function runTrackedBuild({ learningLoop, telemetryService, ownerId, taskType, userPrompt, relevantContext, execute }) {
+async function runTrackedBuild({
+  learningLoop,
+  telemetryService,
+  ownerId,
+  taskType,
+  userPrompt,
+  relevantContext,
+  execute,
+  onlyNecessaryData = false,
+  modelImprovement = true,
+}) {
   if (!learningLoop && !telemetryService) return { result: await execute(() => {}), interactionId: null };
   const interactionId = learningLoop ? learningLoop.createInteractionId() : null;
   const startedAt = Date.now();
   let providerMeta = { provider: "google", model: aiConfig.strategyModel, usage: null };
+  const isRestricted = onlyNecessaryData || modelImprovement === false;
   try {
     const result = await execute((meta) => { providerMeta = { ...providerMeta, ...meta }; });
     if (learningLoop) {
       logWithoutBlocking(learningLoop.recordInteraction({
-        id: interactionId, ownerId, mode: "build", taskType, userPrompt, relevantContext,
-        modelProvider: providerMeta.provider, modelName: providerMeta.model, modelResponse: result,
-        usage: providerMeta.usage, latencyMs: Date.now() - startedAt, requestStatus: "success",
+        id: interactionId,
+        ownerId,
+        mode: "build",
+        taskType,
+        userPrompt: isRestricted ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : userPrompt,
+        relevantContext: isRestricted ? null : relevantContext,
+        modelProvider: providerMeta.provider,
+        modelName: providerMeta.model,
+        modelResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : result,
+        usage: providerMeta.usage,
+        latencyMs: Date.now() - startedAt,
+        requestStatus: "success",
+        onlyNecessaryData: isRestricted,
+        modelImprovement: !isRestricted,
       }), `Build ${taskType} logging`);
     }
     if (telemetryService) {
       telemetryService.trackBuildStrategy({
         ownerId,
-        brief: userPrompt,
+        brief: isRestricted ? "" : userPrompt,
         model: providerMeta.model,
         latencyMs: Date.now() - startedAt,
         usage: providerMeta.usage,
         status: "success",
-        strategy: result,
+        strategy: isRestricted ? null : result,
         action: taskType,
+        onlyNecessaryData: isRestricted,
+        modelImprovement: !isRestricted,
       }).catch(() => {});
     }
     return { result, interactionId, providerMeta };
   } catch (error) {
     if (learningLoop) {
       logWithoutBlocking(learningLoop.recordInteraction({
-        id: interactionId, ownerId, mode: "build", taskType, userPrompt, relevantContext,
-        modelProvider: providerMeta.provider, modelName: providerMeta.model, modelResponse: "",
-        usage: providerMeta.usage, latencyMs: Date.now() - startedAt, requestStatus: "error",
+        id: interactionId,
+        ownerId,
+        mode: "build",
+        taskType,
+        userPrompt: isRestricted ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : userPrompt,
+        relevantContext: isRestricted ? null : relevantContext,
+        modelProvider: providerMeta.provider,
+        modelName: providerMeta.model,
+        modelResponse: "",
+        usage: providerMeta.usage,
+        latencyMs: Date.now() - startedAt,
+        requestStatus: "error",
         errorType: error?.code || error?.name || "BUILD_ERROR",
+        onlyNecessaryData: isRestricted,
+        modelImprovement: !isRestricted,
       }), `Build ${taskType} failure logging`);
     }
     if (telemetryService) {
       telemetryService.trackBuildStrategy({
         ownerId,
-        brief: userPrompt,
+        brief: isRestricted ? "" : userPrompt,
         model: providerMeta.model,
         latencyMs: Date.now() - startedAt,
         usage: providerMeta.usage,
         status: "error",
         error,
         action: taskType,
+        onlyNecessaryData: isRestricted,
+        modelImprovement: !isRestricted,
       }).catch(() => {});
     }
     throw error;
@@ -160,10 +198,13 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         user: req.user,
       });
       const marketMode = detectTargetMarket({ brief: payload.brief, answers: payload.answers });
+      const modelImprovement = isModelImprovementEnabled(req);
       const tracked = await runTrackedBuild({
         learningLoop, telemetryService, ownerId: req.ownerId, taskType: "build_assess", userPrompt: payload.brief,
         relevantContext: { personalizationApplied: Boolean(personalizationContext), language, marketMode },
         execute: (onUsage) => assessBrief({ ...payload, language, ownerId: req.ownerId, personalizationContext, signal: abortController.signal, onUsage }),
+        onlyNecessaryData: !modelImprovement,
+        modelImprovement,
       });
       const assessment = tracked.result;
       if (!res.writableEnded) {
@@ -191,6 +232,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           user,
         });
         const marketMode = detectTargetMarket({ brief: payload.brief, answers: payload.answers });
+        const modelImprovement = isModelImprovementEnabled(req);
         const tracked = await runTrackedBuild({
           learningLoop,
           telemetryService,
@@ -208,6 +250,8 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
               onUsage,
               onChunk: onChunk ? (chunkInfo) => onChunk(chunkInfo) : undefined,
             }),
+          onlyNecessaryData: !modelImprovement,
+          modelImprovement,
         });
         const strategy = tracked.result;
 
@@ -349,10 +393,13 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         user: req.user,
       });
       const marketMode = detectTargetMarket({ brief: payload.brief, answers: payload.answers, strategy: payload.strategy });
+      const modelImprovement = isModelImprovementEnabled(req);
       const tracked = await runTrackedBuild({
         learningLoop, telemetryService, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
         relevantContext: { personalizationApplied: Boolean(personalizationContext), language, marketMode },
         execute: (onUsage) => refineStrategy({ ...payload, language }, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
+        onlyNecessaryData: !modelImprovement,
+        modelImprovement,
       });
       const strategy = tracked.result;
       if (!res.writableEnded) {
@@ -400,6 +447,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         onUsage: (u) => { summaryUsage = u; },
       });
 
+      const modelImprovement = isModelImprovementEnabled(req);
       if (telemetryService) {
         telemetryService.trackSummary({
           ownerId: req.ownerId,
@@ -408,6 +456,8 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           latencyMs: Date.now() - summaryStartedAt,
           usage: summaryUsage,
           status: "success",
+          onlyNecessaryData: !modelImprovement,
+          modelImprovement,
         }).catch(() => {});
       }
 
@@ -415,6 +465,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         res.json({ summary });
       }
     } catch (summaryErr) {
+      const modelImprovement = isModelImprovementEnabled(req);
       if (telemetryService) {
         telemetryService.trackSummary({
           ownerId: req.ownerId,
@@ -423,6 +474,8 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           latencyMs: Date.now() - summaryStartedAt,
           status: "error",
           error: summaryErr,
+          onlyNecessaryData: !modelImprovement,
+          modelImprovement,
         }).catch(() => {});
       }
       throw summaryErr;

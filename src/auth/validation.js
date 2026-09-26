@@ -204,11 +204,12 @@ export const AddMemoryItemSchema = z.object({
 
 export const UserSettingsSchema = z.object({
   personalIntelligence: z.boolean().optional(),
+  modelImprovement: z.boolean().optional(),
   brandName: z.string().trim().max(100, "Brend adı 100 simvoldan uzun ola bilməz.").optional().default(""),
   industry: z.string().trim().max(100, "Sənaye sahəsi 100 simvoldan uzun ola bilməz.").optional().default(""),
   targetAudience: z.string().trim().max(500, "Hədəf kütlə 500 simvoldan uzun ola bilməz.").optional().default(""),
   primaryMarket: z.string().trim().max(100, "Bazar məlumatı 100 simvoldan uzun ola bilməz.").optional().default(""),
-  tone: z.enum(["professional", "creative", "concise", "friendly", "data_driven"]).optional().default("professional"),
+  tone: z.enum(["professional", "direct", "creative", "executive", "concise", "friendly", "data_driven"]).optional().default("professional"),
   customInstructions: z.string().trim().max(2000, "Xüsusi təlimatlar 2000 simvoldan uzun ola bilməz.").optional().default(""),
   memories: z.array(UserMemoryItemSchema).max(50, "Maksimum 50 yaddaş qeydi saxlanıla bilər.").optional(),
   autoContext: z.boolean().optional().default(true),
@@ -216,7 +217,7 @@ export const UserSettingsSchema = z.object({
   autoSaveStrategies: z.boolean().optional().default(true),
   defaultMode: z.enum(["build", "ask"]).optional().default("build"),
   language: z.enum(["az", "en"]).optional().default("az"),
-});
+}).strict();
 
 export const ImportedMemoryItemSchema = z.object({
   id: z.string().trim().max(100).optional(),
@@ -236,7 +237,7 @@ export const ImportMemoryPayloadSchema = z.object({
   industry: z.string().trim().max(100, "Sənaye sahəsi 100 simvoldan uzun ola bilməz.").optional().default(""),
   targetAudience: z.string().trim().max(500, "Hədəf kütlə 500 simvoldan uzun ola bilməz.").optional().default(""),
   primaryMarket: z.string().trim().max(100, "Bazar məlumatı 100 simvoldan uzun ola bilməz.").optional().default(""),
-  tone: z.enum(["professional", "creative", "concise", "friendly", "data_driven"]).optional().default("professional"),
+  tone: z.enum(["professional", "direct", "creative", "executive", "concise", "friendly", "data_driven"]).optional().default("professional"),
   customInstructions: z.string().trim().max(2000, "Xüsusi təlimatlar 2000 simvoldan uzun ola bilməz.").optional().default(""),
   memories: z.array(ImportedMemoryItemSchema).max(50, "Maksimum 50 yaddaş qeydi saxlanıla bilər.").optional().default([]),
   mergeMode: z.enum(["merge", "replace"]).optional().default("merge"),

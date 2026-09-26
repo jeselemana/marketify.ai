@@ -1014,6 +1014,63 @@ async function togglePersonalIntelligence(enable) {
   }
 }
 
+function isModelImprovementActive() {
+  if (state.currentUser && state.currentUser.settings && typeof state.currentUser.settings.modelImprovement === "boolean") {
+    return state.currentUser.settings.modelImprovement;
+  }
+  try {
+    const saved = localStorage.getItem("helmer_model_improvement");
+    if (saved !== null) return saved !== "false";
+  } catch {}
+  return true;
+}
+
+async function toggleModelImprovement(enable) {
+  const isEn = getLanguage() === "en";
+  try {
+    localStorage.setItem("helmer_model_improvement", String(enable));
+    setCookie("helmer_model_improvement", String(enable));
+    if (!enable) {
+      localStorage.setItem("helmer_personal_intelligence", "false");
+      setCookie("helmer_personal_intelligence", "false");
+    }
+  } catch {}
+  if (!enable) {
+    // When deactivating: Along with it, Personal Intelligence is ALSO deactivated!
+    if (state.currentUser) {
+      if (!state.currentUser.settings) state.currentUser.settings = {};
+      state.currentUser.settings.modelImprovement = false;
+      state.currentUser.settings.personalIntelligence = false;
+      try {
+        const data = await authRequest("/api/auth/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ modelImprovement: false, personalIntelligence: false }),
+        });
+        if (data?.user) updateWorkspaceIdentity(data.user);
+      } catch (err) {
+        console.error("Failed to update model improvement:", err);
+      }
+    }
+    showToast(t("settings.security.modelImprovementDeactivatedToast") || (isEn ? "Model improvement contribution and personalization deactivated." : "Modelin inkişafına töhfə və fərdiləşdirmə deaktivləşdirildi."));
+  } else {
+    // When activating
+    if (state.currentUser) {
+      if (!state.currentUser.settings) state.currentUser.settings = {};
+      state.currentUser.settings.modelImprovement = true;
+      try {
+        const data = await authRequest("/api/auth/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ modelImprovement: true }),
+        });
+        if (data?.user) updateWorkspaceIdentity(data.user);
+      } catch (err) {
+        console.error("Failed to update model improvement:", err);
+      }
+    }
+    showToast(t("settings.security.modelImprovementActivatedToast") || (isEn ? "Contribution to model improvement enabled." : "Modelin inkişafına töhfə aktivləşdirildi."));
+  }
+}
+
 function attachSwipeDownToClose(sheetEl, onClose) {
   let startY = 0;
   let currentY = 0;
@@ -2104,6 +2161,9 @@ const state = {
   clientSaveId: crypto.randomUUID(),
   savedStrategies: [],
   updatedAt: null,
+  f1CountdownActive: false,
+  hasSeenF1Countdown: false,
+  shouldTriggerCarTransition: false,
   error: null,
   retry: null,
   changeSummary: "",
@@ -2344,6 +2404,7 @@ async function api(path, options = {}) {
         "Content-Type": "application/json",
         "Accept-Language": currentLang,
         "X-Helmer-Language": currentLang,
+        "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
         ...(options.headers || {}),
       },
     });
@@ -2855,6 +2916,17 @@ function startNewChat() {
 
 function resetStrategy() {
   clearInterval(progressTimer);
+  if (typeof f1CountdownInterval !== "undefined" && f1CountdownInterval) {
+    clearInterval(f1CountdownInterval);
+    f1CountdownInterval = null;
+  }
+  if (typeof f1CountdownResolver === "function") {
+    f1CountdownResolver();
+    f1CountdownResolver = null;
+  }
+  try {
+    sessionStorage.removeItem("hasSeenF1Countdown");
+  } catch { }
   Object.assign(state, {
     mode: "build",
     view: "home",
@@ -2872,6 +2944,9 @@ function resetStrategy() {
     savedId: null,
     clientSaveId: crypto.randomUUID(),
     updatedAt: null,
+    f1CountdownActive: false,
+    hasSeenF1Countdown: false,
+    shouldTriggerCarTransition: false,
     error: null,
     retry: null,
     changeSummary: "",
@@ -2889,9 +2964,20 @@ function render() {
   clearInterval(progressTimer);
   clearInterval(loadingAskPlaceholderTimer);
   clearTimeout(refinementPlaceholderTimer);
+  if (!["analyzing", "generating"].includes(state.status)) {
+    if (typeof f1CountdownInterval !== "undefined" && f1CountdownInterval) {
+      clearInterval(f1CountdownInterval);
+      f1CountdownInterval = null;
+    }
+    if (typeof f1CountdownResolver === "function") {
+      f1CountdownResolver();
+      f1CountdownResolver = null;
+    }
+    state.f1CountdownActive = false;
+  }
   syncMode();
   syncNav();
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay").forEach((btn) => btn.remove());
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay, #f1StartGantry").forEach((btn) => btn.remove());
   workspace.replaceChildren();
   workspace.className = "workspace";
 
@@ -4386,6 +4472,7 @@ async function thinkDeeperWithTerra(messageIndex) {
       headers: {
         "Content-Type": "application/json",
         "Accept": "text/event-stream",
+        "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
       },
       body: JSON.stringify({
         messages: historyMessages,
@@ -4567,6 +4654,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       headers: {
         "Content-Type": "application/json",
         "Accept": "text/event-stream",
+        "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
       },
       body: JSON.stringify({
         messages: state.askMessages.slice(0, -1),
@@ -4719,6 +4807,183 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   }
 }
 
+let f1CountdownInterval = null;
+let f1CountdownResolver = null;
+
+function shouldShowF1Countdown() {
+  if (state.answers && state.answers.length > 0) return false;
+  if (state.round && state.round > 0) return false;
+  if (state.hasSeenF1Countdown) return false;
+  try {
+    if (sessionStorage.getItem("hasSeenF1Countdown") === state.clientSaveId) return false;
+  } catch { }
+  return true;
+}
+
+function markF1CountdownSeen() {
+  state.hasSeenF1Countdown = true;
+  state.f1CountdownActive = false;
+  try {
+    sessionStorage.setItem("hasSeenF1Countdown", state.clientSaveId);
+  } catch { }
+}
+
+function waitForF1Countdown() {
+  if (!state.f1CountdownActive) return Promise.resolve();
+  return new Promise((resolve) => {
+    f1CountdownResolver = resolve;
+  });
+}
+
+function createF1StartCountdown(isEn, onComplete) {
+  if (f1CountdownInterval) {
+    clearInterval(f1CountdownInterval);
+    f1CountdownInterval = null;
+  }
+
+  const container = element("div", "f1-start-gantry-card");
+  container.id = "f1StartGantry";
+  container.setAttribute("role", "region");
+  container.setAttribute("aria-label", isEn ? "Formula 1 Starting Grid Countdown" : "Formula 1 Start Geri Sayımı");
+
+  const gantryTop = element("div", "f1-gantry-top");
+  const badge = element("div", "f1-gantry-badge");
+  badge.innerHTML = `
+    <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
+      <path d="M2 2h2v12H2V2zm3 0h3l1 2h5l-1 5h-4l-1-2H5V2z"/>
+    </svg>
+    <span>${isEn ? "F1 START SEQUENCE" : "F1 START PROSEDURU"}</span>
+  `;
+
+  const timerEl = element("div", "f1-gantry-timer", "5.0s");
+  timerEl.id = "f1GantryTimer";
+  gantryTop.append(badge, timerEl);
+
+  const lightsBar = element("div", "f1-gantry-lights-bar");
+  lightsBar.id = "f1GantryLightsBar";
+
+  const pods = [];
+  for (let i = 1; i <= 5; i++) {
+    const pod = element("div", "f1-light-pod");
+    pod.dataset.pod = String(i);
+    const bulbTop = element("span", "f1-light-housing");
+    bulbTop.appendChild(element("span", "f1-light-bulb"));
+    const bulbBottom = element("span", "f1-light-housing");
+    bulbBottom.appendChild(element("span", "f1-light-bulb"));
+    pod.append(bulbTop, bulbBottom);
+    lightsBar.appendChild(pod);
+    pods.push(pod);
+  }
+
+  const statusWrap = element("div", "f1-gantry-status");
+  const statusDot = element("span", "f1-gantry-status-dot");
+  const statusText = element("span", "f1-gantry-status-text", isEn ? "GRID FORMING • 5" : "START XƏTTİ • 5");
+  statusText.id = "f1GantryStatusText";
+  statusWrap.append(statusDot, statusText);
+
+  container.append(gantryTop, lightsBar, statusWrap);
+
+  const startTime = Date.now();
+  const totalDurationMs = 5000;
+
+  f1CountdownInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const remainingMs = Math.max(0, totalDurationMs - elapsed);
+    const remainingSec = Math.ceil(remainingMs / 1000);
+
+    const litCount = Math.min(5, Math.floor(elapsed / 1000) + 1);
+    pods.forEach((p, idx) => {
+      if (idx < litCount && remainingMs > 0) {
+        p.classList.add("is-lit");
+      } else {
+        p.classList.remove("is-lit");
+      }
+    });
+
+    if (remainingMs > 0) {
+      timerEl.textContent = `${(remainingMs / 1000).toFixed(1)}s`;
+      const labelsEn = ["", "FINAL REV • 1", "STAGING • 2", "WARMING TIRES • 3", "ARMING SYSTEMS • 4", "GRID FORMING • 5"];
+      const labelsAz = ["", "SON DÖVR • 1", "HAZIRLIQ • 2", "TƏKƏRLƏR İSİNİR • 3", "SİSTEMLƏR AKTİVLƏŞİR • 4", "START XƏTTİ • 5"];
+      statusText.textContent = isEn ? (labelsEn[remainingSec] || "STAGING") : (labelsAz[remainingSec] || "HAZIRLIQ");
+    } else {
+      clearInterval(f1CountdownInterval);
+      f1CountdownInterval = null;
+
+      pods.forEach((p) => {
+        p.classList.remove("is-lit");
+        p.classList.add("is-out");
+      });
+      markF1CountdownSeen();
+      container.classList.add("is-lights-out");
+      timerEl.textContent = "0.0s";
+      timerEl.classList.add("lights-out-text");
+      statusDot.classList.add("is-green");
+      statusText.textContent = isEn ? "LIGHTS OUT! AWAY WE GO!" : "İŞIQLAR SÖNDÜ! İCRA BAŞLAYIR!";
+
+      setTimeout(() => {
+        container.classList.add("is-collapsing");
+        setTimeout(() => {
+          container.remove();
+          if (typeof onComplete === "function") onComplete();
+        }, 320);
+      }, 700);
+    }
+  }, 100);
+
+  return container;
+}
+
+function playF1CarTransition() {
+  const existing = document.getElementById("f1CarFlybyOverlay");
+  if (existing) existing.remove();
+
+  const overlay = element("div", "f1-car-flyby-overlay");
+  overlay.id = "f1CarFlybyOverlay";
+  overlay.setAttribute("aria-hidden", "true");
+
+  const stage = element("div", "f1-car-flyby-stage");
+
+  const trails = element("div", "f1-car-flyby-trails");
+  for (let i = 1; i <= 6; i++) {
+    const trail = element("span", `f1-trail-line f1-trail-line-${i}`);
+    trails.appendChild(trail);
+  }
+
+  const carWrapper = element("div", "f1-car-flyby-vehicle");
+  carWrapper.innerHTML = `
+    <svg class="f1-car-silhouette-svg" viewBox="0 0 200 56" width="190" height="53" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <rect x="6" y="12" width="18" height="3" rx="0.5"/>
+      <rect x="10" y="6" width="14" height="3" rx="0.5"/>
+      <rect x="5" y="15" width="3" height="20" rx="0.5"/>
+      <rect x="22" y="14" width="2.5" height="20" rx="0.5"/>
+      <circle cx="5" cy="30" r="2" fill="#ef4444"/>
+      <path d="M22 36 L146 36 L156 34 L26 34 Z"/>
+      <path d="M26 21 C36 19, 52 13, 72 13 L94 13 L94 19 C80 19, 62 23, 44 29 Z"/>
+      <rect x="74" y="8" width="12" height="5" rx="1"/>
+      <rect x="79" y="5" width="3" height="3" rx="0.5" fill="#eab308"/>
+      <path d="M84 18 C90 14, 104 14, 112 18 L110 21 C104 18, 93 18, 87 21 Z"/>
+      <circle cx="91" cy="16" r="3.2" opacity="0.9"/>
+      <path d="M38 29 C56 25, 92 23, 126 26 L162 32 L188 34 L162 36 L118 35 C85 35, 50 36, 32 36 Z"/>
+      <path d="M158 34 L196 35 L198 33 L174 31 Z"/>
+      <rect x="194" y="29" width="3" height="10" rx="0.5"/>
+      <circle cx="36" cy="36" r="12"/>
+      <circle cx="36" cy="36" r="9.5" fill="none" stroke="var(--f1-tire-accent, #ef4444)" stroke-width="1.4"/>
+      <circle cx="36" cy="36" r="4" fill="var(--f1-hub-color, #475569)"/>
+      <circle cx="150" cy="36" r="12"/>
+      <circle cx="150" cy="36" r="9.5" fill="none" stroke="var(--f1-tire-accent, #ef4444)" stroke-width="1.4"/>
+      <circle cx="150" cy="36" r="4" fill="var(--f1-hub-color, #475569)"/>
+    </svg>
+  `;
+
+  stage.append(trails, carWrapper);
+  overlay.appendChild(stage);
+  document.body.appendChild(overlay);
+
+  setTimeout(() => {
+    overlay.remove();
+  }, 1750);
+}
+
 function renderLoading() {
   const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-centered");
@@ -4757,14 +5022,18 @@ function renderLoading() {
   const title = element(
     "h1",
     "loading-title",
-    isAssessment ? (isEn ? "Analyzing your brief" : "Brifdən növbəti qərara") : (isEn ? "Building your execution roadmap" : "Brifdən icra planına"),
+    isAssessment
+      ? (isEn ? "Analyzing your brief at top speed" : "Brif maksimum sürətlə təhlil olunur")
+      : (isEn ? "Generating your brief at top speed" : "Brif maksimum sürətlə hazırlanır"),
   );
   const intro = element(
     "p",
     "loading-intro",
-    isAssessment
-      ? (isEn ? "Synthesizing your input to tailor strategic recommendations." : "Məlumatları yoxlayıb ən doğru növbəti addımı müəyyənləşdiririk.")
-      : (isEn ? "Generating strategic priorities, channel mix, KPIs, and execution milestones." : "Helmer daxil etdiyin konteksti strukturlaşdırılmış strategiyaya çevirir."),
+    isEn
+      ? "Synthesizing your input to tailor strategic recommendations in record lap time."
+      : (isAssessment
+        ? "Məlumatları rekord dövrə vaxtında sintez edərək strateji tövsiyələr hazırlayırıq."
+        : "Rekord dövrə vaxtında strateji prioritetləri və icra planını strukturlaşdırırıq."),
   );
 
   const activity = element("div", "loading-activity");
@@ -4774,10 +5043,26 @@ function renderLoading() {
   activityTop.append(activityLabel, activityCount);
 
   const activityBody = element("div", "loading-activity-body");
-  const activityIcon = element("div", "loading-activity-icon");
+  const activityIcon = element("div", "loading-activity-icon f1-wheel-loader-container");
+  activityIcon.setAttribute("aria-hidden", "true");
   activityIcon.innerHTML = `
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+    <svg 
+      class="w-5 h-5 text-blue-600 animate-spin f1-tire-spinner" 
+      viewBox="0 0 24 24" 
+      width="20"
+      height="20"
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+      style="animation-duration: 0.7s;"
+    >
+      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" />
+      <circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.5" />
+      <path d="M12 3V7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      <path d="M20.5 9.5L16.5 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      <path d="M17.5 18L14 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      <path d="M6.5 18L10 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      <path d="M3.5 9.5L7.5 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
     </svg>
   `;
   const activityText = element("div", "loading-activity-text");
@@ -4936,35 +5221,68 @@ function renderLoading() {
   secondaryRow.append(cancelBtn, historyBtn);
   cardActions.appendChild(secondaryRow);
 
-  view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
+  function startPhaseProgress() {
+    if (progressTimer) clearInterval(progressTimer);
+    activity.classList.remove("is-staging");
+    timelineWrap.classList.remove("is-staging");
+    progressTimer = setInterval(() => {
+      currentPhase = Math.min(currentPhase + 1, phases.length - 1);
+      activityTitle.textContent = phases[currentPhase][0];
+      copy.textContent = phases[currentPhase][1];
+      activityCount.textContent = `${String(currentPhase + 1).padStart(2, "0")} / ${String(phases.length).padStart(2, "0")}`;
+      [...progress.children].forEach((step, index) => {
+        step.className = index < currentPhase ? "is-complete" : index === currentPhase ? "is-current" : "is-upcoming";
+        const mark = step.querySelector(".generation-step-mark");
+        if (mark) {
+          mark.textContent = index < currentPhase ? "✓" : String(index + 1).padStart(2, "0");
+        }
+      });
+      if (currentPhase === phases.length - 1) clearInterval(progressTimer);
+    }, 1500);
+  }
+
+  let countdownGantry = null;
+  const allowCountdown = state.f1CountdownActive;
+  if (allowCountdown) {
+    activity.classList.add("is-staging");
+    timelineWrap.classList.add("is-staging");
+    countdownGantry = createF1StartCountdown(isEn, () => {
+      markF1CountdownSeen();
+      if (typeof f1CountdownResolver === "function") {
+        f1CountdownResolver();
+        f1CountdownResolver = null;
+      }
+      startPhaseProgress();
+    });
+    view.append(statusLine, title, intro, countdownGantry, activity, timelineWrap, reassurance, cardActions);
+  } else {
+    state.f1CountdownActive = false;
+    view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
+    startPhaseProgress();
+  }
+
   workspace.appendChild(view);
   document.body.appendChild(topActions);
-
-  progressTimer = setInterval(() => {
-    currentPhase = Math.min(currentPhase + 1, phases.length - 1);
-    activityTitle.textContent = phases[currentPhase][0];
-    copy.textContent = phases[currentPhase][1];
-    activityCount.textContent = `${String(currentPhase + 1).padStart(2, "0")} / ${String(phases.length).padStart(2, "0")}`;
-    [...progress.children].forEach((step, index) => {
-      step.className = index < currentPhase ? "is-complete" : index === currentPhase ? "is-current" : "is-upcoming";
-      const mark = step.querySelector(".generation-step-mark");
-      if (mark) {
-        mark.textContent = index < currentPhase ? "✓" : String(index + 1).padStart(2, "0");
-      }
-    });
-    if (currentPhase === phases.length - 1) clearInterval(progressTimer);
-  }, 1500);
 }
 
 function cancelCurrentAnalysis() {
   const isEn = getLanguage() === "en";
   clearInterval(progressTimer);
   clearInterval(loadingAskPlaceholderTimer);
+  if (typeof f1CountdownInterval !== "undefined" && f1CountdownInterval) {
+    clearInterval(f1CountdownInterval);
+    f1CountdownInterval = null;
+  }
+  if (typeof f1CountdownResolver === "function") {
+    f1CountdownResolver();
+    f1CountdownResolver = null;
+  }
+  state.f1CountdownActive = false;
   if (currentAbortController) {
     currentAbortController.abort();
     currentAbortController = null;
   }
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-modal-overlay").forEach((el) => el.remove());
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-modal-overlay, #f1StartGantry, #f1CarFlybyOverlay").forEach((el) => el.remove());
   state.status = "draft";
   showToast(isEn ? "Brief analysis canceled." : "Brif analizi dayandırıldı.", "default");
   render();
@@ -5470,6 +5788,7 @@ function showLoadingAskModal(initialQuery) {
         headers: {
           "Content-Type": "application/json",
           "Accept": "text/event-stream",
+          "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
         },
         body: JSON.stringify({
           messages: thread,
@@ -5612,18 +5931,29 @@ async function startAssessment() {
   currentAbortController?.abort();
   currentAbortController = new AbortController();
   setStatus("analyzing");
+  const allowCountdown = shouldShowF1Countdown();
+  state.f1CountdownActive = allowCountdown;
+  if (allowCountdown) {
+    state.hasSeenF1Countdown = true;
+    try {
+      sessionStorage.setItem("hasSeenF1Countdown", state.clientSaveId);
+    } catch { }
+  }
   render();
   try {
-    const data = await api("/api/strategy/assess", {
-      method: "POST",
-      signal: currentAbortController.signal,
-      body: JSON.stringify({
-        brief: state.brief,
-        answers: state.answers,
-        round: state.round,
-        language: getLanguage(),
+    const [data] = await Promise.all([
+      api("/api/strategy/assess", {
+        method: "POST",
+        signal: currentAbortController.signal,
+        body: JSON.stringify({
+          brief: state.brief,
+          answers: state.answers,
+          round: state.round,
+          language: getLanguage(),
+        }),
       }),
-    });
+      waitForF1Countdown(),
+    ]);
     currentAbortController = null;
     const assessment = data.assessment;
     state.understanding = assessment.understanding;
@@ -5778,6 +6108,7 @@ async function startGeneration() {
   const generationKey = state.clientSaveId;
   state.buildStreamingText = "";
   state.buildStreamingFinishReason = null;
+  state.f1CountdownActive = false;
   setStatus("generating");
   render();
 
@@ -5794,6 +6125,7 @@ async function startGeneration() {
           "Accept": "text/event-stream",
           "Accept-Language": getLanguage() === "en" ? "en" : "az",
           "X-Helmer-Language": getLanguage(),
+          "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
         },
         body: JSON.stringify({
           brief: state.brief,
@@ -5936,6 +6268,7 @@ async function startGeneration() {
           }
         }
         setStatus("saved");
+        state.shouldTriggerCarTransition = true;
         render();
         showToast(isEn ? "Strategy generated and saved to archive ✓" : "Strategiya hazırlandı və arxivə saxlanıldı ✓");
         await loadSavedStrategies();
@@ -5957,12 +6290,14 @@ async function startGeneration() {
           state.updatedAt = saveData.strategy.updatedAt;
           state.versions = saveData.strategy.versions;
           setStatus("saved");
+          state.shouldTriggerCarTransition = true;
           render();
           showToast(isEn ? "Strategy generated and saved to archive ✓" : "Strategiya hazırlandı və arxivə saxlanıldı ✓");
           await loadSavedStrategies();
         } catch (saveErr) {
           console.error("Auto-save fallback failed:", saveErr);
           setStatus("ready");
+          state.shouldTriggerCarTransition = true;
           render();
           showToast(isEn ? "Strategy is ready ✓" : "Strategiya hazırdır ✓");
         }
@@ -5970,6 +6305,7 @@ async function startGeneration() {
     } else {
       state.savedId = null;
       setStatus("ready");
+      state.shouldTriggerCarTransition = true;
       render();
       showToast(isEn ? "Strategy is ready ✓" : "Strategiya hazırdır ✓");
     }
@@ -6137,6 +6473,572 @@ function buildKpiCard(kpi) {
   return card;
 }
 
+function createCheckSvgIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "13");
+  svg.setAttribute("height", "13");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2.5");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  polyline.setAttribute("points", "20 6 9 17 4 12");
+  svg.appendChild(polyline);
+  return svg;
+}
+
+function createPlusSvgIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "13");
+  svg.setAttribute("height", "13");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2.4");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  const l1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  l1.setAttribute("x1", "12");
+  l1.setAttribute("y1", "5");
+  l1.setAttribute("x2", "12");
+  l1.setAttribute("y2", "19");
+  const l2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  l2.setAttribute("x1", "5");
+  l2.setAttribute("y1", "12");
+  l2.setAttribute("x2", "19");
+  l2.setAttribute("y2", "12");
+  svg.append(l1, l2);
+  return svg;
+}
+
+function cleanTaskText(raw) {
+  return String(raw || "").replace(/^[\s\-*•\d.)\]]+/, "").trim();
+}
+
+function isTaskAlreadyInPlanner(rawText, strategyId, strategyTitle) {
+  const target = cleanTaskText(rawText).toLowerCase();
+  if (!target) return false;
+  return (state.plannerTasks || []).some((t) => {
+    const tTitle = cleanTaskText(t.title || t.text).toLowerCase();
+    if (tTitle !== target) return false;
+    if (strategyId && t.strategyId && t.strategyId === strategyId) return true;
+    if (strategyTitle && t.strategyTitle && t.strategyTitle === strategyTitle) return true;
+    return true;
+  });
+}
+
+function openPlannerTaskSelectionModal({
+  aiTasks = [],
+  rawTasks = [],
+  tasks = [],
+  strategyTitle = "",
+  strategyId = null,
+  isEn = false,
+  initialTab = "ai",
+  onTasksAdded = null,
+}) {
+  document.querySelectorAll(".planner-modal-overlay").forEach((el) => el.remove());
+
+  const resolvedAiTasks = Array.isArray(aiTasks) && aiTasks.length > 0 ? aiTasks : (Array.isArray(tasks) ? tasks : []);
+  const resolvedRawTasks = Array.isArray(rawTasks) ? rawTasks : [];
+
+  const overlay = element("div", "planner-modal-overlay");
+  const card = element("div", "planner-modal-card");
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-modal", "true");
+  card.setAttribute("aria-labelledby", "planner-modal-title");
+
+  let currentTab = (resolvedAiTasks.length > 0 && initialTab === "ai") ? "ai" : (resolvedRawTasks.length > 0 ? "raw" : "ai");
+
+  const header = element("header", "planner-modal-header");
+  const headerText = element("div", "planner-modal-header-text");
+  const badge = element("div", "planner-modal-badge", isEn ? "✦ AI Summary" : "✦ AI Xülasəsi");
+  const title = element("h2", "planner-modal-title", isEn ? "Add to Planner" : "Planlaşdırılanlara əlavə et");
+  title.id = "planner-modal-title";
+  const subtitle = element(
+    "p",
+    "planner-modal-subtitle",
+    isEn
+      ? "Actionable tasks summarized and optimized by AI."
+      : "AI tərəfindən xülasələnmiş və optimallaşdırılmış icra addımları."
+  );
+  headerText.append(badge, title, subtitle);
+
+  const closeBtn = button("✕", "planner-modal-close", () => overlay.remove());
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
+  header.append(headerText, closeBtn);
+
+  const selectedAiIndices = new Set(resolvedAiTasks.map((_, i) => i));
+  const selectedRawIndices = new Set(resolvedRawTasks.map((_, i) => i));
+
+  function getActiveTasks() {
+    return currentTab === "ai" ? resolvedAiTasks : resolvedRawTasks;
+  }
+
+  function getActiveSelection() {
+    return currentTab === "ai" ? selectedAiIndices : selectedRawIndices;
+  }
+
+  let tabsContainer = null;
+  let aiTabBtn = null;
+  let rawTabBtn = null;
+
+  if (resolvedAiTasks.length > 0 && resolvedRawTasks.length > 0) {
+    tabsContainer = element("div", "planner-modal-tabs");
+
+    aiTabBtn = button("", "planner-modal-tab" + (currentTab === "ai" ? " is-active" : ""), () => {
+      if (currentTab !== "ai") {
+        currentTab = "ai";
+        onTabChanged();
+      }
+    });
+    aiTabBtn.replaceChildren(
+      document.createTextNode(isEn ? "✦ AI Summary " : "✦ AI Xülasəsi "),
+      element("span", "planner-modal-tab-badge", String(resolvedAiTasks.length))
+    );
+
+    rawTabBtn = button("", "planner-modal-tab" + (currentTab === "raw" ? " is-active" : ""), () => {
+      if (currentTab !== "raw") {
+        currentTab = "raw";
+        onTabChanged();
+      }
+    });
+    rawTabBtn.replaceChildren(
+      document.createTextNode(isEn ? "As-Is " : "Olduğu kimi "),
+      element("span", "planner-modal-tab-badge", String(resolvedRawTasks.length))
+    );
+
+    tabsContainer.append(aiTabBtn, rawTabBtn);
+  }
+
+  const toolbar = element("div", "planner-modal-toolbar");
+  const countIndicator = element("span", "planner-modal-count", "");
+  const toggleAllBtn = button("", "planner-modal-toggle-all", () => {
+    const activeTasks = getActiveTasks();
+    const activeSelection = getActiveSelection();
+    if (activeSelection.size === activeTasks.length) {
+      activeSelection.clear();
+    } else {
+      activeTasks.forEach((_, i) => activeSelection.add(i));
+    }
+    updateListSelection();
+  });
+  toolbar.append(countIndicator, toggleAllBtn);
+
+  const list = element("div", "planner-modal-list");
+  let currentItemElements = [];
+
+  function renderList() {
+    list.replaceChildren();
+    currentItemElements = [];
+    const activeTasks = getActiveTasks();
+    const activeSelection = getActiveSelection();
+
+    activeTasks.forEach((task, index) => {
+      const isSelected = activeSelection.has(index);
+      const itemRow = element("label", "planner-modal-item" + (isSelected ? " is-selected" : ""));
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "planner-modal-item-checkbox";
+      checkbox.checked = isSelected;
+
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) {
+          activeSelection.add(index);
+          itemRow.classList.add("is-selected");
+        } else {
+          activeSelection.delete(index);
+          itemRow.classList.remove("is-selected");
+        }
+        updateCounts();
+      });
+
+      const content = element("div", "planner-modal-item-content");
+      const textSpan = element("span", "planner-modal-item-text", task.title || task.text);
+      const pill = element("span", "planner-modal-item-pill", task.timeframe || task.groupLabel || (isEn ? "Today" : "Bu gün"));
+      content.append(textSpan, pill);
+
+      itemRow.append(checkbox, content);
+      list.appendChild(itemRow);
+      currentItemElements.push({ itemRow, checkbox, index });
+    });
+
+    updateCounts();
+  }
+
+  function onTabChanged() {
+    if (aiTabBtn && rawTabBtn) {
+      aiTabBtn.classList.toggle("is-active", currentTab === "ai");
+      rawTabBtn.classList.toggle("is-active", currentTab === "raw");
+    }
+    if (currentTab === "ai") {
+      badge.textContent = isEn ? "✦ AI Summary" : "✦ AI Xülasəsi";
+      subtitle.textContent = isEn
+        ? "Actionable tasks summarized and optimized by AI."
+        : "AI tərəfindən xülasələnmiş və optimallaşdırılmış icra addımları.";
+    } else {
+      badge.textContent = isEn ? "Original Tasks" : "Orijinal mətnlər";
+      subtitle.textContent = isEn
+        ? "Original execution action items from the strategy."
+        : "Strategiyadakı orijinal icra addımları.";
+    }
+    renderList();
+  }
+
+  const footer = element("footer", "planner-modal-footer");
+  const cancelBtn = button(isEn ? "Cancel" : "İmtina", "planner-modal-cancel-btn", () => overlay.remove());
+  const confirmBtn = button("", "planner-modal-confirm-btn", async () => {
+    const activeTasks = getActiveTasks();
+    const activeSelection = getActiveSelection();
+    if (activeSelection.size === 0) return;
+
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = isEn ? "Adding…" : "Əlavə edilir…";
+
+    const selectedTasks = activeTasks.filter((_, i) => activeSelection.has(i));
+    const itemsToBatch = selectedTasks.map((t) => ({
+      title: t.title || t.text,
+      text: t.title || t.text,
+      timeframe: t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün"),
+      groupLabel: t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün"),
+      status: "todo",
+      strategyId: (strategyId && /^[0-9a-f-]{36}$/i.test(strategyId)) ? strategyId : null,
+      strategyTitle: strategyTitle || (isEn ? "Strategy" : "Strategiya"),
+    }));
+
+    try {
+      const res = await authRequest("/api/planner/batch", {
+        method: "POST",
+        body: JSON.stringify({ tasks: itemsToBatch }),
+      });
+      state.plannerTasks = Array.isArray(res.tasks) ? res.tasks : state.plannerTasks;
+      updatePlannerBadge();
+      const count = res.added?.length ?? itemsToBatch.length;
+      const toastMsg = count === 1
+        ? (isEn ? "1 task added to Planner ✓" : "1 tapşırıq Planner-ə əlavə edildi ✓")
+        : (isEn ? `${count} tasks added to Planner ✓` : `${count} tapşırıq Planner-ə əlavə edildi ✓`);
+      showToast(toastMsg, "success");
+      overlay.remove();
+      if (typeof onTasksAdded === "function") {
+        onTasksAdded(selectedTasks);
+      }
+    } catch (err) {
+      showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
+      confirmBtn.disabled = false;
+      updateCounts();
+    }
+  });
+
+  footer.append(cancelBtn, confirmBtn);
+
+  function updateCounts() {
+    const activeTasks = getActiveTasks();
+    const activeSelection = getActiveSelection();
+    const total = activeTasks.length;
+    const selected = activeSelection.size;
+    countIndicator.textContent = isEn
+      ? `${selected} of ${total} selected`
+      : `${total} tapşırıqdan ${selected} seçilib`;
+
+    toggleAllBtn.textContent = selected === total
+      ? (isEn ? "Deselect All" : "Seçimi ləğv et")
+      : (isEn ? "Select All" : "Hamısını seç");
+
+    confirmBtn.disabled = selected === 0;
+    confirmBtn.textContent = isEn
+      ? `Add Selected (${selected})`
+      : `Seçilənləri əlavə et (${selected})`;
+  }
+
+  function updateListSelection() {
+    const activeSelection = getActiveSelection();
+    currentItemElements.forEach(({ itemRow, checkbox, index }) => {
+      const isSel = activeSelection.has(index);
+      checkbox.checked = isSel;
+      itemRow.classList.toggle("is-selected", isSel);
+    });
+    updateCounts();
+  }
+
+  renderList();
+
+  if (tabsContainer) {
+    card.append(header, tabsContainer, toolbar, list, footer);
+  } else {
+    card.append(header, toolbar, list, footer);
+  }
+  overlay.appendChild(card);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  const onKeydown = (e) => {
+    if (e.key === "Escape") {
+      overlay.remove();
+      document.removeEventListener("keydown", onKeydown);
+    }
+  };
+  document.addEventListener("keydown", onKeydown);
+
+  document.body.appendChild(overlay);
+}
+
+function buildNextStepsSection(strategy, isEn, isRoadmap = false) {
+  const closeout = element("section", "strategy-work-section next-actions-section");
+  closeout.id = "next";
+  const headingWrapper = element("div", "section-heading-with-action");
+
+  if (isRoadmap) {
+    headingWrapper.appendChild(
+      isEn
+        ? createSectionHeading("IMMEDIATE NEXT STEPS", "Immediate action items", "Initial steps to set the strategy in motion")
+        : createSectionHeading("NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addımlar")
+    );
+  } else {
+    headingWrapper.appendChild(
+      isEn
+        ? createSectionHeading("06. IMMEDIATE NEXT STEPS", "Immediate action items", "Actionable step-by-step tasks to set the strategy in motion")
+        : createSectionHeading("06. NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addım-addım tapşırıqlar")
+    );
+  }
+
+  const rowControllers = [];
+
+  const itemsToSummarize = [];
+  const groupLabels = isEn ? ["Today", "Next 48 hours", "This week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+  const nextStepsList = Array.isArray(strategy.nextSteps) ? strategy.nextSteps : [];
+  const chunkSize = Math.max(1, Math.ceil(nextStepsList.length / 3));
+
+  groupLabels.forEach((label, groupIndex) => {
+    const items = nextStepsList.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
+    items.forEach((item) => {
+      const cleaned = cleanTaskText(item) || String(item).trim();
+      if (cleaned) {
+        itemsToSummarize.push({
+          title: cleaned,
+          text: cleaned,
+          timeframe: label,
+          groupLabel: label,
+          status: "todo",
+        });
+      }
+    });
+  });
+
+  const nextActionsGroup = element("div", "next-actions-btn-group");
+
+  // Track 1: Manual Direct Bulk Add (Olduğu kimi əlavə et)
+  const addAllManualButton = button(
+    isEn ? "Add All As Is" : "Olduğu kimi əlavə et",
+    "add-all-manual-btn",
+    async () => {
+      if (itemsToSummarize.length === 0) return;
+      addAllManualButton.disabled = true;
+      addAllManualButton.textContent = isEn ? "Adding…" : "Əlavə edilir…";
+
+      const itemsToBatch = itemsToSummarize.map((t) => ({
+        title: t.title || t.text,
+        text: t.title || t.text,
+        timeframe: t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün"),
+        groupLabel: t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün"),
+        status: "todo",
+        strategyId: (state.savedId && /^[0-9a-f-]{36}$/i.test(state.savedId)) ? state.savedId : null,
+        strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
+      }));
+
+      try {
+        const res = await authRequest("/api/planner/batch", {
+          method: "POST",
+          body: JSON.stringify({ tasks: itemsToBatch }),
+        });
+        state.plannerTasks = Array.isArray(res.tasks) ? res.tasks : state.plannerTasks;
+        updatePlannerBadge();
+        const count = res.added?.length ?? itemsToBatch.length;
+        const toastMsg = count === 1
+          ? (isEn ? "1 task added to Planner ✓" : "1 tapşırıq olduğu kimi Planner-ə əlavə edildi ✓")
+          : (isEn ? `${count} tasks added to Planner ✓` : `${count} tapşırıq olduğu kimi Planner-ə əlavə edildi ✓`);
+        showToast(toastMsg, "success");
+        rowControllers.forEach(({ setAddedState }) => setAddedState());
+        addAllManualButton.classList.add("is-success");
+        addAllManualButton.textContent = isEn ? "✓ Added" : "✓ Əlavə edildi";
+        setTimeout(() => {
+          addAllManualButton.classList.remove("is-success");
+          addAllManualButton.disabled = false;
+          addAllManualButton.textContent = isEn ? "Add All As Is" : "Olduğu kimi əlavə et";
+        }, 2500);
+      } catch (err) {
+        showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
+        addAllManualButton.disabled = false;
+        addAllManualButton.textContent = isEn ? "Add All As Is" : "Olduğu kimi əlavə et";
+      }
+    }
+  );
+
+  // Track 2: AI Summarized Bulk Add (✦ AI ilə xülasələ və əlavə et)
+  const addAllToPlannerButton = button(
+    isEn ? "✦ AI Summarize & Add" : "✦ AI ilə xülasələ və əlavə et",
+    "add-to-planner-btn add-ai-summary-btn",
+    async () => {
+      addAllToPlannerButton.disabled = true;
+      addAllToPlannerButton.textContent = isEn ? "✦ Summarizing with AI…" : "✦ AI ilə xülasələnir…";
+
+      const triggerModalWithTasks = (summarizedTasks) => {
+        openPlannerTaskSelectionModal({
+          aiTasks: summarizedTasks,
+          rawTasks: itemsToSummarize,
+          strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
+          strategyId: state.savedId || null,
+          isEn,
+          onTasksAdded: (addedTasks) => {
+            rowControllers.forEach(({ setAddedState, cleaned }) => {
+              const wasAdded = addedTasks.some((at) => {
+                const atText = cleanTaskText(at.title || at.text).toLowerCase();
+                return atText.includes(cleaned.toLowerCase()) || cleaned.toLowerCase().includes(atText);
+              });
+              if (wasAdded) setAddedState();
+            });
+            addAllToPlannerButton.textContent = isEn ? "✓ Added" : "✓ Əlavə edildi";
+            setTimeout(() => {
+              addAllToPlannerButton.disabled = false;
+              addAllToPlannerButton.textContent = isEn ? "✦ AI Summarize & Add" : "✦ AI ilə xülasələ və əlavə et";
+            }, 2500);
+          },
+        });
+      };
+
+      try {
+        const res = await authRequest("/api/planner/summarize", {
+          method: "POST",
+          body: JSON.stringify({
+            tasks: itemsToSummarize,
+            strategyId: (state.savedId && /^[0-9a-f-]{36}$/i.test(state.savedId)) ? state.savedId : null,
+            strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
+            language: isEn ? "en" : "az",
+          }),
+        });
+
+        const summarizedTasks = Array.isArray(res.tasks) && res.tasks.length > 0
+          ? res.tasks
+          : itemsToSummarize.map((t) => ({
+              title: cleanTaskText(t.title || t.text),
+              timeframe: t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün"),
+              status: "todo",
+            }));
+
+        triggerModalWithTasks(summarizedTasks);
+      } catch (err) {
+        console.warn("AI Task summarization error, falling back to local tasks:", err);
+        triggerModalWithTasks(
+          itemsToSummarize.map((t) => ({
+            title: cleanTaskText(t.title || t.text),
+            timeframe: t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün"),
+            status: "todo",
+          }))
+        );
+      } finally {
+        addAllToPlannerButton.disabled = false;
+        addAllToPlannerButton.textContent = isEn ? "✦ AI Summarize & Add" : "✦ AI ilə xülasələ və əlavə et";
+      }
+    }
+  );
+
+  nextActionsGroup.append(addAllManualButton, addAllToPlannerButton);
+  headingWrapper.appendChild(nextActionsGroup);
+  closeout.appendChild(headingWrapper);
+
+  const checklistGrid = element("div", "action-checklist-grid");
+
+  groupLabels.forEach((label, groupIndex) => {
+    const items = nextStepsList.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
+    if (!items.length) return;
+    const groupCard = element("section", "checklist-group-card");
+    groupCard.appendChild(element("h3", "checklist-group-title", label));
+    const itemsList = element("div", "checklist-items-list");
+
+    items.forEach((item, itemIndex) => {
+      const checkboxLabel = element("label", "checklist-item");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.dataset.key = `${isRoadmap ? "roadmap-" : ""}${groupIndex}-${itemIndex}`;
+      const span = element("span", "checklist-item-text", item);
+
+      const cleaned = cleanTaskText(item) || String(item).trim();
+      const alreadyAdded = isTaskAlreadyInPlanner(cleaned, state.savedId, strategy.title);
+
+      const singleAddBtn = element("button", "item-plan-btn" + (alreadyAdded ? " is-added" : ""));
+      singleAddBtn.type = "button";
+      singleAddBtn.setAttribute("aria-label", isEn ? "Add to Planner" : "Planlaşdırılanlara əlavə et");
+
+      const setAddedState = () => {
+        singleAddBtn.disabled = true;
+        singleAddBtn.classList.add("is-added");
+        singleAddBtn.replaceChildren(createCheckSvgIcon(), document.createTextNode(isEn ? " Added" : " Əlavə edildi"));
+      };
+
+      const setDefaultState = () => {
+        singleAddBtn.disabled = false;
+        singleAddBtn.classList.remove("is-added");
+        singleAddBtn.replaceChildren(createPlusSvgIcon(), document.createTextNode(isEn ? " Add" : " Planlaşdır"));
+      };
+
+      if (alreadyAdded) {
+        setAddedState();
+      } else {
+        setDefaultState();
+      }
+
+      singleAddBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (singleAddBtn.disabled) return;
+
+        singleAddBtn.disabled = true;
+        singleAddBtn.textContent = "…";
+
+        try {
+          const res = await authRequest("/api/planner", {
+            method: "POST",
+            body: JSON.stringify({
+              title: cleaned,
+              text: cleaned,
+              timeframe: label,
+              groupLabel: label,
+              status: "todo",
+              strategyId: (state.savedId && /^[0-9a-f-]{36}$/i.test(state.savedId)) ? state.savedId : null,
+              strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
+            }),
+          });
+
+          if (res.task) {
+            state.plannerTasks = [res.task, ...(state.plannerTasks || []).filter((t) => t.id !== res.task.id)];
+            updatePlannerBadge();
+            showToast(isEn ? "1 task added to Planner ✓" : "1 tapşırıq Planner-ə əlavə edildi ✓", "success");
+            setAddedState();
+          }
+        } catch (err) {
+          showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
+          setDefaultState();
+        }
+      });
+
+      rowControllers.push({ setAddedState, cleaned });
+      checkboxLabel.append(checkbox, span, singleAddBtn);
+      itemsList.appendChild(checkboxLabel);
+    });
+
+    groupCard.appendChild(itemsList);
+    checklistGrid.appendChild(groupCard);
+  });
+
+  closeout.appendChild(checklistGrid);
+  return closeout;
+}
+
 function buildBlogView(strategy) {
   const isEn = getLanguage() === "en";
   const container = element("div", "strategy-blog-container");
@@ -6288,107 +7190,7 @@ function buildBlogView(strategy) {
   risks.appendChild(riskGrid);
 
   // 06. NEXT STEPS
-  const closeout = element("section", "strategy-work-section next-actions-section");
-  closeout.id = "next";
-  const headingWrapper = element("div", "section-heading-with-action");
-  headingWrapper.appendChild(
-    isEn
-      ? createSectionHeading("06. IMMEDIATE NEXT STEPS", "Immediate action items", "Actionable step-by-step tasks to set the strategy in motion")
-      : createSectionHeading("06. NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addım-addım tapşırıqlar")
-  );
-
-  const addAllToPlannerButton = button(isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et", "add-to-planner-btn", async () => {
-    addAllToPlannerButton.disabled = true;
-    addAllToPlannerButton.textContent = isEn ? "Adding…" : "Əlavə edilir…";
-    try {
-      const itemsToBatch = [];
-      const groupLabels = isEn ? ["Today", "Next 48 hours", "This week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
-      const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
-      groupLabels.forEach((label, groupIndex) => {
-        const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
-        items.forEach((item) => {
-          itemsToBatch.push({
-            text: item,
-            groupLabel: label,
-            strategyId: state.savedId || null,
-            strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
-          });
-        });
-      });
-
-      const res = await authRequest("/api/planner/batch", {
-        method: "POST",
-        body: JSON.stringify({ tasks: itemsToBatch }),
-      });
-      state.plannerTasks = Array.isArray(res.tasks) ? res.tasks : state.plannerTasks;
-      updatePlannerBadge();
-      showToast(isEn ? `${res.added?.length || itemsToBatch.length} tasks added to Planner ✓` : `${res.added?.length || itemsToBatch.length} tapşırıq Planlaşdırılanlara əlavə edildi ✓`, "success");
-      addAllToPlannerButton.textContent = isEn ? "✓ Added" : "✓ Əlavə edildi";
-      setTimeout(() => {
-        addAllToPlannerButton.disabled = false;
-        addAllToPlannerButton.textContent = isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et";
-      }, 2500);
-    } catch (err) {
-      showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
-      addAllToPlannerButton.disabled = false;
-      addAllToPlannerButton.textContent = isEn ? "✦ Add to Planner" : "✦ Planlaşdırılanlara əlavə et";
-    }
-  });
-
-  headingWrapper.appendChild(addAllToPlannerButton);
-  closeout.appendChild(headingWrapper);
-
-  const checklistGrid = element("div", "action-checklist-grid");
-  const groupLabels = isEn ? ["Today", "Next 48 hours", "This week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
-  const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
-  groupLabels.forEach((label, groupIndex) => {
-    const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
-    if (!items.length) return;
-    const groupCard = element("section", "checklist-group-card");
-    groupCard.appendChild(element("h3", "checklist-group-title", label));
-    const itemsList = element("div", "checklist-items-list");
-    items.forEach((item, itemIndex) => {
-      const checkboxLabel = element("label", "checklist-item");
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.dataset.key = `${groupIndex}-${itemIndex}`;
-      const span = element("span", "checklist-item-text", item);
-
-      const singleAddBtn = button(isEn ? "+ Plan" : "+ Planlaşdır", "item-plan-btn", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        singleAddBtn.disabled = true;
-        singleAddBtn.textContent = "…";
-        try {
-          const res = await authRequest("/api/planner", {
-            method: "POST",
-            body: JSON.stringify({
-              text: item,
-              groupLabel: label,
-              strategyId: state.savedId || null,
-              strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
-            }),
-          });
-          if (res.task) {
-            state.plannerTasks = [res.task, ...state.plannerTasks.filter((t) => t.id !== res.task.id)];
-            updatePlannerBadge();
-            showToast(isEn ? "Task added to Planner ✓" : "Tapşırıq Planlaşdırılanlara əlavə edildi ✓", "success");
-            singleAddBtn.textContent = "✓";
-          }
-        } catch (err) {
-          showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
-          singleAddBtn.textContent = isEn ? "+ Plan" : "+ Planlaşdır";
-          singleAddBtn.disabled = false;
-        }
-      });
-
-      checkboxLabel.append(checkbox, span, singleAddBtn);
-      itemsList.appendChild(checkboxLabel);
-    });
-    groupCard.appendChild(itemsList);
-    checklistGrid.appendChild(groupCard);
-  });
-  closeout.appendChild(checklistGrid);
+  const closeout = buildNextStepsSection(strategy, isEn, false);
 
   // Assumptions
   if (strategy.assumptions && strategy.assumptions.length) {
@@ -6743,107 +7545,7 @@ function buildRoadmapView(strategy) {
   actionPlan.appendChild(timeline);
 
   // Next Steps Checklist
-  const closeout = element("section", "strategy-work-section next-actions-section");
-  closeout.id = "next";
-  const headingWrapper = element("div", "section-heading-with-action");
-  headingWrapper.appendChild(
-    isEn
-      ? createSectionHeading("IMMEDIATE NEXT STEPS", "Immediate action items", "Initial steps to set the strategy in motion")
-      : createSectionHeading("NÖVBƏTİ ADDIMLAR", "Dərhal başlanılacaq fəaliyyətlər", "Strategiyanı hərəkətə keçirmək üçün ilk addımlar")
-  );
-
-  const addAllToPlannerButton = button(isEn ? "✦ Add All Tasks to Planner" : "✦ Planlaşdırılanlara əlavə et", "add-to-planner-btn", async () => {
-    addAllToPlannerButton.disabled = true;
-    addAllToPlannerButton.textContent = isEn ? "Adding…" : "Əlavə edilir…";
-    try {
-      const itemsToBatch = [];
-      const groupLabels = isEn ? ["Today", "Next 48 Hours", "This Week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
-      const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
-      groupLabels.forEach((label, groupIndex) => {
-        const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
-        items.forEach((item) => {
-          itemsToBatch.push({
-            text: item,
-            groupLabel: label,
-            strategyId: state.savedId || null,
-            strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
-          });
-        });
-      });
-
-      const res = await authRequest("/api/planner/batch", {
-        method: "POST",
-        body: JSON.stringify({ tasks: itemsToBatch }),
-      });
-      state.plannerTasks = Array.isArray(res.tasks) ? res.tasks : state.plannerTasks;
-      updatePlannerBadge();
-      showToast(isEn ? `${res.added?.length || itemsToBatch.length} tasks added to Planner ✓` : `${res.added?.length || itemsToBatch.length} tapşırıq Planlaşdırılanlara əlavə edildi ✓`, "success");
-      addAllToPlannerButton.textContent = isEn ? "✓ Added" : "✓ Əlavə edildi";
-      setTimeout(() => {
-        addAllToPlannerButton.disabled = false;
-        addAllToPlannerButton.textContent = isEn ? "✦ Add All Tasks to Planner" : "✦ Planlaşdırılanlara əlavə et";
-      }, 2500);
-    } catch (err) {
-      showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
-      addAllToPlannerButton.disabled = false;
-      addAllToPlannerButton.textContent = isEn ? "✦ Add All Tasks to Planner" : "✦ Planlaşdırılanlara əlavə et";
-    }
-  });
-
-  headingWrapper.appendChild(addAllToPlannerButton);
-  closeout.appendChild(headingWrapper);
-
-  const checklistGrid = element("div", "action-checklist-grid");
-  const groupLabels = isEn ? ["Today", "Next 48 Hours", "This Week"] : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
-  const chunkSize = Math.max(1, Math.ceil(strategy.nextSteps.length / 3));
-  groupLabels.forEach((label, groupIndex) => {
-    const items = strategy.nextSteps.slice(groupIndex * chunkSize, (groupIndex + 1) * chunkSize);
-    if (!items.length) return;
-    const groupCard = element("section", "checklist-group-card");
-    groupCard.appendChild(element("h3", "checklist-group-title", label));
-    const itemsList = element("div", "checklist-items-list");
-    items.forEach((item, itemIndex) => {
-      const checkboxLabel = element("label", "checklist-item");
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.dataset.key = `roadmap-${groupIndex}-${itemIndex}`;
-      const span = element("span", "checklist-item-text", item);
-
-      const singleAddBtn = button(isEn ? "+ Add to Planner" : "+ Planlaşdır", "item-plan-btn", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        singleAddBtn.disabled = true;
-        singleAddBtn.textContent = "…";
-        try {
-          const res = await authRequest("/api/planner", {
-            method: "POST",
-            body: JSON.stringify({
-              text: item,
-              groupLabel: label,
-              strategyId: state.savedId || null,
-              strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
-            }),
-          });
-          if (res.task) {
-            state.plannerTasks = [res.task, ...state.plannerTasks.filter((t) => t.id !== res.task.id)];
-            updatePlannerBadge();
-            showToast(isEn ? "Task added to Planner ✓" : "Tapşırıq Planlaşdırılanlara əlavə edildi ✓", "success");
-            singleAddBtn.textContent = "✓";
-          }
-        } catch (err) {
-          showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
-          singleAddBtn.textContent = isEn ? "+ Plan" : "+ Planlaşdır";
-          singleAddBtn.disabled = false;
-        }
-      });
-
-      checkboxLabel.append(checkbox, span, singleAddBtn);
-      itemsList.appendChild(checkboxLabel);
-    });
-    groupCard.appendChild(itemsList);
-    checklistGrid.appendChild(groupCard);
-  });
-  closeout.appendChild(checklistGrid);
+  const closeout = buildNextStepsSection(strategy, isEn, true);
 
   // KPI checkpoints
   const measurement = element("section", "strategy-work-section");
@@ -7511,6 +8213,10 @@ function buildStrategySummaryModal() {
 }
 
 function renderStrategyWorkspace() {
+  if (state.shouldTriggerCarTransition) {
+    state.shouldTriggerCarTransition = false;
+    playF1CarTransition();
+  }
   const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-document");
   const strategy = state.strategy;
@@ -8192,6 +8898,12 @@ function updateWorkspaceIdentity(user) {
   railWorkspaceAvatar.textContent = initials;
   workspaceName.textContent = user.fullName;
   workspaceMeta.textContent = isEn ? `@${user.username} · Personal workspace` : `@${user.username} · Şəxsi hesab`;
+  if (user?.settings && typeof user.settings.modelImprovement === "boolean") {
+    try {
+      localStorage.setItem("helmer_model_improvement", String(user.settings.modelImprovement));
+      setCookie("helmer_model_improvement", String(user.settings.modelImprovement));
+    } catch {}
+  }
 }
 
 function settingsField(label, name, value, type = "text", autocomplete = "off", placeholder = "") {
@@ -9053,7 +9765,12 @@ function renderSettings() {
       },
     ];
 
-    const currentToneObj = toneOptions.find((t) => t.id === currentTone) || toneOptions[0];
+    const currentToneObj = toneOptions.find((t) => t.id === currentTone)
+      || (currentTone === "concise" ? toneOptions.find((t) => t.id === "executive") : null)
+      || (currentTone === "data_driven" ? toneOptions.find((t) => t.id === "direct") : null)
+      || (currentTone === "friendly" ? toneOptions.find((t) => t.id === "creative") : null)
+      || toneOptions[0];
+    currentTone = currentToneObj.id;
     const toneBadge = element("span", "experience-summary-badge", currentToneObj.name);
 
     toneOptions.forEach((opt) => {
@@ -9530,28 +10247,85 @@ function renderSettings() {
     `;
     panel.appendChild(healthCard);
 
-    // Active Device & Session Inspector
-    const sessionCard = element("div", "security-session-card");
-    const userAgent = navigator.userAgent || "";
-    const isMac = /mac/i.test(userAgent);
-    const osLabel = isMac ? "macOS Desktop" : /windows/i.test(userAgent) ? "Windows PC" : "Web Client";
-    sessionCard.innerHTML = `
-      <div class="session-card-header">
-        <div class="session-device-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-            <line x1="8" y1="21" x2="16" y2="21"/>
-            <line x1="12" y1="17" x2="12" y2="21"/>
+    // Model Improvement Contribution Card (Settings Security Tab)
+    const isModelActive = isModelImprovementActive();
+    const modelCard = element("div", "settings-security-card model-improvement-card");
+    const modelRow = element("div", "settings-toggle-row");
+    const modelCopy = element("div", "settings-toggle-copy");
+
+    const modelHeaderRow = element("div", "model-improvement-header-row");
+    const modelTitle = element("strong", "", t("settings.security.modelImprovementTitle"));
+
+    const modelInfoWrap = element("div", "model-info-wrap");
+    const modelInfoBtn = element("button", "model-improvement-info-btn");
+    modelInfoBtn.type = "button";
+    modelInfoBtn.setAttribute("aria-label", t("settings.security.modelImprovementInfoBtn"));
+    modelInfoBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4"/>
+        <path d="M12 8h.01"/>
+      </svg>
+    `;
+
+    const modelInfoPopover = element("div", "model-info-popover");
+    modelInfoPopover.setAttribute("role", "tooltip");
+    modelInfoPopover.innerHTML = `
+      <div class="model-info-popover-arrow" aria-hidden="true"></div>
+      <div class="model-info-popover-content">
+        <p class="model-info-popover-text">${escapeHtml(t("settings.security.modelImprovementInfoDetails"))}</p>
+        <button type="button" class="model-info-popover-close" aria-label="${escapeHtml(isEn ? "Close info" : "Məlumatı bağla")}">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
-        </div>
-        <div class="session-device-info">
-          <strong>${escapeHtml(osLabel)} · ${escapeHtml(isEn ? "Current Workspace Session" : "Cari İş Mühiti Sessiyası")}</strong>
-          <p>${escapeHtml(isEn ? "Active connection · Authenticated origin · Secured browser sandbox" : "Aktiv əlaqə · Təsdiqlənmiş mənbə · Qorunan brauzer mühiti")}</p>
-        </div>
-        <span class="session-active-indicator"><span class="pulse-dot"></span>${escapeHtml(isEn ? "Active now" : "Hazırda aktiv")}</span>
+        </button>
       </div>
     `;
-    panel.appendChild(sessionCard);
+
+    const modelInfoCloseBtn = modelInfoPopover.querySelector(".model-info-popover-close");
+    if (modelInfoCloseBtn) {
+      modelInfoCloseBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        modelInfoWrap.classList.remove("is-visible");
+      });
+    }
+
+    modelInfoWrap.append(modelInfoBtn, modelInfoPopover);
+
+    // Support mobile touch / tap toggle as well as hover
+    modelInfoBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      modelInfoWrap.classList.toggle("is-visible");
+    });
+    document.addEventListener("click", (e) => {
+      if (!modelInfoWrap.contains(e.target)) {
+        modelInfoWrap.classList.remove("is-visible");
+      }
+    });
+
+    modelHeaderRow.append(modelTitle, modelInfoWrap);
+
+    const modelDesc = element("p", "", t("settings.security.modelImprovementDesc"));
+    modelCopy.append(modelHeaderRow, modelDesc);
+
+    const modelToggle = element("button", `settings-toggle${isModelActive ? " is-active" : ""}`);
+    modelToggle.type = "button";
+    modelToggle.setAttribute("role", "switch");
+    modelToggle.setAttribute("aria-label", t("settings.security.modelImprovementTitle"));
+    modelToggle.setAttribute("aria-checked", String(isModelActive));
+    modelToggle.appendChild(element("span", "settings-toggle-thumb"));
+
+    modelToggle.addEventListener("click", async () => {
+      const nextState = !isModelImprovementActive();
+      modelToggle.classList.toggle("is-active", nextState);
+      modelToggle.setAttribute("aria-checked", String(nextState));
+      await toggleModelImprovement(nextState);
+    });
+
+    modelRow.append(modelCopy, modelToggle);
+    modelCard.appendChild(modelRow);
+    panel.appendChild(modelCard);
 
     if (!state.currentUser) {
       const guestSandboxCard = element("div", "settings-diagnostic-card");

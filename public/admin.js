@@ -131,6 +131,7 @@ function renderTelemetryKpis(data) {
   setTxt("stat-telemetry-cost-azn", formatAzn(data.todayCostAzn));
   setTxt("stat-telemetry-cost-usd", `(${formatUsd(data.todayCostUsd)})`);
   setTxt("stat-telemetry-total-events", Number(data.totalEvents || 0).toLocaleString());
+  setTxt("stat-telemetry-restricted-count", Number(data.restrictedCount || 0).toLocaleString());
   setTxt("stat-telemetry-local-share", `${data.marketDistribution?.localPercent || 0}%`);
   setTxt("stat-telemetry-alltime-cost", formatAzn(data.allTimeCostAzn));
 }
@@ -241,6 +242,11 @@ function renderTelemetryEvents(data) {
       const gBadge = makeEl("span", "grounding-indicator", "🌐 Search aktiv");
       eventWrap.appendChild(gBadge);
     }
+    if (event.onlyNecessaryData) {
+      const rBadge = makeEl("span", "restricted-data-indicator", "🔒 Yalnız zəruri məlumat");
+      rBadge.title = "İstifadəçi modelin inkişafına töhfəni deaktiv edib. Admin panelinə yalnız zəruri məlumatlar ötürülüb.";
+      eventWrap.appendChild(rBadge);
+    }
     tdEvent.appendChild(eventWrap);
 
     // 2. Mode badge
@@ -341,9 +347,18 @@ async function openTelemetryModal(id) {
       titleEl.textContent = `${event.eventType} • ${event.maskedUserId}`;
     }
 
+    const restrictedNoticeEl = document.getElementById("telemetryModalRestrictedNotice");
+    if (restrictedNoticeEl) {
+      restrictedNoticeEl.hidden = !event.onlyNecessaryData;
+    }
+
     if (chipsEl) {
       chipsEl.textContent = "";
-      const chipData = [
+      const chipData = [];
+      if (event.onlyNecessaryData) {
+        chipData.push(["Məlumat Rejimi", "🔒 Yalnız zəruri məlumat (Model töhfəsi deaktiv)"]);
+      }
+      chipData.push(
         ["Rejim", event.mode],
         ["Bazar", event.marketMode || "Ümumi"],
         ["Model", event.model || "–"],
@@ -354,7 +369,7 @@ async function openTelemetryModal(id) {
         ["Xərc (AZN)", formatAzn(event.costAzn)],
         ["Xərc (USD)", formatUsd(event.costUsd)],
         ["Tarix", formatDate(event.timestamp)],
-      ];
+      );
       if (event.groundingActive) {
         chipData.push(["Grounding", "Google Search Aktiv"]);
       }
@@ -489,7 +504,7 @@ function paginationHtml(data, kind) {
 }
 
 function renderLearningInteractions(data) {
-  document.getElementById("learningInteractions").innerHTML = data.items.length ? data.items.map((item) => `<tr class="clickable-row" data-interaction-id="${escapeHtml(item.id)}"><td>${formatDate(item.createdAt)}</td><td><span class="mode-pill ${escapeHtml(item.mode)}">${escapeHtml(item.mode)}</span><small>${escapeHtml(item.taskType)}</small></td><td>${escapeHtml(item.modelProvider)}<small>${escapeHtml(item.modelName)}</small></td><td>${escapeHtml(item.userPrompt)}</td><td>${escapeHtml(item.modelResponse)}</td><td>${item.latencyMs === null ? "–" : `${item.latencyMs} ms`}</td><td>${item.totalTokens === null ? "–" : item.totalTokens.toLocaleString()}</td><td>${item.estimatedCost === null ? "–" : formatMoney(item.estimatedCost)}</td><td><strong>${Number(item.qualityScore).toFixed(2)}</strong></td><td><span class="review-status ${escapeHtml(item.trainingStatus || "none")}">${escapeHtml(item.trainingStatus || "—")}</span></td></tr>`).join("") : '<tr><td colspan="10" class="empty-cell">Interaction yoxdur.</td></tr>';
+  document.getElementById("learningInteractions").innerHTML = data.items.length ? data.items.map((item) => `<tr class="clickable-row${item.onlyNecessaryData ? " is-restricted-row" : ""}" data-interaction-id="${escapeHtml(item.id)}"><td>${formatDate(item.createdAt)}</td><td><span class="mode-pill ${escapeHtml(item.mode)}">${escapeHtml(item.mode)}</span><small>${escapeHtml(item.taskType)}</small>${item.onlyNecessaryData ? '<span class="restricted-tag">🔒 Yalnız zəruri</span>' : ''}</td><td>${escapeHtml(item.modelProvider)}<small>${escapeHtml(item.modelName)}</small></td><td>${escapeHtml(item.userPrompt)}</td><td>${escapeHtml(item.modelResponse)}</td><td>${item.latencyMs === null ? "–" : `${item.latencyMs} ms`}</td><td>${item.totalTokens === null ? "–" : item.totalTokens.toLocaleString()}</td><td>${item.estimatedCost === null ? "–" : formatMoney(item.estimatedCost)}</td><td><strong>${Number(item.qualityScore).toFixed(2)}</strong></td><td><span class="review-status ${escapeHtml(item.onlyNecessaryData ? "blocked" : (item.trainingStatus || "none"))}">${escapeHtml(item.onlyNecessaryData ? "🔒 Töhfə deaktiv" : (item.trainingStatus || "—"))}</span></td></tr>`).join("") : '<tr><td colspan="10" class="empty-cell">Interaction yoxdur.</td></tr>';
   const pagination = document.getElementById("learningInteractionPagination");
   pagination.innerHTML = paginationHtml(data, "interaction");
 }
@@ -516,7 +531,10 @@ function closeLearningModal() {
 
 async function openInteractionDetail(id) {
   const { interaction: item } = await fetchJSON(`/admin/api/ai-learning/interactions/${encodeURIComponent(id)}`);
-  openLearningModal(`<div class="brand-badge">Interaction detail</div><h2 id="learningModalTitle">${escapeHtml(item.mode)} · ${escapeHtml(item.taskType)}</h2><div class="detail-metrics"><span>Provider <strong>${escapeHtml(item.modelProvider)}</strong></span><span>Model <strong>${escapeHtml(item.modelName)}</strong></span><span>Latency <strong>${item.latencyMs ?? "–"} ms</strong></span><span>Tokens <strong>${item.totalTokens ?? "–"}</strong></span><span>Cost <strong>${item.estimatedCost === null ? "Pricing yoxdur" : formatMoney(item.estimatedCost)}</strong></span><span>Quality <strong>${Number(item.qualityScore).toFixed(2)}</strong></span></div><h3>Prompt</h3><pre>${escapeHtml(item.userPrompt)}</pre><h3>Sanitized relevant context</h3><pre>${escapeHtml(JSON.stringify(item.relevantContext, null, 2))}</pre><h3>Model response</h3><pre>${escapeHtml(item.modelResponse)}</pre><h3>Quality score breakdown</h3>${scoreBreakdown(item.qualityBreakdown)}<h3>Signals</h3><pre>${escapeHtml(JSON.stringify(item.signals, null, 2))}</pre><h3>Iteration history</h3>${item.iterations.length ? item.iterations.map((iteration) => `<div class="iteration-card"><strong>V${iteration.iterationNumber}</strong><p>${escapeHtml(iteration.modificationRequest)}</p><pre>${escapeHtml(iteration.response)}</pre></div>`).join("") : '<p class="hint">Iteration yoxdur.</p>'}<h3>Preferred response</h3><pre>${escapeHtml(item.preferredResponse)}</pre><h3>Training candidate</h3><p>${item.candidate ? `<button class="btn btn-ghost" data-modal-candidate="${escapeHtml(item.candidate.id)}">${escapeHtml(item.candidate.status)} candidate-a bax</button>` : "Candidate yaranmayıb."}</p>`);
+  const restrictedBanner = item.onlyNecessaryData
+    ? `<div class="restricted-data-banner"><span>🔒</span><div><strong>Modelin inkişafına töhfə deaktivdir:</strong> İstifadəçi modelin inkişafına töhfə verməkdən imtina edib. Məzmun və fərdi kontekst qorunub, admin panelinə yalnız zəruri əməliyyat məlumatları ötürülüb və təlim namizədlərindən çıxarılıb.</div></div>`
+    : "";
+  openLearningModal(`${restrictedBanner}<div class="brand-badge">Interaction detail</div><h2 id="learningModalTitle">${escapeHtml(item.mode)} · ${escapeHtml(item.taskType)}</h2><div class="detail-metrics"><span>Provider <strong>${escapeHtml(item.modelProvider)}</strong></span><span>Model <strong>${escapeHtml(item.modelName)}</strong></span><span>Latency <strong>${item.latencyMs ?? "–"} ms</strong></span><span>Tokens <strong>${item.totalTokens ?? "–"}</strong></span><span>Cost <strong>${item.estimatedCost === null ? "Pricing yoxdur" : formatMoney(item.estimatedCost)}</strong></span><span>Quality <strong>${Number(item.qualityScore).toFixed(2)}</strong></span></div><h3>Prompt</h3><pre>${escapeHtml(item.userPrompt)}</pre><h3>Sanitized relevant context</h3><pre>${escapeHtml(JSON.stringify(item.relevantContext, null, 2))}</pre><h3>Model response</h3><pre>${escapeHtml(item.modelResponse)}</pre><h3>Quality score breakdown</h3>${scoreBreakdown(item.qualityBreakdown)}<h3>Signals</h3><pre>${escapeHtml(JSON.stringify(item.signals, null, 2))}</pre><h3>Iteration history</h3>${item.iterations.length ? item.iterations.map((iteration) => `<div class="iteration-card"><strong>V${iteration.iterationNumber}</strong><p>${escapeHtml(iteration.modificationRequest)}</p><pre>${escapeHtml(iteration.response)}</pre></div>`).join("") : '<p class="hint">Iteration yoxdur.</p>'}<h3>Preferred response</h3><pre>${escapeHtml(item.preferredResponse)}</pre><h3>Training candidate</h3><p>${item.candidate ? `<button class="btn btn-ghost" data-modal-candidate="${escapeHtml(item.candidate.id)}">${escapeHtml(item.candidate.status)} candidate-a bax</button>` : "Candidate yaranmayıb."}</p>`);
 }
 
 async function openCandidateDetail(id) {

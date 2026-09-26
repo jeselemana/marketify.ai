@@ -113,18 +113,26 @@ export class FilePlannerRepository {
     const added = [];
 
     for (const item of tasks) {
-      const text = typeof item === "string" ? item.trim() : String(item.text || "").trim();
+      const rawText = typeof item === "string" ? item : (item.title || item.text || "");
+      const cleaned = String(rawText || "")
+        .replace(/^[\s\-*•\d.)\]]+/, "")
+        .trim();
+      const text = cleaned || String(rawText || "").trim();
       if (!text) continue;
 
-      const groupLabel = item.groupLabel || "Ümumi";
+      const groupLabel = item.groupLabel || item.timeframe || "Ümumi";
+      const timeframe = item.timeframe || groupLabel;
+      const title = text;
+      const status = item.status || (item.completed ? "completed" : "todo");
       const strategyId = item.strategyId || null;
       const strategyTitle = item.strategyTitle || null;
 
-      // Prevent duplicate task from same strategy with exact same text
+      // Prevent duplicate task from same strategy with exact same text or title
       const isDuplicate = records.some(
         (r) =>
           r.ownerId === ownerId &&
-          r.text.toLowerCase() === text.toLowerCase() &&
+          ((r.title && r.title.toLowerCase() === title.toLowerCase()) ||
+           (r.text && r.text.toLowerCase() === text.toLowerCase())) &&
           r.strategyId === strategyId
       );
 
@@ -132,12 +140,15 @@ export class FilePlannerRepository {
         const newTask = {
           id: randomUUID(),
           ownerId,
+          title,
           text,
+          timeframe,
           groupLabel,
+          status,
           strategyId,
           strategyTitle,
-          completed: false,
-          completedAt: null,
+          completed: status === "completed" || Boolean(item.completed),
+          completedAt: (status === "completed" || item.completed) ? now : null,
           createdAt: now,
           updatedAt: now,
         };
@@ -160,14 +171,29 @@ export class FilePlannerRepository {
     const now = new Date().toISOString();
     const { id: _ignoredId, ownerId: _ignoredOwnerId, createdAt: _ignoredCreatedAt, ...safeChanges } = changes;
 
+    const completed = typeof safeChanges.completed === "boolean"
+      ? safeChanges.completed
+      : (safeChanges.status ? safeChanges.status === "completed" : records[index].completed);
+
+    const status = safeChanges.status || (completed ? "completed" : (records[index].status || "todo"));
+    const title = safeChanges.title || safeChanges.text || records[index].title || records[index].text;
+    const text = safeChanges.text || safeChanges.title || records[index].text || records[index].title;
+    const timeframe = safeChanges.timeframe || safeChanges.groupLabel || records[index].timeframe || records[index].groupLabel;
+    const groupLabel = safeChanges.groupLabel || safeChanges.timeframe || records[index].groupLabel || records[index].timeframe;
+
     records[index] = {
       ...records[index],
       ...safeChanges,
       id: records[index].id,
       ownerId: records[index].ownerId,
       createdAt: records[index].createdAt,
-      completed: typeof safeChanges.completed === "boolean" ? safeChanges.completed : records[index].completed,
-      completedAt: safeChanges.completed ? (records[index].completedAt || now) : (safeChanges.completed === false ? null : records[index].completedAt),
+      title,
+      text,
+      timeframe,
+      groupLabel,
+      status,
+      completed,
+      completedAt: completed ? (records[index].completedAt || now) : null,
       updatedAt: now,
     };
 

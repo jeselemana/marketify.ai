@@ -2,6 +2,7 @@ import {
   StrategyAssessmentSchema,
   StrategySchema,
   StrategySummaryOutputSchema,
+  PlannerTaskSummaryOutputSchema,
   serializeStrategyContext,
   analyzeBriefSignals,
   validateAssessment,
@@ -278,4 +279,161 @@ CİDDİ TƏLƏBLƏR:
     ...validated,
     model: modelName,
   };
+}
+
+export function fallbackSummarizeTasks(tasks = [], language = "az", model = "gpt-6-luna") {
+  const isEn = language === "en";
+  const defaultTimeframes = isEn
+    ? ["Today", "Next 48 hours", "This week"]
+    : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+
+  const chunkSize = Math.max(1, Math.ceil(tasks.length / 3));
+
+  const validated = tasks.map((item, index) => {
+    const rawText = typeof item === "string" ? item : (item.title || item.text || "");
+    const cleaned = String(rawText).replace(/^[\s\-*•\d.)\]]+/, "").trim();
+    const groupIndex = Math.min(2, Math.floor(index / chunkSize));
+    const fallbackTf = defaultTimeframes[groupIndex] || defaultTimeframes[0];
+    const tf = (typeof item === "object" && (item.timeframe || item.groupLabel)) ? (item.timeframe || item.groupLabel) : fallbackTf;
+
+    return {
+      title: cleaned || rawText,
+      timeframe: tf,
+      status: "todo",
+    };
+  }).filter((t) => Boolean(t.title));
+
+  return {
+    tasks: validated,
+    model,
+  };
+}
+
+export async function summarizeTasksWithLuna({
+  tasks = [],
+  strategyTitle = "",
+  language = "az",
+  client = null,
+  signal = null,
+  onUsage = null,
+}) {
+  const isEn = language === "en";
+  const modelName = aiConfig.plannerSummaryModel || "gpt-6-luna";
+
+  if (!client && !hasOpenAIConfiguration()) {
+    return fallbackSummarizeTasks(tasks, language, modelName);
+  }
+
+  const openaiClient = client || getOpenAIClient();
+
+  const taskLines = tasks
+    .map((item, idx) => {
+      if (typeof item === "string") return `${idx + 1}. ${item}`;
+      const text = item.title || item.text || "";
+      const tf = item.timeframe || item.groupLabel || "";
+      return `${idx + 1}. [${tf || "General"}] ${text}`;
+    })
+    .join("\n");
+
+  const systemPrompt = isEn
+    ? `You are an elite productivity and strategic execution AI assistant powered by gpt-6-luna.
+Your role is to analyze raw strategic action items from 'IMMEDIATE NEXT STEPS' and convert them into clear, concise, actionable, and punchy Planner tasks.
+
+STRICT REQUIREMENTS:
+1. Each task must start with an active imperative verb (e.g., 'Launch', 'Finalize', 'Audit', 'Draft', 'Contact', 'Review').
+2. Keep tasks focused, unambiguous, and realistic for immediate execution.
+3. Preserve or assign the appropriate timeframe: 'Today', 'Next 48 hours', or 'This week'.
+4. Set status to 'todo' for every task.
+5. Return ONLY a valid JSON object matching this structure:
+{
+  "tasks": [
+    {
+      "title": "Action-oriented concise task title",
+      "timeframe": "Today",
+      "status": "todo"
+    }
+  ]
+}`
+    : `Sən gpt-6-luna tərəfindən gücləndirilmiş strateji icra və tapşırıq optimizasiyası üzrə süni intellekt köməkçisisən.
+Vəzifən strategiyanın '06. NÖVBƏTİ ADDIMLAR' bölməsindəki xam maddələri təhlil edərək onları Planner üçün aydın, konkret, kəsərli və icraya hazır tapşırıqlara çevirməkdir.
+
+CİDDİ TƏLƏBLƏR:
+1. Hər bir tapşırıq konkret fəaliyyət feili ilə bitməlidir və ya başlamalıdır (məs: 'Hazırla', 'Təsdiqlə', 'Tərtib et', 'Başlat', 'Təşkil et').
+2. Tapşırıqlar yığcam, konkret və dərhal icra edilə bilən şəkildə formalaşdırılmalıdır.
+3. Müvafiq icra müddətini qoru və ya təyin et: 'Bu gün', 'Növbəti 48 saat' və ya 'Bu həftə'.
+4. Hər bir tapşırığın statusu 'todo' olmalıdır.
+5. Cavab YALNIZ aşağıdakı struktura uyğun valid JSON formatında olmalıdır:
+{
+  "tasks": [
+    {
+      "title": "Konkret və icraya hazır tapşırıq mətni",
+      "timeframe": "Bu gün",
+      "status": "todo"
+    }
+  ]
+}`;
+
+  const userContent = isEn
+    ? `Strategy: ${strategyTitle || "Business Strategy"}\n\nRaw Action Steps to optimize into planner tasks:\n${taskLines}`
+    : `Strategiya: ${strategyTitle || "Biznes Strategiyası"}\n\nPlanner üçün optimallaşdırılmalı olan növbəti addımlar:\n${taskLines}`;
+
+  const completion = await openaiClient.chat.completions.create(
+    {
+      model: modelName,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      response_format: { type: "json_object" },
+    },
+    signal ? { signal } : undefined,
+  );
+
+  if (typeof onUsage === "function" && completion.usage) {
+    onUsage({
+      provider: "openai",
+      model: modelName,
+      usage: {
+        inputTokens: completion.usage.prompt_tokens,
+        outputTokens: completion.usage.completion_tokens,
+        totalTokens: completion.usage.total_tokens,
+      },
+    });
+  }
+
+  const rawContent = completion.choices?.[0]?.message?.content?.trim() || "{}";
+  let parsed;
+  try {
+    parsed = JSON.parse(rawContent);
+  } catch (jsonErr) {
+    throw new LLMProviderError("Model etibarsız JSON cavabı qaytardı.", {
+      code: "AI_INVALID_OUTPUT",
+      status: 502,
+      model: modelName,
+      cause: jsonErr,
+    });
+  }
+
+  const rawTasksList = Array.isArray(parsed.tasks)
+    ? parsed.tasks
+    : (Array.isArray(parsed) ? parsed : []);
+
+  const validatedTasks = rawTasksList.map((t) => {
+    const rawTitle = typeof t === "string" ? t : (t.title || t.text || "");
+    const cleaned = String(rawTitle).replace(/^[\s\-*•\d.)\]]+/, "").trim();
+    return {
+      title: cleaned || rawTitle,
+      timeframe: t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün"),
+      status: "todo",
+    };
+  }).filter((t) => Boolean(t.title));
+
+  const resultTasks = validatedTasks.length > 0 ? validatedTasks : fallbackSummarizeTasks(tasks, language, modelName).tasks;
+
+  const validatedOutput = PlannerTaskSummaryOutputSchema.parse({
+    tasks: resultTasks,
+    model: modelName,
+  });
+
+  return validatedOutput;
 }

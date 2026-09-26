@@ -53,6 +53,7 @@ export function publicUser(user) {
     aiSummary: user.aiSummary && typeof user.aiSummary === "object" ? user.aiSummary : null,
     settings: {
       personalIntelligence: settings.personalIntelligence === true,
+      modelImprovement: settings.modelImprovement !== false,
       brandName: typeof settings.brandName === "string" ? settings.brandName : "",
       industry: typeof settings.industry === "string" ? settings.industry : "",
       targetAudience: typeof settings.targetAudience === "string" ? settings.targetAudience : "",
@@ -494,6 +495,9 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   router.patch("/settings", asyncRoute(async (req, res) => {
     if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
     const payload = parseBody(UserSettingsSchema, req.body);
+    if (payload.modelImprovement === false) {
+      payload.personalIntelligence = false;
+    }
     const updated = await userRepository.update(req.user.id, {
       settings: {
         ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),

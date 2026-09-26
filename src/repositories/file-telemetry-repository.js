@@ -333,6 +333,8 @@ export class FileTelemetryRepository {
       allTimeCostUsd,
       allTimeCostAzn,
       totalEvents: store.events.length,
+      restrictedCount: store.events.filter((e) => e.onlyNecessaryData === true).length,
+      todayRestrictedCount: todayEvents.filter((e) => e.onlyNecessaryData === true).length,
       marketDistribution: {
         localCount,
         globalCount,

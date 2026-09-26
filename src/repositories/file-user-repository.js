@@ -243,6 +243,7 @@ export class FileUserRepository {
         onboardingCompletedAt: payload.onboardingCompletedAt || null,
         settings: {
           personalIntelligence: false,
+          modelImprovement: true,
           brandName: "",
           industry: "",
           targetAudience: "",

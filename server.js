@@ -10,7 +10,7 @@ import { fileURLToPath } from "url";
 import { FileUserRepository } from "./src/repositories/file-user-repository.js";
 import { FileAuthStore, RedisAuthStore } from "./src/auth/auth-store.js";
 import { PasswordResetEmailService } from "./src/auth/email-service.js";
-import { createIdentityMiddleware, requireAuth } from "./src/http/auth-middleware.js";
+import { createIdentityMiddleware, requireAuth, isModelImprovementEnabled } from "./src/http/auth-middleware.js";
 import { guestSession } from "./src/http/session.js";
 import { authErrorHandler, createAuthRouter } from "./src/http/auth-router.js";
 import {
@@ -284,7 +284,7 @@ app.use("/api/auth", createAuthRouter({
 }));
 
 app.use("/api/strategy", createStrategyRouter(strategyRepository, learningLoop, { telemetryService }));
-app.use("/api/planner", createPlannerRouter(plannerRepository));
+app.use("/api/planner", createPlannerRouter(plannerRepository, { strategyRepository, telemetryService }));
 app.use("/api/user", createUserRouter({ userRepository, strategyRepository, chatRepository, plannerRepository }));
 app.use("/api/learning/signals", createAiLearningSignalRouter(learningLoop));
 app.use("/api/telemetry", createTelemetryClientRouter(telemetryService));
@@ -1599,13 +1599,20 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           taskId: taskId || null,
         });
 
+        const modelImprovementActive = isModelImprovementEnabled(req);
+        const isRestricted = !modelImprovementActive;
         const hasPriorAssistant = messages.some((message) => message.role === "assistant");
         const logging = learningLoop.recordInteraction({
           id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
-          mode: "ask", taskType: learningTaskType, userPrompt: learningPrompt, relevantContext: learningContext,
-          modelProvider: generated.provider, modelName: generated.model, modelResponse: accumulated,
+          mode: "ask", taskType: learningTaskType,
+          userPrompt: isRestricted ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : learningPrompt,
+          relevantContext: isRestricted ? null : learningContext,
+          modelProvider: generated.provider, modelName: generated.model,
+          modelResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : accumulated,
           usage: generated.usage, latencyMs: Date.now() - learningStartedAt, requestStatus: "success",
-        }).then(() => hasPriorAssistant ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
+          onlyNecessaryData: isRestricted,
+          modelImprovement: modelImprovementActive,
+        }).then(() => hasPriorAssistant && !isRestricted ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
         logWithoutBlocking(logging, "Ask interaction logging");
 
         telemetryService.trackAskQuery({
@@ -1616,7 +1623,9 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           usage: generated.usage,
           groundingActive: Boolean(enableSearch),
           status: "success",
-          querySnippet: learningPrompt,
+          querySnippet: isRestricted ? "" : learningPrompt,
+          onlyNecessaryData: isRestricted,
+          modelImprovement: modelImprovementActive,
         }).catch(() => {});
 
         res.write(`data: ${JSON.stringify({
@@ -1631,12 +1640,19 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         return res.end();
       } catch (streamErr) {
         console.error("Ask stream error:", streamErr?.message || streamErr);
+        const modelImprovementActive = isModelImprovementEnabled(req);
+        const isRestricted = !modelImprovementActive;
         logWithoutBlocking(learningLoop.recordInteraction({
           id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
-          mode: "ask", taskType: learningTaskType, userPrompt: learningPrompt, relevantContext: learningContext,
-          modelProvider: isGemini ? "google" : "openai", modelName: learningModel, modelResponse: accumulated,
+          mode: "ask", taskType: learningTaskType,
+          userPrompt: isRestricted ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : learningPrompt,
+          relevantContext: isRestricted ? null : learningContext,
+          modelProvider: isGemini ? "google" : "openai", modelName: learningModel,
+          modelResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : accumulated,
           latencyMs: Date.now() - learningStartedAt, requestStatus: "error",
           errorType: streamErr?.code || streamErr?.name || "ASK_STREAM_ERROR",
+          onlyNecessaryData: isRestricted,
+          modelImprovement: modelImprovementActive,
         }), "Ask stream failure logging");
 
         telemetryService.trackAskQuery({
@@ -1646,8 +1662,10 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           latencyMs: Date.now() - learningStartedAt,
           groundingActive: Boolean(enableSearch),
           status: "error",
-          querySnippet: learningPrompt,
+          querySnippet: isRestricted ? "" : learningPrompt,
           error: streamErr,
+          onlyNecessaryData: isRestricted,
+          modelImprovement: modelImprovementActive,
         }).catch(() => {});
 
         if (!res.writableEnded && !res.destroyed) {
@@ -1701,13 +1719,20 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       taskId: taskId || null,
     });
 
+    const modelImprovementActive = isModelImprovementEnabled(req);
+    const isRestricted = !modelImprovementActive;
     const hasPriorAssistant = messages.some((message) => message.role === "assistant");
     const logging = learningLoop.recordInteraction({
       id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
-      mode: "ask", taskType: learningTaskType, userPrompt: learningPrompt, relevantContext: learningContext,
-      modelProvider: generated.provider, modelName: generated.model, modelResponse: reply,
+      mode: "ask", taskType: learningTaskType,
+      userPrompt: isRestricted ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : learningPrompt,
+      relevantContext: isRestricted ? null : learningContext,
+      modelProvider: generated.provider, modelName: generated.model,
+      modelResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : reply,
       usage: generated.usage, latencyMs: Date.now() - learningStartedAt, requestStatus: "success",
-    }).then(() => hasPriorAssistant ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
+      onlyNecessaryData: isRestricted,
+      modelImprovement: modelImprovementActive,
+    }).then(() => hasPriorAssistant && !isRestricted ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
     logWithoutBlocking(logging, "Ask interaction logging");
 
     telemetryService.trackAskQuery({
@@ -1718,7 +1743,9 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       usage: generated.usage,
       groundingActive: Boolean(enableSearch),
       status: "success",
-      querySnippet: learningPrompt,
+      querySnippet: isRestricted ? "" : learningPrompt,
+      onlyNecessaryData: isRestricted,
+      modelImprovement: modelImprovementActive,
     }).catch(() => {});
 
     return res.json({
@@ -1732,12 +1759,19 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     if (res.headersSent || res.writableEnded || res.destroyed) {
       return;
     }
+    const modelImprovementActive = isModelImprovementEnabled(req);
+    const isRestricted = !modelImprovementActive;
     if (learningInteractionId) {
       logWithoutBlocking(learningLoop.recordInteraction({
         id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
-        mode: "ask", taskType: learningTaskType, userPrompt: learningPrompt, relevantContext: learningContext,
-        modelProvider: isGeminiRoute ? "google" : "openai", modelName: learningModel, modelResponse: "", latencyMs: Date.now() - learningStartedAt,
+        mode: "ask", taskType: learningTaskType,
+        userPrompt: isRestricted ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : learningPrompt,
+        relevantContext: isRestricted ? null : learningContext,
+        modelProvider: isGeminiRoute ? "google" : "openai", modelName: learningModel,
+        modelResponse: "", latencyMs: Date.now() - learningStartedAt,
         requestStatus: "error", errorType: error?.code || error?.name || "ASK_ERROR",
+        onlyNecessaryData: isRestricted,
+        modelImprovement: modelImprovementActive,
       }), "Ask failure logging");
     }
     telemetryService.trackAskQuery({
@@ -1746,8 +1780,10 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       model: isGeminiRoute ? ASK_GEMINI_MODEL : ASK_MODEL,
       latencyMs: Date.now() - learningStartedAt,
       status: "error",
-      querySnippet: learningPrompt,
+      querySnippet: isRestricted ? "" : learningPrompt,
       error,
+      onlyNecessaryData: isRestricted,
+      modelImprovement: modelImprovementActive,
     }).catch(() => {});
     console.error("Ask mode error:", error?.message || error);
     const code = error?.code || (error?.status === 401 ? "AI_AUTH_ERROR" : isGeminiRoute ? "GEMINI_ERROR" : "ASK_ERROR");

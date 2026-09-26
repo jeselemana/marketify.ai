@@ -20,6 +20,7 @@ function migrateUser(user) {
       autoContext: currentSettings.autoContext !== false,
       strategyPersonalization: currentSettings.strategyPersonalization !== false,
       ...(currentSettings.autoSaveStrategies !== undefined ? { autoSaveStrategies: currentSettings.autoSaveStrategies !== false } : {}),
+      ...(currentSettings.modelImprovement !== undefined ? { modelImprovement: currentSettings.modelImprovement !== false } : {}),
       defaultMode: currentSettings.defaultMode === "ask" ? "ask" : "build",
       language: currentSettings.language === "en" ? "en" : "az",
     },

@@ -42,6 +42,7 @@ export class LearningLoopService {
   }
 
   async recordInteraction(input) {
+    const isRestricted = input.onlyNecessaryData === true || input.modelImprovement === false;
     const now = input.createdAt || new Date().toISOString();
     const tokens = usageFields(input.usage);
     const cost = estimateCost(input.modelName, tokens.inputTokens, tokens.outputTokens);
@@ -51,11 +52,11 @@ export class LearningLoopService {
       sessionId: input.sessionId || null,
       mode: input.mode,
       taskType: input.taskType || `${input.mode}_general`,
-      userPrompt: asText(input.userPrompt, this.config.maxPromptChars),
-      relevantContext: sanitizeRelevantContext(input.relevantContext),
+      userPrompt: isRestricted ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : asText(input.userPrompt, this.config.maxPromptChars),
+      relevantContext: isRestricted ? null : sanitizeRelevantContext(input.relevantContext),
       modelProvider: input.modelProvider || "unknown",
       modelName: input.modelName || "unknown",
-      modelResponse: asText(input.modelResponse, this.config.maxResponseChars),
+      modelResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : asText(input.modelResponse, this.config.maxResponseChars),
       ...tokens,
       estimatedCost: cost.estimatedCost,
       pricingSnapshot: cost.pricingSnapshot,
@@ -64,6 +65,8 @@ export class LearningLoopService {
       errorType: input.errorType || null,
       qualityScore: this.config.weights.baseline,
       qualityBreakdown: [{ label: "Neutral baseline", value: this.config.weights.baseline, source: "system", strength: "neutral" }],
+      onlyNecessaryData: isRestricted,
+      modelImprovement: !isRestricted,
       createdAt: now,
     };
     await this.repository.update((store) => {
@@ -119,6 +122,21 @@ export class LearningLoopService {
   }
 
   recalculate(store, interaction) {
+    if (!interaction) {
+      if (store?.interactions) {
+        for (const item of store.interactions) {
+          this.recalculate(store, item);
+        }
+      }
+      return;
+    }
+    if (interaction.onlyNecessaryData === true || interaction.modelImprovement === false) {
+      const existingCandidate = store.candidates.find((item) => item.sourceInteractionId === interaction.id);
+      if (existingCandidate) {
+        store.candidates = store.candidates.filter((item) => item.id !== existingCandidate.id);
+      }
+      return;
+    }
     const signals = store.signals.filter((item) => item.interactionId === interaction.id);
     const iterations = store.iterations.filter((item) => item.parentInteractionId === interaction.id);
     const quality = calculateQualityScore(signals, iterations, this.config.weights);
@@ -302,9 +320,10 @@ export class LearningLoopService {
     const slice = items.slice((safePage - 1) * safeSize, safePage * safeSize).map((item) => ({
       ...item,
       ownerId: undefined,
-      userPrompt: item.userPrompt.slice(0, 160),
-      modelResponse: item.modelResponse.slice(0, 180),
-      trainingStatus: store.candidates.find((candidate) => candidate.sourceInteractionId === item.id)?.status || null,
+      userPrompt: item.onlyNecessaryData ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : item.userPrompt.slice(0, 160),
+      modelResponse: item.onlyNecessaryData ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : item.modelResponse.slice(0, 180),
+      onlyNecessaryData: Boolean(item.onlyNecessaryData),
+      trainingStatus: item.onlyNecessaryData ? "restricted" : (store.candidates.find((candidate) => candidate.sourceInteractionId === item.id)?.status || null),
     }));
     return { items: slice, page: safePage, pageSize: safeSize, total: items.length, totalPages: Math.ceil(items.length / safeSize) };
   }
@@ -314,12 +333,17 @@ export class LearningLoopService {
     const interaction = store.interactions.find((item) => item.id === id);
     if (!interaction) return null;
     const iterations = store.iterations.filter((item) => item.parentInteractionId === id).sort((a, b) => a.iterationNumber - b.iterationNumber);
+    const isRestricted = Boolean(interaction.onlyNecessaryData);
     return {
       ...interaction, ownerId: undefined,
-      signals: store.signals.filter((item) => item.interactionId === id),
-      iterations,
-      preferredResponse: iterations.at(-1)?.response || interaction.modelResponse,
-      candidate: store.candidates.find((item) => item.sourceInteractionId === id) || null,
+      onlyNecessaryData: isRestricted,
+      userPrompt: isRestricted ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : interaction.userPrompt,
+      modelResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : interaction.modelResponse,
+      relevantContext: isRestricted ? null : interaction.relevantContext,
+      signals: isRestricted ? [] : store.signals.filter((item) => item.interactionId === id),
+      iterations: isRestricted ? [] : iterations,
+      preferredResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : (iterations.at(-1)?.response || interaction.modelResponse),
+      candidate: isRestricted ? null : (store.candidates.find((item) => item.sourceInteractionId === id) || null),
     };
   }
 

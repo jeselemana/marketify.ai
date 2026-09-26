@@ -68,7 +68,9 @@ function clip(value, length = 420) {
 
 export const TONE_DIRECTIVES = Object.freeze({
   professional: "Üslub [Peşəkar və Analitik]: Cavabları və təklifləri dəqiq biznes arqumentləri, strukturlaşdırılmış təhlil və rəsmi marketinq terminləri ilə təqdim et. Fərziyyələri aydın fərqləndir.",
+  direct: "Üslub [Cəsarətli və Satış Yönümlü]: Dəqiq birbaşa cavablar (direct-response), güclü başlıqlar, yüksək dönüşümlü çağırışlar (CTA) və nəticəyə fokuslanmış kommersiya arqumentləri təqdim et.",
   creative: "Üslub [Yaradıcı və Cəsarətli]: Standart şablonlardan kənara çıx. Cəlbedici, fərqləndirici marketinq ideyaları, maraqlı hook-lar, viral potensialı olan konseptlər və təsirli şüarlar təklif et.",
+  executive: "Üslub [İcraçı və Qısa]: Giriş və lüzumsuz mətni at. Yüksək səviyyəli xülasələr, konkret tapşırıq bölgüsü, qısa maddələr və dərhal tətbiq oluna bilən icra addımları ver.",
   concise: "Üslub [Qısa və İcra Yönümlü]: Giriş, nəzəriyyə və ümumi cümlələri at. Birbaşa konkret icra addımları, qısa bəndlər və dərhal tətbiq oluna bilən həllər ver.",
   friendly: "Üslub [Dostcasına və İzahlı]: Səmimi, dəstəkləyici və anlaşıqlı dildən istifadə et. Mürəkkəb marketinq konsepsiyalarını sadə nümunələrlə izah et.",
   data_driven: "Üslub [Nəticə və Satış Yönümlü]: Əsas diqqəti dönüşüm (conversion), ROAS, CAC, satış qıfı və ölçülə bilən KPI-lara yönəlt. Hər bir təklifin kommersiya gəlirliliyini əsaslandır.",
@@ -84,7 +86,9 @@ export const CATEGORY_LABELS = Object.freeze({
 
 const BUILD_TONE_LABELS = Object.freeze({
   professional: "Peşəkar və analitik",
-  creative: "Yaradıcı və cəsarətli",
+  direct: "Cəsarətli və satış yönümlü",
+  creative: "Yaradıcı və hekayəçi",
+  executive: "İcraçı və qısa",
   concise: "Qısa və icra yönümlü",
   friendly: "Dostcasına və izahlı",
   data_driven: "Nəticə və satış yönümlü",

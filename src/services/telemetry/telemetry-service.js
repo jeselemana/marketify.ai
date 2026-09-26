@@ -21,12 +21,17 @@ export class TelemetryService {
     qualityScore = null,
     error = null,
     action = "build_strategy",
+    onlyNecessaryData = false,
+    modelImprovement = true,
   } = {}) {
-    const rawMarket = detectTargetMarket({ brief, answers, strategy });
+    const isRestricted = onlyNecessaryData === true || modelImprovement === false;
+    const rawMarket = isRestricted ? "global" : detectTargetMarket({ brief, answers, strategy });
     const marketMode = rawMarket === "azerbaijan" ? "LOCAL_AZ_MODE" : "GLOBAL_MODE";
-    const category = categorizeBrief(brief || strategy?.title || "");
+    const category = isRestricted ? "Zəruri Əməliyyat" : categorizeBrief(brief || strategy?.title || "");
     const cost = calculateEstimatedCost(model, usage?.prompt_tokens, usage?.completion_tokens);
-    const summary = redactSensitiveText(brief || strategy?.title || "Strategiya generasiyası", 80);
+    const summary = isRestricted
+      ? "[Zəruri məlumat] Model inkişafına töhfə deaktivdir - Məzmun ötürülmür"
+      : redactSensitiveText(brief || strategy?.title || "Strategiya generasiyası", 80);
 
     const event = {
       id: `evt_bld_${randomUUID()}`,
@@ -45,18 +50,29 @@ export class TelemetryService {
       costUsd: cost.costUsd,
       costAzn: cost.costAzn,
       status: status === "error" ? "error" : "success",
-      qualityScore: Number.isFinite(Number(qualityScore)) ? Number(Number(qualityScore).toFixed(2)) : null,
+      qualityScore: isRestricted ? null : (Number.isFinite(Number(qualityScore)) ? Number(Number(qualityScore).toFixed(2)) : null),
       summary,
       error: error ? String(error.message || error).slice(0, 200) : null,
-      metadata: redactPayload({
-        model,
-        marketMode,
-        category,
-        tokens: cost.totalTokens,
-        latencyMs,
-        qualityScore,
-        versionCount: Array.isArray(strategy?.versions) ? strategy.versions.length : 1,
-      }),
+      onlyNecessaryData: isRestricted,
+      modelImprovement: !isRestricted,
+      metadata: isRestricted
+        ? {
+            model,
+            tokens: cost.totalTokens,
+            latencyMs,
+            onlyNecessaryData: true,
+            dataRestricted: true,
+            restrictedReason: "Model inkişafına töhfə deaktivdir - yalnız zəruri telemetriya ötürülüb",
+          }
+        : redactPayload({
+            model,
+            marketMode,
+            category,
+            tokens: cost.totalTokens,
+            latencyMs,
+            qualityScore,
+            versionCount: Array.isArray(strategy?.versions) ? strategy.versions.length : 1,
+          }),
       timestamp: new Date().toISOString(),
     };
 
@@ -76,11 +92,16 @@ export class TelemetryService {
     status = "success",
     querySnippet = "",
     error = null,
+    onlyNecessaryData = false,
+    modelImprovement = true,
   } = {}) {
+    const isRestricted = onlyNecessaryData === true || modelImprovement === false;
     const cost = calculateEstimatedCost(model, usage?.prompt_tokens, usage?.completion_tokens);
-    const rawMarket = detectTargetMarket({ brief: querySnippet });
+    const rawMarket = isRestricted ? "global" : detectTargetMarket({ brief: querySnippet });
     const marketMode = rawMarket === "azerbaijan" ? "LOCAL_AZ_MODE" : "GLOBAL_MODE";
-    const summary = redactSensitiveText(querySnippet || "İnteraktiv Ask sorğusu", 80);
+    const summary = isRestricted
+      ? "[Zəruri məlumat] Model inkişafına töhfə deaktivdir - Məzmun ötürülmür"
+      : redactSensitiveText(querySnippet || "İnteraktiv Ask sorğusu", 80);
 
     const event = {
       id: `evt_ask_${randomUUID()}`,
@@ -88,7 +109,7 @@ export class TelemetryService {
       mode: "ask",
       maskedUserId: maskIdentifier(ownerId || sessionId),
       marketMode,
-      category: "İnteraktiv Məsləhət",
+      category: isRestricted ? "Zəruri Əməliyyat" : "İnteraktiv Məsləhət",
       model,
       groundingActive: Boolean(groundingActive),
       latencyMs: Number.isFinite(Number(latencyMs)) ? Math.round(Number(latencyMs)) : null,
@@ -102,12 +123,24 @@ export class TelemetryService {
       status: status === "error" ? "error" : "success",
       summary,
       error: error ? String(error.message || error).slice(0, 200) : null,
-      metadata: redactPayload({
-        model,
-        groundingActive: Boolean(groundingActive),
-        tokens: cost.totalTokens,
-        latencyMs,
-      }),
+      onlyNecessaryData: isRestricted,
+      modelImprovement: !isRestricted,
+      metadata: isRestricted
+        ? {
+            model,
+            groundingActive: Boolean(groundingActive),
+            tokens: cost.totalTokens,
+            latencyMs,
+            onlyNecessaryData: true,
+            dataRestricted: true,
+            restrictedReason: "Model inkişafına töhfə deaktivdir - yalnız zəruri telemetriya ötürülüb",
+          }
+        : redactPayload({
+            model,
+            groundingActive: Boolean(groundingActive),
+            tokens: cost.totalTokens,
+            latencyMs,
+          }),
       timestamp: new Date().toISOString(),
     };
 
@@ -125,7 +158,10 @@ export class TelemetryService {
     usage = null,
     status = "success",
     error = null,
+    onlyNecessaryData = false,
+    modelImprovement = true,
   } = {}) {
+    const isRestricted = onlyNecessaryData === true || modelImprovement === false;
     const cost = calculateEstimatedCost(model, usage?.prompt_tokens, usage?.completion_tokens);
 
     const event = {
@@ -134,7 +170,7 @@ export class TelemetryService {
       mode: "summary",
       maskedUserId: maskIdentifier(ownerId || sessionId),
       marketMode: null,
-      category: "İcraçı Xülasə",
+      category: isRestricted ? "Zəruri Əməliyyat" : "İcraçı Xülasə",
       model,
       latencyMs: Number.isFinite(Number(latencyMs)) ? Math.round(Number(latencyMs)) : null,
       tokens: {
@@ -145,13 +181,26 @@ export class TelemetryService {
       costUsd: cost.costUsd,
       costAzn: cost.costAzn,
       status: status === "error" ? "error" : "success",
-      summary: "Strateji icraçı xülasəsi generasiyası (Luna)",
+      summary: isRestricted
+        ? "[Zəruri məlumat] Model inkişafına töhfə deaktivdir - Məzmun ötürülmür"
+        : "Strateji icraçı xülasəsi generasiyası (Luna)",
       error: error ? String(error.message || error).slice(0, 200) : null,
-      metadata: redactPayload({
-        model,
-        tokens: cost.totalTokens,
-        latencyMs,
-      }),
+      onlyNecessaryData: isRestricted,
+      modelImprovement: !isRestricted,
+      metadata: isRestricted
+        ? {
+            model,
+            tokens: cost.totalTokens,
+            latencyMs,
+            onlyNecessaryData: true,
+            dataRestricted: true,
+            restrictedReason: "Model inkişafına töhfə deaktivdir - yalnız zəruri telemetriya ötürülüb",
+          }
+        : redactPayload({
+            model,
+            tokens: cost.totalTokens,
+            latencyMs,
+          }),
       timestamp: new Date().toISOString(),
     };
 

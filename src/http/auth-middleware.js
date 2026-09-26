@@ -73,3 +73,18 @@ export function requireAuth(req, res, next) {
   if (req.auth?.user) return next();
   return res.status(401).json({ error: "Davam etmək üçün hesabına daxil ol.", code: "AUTH_REQUIRED" });
 }
+
+export function isModelImprovementEnabled(req) {
+  if (req?.user?.settings) {
+    return req.user.settings.modelImprovement !== false;
+  }
+  const header = req?.headers?.["x-helmer-model-improvement"];
+  if (header !== undefined) {
+    return header !== "false" && header !== false;
+  }
+  const cookies = req?.cookies || parseCookies(req?.headers?.cookie || "");
+  if (cookies.helmer_model_improvement !== undefined) {
+    return cookies.helmer_model_improvement !== "false" && cookies.helmer_model_improvement !== false;
+  }
+  return true;
+}
