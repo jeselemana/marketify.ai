@@ -11744,16 +11744,9 @@ function renderPlannerView() {
     if (state.plannerFilter === "priority") {
       const banner = element("div", "planner-priority-ai-banner");
       const bannerLeft = element("div", "planner-priority-banner-left");
-      const modelTag = element("div", "planner-ai-model-tag");
-      modelTag.innerHTML = `
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
-          <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.2-6.3-4.6-6.3 4.6 2.3-7.2-6-4.6h7.6z"/>
-        </svg>
-        <span>AI</span>
-      `;
       const bannerTitle = element("h3", "planner-priority-banner-title", t("planner.priorityBannerTitle") || (isEn ? "Priorities classified by AI" : "AI ilə ayrılmış prioritetlər"));
       const bannerDesc = element("p", "planner-priority-banner-desc", t("planner.priorityBannerSubtitle") || (isEn ? "High-leverage tasks isolated for immediate breakthrough and execution." : "Biznesin inkişafı və kritik icra üçün ən yüksək təsirə malik tapşırıqlar."));
-      bannerLeft.append(modelTag, bannerTitle, bannerDesc);
+      bannerLeft.append(bannerTitle, bannerDesc);
 
       const reprioritizeBtn = button("", "planner-reprioritize-btn", async () => {
         reprioritizeBtn.disabled = true;

@@ -124,7 +124,7 @@ test("planner frontend: Execute button, category Select All, Roadmap generation,
   assert.ok(scriptContent.includes('"New"'), "script.js renders New badge text");
   assert.ok(scriptContent.includes("prioritizePlannerTasksWithLuna"), "script.js defines prioritizePlannerTasksWithLuna");
   assert.ok(!scriptContent.includes("gpt-6-luna"), "script.js does not display raw gpt-6-luna model name in UI");
-  assert.ok(scriptContent.includes("planner-ai-model-tag"), "script.js renders AI model tag cleanly");
+  assert.ok(!scriptContent.includes("planner-ai-model-tag"), "script.js does not render AI chip in priority");
   assert.ok(scriptContent.includes('searchBar.classList.toggle("is-hidden-by-selection", hasSelection)'), "script.js hides search bar on selection");
   assert.ok(styleContent.includes(".planner-search-bar.is-hidden-by-selection"), "style.css hides search bar on selection");
   assert.ok(scriptContent.includes("planner-card-priority-badge"), "script.js renders priority badge on cards");
