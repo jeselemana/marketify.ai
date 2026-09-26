@@ -115,7 +115,9 @@ test("planner frontend: Execute button, category Select All, Roadmap generation,
   assert.ok(styleContent.includes(".planner-task-card.is-selected"), "style.css defines selected card styling");
   assert.ok(styleContent.includes(".planner-floating-actions"), "style.css defines floating action dock");
   assert.ok(styleContent.includes(".planner-task-card.is-selected .planner-execute-btn"), "style.css hides execute button on selected cards");
+  assert.ok(styleContent.includes(".planner-task-card.is-done .planner-execute-btn"), "style.css hides execute button on completed cards");
   assert.ok(styleContent.includes(".planner-group.has-bulk-selection .planner-execute-btn"), "style.css hides execute button on bulk selection");
+  assert.ok(scriptContent.includes("executeBtn.hidden = task.completed"), "script.js hides execute button on completed tasks");
   assert.ok(scriptContent.includes('groupEl.classList.toggle("has-bulk-selection", allSelected)'), "script.js toggles has-bulk-selection on group");
 
   // 5. Priority filter pill with "New" badge and gpt-6-luna model attribution

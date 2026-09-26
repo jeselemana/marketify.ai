@@ -11052,6 +11052,42 @@ function setupRailArchiveHover() {
   });
 }
 
+function renderArchivePlannerSwitch(activeView = "archive") {
+  const isEn = getLanguage() === "en";
+  const switchWrap = element("div", "archive-planner-switch");
+  switchWrap.setAttribute("role", "tablist");
+  switchWrap.setAttribute("aria-label", isEn ? "Workspace views" : "İş sahələri");
+
+  const archiveBtn = button("", `archive-planner-option${activeView === "archive" ? " is-active" : ""}`, () => {
+    if (state.view !== "list") {
+      state.view = "list";
+      syncNav();
+      render();
+      closeSidebar();
+    }
+  });
+  archiveBtn.type = "button";
+  archiveBtn.setAttribute("role", "tab");
+  archiveBtn.setAttribute("aria-selected", String(activeView === "archive"));
+  archiveBtn.append(element("span", "", isEn ? "Archive" : "Arxiv"));
+
+  const plannerBtn = button("", `archive-planner-option${activeView === "planner" ? " is-active" : ""}`, () => {
+    if (state.view !== "planner") {
+      state.view = "planner";
+      syncNav();
+      render();
+      closeSidebar();
+    }
+  });
+  plannerBtn.type = "button";
+  plannerBtn.setAttribute("role", "tab");
+  plannerBtn.setAttribute("aria-selected", String(activeView === "planner"));
+  plannerBtn.append(element("span", "", isEn ? "Planner" : "Planlaşdırılanlar"));
+
+  switchWrap.append(archiveBtn, plannerBtn);
+  return switchWrap;
+}
+
 function renderStrategyList() {
   const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-list");
@@ -11064,11 +11100,9 @@ function renderStrategyList() {
     element("h1", "archive-title", isEn ? "Archive" : "Arxiv"),
     element("p", "archive-subtitle", isEn ? "Manage and organize your strategic roadmaps" : "Strategiyalarını və saxladığın işləri idarə et")
   );
-  heading.append(copy);
+  const switchEl = renderArchivePlannerSwitch("archive");
+  heading.append(copy, switchEl);
   view.appendChild(heading);
-
-  const bgCta = renderArchiveBackgroundCta();
-  view.appendChild(bgCta);
 
   const activeBgJobs = backgroundJobs.filter((j) => j.status === "generating" || j.status === "ready" || j.status === "error");
 
@@ -11170,12 +11204,7 @@ function renderStrategyList() {
       }
     });
 
-    const divider = element("span", "archive-dock-divider");
-
-    const newBtn = button("", "archive-new-btn archive-dock-new-btn", resetStrategy);
-    newBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>${t("archive.buildSomethingNew")}</span>`;
-
-    dock.append(searchWrap, divider, newBtn);
+    dock.append(searchWrap);
     view.appendChild(dock);
 
     const list = element("div", "strategy-library");
@@ -11978,6 +12007,7 @@ function renderPlannerView() {
   );
 
   const headerActions = element("div", "planner-header-actions");
+  const switchEl = renderArchivePlannerSwitch("planner");
   const notifBtn = button("", "planner-notif-btn", (e) => {
     e.stopPropagation();
     togglePlannerNotificationPopover(notifBtn);
@@ -11997,7 +12027,7 @@ function renderPlannerView() {
     badge.textContent = urgentTasks.length > 9 ? "9+" : String(urgentTasks.length);
     notifBtn.appendChild(badge);
   }
-  headerActions.appendChild(notifBtn);
+  headerActions.append(switchEl, notifBtn);
 
   headerRow.append(headerText, headerActions);
   view.appendChild(headerRow);
@@ -12493,6 +12523,10 @@ function renderPlannerView() {
         executeBtn.type = "button";
         executeBtn.setAttribute("aria-label", t("planner.executeTask") || (isEn ? "Execute" : "İcra et"));
         executeBtn.setAttribute("title", isEn ? "Execute this task in Ask mode" : "Bu tapşırığı Ask rejimində icra et");
+        if (task.completed) {
+          executeBtn.hidden = true;
+          executeBtn.style.display = "none";
+        }
         executeBtn.innerHTML = `
           <svg class="planner-execute-icon" viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
             <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86a1 1 0 0 0-1.5.86z"/>
@@ -12635,6 +12669,10 @@ function renderPlannerView() {
         checkbox.addEventListener("change", async () => {
           task.completed = checkbox.checked;
           card.classList.toggle("is-done", task.completed);
+          if (executeBtn) {
+            executeBtn.hidden = task.completed;
+            executeBtn.style.display = task.completed ? "none" : "";
+          }
           updatePlannerBadge();
           try {
             await authRequest(`/api/planner/${task.id}`, {
@@ -12645,6 +12683,10 @@ function renderPlannerView() {
             checkbox.checked = !task.completed;
             task.completed = checkbox.checked;
             card.classList.toggle("is-done", task.completed);
+            if (executeBtn) {
+              executeBtn.hidden = task.completed;
+              executeBtn.style.display = task.completed ? "none" : "";
+            }
             updatePlannerBadge();
             showToast(err.message || (isEn ? "Unable to update task" : "Yeniləmək mümkün olmadı"), "error");
           }

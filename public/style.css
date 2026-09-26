@@ -5378,6 +5378,73 @@ body.sidebar-open .refinement-dock {
   line-height: 1.5;
 }
 
+/* Archive & Planner Switch (Similar to Build & Ask switch) */
+.archive-planner-switch {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 3px;
+  border-radius: 9999px;
+  background: var(--theme-surface-soft, #f1f3f5);
+  border: 1px solid var(--border-subtle);
+  box-sizing: border-box;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.archive-planner-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 16px;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.archive-planner-option:hover {
+  color: var(--text-primary);
+}
+
+.archive-planner-option.is-active {
+  background: var(--theme-surface, #ffffff);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 2px var(--theme-shadow-soft, rgba(16, 24, 40, 0.06));
+}
+
+[data-theme="dark"] .archive-planner-switch,
+html.dark .archive-planner-switch {
+  background: #141415;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .archive-planner-option,
+html.dark .archive-planner-option {
+  color: #9ca3af;
+}
+
+[data-theme="dark"] .archive-planner-option:hover,
+html.dark .archive-planner-option:hover {
+  color: #f4f4f5;
+}
+
+[data-theme="dark"] .archive-planner-option.is-active,
+html.dark .archive-planner-option.is-active {
+  background: rgba(38, 38, 38, 0.85);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
 .archive-new-btn {
   display: inline-flex;
   align-items: center;
@@ -5759,9 +5826,9 @@ body.sidebar-open .refinement-dock {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: min(440px, calc(100vw - var(--rail-width) - 32px));
+  width: min(380px, calc(100vw - var(--rail-width) - 32px));
   height: 44px;
-  padding: 5px 6px 5px 14px;
+  padding: 5px 14px;
   border-radius: 999px;
   background: rgba(var(--theme-surface-rgb, 255, 255, 255), 0.92);
   border: 1px solid var(--border-subtle);
@@ -5872,9 +5939,9 @@ body.sidebar-open .archive-bottom-dock {
     left: 50%;
     bottom: max(12px, env(safe-area-inset-bottom, 12px));
     width: calc(100vw - 20px);
-    max-width: 440px;
+    max-width: 380px;
     height: 48px;
-    padding: 4px 6px 4px 12px;
+    padding: 4px 14px;
     gap: 6px;
     box-shadow: 0 10px 28px -6px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(0, 0, 0, 0.05);
   }
@@ -5920,13 +5987,7 @@ body.sidebar-open .archive-bottom-dock {
   .archive-bottom-dock,
   body.sidebar-open .archive-bottom-dock {
     width: calc(100vw - 12px);
-    padding: 4px 5px 4px 10px;
-    gap: 4px;
-  }
-
-  .archive-dock-new-btn {
-    padding: 0 9px 0 7px;
-    font-size: 11px;
+    padding: 4px 14px;
     gap: 4px;
   }
 }
@@ -9213,6 +9274,22 @@ html.dark .ask-submit:disabled .ask-f1-icon .ask-f1-cockpit {
 
   .archive-subtitle {
     font-size: 13.5px;
+  }
+
+  .archive-planner-switch {
+    width: 100%;
+    max-width: 320px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 36px;
+    padding: 2.5px;
+    box-sizing: border-box;
+  }
+
+  .archive-planner-option {
+    padding: 0 8px;
+    font-size: 12.5px;
+    text-align: center;
   }
 
   .archive-controls-section {
@@ -16621,7 +16698,8 @@ html.dark .planner-task-card.is-selected {
   box-shadow: 0 0 0 1.5px rgba(99, 128, 255, 0.4), 0 4px 14px rgba(0, 0, 0, 0.2) !important;
 }
 
-/* Hide "İcra et" on selected task cards or when category has bulk selection */
+/* Hide "İcra et" on completed task cards, selected task cards, or when category has bulk selection */
+.planner-task-card.is-done .planner-execute-btn,
 .planner-task-card.is-selected .planner-execute-btn,
 .planner-group.has-bulk-selection .planner-execute-btn {
   display: none !important;
@@ -17323,8 +17401,34 @@ html.dark .planner-visit-toast-message {
   }
 
   .planner-header-row {
-    margin-bottom: 18px;
+    flex-direction: column;
     align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .planner-header-actions {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .planner-header-actions .archive-planner-switch {
+    flex: 1;
+    max-width: 320px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 36px;
+    padding: 2.5px;
+    box-sizing: border-box;
+  }
+
+  .planner-header-actions .archive-planner-option {
+    padding: 0 8px;
+    font-size: 12.5px;
+    text-align: center;
   }
 
   .planner-notif-btn {

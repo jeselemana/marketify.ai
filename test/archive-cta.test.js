@@ -30,14 +30,13 @@ test("i18n: archive background CTA banner has 100% key parity and correct transl
   assert.ok(t("archive.bgCtaDesc", {}, "en").includes("Archive"));
 });
 
-test("script.js: renderArchiveBackgroundCta is declared, appends to archive view, and complies with XSS Rule 4", async () => {
+test("script.js: renderArchiveBackgroundCta complies with XSS Rule 4 and banner is removed from archive view", async () => {
   const scriptContent = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
 
   assert.ok(scriptContent.includes("function renderArchiveBackgroundCta()"), "renderArchiveBackgroundCta function is defined");
   assert.ok(scriptContent.includes("archive-bg-cta"), "archive-bg-cta CSS class is used");
   assert.ok(scriptContent.includes("archive-bg-cta-tag"), "archive-bg-cta-tag kicker badge is rendered");
-  assert.ok(scriptContent.includes("renderArchiveBackgroundCta()"), "renderArchiveBackgroundCta is called");
-  assert.ok(scriptContent.includes("view.appendChild(bgCta);"), "bgCta banner is appended to archive view");
+  assert.ok(!scriptContent.includes("view.appendChild(bgCta);"), "bgCta banner is removed from archive view");
 
   // Rule 4: Frontend XSS Protection - Ensure text is safely rendered
   assert.ok(
@@ -63,7 +62,7 @@ test("style.css: archive-bg-cta classes, attractive styling, and dark mode overr
   assert.ok(styleContent.includes(':root[data-theme="dark"] .archive-bg-cta'), "dark theme archive cta is defined");
 });
 
-test("script.js and style.css: archive-bottom-dock is pinned at bottom with search and new button in compact form", async () => {
+test("script.js and style.css: archive-bottom-dock is pinned at bottom with search bar in compact form", async () => {
   const scriptContent = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
   const styleContent = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
 
@@ -71,8 +70,8 @@ test("script.js and style.css: archive-bottom-dock is pinned at bottom with sear
   assert.ok(scriptContent.includes('archive-bottom-dock'), "archive-bottom-dock is constructed in script.js");
   assert.ok(scriptContent.includes('archive-dock-search-wrap'), "archive-dock-search-wrap exists");
   assert.ok(scriptContent.includes('archive-dock-search-input'), "archive-dock-search-input exists");
-  assert.ok(scriptContent.includes('archive-dock-new-btn'), "archive-dock-new-btn exists");
-  assert.ok(scriptContent.includes('dock.append(searchWrap, divider, newBtn);'), "dock bundles searchWrap, divider, and newBtn");
+  assert.ok(scriptContent.includes('dock.append(searchWrap);'), "dock appends searchWrap");
+  assert.ok(!scriptContent.includes('dock.append(searchWrap, divider, newBtn);'), "dock does not bundle newBtn");
   assert.ok(scriptContent.includes('view.appendChild(dock);'), "dock is appended to archive view");
 
   // style.css checks: pinned fixed bottom positioning and compact pill styling
@@ -104,5 +103,15 @@ test("style.css: archive-dock-new-btn is styled in deep navy blue", async () => 
   assert.ok(styleContent.includes('#172e54'), "dock button uses dark mode navy blue override");
 });
 
+test("script.js and style.css: archive-planner-switch is rendered at top of archive and styled similar to Build & Ask switch", async () => {
+  const scriptContent = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
+  const styleContent = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
 
-
+  assert.ok(scriptContent.includes("archive-planner-switch"), "archive-planner-switch class exists in script.js");
+  assert.ok(scriptContent.includes("archive-planner-option"), "archive-planner-option class exists in script.js");
+  assert.ok(scriptContent.includes("renderArchivePlannerSwitch"), "renderArchivePlannerSwitch function exists");
+  assert.ok(styleContent.includes(".archive-planner-switch {"), ".archive-planner-switch class exists in style.css");
+  assert.ok(styleContent.includes(".archive-planner-option {"), ".archive-planner-option class exists in style.css");
+  assert.ok(styleContent.includes(".archive-planner-option.is-active"), "active option styling exists");
+  assert.ok(styleContent.includes('[data-theme="dark"] .archive-planner-switch'), "dark mode switch styling exists");
+});

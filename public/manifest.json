@@ -1,7 +1,7 @@
 {
   "name": "Helmer",
   "short_name": "Helmer",
-  "description": "Helmer Workspace biznes məqsədini strukturlaşdırılmış, icra oluna bilən strategiyaya çevirir.",
+  "description": "Your all-in-one AI operating system for strategy, market intelligence, and executive decisions.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
