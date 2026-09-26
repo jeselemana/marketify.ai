@@ -58,6 +58,7 @@ const changelogModalOverlay = document.querySelector("#changelogModalOverlay");
 const mobileBottomSheetOverlay = document.querySelector("#mobileBottomSheetOverlay");
 const mobileModelSheetOverlay = document.querySelector("#mobileModelSheetOverlay");
 const mobileProfileSheetOverlay = document.querySelector("#mobileProfileSheetOverlay");
+const mobileNotifSheetOverlay = document.querySelector("#mobileNotifSheetOverlay");
 const profilePopoverMenu = document.querySelector("#profilePopoverMenu");
 
 function getKeyboardShortcuts() {
@@ -1867,6 +1868,7 @@ function openUserProfileMenu(triggerEl) {
     closeUserProfileMenu();
     closeMobileBottomSheet();
     closeMobileModelSheet();
+    closePlannerNotificationSheet();
 
     const overlay = document.querySelector("#mobileProfileSheetOverlay");
     if (!overlay) return;
@@ -11571,8 +11573,197 @@ function checkAndShowPlannerVisitNotification() {
   document.body.appendChild(toast);
 }
 
+function renderPlannerNotificationContent(container, closeFn) {
+  const isEn = getLanguage() === "en";
+  container.replaceChildren();
+
+  const isEnabled = isPlannerNotificationsEnabled();
+  if (!isEnabled) {
+    const disabledCard = element("div", "planner-notif-empty-state");
+    disabledCard.innerHTML = `
+      <p>${escapeHtml(isEn ? "Priority task reminders are disabled." : "Prioritet tapşırıq xatırlatmaları deaktiv edilib.")}</p>
+    `;
+    container.appendChild(disabledCard);
+    return;
+  }
+
+  const urgentTasks = getUrgentPlannerTasks();
+  if (!urgentTasks.length) {
+    const emptyState = element("div", "planner-notif-empty-state");
+    emptyState.innerHTML = `
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="planner-notif-empty-icon">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+      <strong>${escapeHtml(t("planner.notifAllCaughtUp") || (isEn ? "All caught up" : "Hər şey qaydasındadır"))}</strong>
+      <p>${escapeHtml(t("planner.notifAllCaughtUpDesc") || (isEn ? "No pending priority tasks waiting for execution ✓" : "İcra gözləyən prioritet tapşırıq yoxdur ✓"))}</p>
+    `;
+    container.appendChild(emptyState);
+    return;
+  }
+
+  const subhead = element(
+    "div",
+    "planner-notif-subhead",
+    t("planner.notifWindowSubtitle") || (isEn ? "Pending priority tasks" : "İcra gözləyən prioritet tapşırıqlar")
+  );
+  container.appendChild(subhead);
+
+  const list = element("div", "planner-notif-task-list");
+  urgentTasks.slice(0, 6).forEach((task) => {
+    const item = element("div", "planner-notif-task-item");
+    const dot = element("span", "planner-notif-task-dot");
+    const text = element("span", "planner-notif-task-text", task.text);
+    const badge = element("span", "planner-notif-task-badge", task.groupLabel || (isEn ? "Priority" : "Prioritet"));
+    item.append(dot, text, badge);
+    item.addEventListener("click", () => {
+      closeFn();
+      state.plannerFilter = "priority";
+      render();
+    });
+    list.appendChild(item);
+  });
+  container.appendChild(list);
+
+  const actionButtons = element("div", "planner-notif-popover-actions");
+  const viewAllBtn = button(
+    isEn ? "View all priorities" : "Bütün prioritetlərə bax",
+    "primary-button",
+    () => {
+      closeFn();
+      state.plannerFilter = "priority";
+      render();
+    }
+  );
+  viewAllBtn.type = "button";
+
+  const snoozeBtn = button(
+    t("planner.notifRemindLater") || (isEn ? "Remind me later" : "Daha sonra xatırlat"),
+    "secondary-button",
+    () => {
+      closeFn();
+      snoozePlannerNotification(2);
+    }
+  );
+  snoozeBtn.type = "button";
+
+  actionButtons.append(viewAllBtn, snoozeBtn);
+  container.appendChild(actionButtons);
+}
+
+function closePlannerNotificationSheet() {
+  const overlay = document.querySelector("#mobileNotifSheetOverlay");
+  const bellBtn = document.querySelector(".planner-notif-btn");
+  if (bellBtn) bellBtn.classList.remove("is-active");
+  if (!overlay || overlay.hidden || overlay.classList.contains("is-closing")) return;
+  overlay.classList.remove("is-open");
+  overlay.classList.add("is-closing");
+  document.body.style.overflow = "";
+
+  let cleanedUp = false;
+  const finishClose = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.classList.remove("is-closing");
+    overlay.replaceChildren();
+  };
+
+  const sheet = overlay.querySelector(".mobile-action-sheet");
+  if (sheet) {
+    sheet.addEventListener("transitionend", finishClose, { once: true });
+  }
+  setTimeout(finishClose, 260);
+}
+
+function openPlannerNotificationSheet(anchorBtn) {
+  const overlay = document.querySelector("#mobileNotifSheetOverlay");
+  if (!overlay) return;
+
+  const isEn = getLanguage() === "en";
+
+  if (!overlay.hidden && overlay.classList.contains("is-open")) {
+    closePlannerNotificationSheet();
+    return;
+  }
+
+  closeSidebar();
+  closeMobileBottomSheet();
+  closeMobileModelSheet();
+  closeUserProfileMenu();
+
+  if (anchorBtn) anchorBtn.classList.add("is-active");
+
+  overlay.replaceChildren();
+  overlay.hidden = false;
+  overlay.setAttribute("aria-hidden", "false");
+  overlay.classList.remove("is-closing");
+  document.body.style.overflow = "hidden";
+
+  const sheet = element("div", "mobile-action-sheet mobile-notif-sheet");
+  sheet.setAttribute("role", "dialog");
+  sheet.setAttribute("aria-modal", "true");
+  sheet.setAttribute("aria-label", t("planner.notifications") || "Bildirişlər");
+
+  // Drag area & handle
+  const dragArea = element("div", "mobile-sheet-drag-area");
+  dragArea.appendChild(element("div", "mobile-sheet-drag-handle"));
+
+  // Sheet Header
+  const header = element("header", "mobile-sheet-header mobile-notif-sheet-header");
+  const title = element("h3", "mobile-sheet-title", t("planner.notifications") || (isEn ? "Notifications" : "Bildirişlər"));
+
+  const headerActions = element("div", "mobile-notif-sheet-header-actions");
+
+  // Reminders Switch Toggle
+  const toggleWrap = element("div", "planner-notif-popover-toggle-wrap");
+  const toggleLabel = element("span", "planner-notif-toggle-label", t("planner.notifRemindersActive") || (isEn ? "Reminders active" : "Xatırlatmalar"));
+  const toggleBtn = element("button", `settings-toggle${isPlannerNotificationsEnabled() ? " is-active" : ""}`);
+  toggleBtn.type = "button";
+  toggleBtn.setAttribute("role", "switch");
+  toggleBtn.setAttribute("aria-label", t("planner.notifRemindersActive") || (isEn ? "Reminders active" : "Xatırlatmalar"));
+  toggleBtn.appendChild(element("span", "settings-toggle-thumb"));
+
+  const body = element("div", "mobile-sheet-body mobile-notif-sheet-body");
+
+  toggleBtn.addEventListener("click", async () => {
+    const nextState = !isPlannerNotificationsEnabled();
+    toggleBtn.classList.toggle("is-active", nextState);
+    await setPlannerNotificationsEnabled(nextState);
+    renderPlannerNotificationContent(body, closePlannerNotificationSheet);
+  });
+  toggleWrap.append(toggleLabel, toggleBtn);
+
+  // Close button
+  const closeBtn = button("✕", "mobile-sheet-close-btn", closePlannerNotificationSheet);
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", t("common.close") || (isEn ? "Close" : "Bağla"));
+
+  headerActions.append(toggleWrap, closeBtn);
+  header.append(title, headerActions);
+
+  renderPlannerNotificationContent(body, closePlannerNotificationSheet);
+
+  sheet.append(dragArea, header, body);
+  overlay.appendChild(sheet);
+
+  attachSwipeDownToClose(sheet, closePlannerNotificationSheet);
+
+  requestAnimationFrame(() => {
+    overlay.classList.add("is-open");
+  });
+}
+
 function togglePlannerNotificationPopover(anchorBtn) {
   const isEn = getLanguage() === "en";
+  const isMobile = window.innerWidth <= 767;
+
+  if (isMobile) {
+    openPlannerNotificationSheet(anchorBtn);
+    return;
+  }
+
   const existing = document.querySelector(".planner-notif-popover");
   if (existing) {
     existing.remove();
@@ -11593,105 +11784,30 @@ function togglePlannerNotificationPopover(anchorBtn) {
   toggleBtn.setAttribute("role", "switch");
   toggleBtn.setAttribute("aria-label", t("planner.notifRemindersActive") || (isEn ? "Reminders active" : "Xatırlatmalar"));
   toggleBtn.appendChild(element("span", "settings-toggle-thumb"));
+
+  const body = element("div", "planner-notif-popover-body");
+
+  const closePopover = () => {
+    popover.remove();
+    anchorBtn.classList.remove("is-active");
+  };
+
   toggleBtn.addEventListener("click", async () => {
     const nextState = !isPlannerNotificationsEnabled();
     toggleBtn.classList.toggle("is-active", nextState);
     await setPlannerNotificationsEnabled(nextState);
-    renderNotifBody();
+    renderPlannerNotificationContent(body, closePopover);
   });
   toggleWrap.append(toggleLabel, toggleBtn);
   header.append(title, toggleWrap);
 
-  const body = element("div", "planner-notif-popover-body");
-
-  const renderNotifBody = () => {
-    body.replaceChildren();
-    const isEnabled = isPlannerNotificationsEnabled();
-    if (!isEnabled) {
-      const disabledCard = element("div", "planner-notif-empty-state");
-      disabledCard.innerHTML = `
-        <p>${escapeHtml(isEn ? "Priority task reminders are disabled." : "Prioritet tapşırıq xatırlatmaları deaktiv edilib.")}</p>
-      `;
-      body.appendChild(disabledCard);
-      return;
-    }
-
-    const urgentTasks = getUrgentPlannerTasks();
-    if (!urgentTasks.length) {
-      const emptyState = element("div", "planner-notif-empty-state");
-      emptyState.innerHTML = `
-        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="planner-notif-empty-icon">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-        <strong>${escapeHtml(t("planner.notifAllCaughtUp") || (isEn ? "All caught up" : "Hər şey qaydasındadır"))}</strong>
-        <p>${escapeHtml(t("planner.notifAllCaughtUpDesc") || (isEn ? "No pending priority tasks waiting for execution ✓" : "İcra gözləyən prioritet tapşırıq yoxdur ✓"))}</p>
-      `;
-      body.appendChild(emptyState);
-      return;
-    }
-
-    const rawName = getUserFirstName() || (isEn ? "Leader" : "Lider");
-    const greetingBox = element("div", "planner-notif-greeting");
-    const greetingMsg = isEn
-      ? `Hello, ${rawName}! You still have pending priority task(s) in Planner waiting for execution. Don't forget to review them.`
-      : `Salam, ${rawName}! Planlaşdırılanlarda hələ də icra gözləyən prioritet tapşırıq(ların) mövcuddur. Nəzərdən keçirməyi unutma.`;
-    greetingBox.textContent = greetingMsg;
-    body.appendChild(greetingBox);
-
-    const list = element("div", "planner-notif-task-list");
-    urgentTasks.slice(0, 5).forEach((task) => {
-      const item = element("div", "planner-notif-task-item");
-      const dot = element("span", "planner-notif-task-dot");
-      const text = element("span", "planner-notif-task-text", task.text);
-      const badge = element("span", "planner-notif-task-badge", task.groupLabel || (isEn ? "Priority" : "Prioritet"));
-      item.append(dot, text, badge);
-      item.addEventListener("click", () => {
-        popover.remove();
-        anchorBtn.classList.remove("is-active");
-        state.plannerFilter = "priority";
-        render();
-      });
-      list.appendChild(item);
-    });
-    body.appendChild(list);
-
-    const actionButtons = element("div", "planner-notif-popover-actions");
-    const viewAllBtn = button(
-      isEn ? "View all priorities" : "Bütün prioritetlərə bax",
-      "primary-button",
-      () => {
-        popover.remove();
-        anchorBtn.classList.remove("is-active");
-        state.plannerFilter = "priority";
-        render();
-      }
-    );
-    viewAllBtn.type = "button";
-
-    const snoozeBtn = button(
-      t("planner.notifRemindLater") || (isEn ? "Remind me later" : "Daha sonra xatırlat"),
-      "secondary-button",
-      () => {
-        popover.remove();
-        anchorBtn.classList.remove("is-active");
-        snoozePlannerNotification(2);
-      }
-    );
-    snoozeBtn.type = "button";
-
-    actionButtons.append(viewAllBtn, snoozeBtn);
-    body.appendChild(actionButtons);
-  };
-
-  renderNotifBody();
+  renderPlannerNotificationContent(body, closePopover);
   popover.append(header, body);
   anchorBtn.parentElement.appendChild(popover);
 
   const closeOnOutside = (e) => {
     if (!popover.contains(e.target) && !anchorBtn.contains(e.target)) {
-      popover.remove();
-      anchorBtn.classList.remove("is-active");
+      closePopover();
       document.removeEventListener("click", closeOnOutside);
     }
   };
@@ -14543,6 +14659,9 @@ mobileModelSheetOverlay?.addEventListener("click", (event) => {
 mobileProfileSheetOverlay?.addEventListener("click", (event) => {
   if (event.target === mobileProfileSheetOverlay) closeUserProfileMenu();
 });
+mobileNotifSheetOverlay?.addEventListener("click", (event) => {
+  if (event.target === mobileNotifSheetOverlay) closePlannerNotificationSheet();
+});
 buildModeButton?.addEventListener("click", () => setMode("build"));
 askModeButton?.addEventListener("click", () => {
   if (state.mode !== "ask") {
@@ -14635,6 +14754,7 @@ function handleKeyboardShortcut(event) {
       document.querySelector("#mobileBottomSheetOverlay:not([hidden])") ||
       document.querySelector("#mobileModelSheetOverlay:not([hidden])") ||
       document.querySelector("#mobileProfileSheetOverlay:not([hidden])") ||
+      document.querySelector("#mobileNotifSheetOverlay:not([hidden])") ||
       document.querySelector("#profilePopoverMenu:not([hidden])") ||
       document.querySelector("#appShell.is-sidebar-open")
     );
@@ -14646,6 +14766,7 @@ function handleKeyboardShortcut(event) {
     closeMobileBottomSheet();
     closeMobileModelSheet();
     closeUserProfileMenu();
+    closePlannerNotificationSheet();
     if (!hadOverlay && state.view === "settings") {
       state.view = state.previousView || "home";
       syncNav();

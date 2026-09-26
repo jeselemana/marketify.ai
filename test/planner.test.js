@@ -255,6 +255,15 @@ test("planner notifications: notification bell, site visit greeting, and user pr
   // 5. i18n keys exist
   assert.ok(i18nContent.includes('notifRemindLater: "Daha sonra xatırlat"'), "AZ i18n contains notifRemindLater");
   assert.ok(i18nContent.includes('notifRemindLater: "Remind me later"'), "EN i18n contains notifRemindLater");
+  assert.ok(i18nContent.includes('notifWindowSubtitle: "İcra gözləyən prioritet tapşırıqlar"'), "AZ i18n contains notifWindowSubtitle");
+  assert.ok(i18nContent.includes('notifWindowSubtitle: "Pending priority tasks"'), "EN i18n contains notifWindowSubtitle");
   assert.ok(i18nContent.includes('plannerNotifTitle: "Planlaşdırılanlar Xatırlatmaları"'), "AZ settings i18n contains plannerNotifTitle");
   assert.ok(i18nContent.includes('plannerNotifTitle: "Planner Priority Reminders"'), "EN settings i18n contains plannerNotifTitle");
+
+  // 6. Mobile bottom sheet support
+  assert.ok(scriptContent.includes("openPlannerNotificationSheet"), "script.js implements openPlannerNotificationSheet");
+  assert.ok(scriptContent.includes("closePlannerNotificationSheet"), "script.js implements closePlannerNotificationSheet");
+  assert.ok(scriptContent.includes("mobileNotifSheetOverlay"), "script.js references mobileNotifSheetOverlay");
+  assert.ok(styleContent.includes(".mobile-notif-sheet"), "style.css styles .mobile-notif-sheet");
+  assert.ok(styleContent.includes(".mobile-notif-sheet-overlay"), "style.css styles .mobile-notif-sheet-overlay");
 });

@@ -16990,6 +16990,20 @@ html.dark .planner-notif-greeting {
   color: #f1f5f9;
 }
 
+.planner-notif-subhead {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--theme-muted, #64748b);
+  padding: 2px 0 2px;
+}
+
+[data-theme="dark"] .planner-notif-subhead,
+html.dark .planner-notif-subhead {
+  color: #94a3b8;
+}
+
 .planner-notif-task-list {
   display: flex;
   flex-direction: column;
@@ -23853,7 +23867,8 @@ html.dark .install-step-action-pill {
 /* ── Mobile Action Bottom Sheet & Model Selector Sheet (Helmer Slate Dark Theme) ── */
 .mobile-bottom-sheet-overlay,
 .mobile-model-sheet-overlay,
-.mobile-profile-sheet-overlay {
+.mobile-profile-sheet-overlay,
+.mobile-notif-sheet-overlay {
   position: fixed;
   inset: 0;
   z-index: 9999;
@@ -23875,21 +23890,24 @@ html.dark .install-step-action-pill {
 
 .mobile-bottom-sheet-overlay.is-open,
 .mobile-model-sheet-overlay.is-open,
-.mobile-profile-sheet-overlay.is-open {
+.mobile-profile-sheet-overlay.is-open,
+.mobile-notif-sheet-overlay.is-open {
   opacity: 1;
   pointer-events: auto;
 }
 
 .mobile-bottom-sheet-overlay.is-closing,
 .mobile-model-sheet-overlay.is-closing,
-.mobile-profile-sheet-overlay.is-closing {
+.mobile-profile-sheet-overlay.is-closing,
+.mobile-notif-sheet-overlay.is-closing {
   opacity: 0;
   pointer-events: none;
 }
 
 .mobile-bottom-sheet-overlay[hidden],
 .mobile-model-sheet-overlay[hidden],
-.mobile-profile-sheet-overlay[hidden] {
+.mobile-profile-sheet-overlay[hidden],
+.mobile-notif-sheet-overlay[hidden] {
   display: none !important;
   opacity: 0 !important;
   pointer-events: none !important;
@@ -23923,13 +23941,15 @@ html.dark .install-step-action-pill {
 
 .mobile-bottom-sheet-overlay.is-open .mobile-action-sheet,
 .mobile-model-sheet-overlay.is-open .mobile-model-sheet,
-.mobile-profile-sheet-overlay.is-open .mobile-action-sheet {
+.mobile-profile-sheet-overlay.is-open .mobile-action-sheet,
+.mobile-notif-sheet-overlay.is-open .mobile-action-sheet {
   transform: translateY(0);
 }
 
 .mobile-bottom-sheet-overlay.is-closing .mobile-action-sheet,
 .mobile-model-sheet-overlay.is-closing .mobile-model-sheet,
-.mobile-profile-sheet-overlay.is-closing .mobile-action-sheet {
+.mobile-profile-sheet-overlay.is-closing .mobile-action-sheet,
+.mobile-notif-sheet-overlay.is-closing .mobile-action-sheet {
   transform: translateY(100%);
 }
 
@@ -24650,6 +24670,62 @@ html:not(.dark) .mobile-model-thinking-row {
 
 .mobile-profile-sheet .profile-menu-content {
   padding: 4px 14px 18px;
+}
+
+/* Mobile Notification Bottom Sheet */
+.mobile-notif-sheet {
+  max-height: min(85dvh, 580px);
+}
+
+.mobile-notif-sheet-header {
+  padding: 6px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .mobile-notif-sheet-header,
+html:not(.dark) .mobile-notif-sheet-header {
+  border-bottom: 1px solid rgba(20, 27, 42, 0.08);
+}
+
+.mobile-notif-sheet-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-notif-sheet-body {
+  padding: 12px 18px max(18px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-notif-sheet .planner-notif-subhead {
+  padding-bottom: 2px;
+}
+
+.mobile-notif-sheet .planner-notif-task-list {
+  max-height: 280px;
+}
+
+.mobile-notif-sheet .planner-notif-task-item {
+  min-height: 46px;
+  padding: 11px 13px;
+  border-radius: 12px;
+}
+
+.mobile-notif-sheet .planner-notif-popover-actions {
+  padding-top: 8px;
+  gap: 10px;
+}
+
+.mobile-notif-sheet .planner-notif-popover-actions .primary-button,
+.mobile-notif-sheet .planner-notif-popover-actions .secondary-button {
+  height: 42px;
+  font-size: 13px;
+  border-radius: 11px;
 }
 
 /* Header */
