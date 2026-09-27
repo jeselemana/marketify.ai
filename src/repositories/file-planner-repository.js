@@ -149,6 +149,8 @@ export class FilePlannerRepository {
           status,
           strategyId,
           strategyTitle,
+          source: item.source || (strategyId || strategyTitle ? "brief" : "user"),
+          feedback: item.feedback || null,
           isPriority,
           priority,
           completed: status === "completed" || Boolean(item.completed),
@@ -189,6 +191,10 @@ export class FilePlannerRepository {
     const text = safeChanges.text || safeChanges.title || records[index].text || records[index].title;
     const timeframe = safeChanges.timeframe || safeChanges.groupLabel || records[index].timeframe || records[index].groupLabel;
     const groupLabel = safeChanges.groupLabel || safeChanges.timeframe || records[index].groupLabel || records[index].timeframe;
+    const feedback = safeChanges.feedback !== undefined ? safeChanges.feedback : (records[index].feedback || null);
+    const source = safeChanges.source !== undefined
+      ? safeChanges.source
+      : (records[index].source || (records[index].strategyId || records[index].strategyTitle ? "brief" : "user"));
 
     records[index] = {
       ...records[index],
@@ -203,6 +209,8 @@ export class FilePlannerRepository {
       status,
       isPriority,
       priority,
+      source,
+      feedback,
       completed,
       completedAt: completed ? (records[index].completedAt || now) : null,
       updatedAt: now,

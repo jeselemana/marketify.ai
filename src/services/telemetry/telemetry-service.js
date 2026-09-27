@@ -328,6 +328,62 @@ export class TelemetryService {
     });
   }
 
+  async trackTaskFeedback({
+    ownerId = null,
+    sessionId = null,
+    taskId = "",
+    taskText = "",
+    feedback = "like",
+    strategyId = null,
+    strategyTitle = null,
+    source = "brief",
+    userNote = "",
+  } = {}) {
+    const isLike = feedback === "like";
+    const feedbackLabel = isLike ? "Faydalı oldu (Like 👍)" : "Faydalı olmadı (Dislike 👎)";
+    const safeTaskSnippet = redactSensitiveText(taskText || "Tapşırıq", 80);
+    const safeStrategyTitle = strategyTitle ? redactSensitiveText(strategyTitle, 60) : null;
+
+    const baseExplanation = isLike
+      ? `İstifadəçi "${safeStrategyTitle || "Strategiya"}" briefindən olan tapşırığın icrasını FAYDALI hesab etdi.`
+      : `İstifadəçi "${safeStrategyTitle || "Strategiya"}" briefindən olan tapşırığın icrasını FAYDASIZ / QEYRİ-EFFEKTİV hesab etdi.`;
+
+    const explanation = userNote ? `${baseExplanation} İstifadəçi qeydi: "${userNote}"` : baseExplanation;
+
+    const event = {
+      id: `evt_fbk_${randomUUID()}`,
+      eventType: "task_feedback",
+      mode: "planner",
+      maskedUserId: maskIdentifier(ownerId || sessionId),
+      marketMode: null,
+      category: "İcra Rəyi",
+      model: "user-feedback",
+      latencyMs: null,
+      tokens: null,
+      costUsd: 0,
+      costAzn: 0,
+      status: isLike ? "success" : "warning",
+      summary: `Planner Rəyi: [${feedbackLabel}] "${safeTaskSnippet}"`,
+      metadata: redactPayload({
+        taskId,
+        feedback,
+        rating: isLike ? "positive" : "negative",
+        taskTitle: safeTaskSnippet,
+        strategyId,
+        strategyTitle: safeStrategyTitle,
+        source,
+        izahat: explanation,
+        explanation,
+      }),
+      timestamp: new Date().toISOString(),
+    };
+
+    return this.repository.recordEvent(event).catch((err) => {
+      console.warn("⚠️ Telemetry task feedback logging error:", err.message);
+      return null;
+    });
+  }
+
   async syncHistoricalIfEmpty({ strategyRepository, chatRepository, aiLearningRepository } = {}) {
     try {
       const store = await this.repository.readStore();

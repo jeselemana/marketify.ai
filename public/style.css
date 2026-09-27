@@ -16225,10 +16225,15 @@ body.dark .planner-priority-action-btn {
   z-index: 60 !important;
 }
 
+.planner-task-card:not(.is-done) {
+  cursor: pointer;
+}
+
 .planner-task-card.is-done {
   background: var(--theme-surface, #fbfcfe);
   border-color: var(--theme-border, #e5e7eb);
   opacity: 0.72;
+  cursor: default;
 }
 
 .planner-task-card.is-done:hover {
@@ -16703,6 +16708,126 @@ html.dark .planner-task-card.is-selected {
 .planner-task-card.is-selected .planner-execute-btn,
 .planner-group.has-bulk-selection .planner-execute-btn {
   display: none !important;
+}
+
+/* Planner Task Feedback Prompt (for completed brief tasks) */
+.planner-task-feedback {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--theme-border, #e2e8f0);
+  align-self: flex-start;
+  user-select: none;
+}
+
+.planner-feedback-prompt {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--theme-muted, #64748b);
+  letter-spacing: -0.01em;
+}
+
+.planner-feedback-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.planner-feedback-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--theme-border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--theme-surface, #ffffff);
+  color: var(--theme-muted, #64748b);
+  cursor: pointer;
+  padding: 0;
+  transition: all 140ms ease;
+}
+
+.planner-feedback-btn:hover {
+  background: var(--theme-surface-soft, #f1f5f9);
+  color: var(--theme-ink, #0f172a);
+  border-color: var(--theme-border-strong, #cbd5e1);
+  transform: translateY(-0.5px);
+}
+
+.planner-feedback-btn.is-like.is-active {
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.1);
+  border-color: rgba(22, 163, 74, 0.28);
+}
+
+.planner-feedback-btn.is-like.is-active svg {
+  fill: rgba(22, 163, 74, 0.18);
+}
+
+.planner-feedback-btn.is-dislike.is-active {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.28);
+}
+
+.planner-feedback-btn.is-dislike.is-active svg {
+  fill: rgba(220, 38, 38, 0.18);
+}
+
+/* Dark mode parity for task feedback */
+[data-theme="dark"] .planner-task-feedback,
+html.dark .planner-task-feedback {
+  border-top-color: var(--theme-border, #334155);
+}
+
+[data-theme="dark"] .planner-feedback-prompt,
+html.dark .planner-feedback-prompt {
+  color: var(--theme-muted, #94a3b8);
+}
+
+[data-theme="dark"] .planner-feedback-btn,
+html.dark .planner-feedback-btn {
+  background: var(--theme-surface, #1e293b);
+  border-color: var(--theme-border, #334155);
+  color: var(--theme-muted, #94a3b8);
+}
+
+[data-theme="dark"] .planner-feedback-btn:hover,
+html.dark .planner-feedback-btn:hover {
+  background: var(--theme-surface-soft, #334155);
+  color: var(--theme-ink, #f8fafc);
+  border-color: #475569;
+}
+
+[data-theme="dark"] .planner-feedback-btn.is-like.is-active,
+html.dark .planner-feedback-btn.is-like.is-active {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.14);
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+[data-theme="dark"] .planner-feedback-btn.is-like.is-active svg,
+html.dark .planner-feedback-btn.is-like.is-active svg {
+  fill: rgba(74, 222, 128, 0.2);
+}
+
+[data-theme="dark"] .planner-feedback-btn.is-dislike.is-active,
+html.dark .planner-feedback-btn.is-dislike.is-active {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.14);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+[data-theme="dark"] .planner-feedback-btn.is-dislike.is-active svg,
+html.dark .planner-feedback-btn.is-dislike.is-active svg {
+  fill: rgba(248, 113, 113, 0.2);
+}
+
+.planner-task-card.is-done:has(.planner-task-feedback:hover) {
+  opacity: 1;
 }
 
 /* Hide search bar and composer when tasks are selected */
@@ -17665,6 +17790,32 @@ html.dark .planner-visit-toast-message {
   .planner-dropdown-menu {
     min-width: 175px;
     max-width: calc(100vw - 32px);
+  }
+
+  .planner-task-feedback {
+    margin-top: 10px;
+    padding-top: 9px;
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .planner-feedback-prompt {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .planner-feedback-buttons {
+    gap: 8px;
+  }
+
+  .planner-feedback-btn {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    border-radius: 9px;
   }
 
   .planner-floating-actions {

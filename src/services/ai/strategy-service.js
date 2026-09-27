@@ -15,6 +15,7 @@ import {
   ASSESSOR_PROMPT,
   REFINEMENT_PROMPT,
   STRATEGY_PROMPT,
+  IMMEDIATE_ACTION_ITEMS_RULES,
   buildAssessorPrompt,
   buildRefinementInput,
   buildRefinementPrompt,
@@ -24,6 +25,138 @@ import {
 function clarificationContext(answers) {
   if (!answers?.length) return "No clarification answers have been provided.";
   return answers.map((item) => `${item.question}\nAnswer: ${item.answer}`).join("\n\n");
+}
+
+export function validateActionItemTiming(taskText, timeframe = "Today", language = "az") {
+  const isEn = language === "en";
+  const normalizedTf = String(timeframe || "").toLowerCase().trim();
+  const text = String(taskText || "").trim();
+  const lowerText = text.toLowerCase();
+  const issues = [];
+
+  const isToday = normalizedTf.includes("bu gün") || normalizedTf.includes("today");
+  const is48h = normalizedTf.includes("48") || normalizedTf.includes("iki gün") || normalizedTf.includes("two days");
+  const isThisWeek = normalizedTf.includes("həftə") || normalizedTf.includes("week");
+
+  // Rule 1: BU GÜN / TODAY:
+  // Only 24h single trigger steps. Prohibit multi-day processes like "7 gün ərzində izləyin", "həftə boyunca", etc.
+  if (isToday) {
+    const multiDayMatch = lowerText.match(/(?:(?:növbəti\s*)?(?:7|yeddi|seven)\s*(?:gün|days?)|(?:həftə\s*(?:ərzində|boyunca)|throughout\s*the\s*week|over\s*(?:the\s*)?next\s*7\s*days|bir\s*həftə\s*ərzində))/i);
+    if (multiDayMatch) {
+      issues.push(
+        isEn
+          ? "Multi-day processes (e.g., 'monitor over next 7 days') cannot be placed under 'Today'. Only single 24-hour trigger steps are permitted."
+          : "'7 gün ərzində izləyin' kimi çoxgünlük proseslər 'Bu gün' başlığı altına salına bilməz. Yalnız ilk 24 saatda bitirilə bilən tək-tək tətikləyici addımlar olmalıdır."
+      );
+    }
+  }
+
+  // Rule 2: NÖVBƏTİ 48 SAAT / NEXT 48 HOURS:
+  // Preparations achievable strictly within 2 days. Prohibit 20-30 in-depth customer interviews or multi-week workloads.
+  if (is48h) {
+    const heavyInterviewMatch = lowerText.match(/(?:(?:20\s*[-–—]\s*30|iyirmi\s*[-–—]\s*otuz|20\s*to\s*30)\s*(?:(?:dərin|in[- ]depth)\s*)?(?:(?:müştəri|customer)\s*)?(?:müsahibə\w*|interviews?|görüş\w*|meetings?)|(?:həftələrlə\s*(?:vaxt|çəkən)|weeks?\s*of\s*interviews))/i);
+    if (heavyInterviewMatch) {
+      issues.push(
+        isEn
+          ? "Conducting 20–30 in-depth interviews takes weeks and cannot be completed in 48 hours. Limit to drafting questions and contacting the first 3 candidates."
+          : "20–30 dərin müştəri müsahibəsi kimi həftələrlə vaxt aparacaq tapşırıqlar 'Növbəti 48 saat' bölməsinə salına bilməz (maksimum sualların hazırlanması və ilk 3 namizədlə əlaqə)."
+      );
+    }
+  }
+
+  // Rule 3: BU HƏFTƏ / THIS WEEK:
+  // Pilot setup and first test orders. Prohibit second-order retention analysis, cohort retention tracking, or repeat-purchase optimizations.
+  if (isThisWeek) {
+    const prematureRetentionMatch = lowerText.match(/(?:(?:ikinci|2-?ci)\s*sifariş\s*(?:kohortu?\s*)?(?:və\s*)?(?:retention|analiz)|retention\s*analiz|kohort\s*(?:retention|analiz)|cohort\s*retention|second[- ]order\s*(?:cohort|retention)|təkrar\s*alış\s*analiz)/i);
+    if (prematureRetentionMatch) {
+      issues.push(
+        isEn
+          ? "Second-order retention or cohort analysis cannot be required for this week before the pilot has launched and matured."
+          : "Pilot yeni qurulduğu halda 'Bu həftə' bölməsində ikinci sifariş kohortu və retention analizi tələb edilə bilməz; kohort izlənməsi növbəti mərhələlərə saxlanmalıdır."
+      );
+    }
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues,
+    timeframe,
+    task: text,
+  };
+}
+
+export function validateNextStepsSequencing(nextSteps = [], language = "az") {
+  if (!Array.isArray(nextSteps) || nextSteps.length === 0) {
+    return { valid: true, issues: [], evaluated: [] };
+  }
+
+  const isEn = language === "en";
+  const defaultTimeframes = isEn
+    ? ["Today", "Next 48 hours", "This week"]
+    : ["Bu gün", "Növbəti 48 saat", "Bu həftə"];
+
+  const chunkSize = Math.max(1, Math.ceil(nextSteps.length / 3));
+  const evaluated = [];
+  const allIssues = [];
+
+  nextSteps.forEach((step, index) => {
+    const groupIndex = Math.min(2, Math.floor(index / chunkSize));
+    const tf = defaultTimeframes[groupIndex];
+    const rawText = typeof step === "string" ? step : (step?.title || step?.text || "");
+    const res = validateActionItemTiming(rawText, tf, language);
+    evaluated.push({ ...res, index, groupIndex });
+    if (!res.valid) {
+      allIssues.push(...res.issues.map((msg) => `[${tf} / #${index + 1}] ${msg}`));
+    }
+  });
+
+  return {
+    valid: allIssues.length === 0,
+    issues: allIssues,
+    evaluated,
+  };
+}
+
+export function alignNextStepsLogic(nextSteps = [], language = "az") {
+  if (!Array.isArray(nextSteps) || nextSteps.length === 0) {
+    return nextSteps;
+  }
+  const isEn = language === "en";
+  const chunkSize = Math.max(1, Math.ceil(nextSteps.length / 3));
+
+  return nextSteps.map((step, index) => {
+    let text = typeof step === "string" ? step : (step?.title || step?.text || "");
+    const groupIndex = Math.min(2, Math.floor(index / chunkSize));
+
+    // Group 0: BU GÜN / TODAY (First 24 hours)
+    if (groupIndex === 0) {
+      if (/(?:(?:növbəti\s*)?(?:7|yeddi|seven)\s*(?:gün|days?)|(?:həftə\s*(?:ərzində|boyunca)|throughout\s*the\s*week|over\s*(?:the\s*)?next\s*7\s*days|bir\s*həftə\s*ərzində))/i.test(text)) {
+        text = isEn
+          ? "Set up the tracking framework and brief the team today for upcoming launch monitoring."
+          : "Monitorinq və izləmə cədvəlinin ilkin qaralamasını bu gün açın və komandaya rəsmi təlimat göndərin.";
+      }
+    }
+
+    // Group 1: NÖVBƏTİ 48 SAAT / NEXT 48 HOURS (Next 2 days)
+    if (groupIndex === 1) {
+      if (/(?:(?:20\s*[-–—]\s*30|iyirmi\s*[-–—]\s*otuz|20\s*to\s*30)\s*(?:(?:dərin|in[- ]depth)\s*)?(?:(?:müştəri|customer)\s*)?(?:müsahibə\w*|interviews?|görüş\w*|meetings?)|(?:həftələrlə\s*(?:vaxt|çəkən)|weeks?\s*of\s*interviews))/i.test(text)) {
+        text = isEn
+          ? "Draft interview questions and contact the first 3 candidates to schedule pilot discovery sessions."
+          : "Müsahibə suallarının hazırlanması və ilk 3 namizədlə əlaqə quraraq ilkin qrafikin razılaşdırılması.";
+      }
+    }
+
+    // Group 2: BU HƏFTƏ / THIS WEEK (Next 7 days)
+    if (groupIndex === 2) {
+      if (/(?:(?:ikinci|2-?ci)\s*sifariş\s*(?:kohortu?\s*)?(?:və\s*)?(?:retention|analiz)|retention\s*analiz|kohort\s*(?:retention|analiz)|cohort\s*retention|second[- ]order\s*(?:cohort|retention)|təkrar\s*alış\s*analiz)/i.test(text)) {
+        text = isEn
+          ? "Set up the pilot offer and collect the first test orders to validate immediate operational delivery."
+          : "Pilot layihənin qurulması və ilk test sifarişlərinin qəbul edilərək əməliyyat prosesinin yoxlanılması.";
+      }
+    }
+
+    return typeof step === "string" ? text : { ...step, title: text, text };
+  });
 }
 
 export async function assessBrief({
@@ -121,6 +254,10 @@ export async function generateStrategy({
     onUsage,
   });
 
+  if (Array.isArray(result.data?.nextSteps)) {
+    result.data.nextSteps = alignNextStepsLogic(result.data.nextSteps, language);
+  }
+
   return result.data;
 }
 
@@ -149,6 +286,10 @@ export async function refineStrategy(payload, ownerId, signal, personalizationCo
     onChunk,
     onUsage,
   });
+
+  if (Array.isArray(result.data?.nextSteps)) {
+    result.data.nextSteps = alignNextStepsLogic(result.data.nextSteps, payload.language || "az");
+  }
 
   return result.data;
 }
@@ -295,7 +436,14 @@ export function fallbackSummarizeTasks(tasks = [], language = "az", model = "gpt
     const cleaned = String(rawText).replace(/^[\s\-*•\d.)\]]+/, "").trim();
     const groupIndex = Math.min(2, Math.floor(index / chunkSize));
     const fallbackTf = defaultTimeframes[groupIndex] || defaultTimeframes[0];
-    const tf = (typeof item === "object" && (item.timeframe || item.groupLabel)) ? (item.timeframe || item.groupLabel) : fallbackTf;
+    let tf = (typeof item === "object" && (item.timeframe || item.groupLabel)) ? (item.timeframe || item.groupLabel) : fallbackTf;
+
+    // Timeframe alignment & causality correction
+    const lowerText = cleaned.toLowerCase();
+    const isToday = tf.toLowerCase().includes("bu gün") || tf.toLowerCase().includes("today");
+    if (isToday && /(?:(?:növbəti\s*)?(?:7|yeddi|seven)\s*(?:gün|days?)|(?:həftə\s*(?:ərzində|boyunca)|throughout\s*the\s*week|over\s*(?:the\s*)?next\s*7\s*days|bir\s*həftə\s*ərzində))/i.test(lowerText)) {
+      tf = defaultTimeframes[2]; // reassign multi-day process to This week
+    }
 
     const isPriority = groupIndex === 0 || index === 0;
     return {
@@ -341,14 +489,18 @@ export async function summarizeTasksWithLuna({
 
   const systemPrompt = isEn
     ? `You are an elite productivity and strategic execution AI assistant powered by gpt-6-luna.
-Your role is to analyze raw strategic action items from 'IMMEDIATE NEXT STEPS' and convert them into clear, concise, actionable, and punchy Planner tasks.
+Your role is to analyze raw strategic action items from 'IMMEDIATE NEXT STEPS' and convert them into clear, concise, actionable, and punchy Planner tasks adhering strictly to realistic execution timeframes and operational causality.
 
 STRICT REQUIREMENTS:
 1. Each task must start with an active imperative verb (e.g., 'Launch', 'Finalize', 'Audit', 'Draft', 'Contact', 'Review').
 2. Keep tasks focused, unambiguous, and realistic for immediate execution.
-3. Preserve or assign the appropriate timeframe: 'Today', 'Next 48 hours', or 'This week'.
-4. Set status to 'todo' for every task.
-5. Return ONLY a valid JSON object matching this structure:
+3. Strict Timeframe Compliance ('Today', 'Next 48 hours', or 'This week'):
+   - 'Today': ONLY single trigger steps that can be started and finished within the first 24 hours (e.g., 'Send formal brief to legal counsel', 'Open draft budget allocation spreadsheet'). Long multi-day processes like 'Monitor over 7 days' must NEVER be assigned to 'Today'.
+   - 'Next 48 hours': Initial preparation and concrete setup achievable strictly within 2 days (e.g., 'Draft interview questions and contact first 3 candidates', 'Finalize 3 pilot packages and pricing'). Never squeeze multi-week tasks (like conducting 20–30 customer interviews) into 48 hours.
+   - 'This week': Pilot setup and collecting first test orders. Never demand second-order retention analysis, cohort tracking, or repeat-purchase optimizations for a newly launched pilot; cohort analysis belongs to subsequent phases.
+4. Strict Causality: No analytical result can be demanded before the physical operational action has taken place.
+5. Set status to 'todo' for every task.
+6. Return ONLY a valid JSON object matching this structure:
 {
   "tasks": [
     {
@@ -359,14 +511,18 @@ STRICT REQUIREMENTS:
   ]
 }`
     : `Sən gpt-6-luna tərəfindən gücləndirilmiş strateji icra və tapşırıq optimizasiyası üzrə süni intellekt köməkçisisən.
-Vəzifən strategiyanın '06. NÖVBƏTİ ADDIMLAR' bölməsindəki xam maddələri təhlil edərək onları Planner üçün aydın, konkret, kəsərli və icraya hazır tapşırıqlara çevirməkdir.
+Vəzifən strategiyanın '06. NÖVBƏTİ ADDIMLAR' bölməsindəki xam maddələri təhlil edərək onları Planner üçün aydın, konkret, kəsərli və icraya hazır tapşırıqlara çevirməkdir. Bütün tapşırıqlar dəqiq zaman çərçivəsi və səbəb-nəticə məntiqinə uyğun olmalıdır.
 
 CİDDİ TƏLƏBLƏR:
 1. Hər bir tapşırıq konkret fəaliyyət feili ilə bitməlidir və ya başlamalıdır (məs: 'Hazırla', 'Təsdiqlə', 'Tərtib et', 'Başlat', 'Təşkil et').
 2. Tapşırıqlar yığcam, konkret və dərhal icra edilə bilən şəkildə formalaşdırılmalıdır.
-3. Müvafiq icra müddətini qoru və ya təyin et: 'Bu gün', 'Növbəti 48 saat' və ya 'Bu həftə'.
-4. Hər bir tapşırığın statusu 'todo' olmalıdır.
-5. Cavab YALNIZ aşağıdakı struktura uyğun valid JSON formatında olmalıdır:
+3. Dəqiq Zaman Çərçivəsi Uyğunluğu ('Bu gün', 'Növbəti 48 saat' və ya 'Bu həftə'):
+   - 'Bu gün': YALNIZ ilk 24 saat ərzində başlanıb bitirilə bilən tək-tək tətikləyici addımlar (məs: 'Hüquq məsləhətçisinə rəsmi brifin göndərilməsi', 'Büdcə bölgüsü cədvəlinin qaralamasını aç'). '7 gün ərzində izləyin' kimi uzun proseslər 'Bu gün' başlığı altına qətiyyən salına bilməz.
+   - 'Növbəti 48 saat': Cəmi 2 gün ərzində tamamlana bilən ilkin hazırlıqlar (məs: 'Müsahibə suallarını hazırla və ilk 3 namizədlə əlaqə qur', 'Pilot üçün 3 hazır set və qiymətləri dəqiqləşdir'). 20–30 nəfərlə canlı görüş/müsahibə kimi həftələrlə vaxt aparan tapşırıqlar 48 saata sıxışdırıla bilməz.
+   - 'Bu həftə': Pilotun qurulması və ilk test sifarişlərinin qəbulu. Hələ baş tutmamış pilotun ikinci sifariş (retention) analizi və ya kohort izlənməsi bu həftəyə yazıla bilməz; kohort analizi növbəti mərhələlərə saxlanmalıdır.
+4. Səbəb-Nəticə Ardıcıllığı: Əməliyyat baş vermədən onun analitik nəticəsi növbəti addım kimi tələb oluna bilməz.
+5. Hər bir tapşırığın statusu 'todo' olmalıdır.
+6. Cavab YALNIZ aşağıdakı struktura uyğun valid JSON formatında olmalıdır:
 {
   "tasks": [
     {
@@ -426,9 +582,18 @@ CİDDİ TƏLƏBLƏR:
     const rawTitle = typeof t === "string" ? t : (t.title || t.text || "");
     const cleaned = String(rawTitle).replace(/^[\s\-*•\d.)\]]+/, "").trim();
     const isPriority = Boolean(t.isPriority);
+    let tf = t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün");
+
+    // Align timeframe logic if multi-day task fell into Today
+    const lowerText = cleaned.toLowerCase();
+    const isToday = tf.toLowerCase().includes("bu gün") || tf.toLowerCase().includes("today");
+    if (isToday && /(?:(?:növbəti\s*)?(?:7|yeddi|seven)\s*(?:gün|days?)|(?:həftə\s*(?:ərzində|boyunca)|throughout\s*the\s*week|over\s*(?:the\s*)?next\s*7\s*days|bir\s*həftə\s*ərzində))/i.test(lowerText)) {
+      tf = isEn ? "This week" : "Bu həftə";
+    }
+
     return {
       title: cleaned || rawTitle,
-      timeframe: t.timeframe || t.groupLabel || (isEn ? "Today" : "Bu gün"),
+      timeframe: tf,
       status: "todo",
       isPriority,
       priority: t.priority || (isPriority ? "high" : "normal"),

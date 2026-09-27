@@ -14,6 +14,8 @@ export const TaskInputSchema = z.object({
   priority: z.enum(["high", "medium", "low", "priority", "normal"]).optional(),
   strategyId: z.string().regex(/^[0-9a-f-]{36}$/i, "Geçərsiz strategiya ID").nullable().optional(),
   strategyTitle: z.string().trim().max(300).nullable().optional(),
+  source: z.string().trim().max(50).nullable().optional(),
+  feedback: z.enum(["like", "dislike"]).nullable().optional(),
 }).strict().refine((data) => Boolean(data.text || data.title), {
   message: "Tapşırıq mətni daxil edilməlidir.",
 });
@@ -31,6 +33,9 @@ export const UpdateTaskSchema = z.object({
   groupLabel: z.string().trim().max(100).optional(),
   isPriority: z.boolean().optional(),
   priority: z.enum(["high", "medium", "low", "priority", "normal"]).optional(),
+  feedback: z.enum(["like", "dislike"]).nullable().optional(),
+  explanation: z.string().trim().max(500).optional(),
+  userNote: z.string().trim().max(500).optional(),
 }).strict();
 
 export const SummarizeTasksSchema = z.object({
@@ -102,6 +107,8 @@ export function createPlannerRouter(plannerRepository, options = {}) {
           priority,
           strategyId: item.strategyId || null,
           strategyTitle: item.strategyTitle || null,
+          source: item.source || (item.strategyId || item.strategyTitle ? "brief" : "user"),
+          feedback: item.feedback || null,
           completed: status === "completed" || Boolean(item.completed),
         };
       });
@@ -146,6 +153,8 @@ export function createPlannerRouter(plannerRepository, options = {}) {
           priority,
           strategyId: data.strategyId || null,
           strategyTitle: data.strategyTitle || null,
+          source: data.source || (data.strategyId || data.strategyTitle ? "brief" : "user"),
+          feedback: data.feedback || null,
           completed: status === "completed" || Boolean(data.completed),
         },
       ]);
@@ -323,6 +332,21 @@ export function createPlannerRouter(plannerRepository, options = {}) {
       if (!updated) {
         return res.status(404).json({ error: "Tapşırıq tapılmadı." });
       }
+
+      if (parsed.data.feedback && telemetryService && typeof telemetryService.trackTaskFeedback === "function") {
+        telemetryService.trackTaskFeedback({
+          ownerId: req.ownerId,
+          sessionId: req.guestOwnerId,
+          taskId: updated.id,
+          taskText: updated.title || updated.text || "",
+          feedback: parsed.data.feedback,
+          strategyId: updated.strategyId || null,
+          strategyTitle: updated.strategyTitle || null,
+          source: updated.source || "brief",
+          userNote: parsed.data.userNote || parsed.data.explanation || "",
+        }).catch(() => {});
+      }
+
       return res.json({ task: updated });
     } catch (error) {
       console.error("Planner update error:", error);

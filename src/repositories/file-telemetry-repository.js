@@ -178,6 +178,8 @@ export class FileTelemetryRepository {
           e.category,
           e.status,
           e.summary,
+          e.metadata?.explanation,
+          e.metadata?.izahat,
         ]
           .filter(Boolean)
           .join(" ")

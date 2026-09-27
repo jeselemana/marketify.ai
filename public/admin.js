@@ -204,6 +204,8 @@ function renderModelDistribution(models) {
 }
 
 function getEventIcon(eventType, mode) {
+  if (eventType === "task_feedback" || mode === "feedback") return "👍";
+  if (mode === "planner") return "📋";
   if (mode === "build") return "⚡";
   if (mode === "ask") return "💬";
   if (mode === "summary") return "📝";
@@ -238,6 +240,14 @@ function renderTelemetryEvents(data) {
     const eventName = makeEl("span", "event-type-name", `${getEventIcon(event.eventType, event.mode)} ${event.eventType}`);
     const eventSub = makeEl("small", "event-type-sub", event.summary || event.category || "Hadisə");
     eventWrap.append(eventName, eventSub);
+    if (event.eventType === "task_feedback") {
+      const fbBadge = makeEl(
+        "span",
+        `feedback-indicator feedback-${event.metadata?.feedback || "like"}`,
+        event.metadata?.feedback === "like" ? "👍 Like" : "👎 Dislike"
+      );
+      eventWrap.appendChild(fbBadge);
+    }
     if (event.groundingActive) {
       const gBadge = makeEl("span", "grounding-indicator", "🌐 Search aktiv");
       eventWrap.appendChild(gBadge);
@@ -370,6 +380,15 @@ async function openTelemetryModal(id) {
         ["Xərc (USD)", formatUsd(event.costUsd)],
         ["Tarix", formatDate(event.timestamp)],
       );
+      if (event.metadata?.feedback) {
+        chipData.push(["Rəy", event.metadata.feedback === "like" ? "👍 Faydalı oldu (Like)" : "👎 Faydalı olmadı (Dislike)"]);
+      }
+      if (event.metadata?.izahat || event.metadata?.explanation) {
+        chipData.push(["Aydın İzahat", event.metadata.izahat || event.metadata.explanation]);
+      }
+      if (event.metadata?.strategyTitle) {
+        chipData.push(["Strategiya", event.metadata.strategyTitle]);
+      }
       if (event.groundingActive) {
         chipData.push(["Grounding", "Google Search Aktiv"]);
       }

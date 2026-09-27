@@ -6770,6 +6770,7 @@ function openPlannerTaskSelectionModal({
       status: "todo",
       strategyId: (strategyId && /^[0-9a-f-]{36}$/i.test(strategyId)) ? strategyId : null,
       strategyTitle: strategyTitle || (isEn ? "Strategy" : "Strategiya"),
+      source: "brief",
     }));
 
     try {
@@ -6911,6 +6912,7 @@ function buildNextStepsSection(strategy, isEn, isRoadmap = false) {
         status: "todo",
         strategyId: (state.savedId && /^[0-9a-f-]{36}$/i.test(state.savedId)) ? state.savedId : null,
         strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
+        source: "brief",
       }));
 
       try {
@@ -7073,6 +7075,7 @@ function buildNextStepsSection(strategy, isEn, isRoadmap = false) {
               status: "todo",
               strategyId: (state.savedId && /^[0-9a-f-]{36}$/i.test(state.savedId)) ? state.savedId : null,
               strategyTitle: strategy.title || (isEn ? "Strategy" : "Strategiya"),
+              source: "brief",
             }),
           });
 
@@ -12353,8 +12356,16 @@ function renderPlannerView() {
     const groupActionUpdaters = [];
 
     const updateSelectionUi = () => {
+      // Completed tasks cannot be selected
+      state.plannerSelectedTaskIds.forEach((id) => {
+        const found = state.plannerTasks.find((t) => t.id === id);
+        if (found && found.completed) {
+          state.plannerSelectedTaskIds.delete(id);
+        }
+      });
+
       allRenderedTaskCards.forEach(({ task, card }) => {
-        const isSelected = state.plannerSelectedTaskIds.has(task.id);
+        const isSelected = !task.completed && state.plannerSelectedTaskIds.has(task.id);
         card.classList.toggle("is-selected", isSelected);
       });
 
@@ -12434,19 +12445,21 @@ function renderPlannerView() {
         <span class="planner-roadmap-btn-label">${t("planner.generateRoadmap") || (isEn ? "Prepare execution map" : "İcra xəritəsi hazırla")}</span>
       `;
 
-      // "Hamısını seç" button
+      // "Hamısını seç" button (Tamamlanmış tasklardan Select all yığışdırılır, yalnız aktiv tasklar seçilir)
       const selectAllBtn = button("", "planner-select-all-btn", (e) => {
         e.stopPropagation();
-        const allGroupSelected = groupTasks.length > 0 && groupTasks.every((t) => state.plannerSelectedTaskIds.has(t.id));
+        const activeTasks = groupTasks.filter((t) => !t.completed);
+        if (activeTasks.length === 0) return;
+        const allGroupSelected = activeTasks.every((t) => state.plannerSelectedTaskIds.has(t.id));
         if (allGroupSelected) {
-          groupTasks.forEach((t) => state.plannerSelectedTaskIds.delete(t.id));
+          activeTasks.forEach((t) => state.plannerSelectedTaskIds.delete(t.id));
         } else {
-          groupTasks.forEach((t) => state.plannerSelectedTaskIds.add(t.id));
+          activeTasks.forEach((t) => state.plannerSelectedTaskIds.add(t.id));
         }
         updateSelectionUi();
       });
       selectAllBtn.type = "button";
-      selectAllBtn.setAttribute("aria-label", isEn ? "Select all tasks in this group" : "Bu qrupdakı bütün tapşırıqları seç");
+      selectAllBtn.setAttribute("aria-label", isEn ? "Select all active tasks in this group" : "Bu qrupdakı aktiv tapşırıqları seç");
       const selectAllBox = element("span", "planner-select-all-box");
       const selectAllText = element("span", "planner-select-all-text", t("planner.selectAll") || (isEn ? "Select all" : "Hamısını seç"));
       selectAllBtn.append(selectAllBox, selectAllText);
@@ -12456,8 +12469,19 @@ function renderPlannerView() {
       groupEl.appendChild(groupHeader);
 
       const updateThisGroup = () => {
-        const selectedInGroup = groupTasks.filter((t) => state.plannerSelectedTaskIds.has(t.id));
-        const allSelected = groupTasks.length > 0 && selectedInGroup.length === groupTasks.length;
+        const activeTasks = groupTasks.filter((t) => !t.completed);
+        const hasActiveTasks = activeTasks.length > 0 && state.plannerFilter !== "completed";
+
+        if (!hasActiveTasks) {
+          selectAllBtn.style.display = "none";
+          groupEl.classList.remove("has-bulk-selection");
+          groupRoadmapBtn.style.display = "none";
+          return;
+        }
+
+        selectAllBtn.style.display = "inline-flex";
+        const selectedInGroup = activeTasks.filter((t) => state.plannerSelectedTaskIds.has(t.id));
+        const allSelected = selectedInGroup.length === activeTasks.length;
         groupEl.classList.toggle("has-bulk-selection", allSelected);
         selectAllBtn.classList.toggle("is-all-selected", allSelected);
         selectAllText.textContent = allSelected
@@ -12479,7 +12503,7 @@ function renderPlannerView() {
       taskList.hidden = isCollapsed;
 
       groupTasks.forEach((task) => {
-        const isSelected = state.plannerSelectedTaskIds.has(task.id);
+        const isSelected = !task.completed && state.plannerSelectedTaskIds.has(task.id);
         const card = element("div", `planner-task-card${task.completed ? " is-done" : ""}${isSelected ? " is-selected" : ""}`);
         allRenderedTaskCards.push({ task, card });
 
@@ -12648,14 +12672,108 @@ function renderPlannerView() {
         cardActions.append(executeBtn, menuWrap);
         cardMain.append(checkWrap, textEl, cardActions);
 
-        // Click card to toggle selection
+        // Feedback prompt for completed brief tasks (Rule: only for tasks from brief, not user-added)
+        const isBriefTask = Boolean(task.strategyId || task.strategyTitle || task.source === "brief" || task.source === "strategy");
+        let feedbackRow = null;
+        if (isBriefTask) {
+          feedbackRow = element("div", "planner-task-feedback");
+          if (!task.completed) {
+            feedbackRow.hidden = true;
+            feedbackRow.style.display = "none";
+          }
+
+          const feedbackPrompt = element(
+            "span",
+            "planner-feedback-prompt",
+            t("planner.taskHelpfulQuestion") || (isEn ? "Was this task helpful?" : "Bu tapşırıq faydalı oldu?")
+          );
+
+          const feedbackButtons = element("div", "planner-feedback-buttons");
+
+          const likeBtn = button(
+            "",
+            `planner-feedback-btn is-like${task.feedback === "like" ? " is-active" : ""}`,
+            async (e) => {
+              e.stopPropagation();
+              const nextFeedback = task.feedback === "like" ? null : "like";
+              const prevFeedback = task.feedback;
+              task.feedback = nextFeedback;
+              likeBtn.classList.toggle("is-active", nextFeedback === "like");
+              dislikeBtn.classList.remove("is-active");
+              try {
+                await authRequest(`/api/planner/${task.id}`, {
+                  method: "PATCH",
+                  body: JSON.stringify({ feedback: nextFeedback }),
+                });
+                showToast(
+                  nextFeedback
+                    ? (t("planner.taskFeedbackRecorded") || (isEn ? "Feedback recorded ✓" : "Rəyiniz qeydə alındı ✓"))
+                    : (isEn ? "Feedback removed" : "Rəy silindi"),
+                  "info"
+                );
+              } catch (err) {
+                task.feedback = prevFeedback;
+                likeBtn.classList.toggle("is-active", prevFeedback === "like");
+                dislikeBtn.classList.toggle("is-active", prevFeedback === "dislike");
+                showToast(err.message || (isEn ? "Unable to record feedback" : "Rəyi qeyd etmək mümkün olmadı"), "error");
+              }
+            }
+          );
+          likeBtn.type = "button";
+          likeBtn.title = t("planner.taskHelpfulYes") || (isEn ? "Helpful" : "Faydalı oldu");
+          likeBtn.setAttribute("aria-label", t("planner.taskHelpfulYes") || (isEn ? "Helpful" : "Faydalı oldu"));
+          likeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+
+          const dislikeBtn = button(
+            "",
+            `planner-feedback-btn is-dislike${task.feedback === "dislike" ? " is-active" : ""}`,
+            async (e) => {
+              e.stopPropagation();
+              const nextFeedback = task.feedback === "dislike" ? null : "dislike";
+              const prevFeedback = task.feedback;
+              task.feedback = nextFeedback;
+              dislikeBtn.classList.toggle("is-active", nextFeedback === "dislike");
+              likeBtn.classList.remove("is-active");
+              try {
+                await authRequest(`/api/planner/${task.id}`, {
+                  method: "PATCH",
+                  body: JSON.stringify({ feedback: nextFeedback }),
+                });
+                showToast(
+                  nextFeedback
+                    ? (t("planner.taskFeedbackRecorded") || (isEn ? "Feedback recorded ✓" : "Rəyiniz qeydə alındı ✓"))
+                    : (isEn ? "Feedback removed" : "Rəy silindi"),
+                  "info"
+                );
+              } catch (err) {
+                task.feedback = prevFeedback;
+                dislikeBtn.classList.toggle("is-active", prevFeedback === "dislike");
+                likeBtn.classList.toggle("is-active", prevFeedback === "like");
+                showToast(err.message || (isEn ? "Unable to record feedback" : "Rəyi qeyd etmək mümkün olmadı"), "error");
+              }
+            }
+          );
+          dislikeBtn.type = "button";
+          dislikeBtn.title = t("planner.taskHelpfulNo") || (isEn ? "Not helpful" : "Faydalı olmadı");
+          dislikeBtn.setAttribute("aria-label", t("planner.taskHelpfulNo") || (isEn ? "Not helpful" : "Faydalı olmadı"));
+          dislikeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>';
+
+          feedbackButtons.append(likeBtn, dislikeBtn);
+          feedbackRow.append(feedbackPrompt, feedbackButtons);
+        }
+
+        // Click card to toggle selection (completed tasks cannot be selected)
         card.addEventListener("click", (e) => {
           if (
             e.target.closest(".planner-check-wrap") ||
             e.target.closest(".planner-execute-btn") ||
             e.target.closest(".planner-menu-wrap") ||
-            e.target.closest(".planner-dropdown-menu")
+            e.target.closest(".planner-dropdown-menu") ||
+            e.target.closest(".planner-task-feedback")
           ) {
+            return;
+          }
+          if (task.completed) {
             return;
           }
           if (state.plannerSelectedTaskIds.has(task.id)) {
@@ -12668,12 +12786,21 @@ function renderPlannerView() {
 
         checkbox.addEventListener("change", async () => {
           task.completed = checkbox.checked;
+          if (task.completed) {
+            state.plannerSelectedTaskIds.delete(task.id);
+            card.classList.remove("is-selected");
+          }
           card.classList.toggle("is-done", task.completed);
           if (executeBtn) {
             executeBtn.hidden = task.completed;
             executeBtn.style.display = task.completed ? "none" : "";
           }
+          if (feedbackRow) {
+            feedbackRow.hidden = !task.completed;
+            feedbackRow.style.display = task.completed ? "flex" : "none";
+          }
           updatePlannerBadge();
+          updateSelectionUi();
           try {
             await authRequest(`/api/planner/${task.id}`, {
               method: "PATCH",
@@ -12682,17 +12809,29 @@ function renderPlannerView() {
           } catch (err) {
             checkbox.checked = !task.completed;
             task.completed = checkbox.checked;
+            if (task.completed) {
+              state.plannerSelectedTaskIds.delete(task.id);
+              card.classList.remove("is-selected");
+            }
             card.classList.toggle("is-done", task.completed);
             if (executeBtn) {
               executeBtn.hidden = task.completed;
               executeBtn.style.display = task.completed ? "none" : "";
             }
+            if (feedbackRow) {
+              feedbackRow.hidden = !task.completed;
+              feedbackRow.style.display = task.completed ? "flex" : "none";
+            }
             updatePlannerBadge();
+            updateSelectionUi();
             showToast(err.message || (isEn ? "Unable to update task" : "Yeniləmək mümkün olmadı"), "error");
           }
         });
 
         card.appendChild(cardMain);
+        if (feedbackRow) {
+          card.appendChild(feedbackRow);
+        }
         taskList.appendChild(card);
       });
 

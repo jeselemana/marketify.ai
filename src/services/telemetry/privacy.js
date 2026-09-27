@@ -113,7 +113,7 @@ export function redactPayload(data, depth = 0) {
   if (data === null || data === undefined) return null;
 
   if (typeof data === "string") {
-    return redactSensitiveText(data, 200);
+    return redactSensitiveText(data, 400);
   }
 
   if (typeof data !== "object") {

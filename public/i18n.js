@@ -425,6 +425,10 @@ export const TRANSLATIONS = {
       notifDisabledToast: "Planlaşdırılanlar bildirişləri deaktiv edildi",
       notifEnabledToast: "Planlaşdırılanlar bildirişləri aktiv edildi",
       notifDueBadge: "Təcili",
+      taskHelpfulQuestion: "Bu tapşırıq faydalı oldu?",
+      taskHelpfulYes: "Faydalı oldu",
+      taskHelpfulNo: "Faydalı olmadı",
+      taskFeedbackRecorded: "Rəyiniz qeydə alındı ✓",
     },
 
     // ── Limits & Usage ───────────────────────────────────────────────────────
@@ -1382,6 +1386,10 @@ export const TRANSLATIONS = {
       notifDisabledToast: "Planner notifications disabled",
       notifEnabledToast: "Planner notifications enabled",
       notifDueBadge: "Urgent",
+      taskHelpfulQuestion: "Was this task helpful?",
+      taskHelpfulYes: "Helpful",
+      taskHelpfulNo: "Not helpful",
+      taskFeedbackRecorded: "Feedback recorded ✓",
     },
 
     // ── Limits & Usage ───────────────────────────────────────────────────────

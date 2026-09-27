@@ -35,12 +35,42 @@ export const LOCAL_AZ_MODE_RULES = `
 
 4. İcra Yanaşması:
 - Abstrakt və uzunmüddətli qlobal nəzəriyyələr yox; "İlk 7 gün" (sürətli start, təməl quraşdırma və ilkin sınaqlar) və "İlk 30 gün" (kanal optimallaşdırması, dartı qüvvəsi və satış artımı) formatında praktiki, Bakı reallığında sabah icra oluna biləcək fəaliyyət planı qur.
+- "06. NÖVBƏTİ ADDIMLAR / Dərhal başlanılacaq fəaliyyətlər" (nextSteps) bölməsində dəqiq zaman və icra məntiqini qoru:
+  * Bu gün: Yalnız ilk 24 saatda bitirilə bilən tək-tək tətikləyici addımlar (çoxgünlük proseslər qadağandır).
+  * Növbəti 48 saat: Cəmi 2 günlük ilkin hazırlıqlar (20–30 dərin müsahibə kimi həftələrlə çəkən işlər 48 saata salına bilməz).
+  * Bu həftə: Pilotun qurulması və ilk test sifarişlərinin qəbulu (baş tutmamış pilot üçün ikinci sifariş/retention analizi qadağandır).
+  * Səbəb-nəticə ardıcıllığı: Əməliyyat baş vermədən onun analitik nəticəsi tələb oluna bilməz.
 - Hər addım konkret sahiblik, icra kanalı və gözlənilən nəticə ilə təyin olunmalıdır.
 
 5. Üslub və Ton:
 - Quru "AI asistenti" kimi yox, Bakı bazarını içəridən bilən peşəkar, birbaşa, kəsərli və sərrast strateq kimi danış.
 - Şablon tərcümə qoxan ifadələrdən (məs: "bu bir oyun dəyişdiricidir", "biz səyahətə çıxırıq", "günümüzün sürətlə dəyişən dünyasında", "uğur qazanmaq üçün addımlar") tam imtina et. Cümlələr təmiz, təbii, biznes dilində və məqsədyönlü olsun.
 - "Qorxaq AI" tonundan ("Mən sadəcə süni intellektəm", "Maliyyə məsləhəti deyil") tamamilə qaç. Arxayın, təcrübəli və birbaşa danış. Nəyi bildiyini kəsərli de, bilmədiyin yerdə isə "Bunu dəqiqləşdirmək lazımdır, amma gələn nəticəyə görə iki alternativ yolumuz var: A və B" tərzində rəhbərlik et.
+`;
+
+export const IMMEDIATE_ACTION_ITEMS_RULES = `
+### IMMEDIATE ACTION ITEMS & OPERATIONAL SEQUENCING RULES (06. NÖVBƏTİ ADDIMLAR / DƏRHAL BAŞLANILACAQ FƏALİYYƏTLƏR STANDARTLARI):
+
+Strateji hesabatın "06. NÖVBƏTİ ADDIMLAR / Dərhal başlanılacaq fəaliyyətlər" (Immediate Action Items) bölməsi (\`nextSteps\` massivi) birbaşa 3 ardıcıl zaman çərçivəsinə bölünərək təqdim olunur (hər zaman çərçivəsi üçün bərabər sayda, ümumilikdə 6 konkret addım tərtib edilməlidir). Bütün addımlar fiziki və əməliyyat baxımından aşağıdakı standartlara tam cavab verməlidir:
+
+1. BU GÜN / TODAY (İlk 24 saat - 1-ci və 2-ci addımlar / İlk 1/3 hissə):
+- YALNIZ ilk 24 saat ərzində başlanıb bitirilə bilən tək-tək tətikləyici (trigger) addımlar yazılmalıdır.
+- İcazə verilən nümunələr: "Hüquq məsləhətçisinə rəsmi brifin göndərilməsi", "Büdcə bölgüsü cədvəlinin qaralamasının açılması", "Pilot üçün tələb olunan resursların ilkin siyahısının çıxarılması", "Komanda ilə 15 dəqiqəlik sinxronizasiya brifinin keçirilməsi".
+- QƏTİ QADAĞANDIR: "7 gün ərzində izləyin", "Həftə boyunca monitorinq aparın", "Növbəti günlərdə davamlı müşahidə edin" kimi çoxgünlük, uzanan və ya davamlı proseslər "Bu gün" başlığı altına qətiyyən salına bilməz.
+
+2. NÖVBƏTİ 48 SAAT / NEXT 48 HOURS (Cəmi 2 gün - 3-cü və 4-cü addımlar / Orta 1/3 hissə):
+- Cəmi 2 gün (48 saat) ərzində tamamlana bilən ilkin hazırlıqlar və təməl addımları yazılmalıdır.
+- İcazə verilən nümunələr: "Müsahibə suallarının hazırlanması və ilk 3 namizədlə əlaqə", "Pilot üçün 3 hazır setin və qiymətlərin dəqiqləşdirilməsi", "Reklam kreativlərinin və mətnlərinin ilkin layihəsinin hazırlanması", "İlkin tədarükçü ilə qiymət şərtlərinin razılaşdırılması".
+- QƏTİ QADAĞANDIR: 20–30 nəfərlə canlı dərin müsahibə aparmaq kimi həftələrlə vaxt aparacaq qeyri-real və ağır tapşırıqlar 48 saata sıxışdırılmamalıdır (maksimum sualların hazırlanması və ilk 2-3 namizədlə əlaqə mümkündür).
+
+3. BU HƏFTƏ / THIS WEEK (İlk 7 gün - 5-ci və 6-cı addımlar / Son 1/3 hissə):
+- Pilotun qurulması, işə salınması və ilk test sifarişlərinin qəbulu.
+- İcazə verilən nümunələr: "Pilot layihənin / mini-təklifin işə salınması və ilk test sifarişlərinin qəbulu", "Pilot sifarişlərin çatdırılması və ilk müştəri rəylərinin toplanması", "İlkin test reklamlarının yayımlanması".
+- QƏTİ QADAĞANDIR: Hələ baş tutmamış pilotun "ikinci sifariş (retention) analizi", "LTV hesablanması", "kohort retention məlumatları" bu həftəyə yazıla bilməz; kohort izlənməsi və təkrar sifariş analizi mütləq növbəti mərhələlərə saxlanmalıdır.
+
+4. SƏBƏB-NƏTİCƏ ARDICILLIĞI (CAUSALITY & OPERATIONAL SEQUENCING):
+- Əməliyyat baş vermədən onun analitik nəticəsi növbəti addım kimi tələb oluna bilməz. Heç vaxt pilot işə düşmədən onun təkrar sifariş və ya retention nəticələrini tələb etmə.
+- Tapşırıqlar zəncirvari məntiqlə irəliləməlidir: Tətikləyici addım (Bu gün) -> İlkin hazırlıq və təməl (48 saat) -> Pilotun işə salınması və ilk test sifarişləri (Bu həftə).
 `;
 
 export const EPISTEMIC_HUMILITY_RULES = `
@@ -92,8 +122,10 @@ Core System Rules:
 - Never invent market statistics, regulations, prices, or competitors. State uncertainty as an assumption.
 - Targets should come from the brief or be framed as validation targets rather than fabricated facts.
 - Section ids must be short snake_case identifiers.
+- Immediate Action Items (nextSteps): Formulate 6 concrete sequential tasks strictly complying with IMMEDIATE_ACTION_ITEMS_RULES (2 triggers for Today/24h, 2 prep steps for Next 48h, 2 pilot launch steps for This Week; never demand multi-week interviews in 48 hours or retention analysis before pilot launch).
 - Return complete structured strategy data only.
 ${EPISTEMIC_HUMILITY_RULES}
+${IMMEDIATE_ACTION_ITEMS_RULES}
 ${MARKET_DETECTION_INSTRUCTIONS}
 ${LOCAL_AZ_MODE_RULES}`;
 
@@ -105,17 +137,19 @@ Rules:
 - Maintain the language requested by the directive below. When English is requested, maintain and write in English. When Azerbaijani is requested, use clean Azerbaijani.
 - Respect updated budget, audience, timeline, market, and channel constraints everywhere they matter.
 - Market Context: Detect whether the strategy targets Azerbaijan ([LOCAL_AZ_MODE]) or global/international markets ([GLOBAL_MODE]). When Azerbaijan is targeted, strictly adhere to Azerbaijani market realities (AZN currency, Instagram/TikTok for B2C, executive networking for B2B, m10/Apple Pay/cash on delivery, MMC/VÖEN legal framing, and realistic 'İlk 7 gün' / 'İlk 30 gün' execution). When global, do not force Azerbaijani localisms.
+- Immediate Action Items (nextSteps): Strictly preserve and enforce IMMEDIATE_ACTION_ITEMS_RULES across all revised next steps.
 - Never expose chain-of-thought. For deeper analysis, return only improved priorities, tradeoffs, assumptions, and execution logic.
 - Avoid robotic AI clichés and clumsy translation tropes.
 - Never invent factual claims or statistics.
 - Return complete structured strategy data only.
-${EPISTEMIC_HUMILITY_RULES}`;
+${EPISTEMIC_HUMILITY_RULES}
+${IMMEDIATE_ACTION_ITEMS_RULES}`;
 
 const refinementInstructions = Object.freeze({
   shorten: "Make the strategy significantly more concise without losing essential decisions, dependencies, or measurements.",
   localize_azerbaijan: "Deeply adapt the strategy to the Azerbaijani market under [LOCAL_AZ_MODE]. Localize consumer psychology (trust, visual prestige), channels (Instagram DM/Reels, TikTok for B2C; executive networking/LinkedIn for B2B), AZN pricing/budgeting, local payment realities (Apple Pay, m10, local cards, cash on delivery), Azerbaijani legal terms (VÖEN, MMC, Sadələşdirilmiş vergi), and practical 'İlk 7 gün' / 'İlk 30 gün' operational phases; state uncertain local data as assumptions.",
   think_deeper: "Re-evaluate weak assumptions, tradeoffs, sequencing, priorities, and execution logic. Strengthen the strategy's decisions and consistency without revealing private reasoning.",
-  make_practical: "Make the strategy more executable. Add clear ownership-ready actions, sequencing, realistic deliverables, and measurement details while removing vague advice.",
+  make_practical: "Make the strategy more executable. Add clear ownership-ready actions, sequencing, realistic deliverables, and measurement details while enforcing strict timeframe boundaries (Today: 24h single triggers; Next 48h: initial prep without 20-30 interviews; This week: pilot launch without premature retention analysis).",
   budget_optimize: "Reduce unnecessary cost and prioritize high-return actions. Keep the budget logic internally consistent and explicitly identify what is deprioritized.",
   custom: "Apply the user's custom change request precisely.",
 });
