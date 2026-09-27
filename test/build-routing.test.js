@@ -200,10 +200,10 @@ test("strategy router POST /generate returns existing saved strategy if clientSa
   assert.equal(response.body?.strategy?.title, "Pre-existing Strategy");
 });
 
-test("build mode defaults to gemini-3.8-flash with High thinking and gpt-5.6-terra fallback", async () => {
+test("build mode defaults to gpt-6-astra with High thinking and gemini-3.8-flash fallback", async () => {
   const { aiConfig } = await import("../src/services/ai/config.js");
-  assert.equal(aiConfig.strategyModel, "gemini-3.8-flash");
-  assert.equal(aiConfig.strategyFallbackModel, "gpt-5.6-terra");
+  assert.equal(aiConfig.strategyModel, "gpt-6-astra");
+  assert.equal(aiConfig.strategyFallbackModel, "gemini-3.8-flash");
   assert.equal(aiConfig.strategyThinkingLevel, "HIGH");
 });
 

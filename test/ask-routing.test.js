@@ -16,36 +16,38 @@ test("complex Ask queries without search intent route to GPT-5.6 Terra", () => {
   assert.equal(resolveAskModelRoute({ lastUserMsg: "Bunu necə tətbiq edim?", hasStrategyContext: true }), "terra");
 });
 
-test("real-time search, pricing, and AI model queries in auto mode route to Gemini 3.7 Flash", () => {
-  assert.equal(resolveAskModelRoute({ lastUserMsg: "Bakı bazarında hazırkı qiymətlər nə qədərdir?" }), "gemini-3.7-flash");
-  assert.equal(resolveAskModelRoute({ lastUserMsg: "Rəqib analizi və 2026 trendləri" }), "gemini-3.7-flash");
-  assert.equal(resolveAskModelRoute({ lastUserMsg: "Gemini 3.8 Flash haqqında nə bilirsən?" }), "gemini-3.7-flash");
-  assert.equal(resolveAskModelRoute({ lastUserMsg: "GPT-6 Astra nə vaxt çıxacaq?" }), "gemini-3.7-flash");
+test("real-time search, pricing, and AI model queries in auto mode route to gpt-6-sol", () => {
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "Bakı bazarında hazırkı qiymətlər nə qədərdir?" }), "gpt-6-sol");
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "Rəqib analizi və 2026 trendləri" }), "gpt-6-sol");
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "Gemini 3.8 Flash haqqında nə bilirsən?" }), "gpt-6-sol");
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "GPT-6 Astra nə vaxt çıxacaq?" }), "gpt-6-sol");
 });
 
-test("only Terra, Luna, and Gemini 3.7 Flash can be selected explicitly", () => {
+test("only Terra, Luna, and gpt-6-sol can be selected explicitly", () => {
   assert.equal(resolveAskModelRoute({ requestedModel: "terra", lastUserMsg: "qısa sual" }), "terra");
   assert.equal(resolveAskModelRoute({ requestedModel: "luna", lastUserMsg: "dərin analiz" }), "luna");
-  assert.equal(resolveAskModelRoute({ requestedModel: "flash", lastUserMsg: "marketinq büdcəsi" }), "gemini-3.7-flash");
-  assert.equal(resolveAskModelRoute({ requestedModel: "gemini-3.7-flash", lastUserMsg: "marketinq büdcəsi" }), "gemini-3.7-flash");
-  assert.equal(resolveAskModelRoute({ requestedModel: "gemini", lastUserMsg: "qısa sual" }), "gemini-3.7-flash");
+  assert.equal(resolveAskModelRoute({ requestedModel: "flash", lastUserMsg: "marketinq büdcəsi" }), "gpt-6-sol");
+  assert.equal(resolveAskModelRoute({ requestedModel: "gemini-3.7-flash", lastUserMsg: "marketinq büdcəsi" }), "gpt-6-sol");
+  assert.equal(resolveAskModelRoute({ requestedModel: "sol", lastUserMsg: "marketinq büdcəsi" }), "gpt-6-sol");
+  assert.equal(resolveAskModelRoute({ requestedModel: "gpt-6-sol", lastUserMsg: "marketinq büdcəsi" }), "gpt-6-sol");
+  assert.equal(resolveAskModelRoute({ requestedModel: "gemini", lastUserMsg: "qısa sual" }), "gpt-6-sol");
   assert.equal(resolveAskModelRoute({ requestedModel: "unsupported-model", lastUserMsg: "qısa sual" }), "luna");
   assert.equal(resolveAskModelRoute({ requestedModel: "gemini-1.5-pro", lastUserMsg: "qısa sual" }), "luna");
 });
 
-test("Gemini configuration exposes default 3.7 flash and thinking budget", async () => {
+test("Ask model configuration exposes default gpt-6-sol and thinking budget", async () => {
   const { aiConfig, hasGeminiConfiguration, hasOpenAIConfiguration } = await import("../src/services/ai/config.js");
-  assert.equal(aiConfig.askGeminiModel, "gemini-3.7-flash");
+  assert.equal(aiConfig.askGeminiModel, "gpt-6-sol");
   assert.equal(typeof aiConfig.geminiThinkingBudget, "number");
   assert.equal(typeof hasGeminiConfiguration(), "boolean");
   assert.equal(typeof hasOpenAIConfiguration(), "boolean");
 });
 
-test("Ask queries with file attachments route exclusively to Gemini 3.7 Flash", () => {
-  assert.equal(resolveAskModelRoute({ hasAttachment: true, lastUserMsg: "Bu sənədi analiz et" }), "gemini-3.7-flash");
-  assert.equal(resolveAskModelRoute({ hasAttachment: true, requestedModel: "terra", lastUserMsg: "swot analizi" }), "gemini-3.7-flash");
-  assert.equal(resolveAskModelRoute({ hasAttachment: true, requestedModel: "luna", lastUserMsg: "qısa başlıq" }), "gemini-3.7-flash");
-  assert.equal(resolveAskModelRoute({ hasAttachment: true, requestedModel: "auto", hasStrategyContext: true }), "gemini-3.7-flash");
+test("Ask queries with file attachments route exclusively to gpt-6-sol", () => {
+  assert.equal(resolveAskModelRoute({ hasAttachment: true, lastUserMsg: "Bu sənədi analiz et" }), "gpt-6-sol");
+  assert.equal(resolveAskModelRoute({ hasAttachment: true, requestedModel: "terra", lastUserMsg: "swot analizi" }), "gpt-6-sol");
+  assert.equal(resolveAskModelRoute({ hasAttachment: true, requestedModel: "luna", lastUserMsg: "qısa başlıq" }), "gpt-6-sol");
+  assert.equal(resolveAskModelRoute({ hasAttachment: true, requestedModel: "auto", hasStrategyContext: true }), "gpt-6-sol");
 });
 
 test("AbortController for Ask stream stays active after request body consumption and only aborts if response closes prematurely", async () => {
@@ -159,5 +161,38 @@ test("Ask Mode: style.css defines .is-stop, hover transitions, and dark mode hig
   assert.ok(cssContent.includes("[data-theme=\"dark\"] .ask-stop-icon"), "defines dark mode .ask-stop-icon contrast");
 });
 
+test("Ask Mode: server.js wires OpenAI web_search grounding when enableSearch is true", async () => {
+  const serverCode = await fs.readFile(path.join(process.cwd(), "server.js"), "utf8");
 
+  // OpenAI ask streaming and single-turn support enableSearch and web_search tool
+  assert.match(serverCode, /function extractOpenAIGroundingMetadata/);
+  assert.match(serverCode, /web_search_call/);
+  assert.match(serverCode, /url_citation/);
+  assert.match(serverCode, /tools\s*=\s*enableSearch\s*\?\s*\[\{\s*type:\s*"web_search"\s*\}\]\s*:\s*undefined/);
 
+  // /api/ask handler evaluates search route regardless of provider
+  assert.match(serverCode, /const searchDecision = evaluateSearchRoute\(\{ prompt: lastUserMsg, messages, hasStrategyContext \}\);/);
+  assert.match(serverCode, /const enableSearch = searchDecision\.enableSearch;/);
+
+  // OpenAI ask streaming receives enableSearch
+  assert.match(serverCode, /generateOpenAIAskStreamResponse\(\{[\s\S]*?enableSearch/);
+  assert.match(serverCode, /generateOpenAIAskResponse\(\{[\s\S]*?enableSearch/);
+});
+
+test("Verification: Gemini models are completely eliminated from primary roles in both Ask and Build modes", async () => {
+  const { aiConfig } = await import("../src/services/ai/config.js");
+
+  // Build mode primary MUST be gpt-6-astra, Gemini is ONLY fallback
+  assert.equal(aiConfig.strategyModel, "gpt-6-astra", "Build mode primary model must be gpt-6-astra");
+  assert.equal(aiConfig.strategyFallbackModel, "gemini-3.8-flash", "Gemini is ONLY allowed as fallback in Build mode");
+
+  // Ask mode primary routes MUST NOT be Gemini
+  assert.equal(aiConfig.askSolModel, "gpt-6-sol", "Ask Sol model must be gpt-6-sol");
+  assert.equal(aiConfig.askGeminiModel, "gpt-6-sol", "Legacy Gemini Ask model must route to gpt-6-sol");
+
+  // Default routes in resolveAskModelRoute all map to OpenAI models
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "salam" }), "luna");
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "Hərtərəfli dərin analiz" }), "terra");
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "2026 qiymətləri nə qədərdir?" }), "gpt-6-sol");
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "sənəd", hasAttachment: true }), "gpt-6-sol");
+});

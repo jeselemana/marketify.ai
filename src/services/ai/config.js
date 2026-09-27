@@ -4,12 +4,13 @@ function positiveInteger(value, fallback) {
 }
 
 export const aiConfig = Object.freeze({
-  strategyModel: process.env.GEMINI_STRATEGY_MODEL || process.env.STRATEGY_MODEL || "gemini-3.8-flash",
-  strategyFallbackModel: process.env.OPENAI_STRATEGY_MODEL || "gpt-5.6-terra",
+  strategyModel: process.env.OPENAI_STRATEGY_MODEL || process.env.STRATEGY_MODEL || "gpt-6-astra",
+  strategyFallbackModel: process.env.GEMINI_STRATEGY_FALLBACK_MODEL || process.env.GEMINI_STRATEGY_MODEL || "gemini-3.8-flash",
   strategyThinkingLevel: process.env.GEMINI_STRATEGY_THINKING_LEVEL || "HIGH",
   askModel: process.env.OPENAI_ASK_MODEL || "gpt-5.6-luna",
   askComplexModel: process.env.OPENAI_ASK_COMPLEX_MODEL || "gpt-5.6-terra",
-  askGeminiModel: process.env.GEMINI_ASK_MODEL || "gemini-3.7-flash",
+  askSolModel: process.env.OPENAI_ASK_SOL_MODEL || "gpt-6-sol",
+  askGeminiModel: process.env.GEMINI_ASK_MODEL || "gpt-6-sol",
   geminiThinkingBudget: process.env.GEMINI_THINKING_BUDGET !== undefined
     ? Number.parseInt(process.env.GEMINI_THINKING_BUDGET, 10)
     : -1,

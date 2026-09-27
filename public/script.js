@@ -1537,33 +1537,8 @@ function openMobileModelSheet() {
   const body = element("div", "mobile-sheet-body");
   const options = element("div", "mobile-model-options");
 
-  const isFlashSelected = state.askModel === "gemini-3.7-flash";
-
-  // Flash Card
-  const flashCard = button("", `mobile-model-option-card${isFlashSelected ? " is-active" : ""}`, () => {
-    state.askModel = "gemini-3.7-flash";
-    try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
-    closeMobileModelSheet();
-    syncMode();
-    if (state.mode === "ask") render();
-  });
-  flashCard.type = "button";
-  const flashLeading = element("div", "mobile-model-card-leading");
-  const flashIcon = element("div", "mobile-model-card-icon");
-  flashIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
-  const flashCopy = element("div", "mobile-model-card-copy");
-  flashCopy.append(
-    element("strong", "", t("ask.modelSheet.flashTitle")),
-    element("small", "", t("ask.modelSheet.flashDesc"))
-  );
-  flashLeading.append(flashIcon, flashCopy);
-  flashCard.append(flashLeading);
-  if (isFlashSelected) {
-    flashCard.appendChild(element("span", "mobile-model-card-check", "✓"));
-  }
-
   // Auto Card
-  const autoCard = button("", `mobile-model-option-card${!isFlashSelected ? " is-active" : ""}`, () => {
+  const autoCard = button("", "mobile-model-option-card is-active", () => {
     state.askModel = "auto";
     try { localStorage.setItem("helmer_ask_model", "auto"); } catch { }
     closeMobileModelSheet();
@@ -1581,39 +1556,9 @@ function openMobileModelSheet() {
   );
   autoLeading.append(autoIcon, autoCopy);
   autoCard.append(autoLeading);
-  if (!isFlashSelected) {
-    autoCard.appendChild(element("span", "mobile-model-card-check", "✓"));
-  }
+  autoCard.appendChild(element("span", "mobile-model-card-check", "✓"));
 
-  options.append(flashCard, autoCard);
-
-  // If Flash is selected: Thinking toggle row
-  if (isFlashSelected) {
-    const thinkingRow = element("div", "mobile-model-thinking-row");
-    const thinkingCopy = element("div", "mobile-model-card-copy");
-    const thinkingTitle = element("strong", "", t("ask.modelSheet.thinkingTitle"));
-    const thinkingStatus = element("small", "", state.askThinking ? t("ask.modelSheet.thinkingOn") : t("ask.modelSheet.thinkingOff"));
-    thinkingCopy.append(thinkingTitle, thinkingStatus);
-
-    const toggleLabel = element("label", "ask-toggle-switch");
-    const toggleInput = document.createElement("input");
-    toggleInput.type = "checkbox";
-    toggleInput.checked = Boolean(state.askThinking);
-    toggleInput.setAttribute("aria-label", t("ask.modelSheet.thinkingTitle"));
-    const toggleSlider = element("span", "ask-toggle-slider");
-    toggleLabel.append(toggleInput, toggleSlider);
-
-    toggleInput.addEventListener("change", (e) => {
-      e.stopPropagation();
-      state.askThinking = toggleInput.checked;
-      try { localStorage.setItem("helmer_ask_thinking", String(state.askThinking)); } catch { }
-      thinkingStatus.textContent = state.askThinking ? t("ask.modelSheet.thinkingOn") : t("ask.modelSheet.thinkingOff");
-      trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
-    });
-
-    thinkingRow.append(thinkingCopy, toggleLabel);
-    options.appendChild(thinkingRow);
-  }
+  options.append(autoCard);
 
   body.appendChild(options);
   sheet.append(dragArea, header, body);
@@ -2187,7 +2132,7 @@ const state = {
   askModel: (() => {
     try {
       const saved = localStorage.getItem("helmer_ask_model");
-      if (saved === "gemini-3.7-flash" || saved === "auto") return saved;
+      if (saved === "auto") return saved;
     } catch { }
     return "auto";
   })(),
@@ -3724,8 +3669,8 @@ function renderAsk() {
     try {
       const fileData = await readUploadedFileAsData(file);
       state.askPendingFile = fileData;
-      state.askModel = "gemini-3.7-flash";
-      try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
+      state.askModel = "auto";
+      try { localStorage.setItem("helmer_ask_model", "auto"); } catch { }
       state.askError = "";
     } catch (err) {
       console.error("Failed to read attached file:", err);
@@ -3960,21 +3905,20 @@ function renderAsk() {
     submit.appendChild(createAskSendIcon());
   }
 
-  const isFlashSelected = state.askModel === "gemini-3.7-flash";
   const modelSelectorMenu = document.createElement("details");
   modelSelectorMenu.className = "ask-model-selector-menu";
   const modelTrigger = element("summary", "ask-model-selector-trigger");
   modelTrigger.setAttribute("aria-label", isEn ? "Model mode" : "Model rejimi");
-  modelTrigger.title = isFlashSelected ? (isEn ? "Mode: Flash (Files & Search)" : "Rejim: Flash (Fayl və Axtarış)") : (isEn ? "Mode: Auto" : "Rejim: Auto");
+  modelTrigger.title = isEn ? "Mode: Auto" : "Rejim: Auto";
 
   modelTrigger.innerHTML = `
-    <span class="ask-model-name">${isFlashSelected ? "Flash" : "Auto"}</span>
+    <span class="ask-model-name">Auto</span>
     <svg class="ask-model-chevron-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
   `;
 
   const modelPopover = element("div", "ask-model-selector-popover");
 
-  const autoOption = button("", `ask-model-option${!isFlashSelected ? " is-active" : ""}`, (e) => {
+  const autoOption = button("", "ask-model-option is-active", (e) => {
     e.preventDefault();
     state.askModel = "auto";
     try { localStorage.setItem("helmer_ask_model", "auto"); } catch { }
@@ -3987,54 +3931,10 @@ function renderAsk() {
       <strong>Auto</strong>
       <small>${isEn ? "Automatic routing" : "Avtomatik rejim"}</small>
     </div>
-    ${!isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
+    <span class="ask-model-check">✓</span>
   `;
 
-  const flashOption = button("", `ask-model-option${isFlashSelected ? " is-active" : ""}`, (e) => {
-    e.preventDefault();
-    state.askModel = "gemini-3.7-flash";
-    try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
-    modelSelectorMenu.open = false;
-    render();
-  });
-  flashOption.type = "button";
-  flashOption.innerHTML = `
-    <div class="ask-model-option-info">
-      <strong>Flash</strong>
-      <small>${isEn ? "For daily workflows" : "Gündəlik işlər üçün"}</small>
-    </div>
-    ${isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
-  `;
-
-  modelPopover.append(autoOption, flashOption);
-
-  if (isFlashSelected) {
-    const divider = element("div", "ask-model-popover-divider");
-    const thinkingRow = element("div", "ask-model-toggle-row");
-    const thinkingInfo = element("div", "ask-model-toggle-info");
-    const thinkingTitle = element("strong", "", isEn ? "Thinking" : "Düşünmə");
-    const thinkingSub = element("small", "", state.askThinking ? (isEn ? "Deep analysis active" : "Dərin analiz aktivdir") : (isEn ? "Fast direct response" : "Sürətli birbaşa cavab"));
-    thinkingInfo.append(thinkingTitle, thinkingSub);
-
-    const switchLabel = element("label", "ask-toggle-switch");
-    const switchInput = document.createElement("input");
-    switchInput.type = "checkbox";
-    switchInput.checked = Boolean(state.askThinking);
-    switchInput.setAttribute("aria-label", isEn ? "Toggle thinking mode" : "Düşünmə rejimini dəyiş");
-    switchInput.addEventListener("change", (e) => {
-      e.stopPropagation();
-      state.askThinking = switchInput.checked;
-      try { localStorage.setItem("helmer_ask_thinking", String(state.askThinking)); } catch { }
-      thinkingSub.textContent = state.askThinking ? (isEn ? "Deep analysis active" : "Dərin analiz aktivdir") : (isEn ? "Fast direct response" : "Sürətli birbaşa cavab");
-      trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
-    });
-
-    const switchSlider = element("span", "ask-toggle-slider");
-    switchLabel.append(switchInput, switchSlider);
-    thinkingRow.append(thinkingInfo, switchLabel);
-
-    modelPopover.append(divider, thinkingRow);
-  }
+  modelPopover.append(autoOption);
 
   modelSelectorMenu.append(modelTrigger, modelPopover);
 
@@ -4684,8 +4584,8 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     taskTitle: selectedTask?.text || "",
   });
 
-  const chosenModel = fileToAttach ? "gemini-3.7-flash" : (state.askModel || "auto");
-  const initialPlaceholderModel = chosenModel === "gemini-3.7-flash" ? "gemini-3.7-flash" : (chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : "auto"));
+  const chosenModel = state.askModel || "auto";
+  const initialPlaceholderModel = chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : (chosenModel === "gpt-6-sol" ? "gpt-6-sol" : "auto"));
   const assistantMsg = {
     role: "assistant",
     content: "",
@@ -4720,7 +4620,6 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       body: JSON.stringify({
         messages: state.askMessages.slice(0, -1),
         model: chosenModel,
-        thinking: chosenModel === "gemini-3.7-flash" ? Boolean(state.askThinking) : undefined,
         strategyId: state.askStrategyId || undefined,
         taskId: state.askTaskId || undefined,
         chatId: state.askChatId || undefined,
@@ -6317,7 +6216,7 @@ async function startGeneration() {
         createdAt: state.updatedAt,
       },
     ];
-    trackEvent("strategy_generated", { clarificationRounds: state.round, model: "gemini-3.8-flash" });
+    trackEvent("strategy_generated", { clarificationRounds: state.round, model: "gpt-6-astra" });
 
     const isEn = getLanguage() === "en";
     if (autoSaveActive) {

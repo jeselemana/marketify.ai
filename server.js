@@ -472,6 +472,7 @@ app.post("/api/legal-report", async (req, res) => {
 
 const ASK_MODEL = aiConfig.askModel;
 const ASK_COMPLEX_MODEL = aiConfig.askComplexModel;
+const ASK_SOL_MODEL = aiConfig.askSolModel || "gpt-6-sol";
 const ASK_GEMINI_MODEL = aiConfig.askGeminiModel;
 
 function askSafetyIdentifier(ownerId) {
@@ -665,28 +666,113 @@ app.delete("/api/ask/chats/:id", async (req, res) => {
   }
 });
 
+function formatOpenAIInputMessages(messages = []) {
+  return messages.map((m) => {
+    if (!m) return { role: "user", content: "" };
+    let content = typeof m.content === "string" ? m.content : "";
+    if (m.file && m.file.textContent) {
+      const fileName = String(m.file.name || "fayl").trim();
+      const fileContext = `[Yüklənmiş fayl konteksti: "${fileName}"]\n\`\`\`\n${m.file.textContent}\n\`\`\``;
+      content = content ? `${fileContext}\n\n${content}` : fileContext;
+    }
+    return { role: m.role, content };
+  });
+}
+
+function extractOpenAIGroundingMetadata(response) {
+  if (!response || typeof response !== "object") return null;
+  const webSearchQueries = [];
+  const groundingChunks = [];
+  const seenUrls = new Set();
+
+  const addQuery = (q) => {
+    if (typeof q === "string" && q.trim() && !webSearchQueries.includes(q.trim())) {
+      webSearchQueries.push(q.trim());
+    }
+  };
+
+  const addCitation = (url, title) => {
+    if (typeof url === "string" && url.startsWith("http") && !seenUrls.has(url)) {
+      seenUrls.add(url);
+      groundingChunks.push({
+        web: {
+          uri: url,
+          title: typeof title === "string" && title.trim() ? title.trim() : url,
+        },
+      });
+    }
+  };
+
+  const output = Array.isArray(response.output) ? response.output : [];
+  for (const item of output) {
+    if (!item) continue;
+    if (item.type === "web_search_call" || item.type === "web_search") {
+      const q = item.action?.query || item.query || item.search_query || item.action?.input;
+      if (q) addQuery(q);
+      if (Array.isArray(item.action?.queries)) {
+        item.action.queries.forEach(addQuery);
+      }
+    }
+    if (item.type === "message" && Array.isArray(item.content)) {
+      for (const part of item.content) {
+        if (!part) continue;
+        const annotations = Array.isArray(part.annotations) ? part.annotations : [];
+        for (const ann of annotations) {
+          if (!ann) continue;
+          const url = ann.url || ann.uri || (ann.type === "url_citation" ? ann.url : null);
+          if (url) addCitation(url, ann.title || ann.text);
+        }
+      }
+    }
+  }
+
+  const directAnnotations = Array.isArray(response.annotations)
+    ? response.annotations
+    : Array.isArray(response.citations)
+      ? response.citations
+      : [];
+  for (const ann of directAnnotations) {
+    if (!ann) continue;
+    const url = ann.url || ann.uri;
+    if (url) addCitation(url, ann.title || ann.text);
+  }
+
+  if (groundingChunks.length > 0 || webSearchQueries.length > 0) {
+    return {
+      groundingChunks,
+      webSearchQueries,
+    };
+  }
+  return null;
+}
+
 async function generateOpenAIAskStreamResponse({
   openaiClient,
   model = ASK_MODEL,
   instructions = "",
   messages = [],
   ownerId = "",
+  enableSearch = false,
   onChunk = () => {},
   signal,
 }) {
   let accumulated = "";
   let usage = null;
+  let groundingMetadata = null;
+  const webSearchQueries = [];
+  const tools = enableSearch ? [{ type: "web_search" }] : undefined;
 
-  // Responses streaming is the primary path. It is compatible with the GPT-5.6
+  // Responses streaming is the primary path. It is compatible with the GPT-5.6 / GPT-6
   // models and emits text deltas immediately instead of waiting for a full reply.
   try {
     const stream = await openaiClient.responses.create(
       {
         model,
         instructions,
-        input: messages.map(({ role, content }) => ({ role, content })),
+        input: formatOpenAIInputMessages(messages),
         stream: true,
         max_output_tokens: aiConfig.askMaxOutputTokens,
+        ...(tools ? { tools } : {}),
         safety_identifier: askSafetyIdentifier(ownerId),
       },
       signal ? { signal } : undefined,
@@ -694,25 +780,77 @@ async function generateOpenAIAskStreamResponse({
 
     for await (const event of stream) {
       const chunk = event.type === "response.output_text.delta" ? event.delta : "";
-      if (event.type === "response.completed") usage = event.response?.usage || usage;
+      if (event.type === "response.completed") {
+        usage = event.response?.usage || usage;
+        const meta = extractOpenAIGroundingMetadata(event.response);
+        if (meta) {
+          groundingMetadata = meta;
+        }
+      }
+      if (event.type === "response.output_item.added" || event.type === "response.output_item.done") {
+        const item = event.item;
+        if (item?.type === "web_search_call" || item?.type === "web_search") {
+          const q = item.action?.query || item.query || item.search_query;
+          if (typeof q === "string" && q.trim() && !webSearchQueries.includes(q.trim())) {
+            webSearchQueries.push(q.trim());
+          }
+        }
+      }
       if (chunk) {
         accumulated += chunk;
         onChunk(chunk);
       }
     }
-    if (accumulated.trim()) return { text: accumulated.trim(), usage, model, provider: "openai" };
+
+    if (!groundingMetadata && webSearchQueries.length > 0) {
+      groundingMetadata = {
+        groundingChunks: [],
+        webSearchQueries,
+      };
+    }
+
+    if (accumulated.trim()) return { text: accumulated.trim(), usage, model, provider: "openai", groundingMetadata };
   } catch (responsesErr) {
     // Once a response has started, switching providers would duplicate text in
     // the user's live bubble. Surface the interrupted stream instead.
     if (accumulated.trim() || signal?.aborted || responsesErr?.name === "AbortError") throw responsesErr;
-    console.warn("OpenAI Responses stream failed, trying chat completions:", responsesErr?.message);
+    console.warn("OpenAI Responses stream failed:", responsesErr?.message);
+
+    // If search tools triggered an error, retry responses without tools before falling back to chat completions
+    if (tools) {
+      try {
+        const fallbackStream = await openaiClient.responses.create(
+          {
+            model,
+            instructions,
+            input: formatOpenAIInputMessages(messages),
+            stream: true,
+            max_output_tokens: aiConfig.askMaxOutputTokens,
+            safety_identifier: askSafetyIdentifier(ownerId),
+          },
+          signal ? { signal } : undefined,
+        );
+        for await (const event of fallbackStream) {
+          const chunk = event.type === "response.output_text.delta" ? event.delta : "";
+          if (event.type === "response.completed") usage = event.response?.usage || usage;
+          if (chunk) {
+            accumulated += chunk;
+            onChunk(chunk);
+          }
+        }
+        if (accumulated.trim()) return { text: accumulated.trim(), usage, model, provider: "openai", groundingMetadata: null };
+      } catch (innerErr) {
+        if (accumulated.trim() || signal?.aborted || innerErr?.name === "AbortError") throw innerErr;
+        console.warn("OpenAI Responses fallback stream failed, trying chat completions:", innerErr?.message);
+      }
+    }
   }
 
   // Compatibility fallback for environments that only expose Chat Completions.
   accumulated = "";
   const formattedMessages = [
     { role: "system", content: instructions },
-    ...messages.map(({ role, content }) => ({ role, content })),
+    ...formatOpenAIInputMessages(messages),
   ];
   const stream = await openaiClient.chat.completions.create(
     {
@@ -733,7 +871,7 @@ async function generateOpenAIAskStreamResponse({
     usage = part.usage || usage;
   }
   if (!accumulated.trim()) throw new Error("OpenAI boş cavab qaytardı.");
-  return { text: accumulated.trim(), usage, model, provider: "openai" };
+  return { text: accumulated.trim(), usage, model, provider: "openai", groundingMetadata: null };
 }
 
 async function generateOpenAIAskResponse({
@@ -742,26 +880,51 @@ async function generateOpenAIAskResponse({
   instructions = "",
   messages = [],
   ownerId = "",
+  enableSearch = false,
   signal,
 }) {
+  const tools = enableSearch ? [{ type: "web_search" }] : undefined;
+
   // 1. Try Responses API first
   try {
     const response = await openaiClient.responses.create(
       {
         model,
         instructions,
-        input: messages.map(({ role, content }) => ({ role, content })),
+        input: formatOpenAIInputMessages(messages),
         max_output_tokens: aiConfig.askMaxOutputTokens,
         reasoning: { effort: "low" },
+        ...(tools ? { tools } : {}),
         safety_identifier: askSafetyIdentifier(ownerId),
       },
       signal ? { signal } : undefined,
     );
     const text = response.output_text?.trim();
-    if (text) return { text, usage: response.usage || null, model, provider: "openai" };
+    const groundingMetadata = extractOpenAIGroundingMetadata(response);
+    if (text) return { text, usage: response.usage || null, model, provider: "openai", groundingMetadata };
   } catch (respErr) {
-    console.warn("OpenAI responses.create failed, trying chat.completions:", respErr?.message);
+    console.warn("OpenAI responses.create failed:", respErr?.message);
+    if (tools) {
+      try {
+        const retryResp = await openaiClient.responses.create(
+          {
+            model,
+            instructions,
+            input: formatOpenAIInputMessages(messages),
+            max_output_tokens: aiConfig.askMaxOutputTokens,
+            reasoning: { effort: "low" },
+            safety_identifier: askSafetyIdentifier(ownerId),
+          },
+          signal ? { signal } : undefined,
+        );
+        const retryText = retryResp.output_text?.trim();
+        if (retryText) return { text: retryText, usage: retryResp.usage || null, model, provider: "openai", groundingMetadata: null };
+      } catch {
+        // fallback to chat completions
+      }
+    }
   }
+
   // 2. Fallback to Chat Completions
   const completion = await openaiClient.chat.completions.create(
     {
@@ -779,7 +942,7 @@ async function generateOpenAIAskResponse({
   if (!text) {
     throw new Error("OpenAI boş cavab qaytardı.");
   }
-  return { text, usage: completion.usage || null, model, provider: "openai" };
+  return { text, usage: completion.usage || null, model, provider: "openai", groundingMetadata: null };
 }
 
 const GEMINI_SAFETY_SETTINGS = [
@@ -1435,7 +1598,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     const hasAnyAttachment = messages.some((m) => Boolean(m.file && (m.file.data || m.file.textContent || m.file.name || m.file.fileId)));
     const lastUserMsg = messages.at(-1)?.content || "";
     const route = resolveAskModelRoute({ requestedModel, lastUserMsg, hasStrategyContext, hasAttachment: hasAnyAttachment });
-    const isGemini = route === "gemini-3.7-flash";
+    const isGemini = route.startsWith("gemini");
     isGeminiRoute = isGemini;
 
     if (isGemini && !hasGeminiConfiguration()) {
@@ -1486,10 +1649,9 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     });
     let reply = "";
     let activeModel = "luna";
-    const selectedAskModel = isGemini ? ASK_GEMINI_MODEL : route === "terra" ? ASK_COMPLEX_MODEL : ASK_MODEL;
-    const searchDecision = isGemini
-      ? evaluateSearchRoute({ prompt: lastUserMsg, messages, hasStrategyContext })
-      : { enableSearch: false };
+    const isSol = route === "gpt-6-sol" || route === "sol";
+    const selectedAskModel = isSol ? ASK_SOL_MODEL : route === "terra" ? ASK_COMPLEX_MODEL : isGemini ? ASK_GEMINI_MODEL : ASK_MODEL;
+    const searchDecision = evaluateSearchRoute({ prompt: lastUserMsg, messages, hasStrategyContext });
     const enableSearch = searchDecision.enableSearch;
 
     learningInteractionId = learningLoop.createInteractionId();
@@ -1546,7 +1708,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         }
       });
 
-      if (isGemini && enableSearch) {
+      if (enableSearch) {
         res.write(`data: ${JSON.stringify({ status: "searching", statusText: "Vebdə axtarıram", model: activeModel })}\n\n`);
         if (typeof res.flush === "function") res.flush();
       }
@@ -1572,6 +1734,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
               instructions: fullInstructions,
               messages,
               ownerId: req.ownerId,
+              enableSearch,
               signal: abortController.signal,
               onChunk: (chunk) => {
                 res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
@@ -1695,6 +1858,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           instructions: fullInstructions,
           messages,
           ownerId: req.ownerId,
+          enableSearch,
         });
     reply = generated.text;
 
