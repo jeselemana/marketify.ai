@@ -2163,9 +2163,6 @@ const state = {
   clientSaveId: crypto.randomUUID(),
   savedStrategies: [],
   updatedAt: null,
-  f1CountdownActive: false,
-  hasSeenF1Countdown: false,
-  shouldTriggerCarTransition: false,
   error: null,
   retry: null,
   changeSummary: "",
@@ -2382,27 +2379,7 @@ function createAskStopIcon() {
 }
 
 function createAskSendIcon() {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "23");
-  svg.setAttribute("height", "23");
-  svg.setAttribute("fill", "currentColor");
-  svg.setAttribute("aria-hidden", "true");
-  svg.classList.add("ask-submit-icon", "ask-f1-icon");
-  svg.innerHTML = `<path fill-rule="evenodd" d="M10.96 3.18 L11.17 3.13 L11.13 3.46 L10.40 3.61 L8.93 4.18 L7.37 4.58 L7.28 4.54 L7.28 4.11 L9.70 3.50 L10.57 3.21 Z M13.43 3.21 L14.30 3.50 L16.72 4.11 L16.72 4.54 L16.63 4.58 L15.07 4.18 L13.60 3.61 L12.87 3.46 L12.83 3.13 L13.04 3.18 Z M7.02 3.28 L7.02 5.11 L6.98 5.19 L6.81 5.22 L6.68 5.11 L6.68 3.72 L6.81 3.39 Z M17.19 3.39 L17.32 3.72 L17.32 5.11 L17.19 5.22 L17.02 5.19 L16.98 5.11 L16.98 3.28 Z M10.96 3.67 L11.09 3.64 L11.04 4.00 L10.57 4.11 L9.57 4.68 L8.36 5.00 L7.28 5.11 L7.28 4.79 L7.41 4.72 L8.84 4.40 L10.01 4.00 L10.53 3.75 Z M13.47 3.75 L13.99 4.00 L15.16 4.40 L16.59 4.72 L16.72 4.79 L16.72 5.11 L15.64 5.00 L14.43 4.68 L13.43 4.11 L12.96 4.00 L12.91 3.64 L13.04 3.67 Z M10.35 5.19 L10.92 5.15 L10.87 5.87 L10.35 5.87 Z M13.65 5.87 L13.13 5.87 L13.08 5.15 L13.65 5.19 Z M6.85 5.73 L8.10 5.69 L8.36 5.83 L8.41 8.27 L8.19 8.49 L6.81 8.49 L6.55 8.27 L6.55 5.94 L6.68 5.76 Z M17.32 5.76 L17.45 5.94 L17.45 8.27 L17.19 8.49 L15.81 8.49 L15.59 8.27 L15.64 5.83 L15.90 5.69 L17.15 5.73 Z M10.66 6.27 L10.79 6.23 L10.79 6.44 L10.70 6.48 L9.88 6.59 L9.18 6.76 L10.74 6.65 L10.74 6.87 L9.01 7.02 L10.57 7.67 L10.61 7.92 L8.67 7.13 L8.67 6.59 Z M15.33 6.59 L15.33 7.13 L13.39 7.92 L13.43 7.67 L14.99 7.02 L13.26 6.87 L13.26 6.65 L14.82 6.76 L14.12 6.59 L13.30 6.48 L13.21 6.44 L13.21 6.23 L13.34 6.27 Z M8.67 7.38 L8.75 7.35 L9.75 7.78 L9.79 7.84 L10.48 8.09 L10.57 8.17 L10.53 8.38 L8.67 7.59 Z M15.33 7.59 L13.47 8.38 L13.43 8.17 L13.52 8.09 L14.21 7.84 L14.25 7.78 L15.25 7.35 L15.33 7.38 Z M9.23 9.46 L9.53 9.43 L9.62 9.63 L10.35 9.63 L10.53 9.82 L10.48 9.89 L10.27 9.82 L9.44 9.82 L8.62 10.07 L8.62 9.71 L8.75 9.60 Z M15.25 9.60 L15.38 9.71 L15.38 10.07 L14.56 9.82 L13.73 9.82 L13.52 9.89 L13.47 9.82 L13.65 9.63 L14.38 9.63 L14.47 9.43 L14.77 9.46 Z M8.19 11.90 L8.23 12.77 L8.54 13.91 L8.93 14.78 L9.83 16.40 L9.83 16.50 L9.70 16.61 L8.93 17.08 L8.84 17.08 L8.80 16.64 L8.58 16.35 L8.10 16.18 L8.06 12.26 Z M15.94 12.26 L15.90 16.18 L15.42 16.35 L15.20 16.64 L15.16 17.08 L15.07 17.08 L14.30 16.61 L14.17 16.50 L14.17 16.40 L15.07 14.78 L15.46 13.91 L15.77 12.77 L15.81 11.90 Z M6.59 16.68 L7.93 16.64 L8.15 16.75 L8.23 16.89 L8.23 19.19 L7.97 19.44 L6.55 19.44 L6.29 19.19 L6.29 16.94 L6.33 16.83 Z M17.67 16.83 L17.71 16.94 L17.71 19.19 L17.45 19.44 L16.03 19.44 L15.77 19.19 L15.77 16.89 L15.85 16.75 L16.07 16.64 L17.41 16.68 Z M9.88 16.75 L9.96 16.72 L10.01 16.94 L8.97 17.58 L8.84 17.72 L8.75 17.72 L8.75 17.79 L10.22 17.62 L10.31 17.83 L9.01 17.97 L8.97 18.05 L10.31 18.26 L10.40 18.33 L10.40 18.51 L8.49 18.16 L8.49 17.62 Z M15.51 17.62 L15.51 18.16 L13.60 18.51 L13.60 18.33 L13.69 18.26 L15.03 18.05 L14.99 17.97 L13.69 17.83 L13.78 17.62 L15.25 17.79 L15.25 17.72 L15.16 17.72 L15.03 17.58 L13.99 16.94 L14.04 16.72 L14.12 16.75 Z M8.84 18.70 L8.84 21.82 L8.62 21.89 L8.54 21.82 L8.54 19.02 L8.62 18.84 Z M15.38 18.84 L15.46 19.02 L15.46 21.82 L15.38 21.89 L15.16 21.82 L15.16 18.70 Z M9.10 19.05 L11.61 19.02 L11.61 20.16 L9.10 20.20 Z M14.90 20.20 L12.39 20.16 L12.39 19.02 L14.90 19.05 Z M11.82 2.10 L12.34 2.10 L15.41 2.96 L16.67 3.24 L16.71 3.93 L13.55 3.07 L12.78 2.96 L12.60 2.64 L12.17 2.34 L11.82 2.34 L11.61 2.42 L11.35 2.67 L11.22 2.96 L10.70 2.99 L7.32 3.93 L7.28 3.28 L7.41 3.21 L8.28 3.04 L11.48 2.13 Z M11.82 2.60 L12.21 2.60 L12.39 2.74 L12.56 3.13 L13.21 8.52 L13.34 9.03 L13.55 9.43 L13.29 9.63 L13.16 9.63 L13.03 9.49 L12.56 9.25 L12.34 8.92 L12.30 8.49 L12.13 8.38 L11.87 8.38 L11.69 8.49 L11.61 9.00 L11.17 9.43 L10.83 9.63 L10.70 9.63 L10.44 9.46 L10.79 8.57 L11.43 3.07 L11.65 2.67 Z M11.91 8.63 L12.08 8.63 L12.13 9.00 L12.34 9.35 L13.29 9.96 L13.68 10.50 L13.77 10.79 L13.81 12.69 L14.03 12.63 L14.03 10.76 L13.90 10.36 L13.73 10.14 L13.77 10.03 L14.20 10.03 L14.81 10.36 L15.33 10.87 L15.50 11.40 L15.50 12.55 L15.28 13.56 L14.85 14.59 L13.90 16.29 L13.42 17.65 L13.34 18.44 L13.16 18.76 L12.39 18.76 L12.34 18.22 L12.08 18.08 L11.91 18.08 L11.69 18.19 L11.61 18.33 L11.61 18.76 L10.79 18.73 L10.27 16.68 L8.93 14.13 L8.49 12.63 L8.49 11.33 L8.67 10.87 L8.93 10.54 L9.70 10.07 L10.18 10.03 L10.27 10.14 L10.14 10.25 L9.96 10.68 L9.96 12.63 L10.05 12.69 L10.22 12.66 L10.22 10.79 L10.35 10.39 L10.87 9.82 L11.65 9.35 L11.87 9.00 Z M11.74 9.89 L11.52 9.93 L11.00 10.17 L10.57 10.71 L10.48 11.11 L10.53 12.01 L10.61 12.09 L10.74 12.04 L10.74 10.93 L10.96 10.50 L11.09 10.36 L11.17 10.36 L11.17 11.72 L11.39 11.98 L11.65 12.09 L12.30 12.09 L12.73 11.87 L12.82 11.72 L12.82 10.39 L12.91 10.39 L13.16 10.68 L13.25 10.90 L13.25 12.01 L13.42 12.04 L13.47 10.87 L13.34 10.54 L12.99 10.17 L12.56 9.96 L12.30 9.89 Z M11.13 12.33 L10.96 12.44 L10.96 13.09 L11.17 13.20 L11.04 13.70 L11.04 14.34 L11.39 16.40 L11.65 17.29 L11.35 14.78 L11.30 13.91 L11.39 13.31 L11.48 13.20 L11.65 13.20 L11.74 13.45 L11.91 13.52 L12.21 13.48 L12.39 13.20 L12.56 13.20 L12.60 13.31 L12.65 14.74 L12.39 16.50 L12.39 17.18 L12.86 15.07 L12.95 13.74 L12.82 13.20 L13.03 13.05 L13.03 12.44 L12.91 12.33 Z M11.22 12.58 L12.78 12.55 L12.78 12.98 L12.17 12.98 L12.08 13.26 L11.95 13.31 L11.82 12.98 L11.22 12.98 Z M11.91 18.37 L12.13 18.37 L12.08 20.20 L11.87 20.16 Z M9.10 20.46 L11.78 20.41 L11.87 20.49 L12.13 20.49 L12.21 20.41 L14.90 20.41 L14.90 21.14 L9.10 21.14 Z" />`;
-  return svg;
-}
-
-function triggerF1Launch(btn) {
-  const icon = btn?.querySelector?.(".ask-f1-icon");
-  if (!icon || icon.classList.contains("is-launching")) return;
-  icon.classList.add("is-launching");
-  const cleanup = () => {
-    icon.classList.remove("is-launching");
-    icon.removeEventListener("animationend", cleanup);
-  };
-  icon.addEventListener("animationend", cleanup, { once: true });
-  setTimeout(cleanup, 260);
+  return element("span", "ask-submit-icon", "↑");
 }
 
 function createStrategyAskSendIcon() {
@@ -2981,17 +2958,6 @@ function startNewChat() {
 
 function resetStrategy() {
   clearInterval(progressTimer);
-  if (typeof f1CountdownInterval !== "undefined" && f1CountdownInterval) {
-    clearInterval(f1CountdownInterval);
-    f1CountdownInterval = null;
-  }
-  if (typeof f1CountdownResolver === "function") {
-    f1CountdownResolver();
-    f1CountdownResolver = null;
-  }
-  try {
-    sessionStorage.removeItem("hasSeenF1Countdown");
-  } catch { }
   Object.assign(state, {
     mode: "build",
     view: "home",
@@ -3009,9 +2975,6 @@ function resetStrategy() {
     savedId: null,
     clientSaveId: crypto.randomUUID(),
     updatedAt: null,
-    f1CountdownActive: false,
-    hasSeenF1Countdown: false,
-    shouldTriggerCarTransition: false,
     error: null,
     retry: null,
     changeSummary: "",
@@ -3029,20 +2992,9 @@ function render() {
   clearInterval(progressTimer);
   clearInterval(loadingAskPlaceholderTimer);
   clearTimeout(refinementPlaceholderTimer);
-  if (!["analyzing", "generating"].includes(state.status)) {
-    if (typeof f1CountdownInterval !== "undefined" && f1CountdownInterval) {
-      clearInterval(f1CountdownInterval);
-      f1CountdownInterval = null;
-    }
-    if (typeof f1CountdownResolver === "function") {
-      f1CountdownResolver();
-      f1CountdownResolver = null;
-    }
-    state.f1CountdownActive = false;
-  }
   syncMode();
   syncNav();
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay, #f1StartGantry").forEach((btn) => btn.remove());
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay").forEach((btn) => btn.remove());
   workspace.replaceChildren();
   workspace.className = "workspace";
 
@@ -3293,10 +3245,7 @@ function renderIntake() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     state.brief = textarea.value.trim();
-    if (state.brief.length >= 8) {
-      triggerF1Launch(submit);
-      startAssessment();
-    }
+    if (state.brief.length >= 8) startAssessment();
   });
 
   const banner = errorBanner();
@@ -4224,8 +4173,6 @@ function renderAsk() {
       event.preventDefault();
       event.stopPropagation();
       abortAskMessage();
-    } else if (!submit.disabled) {
-      triggerF1Launch(submit);
     }
   });
   form.addEventListener("submit", (event) => {
@@ -4237,7 +4184,6 @@ function renderAsk() {
     const message = input.value.trim();
     const hasFile = Boolean(state.askPendingFile);
     if (message.length >= 2 || hasFile) {
-      triggerF1Launch(submit);
       state.askDraft = "";
       submitAskMessage(message, state.askPendingFile);
     }
@@ -5020,182 +4966,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   }
 }
 
-let f1CountdownInterval = null;
-let f1CountdownResolver = null;
 
-function shouldShowF1Countdown() {
-  if (state.answers && state.answers.length > 0) return false;
-  if (state.round && state.round > 0) return false;
-  if (state.hasSeenF1Countdown) return false;
-  try {
-    if (sessionStorage.getItem("hasSeenF1Countdown") === state.clientSaveId) return false;
-  } catch { }
-  return true;
-}
-
-function markF1CountdownSeen() {
-  state.hasSeenF1Countdown = true;
-  state.f1CountdownActive = false;
-  try {
-    sessionStorage.setItem("hasSeenF1Countdown", state.clientSaveId);
-  } catch { }
-}
-
-function waitForF1Countdown() {
-  if (!state.f1CountdownActive) return Promise.resolve();
-  return new Promise((resolve) => {
-    f1CountdownResolver = resolve;
-  });
-}
-
-function createF1StartCountdown(isEn, onComplete) {
-  if (f1CountdownInterval) {
-    clearInterval(f1CountdownInterval);
-    f1CountdownInterval = null;
-  }
-
-  const container = element("div", "f1-start-gantry-card");
-  container.id = "f1StartGantry";
-  container.setAttribute("role", "region");
-  container.setAttribute("aria-label", isEn ? "Formula 1 Starting Grid Countdown" : "Formula 1 Start Geri Sayımı");
-
-  const gantryTop = element("div", "f1-gantry-top");
-  const badge = element("div", "f1-gantry-badge");
-  badge.innerHTML = `
-    <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
-      <path d="M2 2h2v12H2V2zm3 0h3l1 2h5l-1 5h-4l-1-2H5V2z"/>
-    </svg>
-    <span>${isEn ? "F1 START SEQUENCE" : "F1 START PROSEDURU"}</span>
-  `;
-
-  const timerEl = element("div", "f1-gantry-timer", "5.0s");
-  timerEl.id = "f1GantryTimer";
-  gantryTop.append(badge, timerEl);
-
-  const lightsBar = element("div", "f1-gantry-lights-bar");
-  lightsBar.id = "f1GantryLightsBar";
-
-  const pods = [];
-  for (let i = 1; i <= 5; i++) {
-    const pod = element("div", "f1-light-pod");
-    pod.dataset.pod = String(i);
-    const bulbTop = element("span", "f1-light-housing");
-    bulbTop.appendChild(element("span", "f1-light-bulb"));
-    const bulbBottom = element("span", "f1-light-housing");
-    bulbBottom.appendChild(element("span", "f1-light-bulb"));
-    pod.append(bulbTop, bulbBottom);
-    lightsBar.appendChild(pod);
-    pods.push(pod);
-  }
-
-  const statusWrap = element("div", "f1-gantry-status");
-  const statusDot = element("span", "f1-gantry-status-dot");
-  const statusText = element("span", "f1-gantry-status-text", isEn ? "GRID FORMING • 5" : "START XƏTTİ • 5");
-  statusText.id = "f1GantryStatusText";
-  statusWrap.append(statusDot, statusText);
-
-  container.append(gantryTop, lightsBar, statusWrap);
-
-  const startTime = Date.now();
-  const totalDurationMs = 5000;
-
-  f1CountdownInterval = setInterval(() => {
-    const elapsed = Date.now() - startTime;
-    const remainingMs = Math.max(0, totalDurationMs - elapsed);
-    const remainingSec = Math.ceil(remainingMs / 1000);
-
-    const litCount = Math.min(5, Math.floor(elapsed / 1000) + 1);
-    pods.forEach((p, idx) => {
-      if (idx < litCount && remainingMs > 0) {
-        p.classList.add("is-lit");
-      } else {
-        p.classList.remove("is-lit");
-      }
-    });
-
-    if (remainingMs > 0) {
-      timerEl.textContent = `${(remainingMs / 1000).toFixed(1)}s`;
-      const labelsEn = ["", "FINAL REV • 1", "STAGING • 2", "WARMING TIRES • 3", "ARMING SYSTEMS • 4", "GRID FORMING • 5"];
-      const labelsAz = ["", "SON DÖVR • 1", "HAZIRLIQ • 2", "TƏKƏRLƏR İSİNİR • 3", "SİSTEMLƏR AKTİVLƏŞİR • 4", "START XƏTTİ • 5"];
-      statusText.textContent = isEn ? (labelsEn[remainingSec] || "STAGING") : (labelsAz[remainingSec] || "HAZIRLIQ");
-    } else {
-      clearInterval(f1CountdownInterval);
-      f1CountdownInterval = null;
-
-      pods.forEach((p) => {
-        p.classList.remove("is-lit");
-        p.classList.add("is-out");
-      });
-      markF1CountdownSeen();
-      container.classList.add("is-lights-out");
-      timerEl.textContent = "0.0s";
-      timerEl.classList.add("lights-out-text");
-      statusDot.classList.add("is-green");
-      statusText.textContent = isEn ? "LIGHTS OUT! AWAY WE GO!" : "İŞIQLAR SÖNDÜ! İCRA BAŞLAYIR!";
-
-      setTimeout(() => {
-        container.classList.add("is-collapsing");
-        setTimeout(() => {
-          container.remove();
-          if (typeof onComplete === "function") onComplete();
-        }, 320);
-      }, 700);
-    }
-  }, 100);
-
-  return container;
-}
-
-function playF1CarTransition() {
-  const existing = document.getElementById("f1CarFlybyOverlay");
-  if (existing) existing.remove();
-
-  const overlay = element("div", "f1-car-flyby-overlay");
-  overlay.id = "f1CarFlybyOverlay";
-  overlay.setAttribute("aria-hidden", "true");
-
-  const stage = element("div", "f1-car-flyby-stage");
-
-  const trails = element("div", "f1-car-flyby-trails");
-  for (let i = 1; i <= 6; i++) {
-    const trail = element("span", `f1-trail-line f1-trail-line-${i}`);
-    trails.appendChild(trail);
-  }
-
-  const carWrapper = element("div", "f1-car-flyby-vehicle");
-  carWrapper.innerHTML = `
-    <svg class="f1-car-silhouette-svg" viewBox="0 0 200 56" width="190" height="53" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <rect x="6" y="12" width="18" height="3" rx="0.5"/>
-      <rect x="10" y="6" width="14" height="3" rx="0.5"/>
-      <rect x="5" y="15" width="3" height="20" rx="0.5"/>
-      <rect x="22" y="14" width="2.5" height="20" rx="0.5"/>
-      <circle cx="5" cy="30" r="2" fill="#ef4444"/>
-      <path d="M22 36 L146 36 L156 34 L26 34 Z"/>
-      <path d="M26 21 C36 19, 52 13, 72 13 L94 13 L94 19 C80 19, 62 23, 44 29 Z"/>
-      <rect x="74" y="8" width="12" height="5" rx="1"/>
-      <rect x="79" y="5" width="3" height="3" rx="0.5" fill="#eab308"/>
-      <path d="M84 18 C90 14, 104 14, 112 18 L110 21 C104 18, 93 18, 87 21 Z"/>
-      <circle cx="91" cy="16" r="3.2" opacity="0.9"/>
-      <path d="M38 29 C56 25, 92 23, 126 26 L162 32 L188 34 L162 36 L118 35 C85 35, 50 36, 32 36 Z"/>
-      <path d="M158 34 L196 35 L198 33 L174 31 Z"/>
-      <rect x="194" y="29" width="3" height="10" rx="0.5"/>
-      <circle cx="36" cy="36" r="12"/>
-      <circle cx="36" cy="36" r="9.5" fill="none" stroke="var(--f1-tire-accent, #ef4444)" stroke-width="1.4"/>
-      <circle cx="36" cy="36" r="4" fill="var(--f1-hub-color, #475569)"/>
-      <circle cx="150" cy="36" r="12"/>
-      <circle cx="150" cy="36" r="9.5" fill="none" stroke="var(--f1-tire-accent, #ef4444)" stroke-width="1.4"/>
-      <circle cx="150" cy="36" r="4" fill="var(--f1-hub-color, #475569)"/>
-    </svg>
-  `;
-
-  stage.append(trails, carWrapper);
-  overlay.appendChild(stage);
-  document.body.appendChild(overlay);
-
-  setTimeout(() => {
-    overlay.remove();
-  }, 1750);
-}
 
 function renderLoading() {
   const isEn = getLanguage() === "en";
@@ -5235,18 +5006,14 @@ function renderLoading() {
   const title = element(
     "h1",
     "loading-title",
-    isAssessment
-      ? (isEn ? "Analyzing your brief at top speed" : "Brif maksimum sürətlə təhlil olunur")
-      : (isEn ? "Generating your brief at top speed" : "Brif maksimum sürətlə hazırlanır"),
+    isAssessment ? (isEn ? "Analyzing your brief" : "Brifdən növbəti qərara") : (isEn ? "Building your execution roadmap" : "Brifdən icra planına"),
   );
   const intro = element(
     "p",
     "loading-intro",
-    isEn
-      ? "Synthesizing your input to tailor strategic recommendations in record lap time."
-      : (isAssessment
-        ? "Məlumatları rekord dövrə vaxtında sintez edərək strateji tövsiyələr hazırlayırıq."
-        : "Rekord dövrə vaxtında strateji prioritetləri və icra planını strukturlaşdırırıq."),
+    isAssessment
+      ? (isEn ? "Synthesizing your input to tailor strategic recommendations." : "Məlumatları yoxlayıb ən doğru növbəti addımı müəyyənləşdiririk.")
+      : (isEn ? "Generating strategic priorities, channel mix, KPIs, and execution milestones." : "Helmer daxil etdiyin konteksti strukturlaşdırılmış strategiyaya çevirir."),
   );
 
   const activity = element("div", "loading-activity");
@@ -5256,26 +5023,11 @@ function renderLoading() {
   activityTop.append(activityLabel, activityCount);
 
   const activityBody = element("div", "loading-activity-body");
-  const activityIcon = element("div", "loading-activity-icon f1-wheel-loader-container");
+  const activityIcon = element("div", "loading-activity-icon");
   activityIcon.setAttribute("aria-hidden", "true");
   activityIcon.innerHTML = `
-    <svg 
-      class="w-5 h-5 text-blue-600 animate-spin f1-tire-spinner" 
-      viewBox="0 0 24 24" 
-      width="20"
-      height="20"
-      fill="none" 
-      xmlns="http://www.w3.org/2000/svg"
-      style="animation-duration: 0.7s;"
-    >
-      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" />
-      <circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.5" />
-      <path d="M12 3V7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-      <path d="M20.5 9.5L16.5 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-      <path d="M17.5 18L14 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-      <path d="M6.5 18L10 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-      <path d="M3.5 9.5L7.5 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
     </svg>
   `;
   const activityText = element("div", "loading-activity-text");
@@ -5434,68 +5186,35 @@ function renderLoading() {
   secondaryRow.append(cancelBtn, historyBtn);
   cardActions.appendChild(secondaryRow);
 
-  function startPhaseProgress() {
-    if (progressTimer) clearInterval(progressTimer);
-    activity.classList.remove("is-staging");
-    timelineWrap.classList.remove("is-staging");
-    progressTimer = setInterval(() => {
-      currentPhase = Math.min(currentPhase + 1, phases.length - 1);
-      activityTitle.textContent = phases[currentPhase][0];
-      copy.textContent = phases[currentPhase][1];
-      activityCount.textContent = `${String(currentPhase + 1).padStart(2, "0")} / ${String(phases.length).padStart(2, "0")}`;
-      [...progress.children].forEach((step, index) => {
-        step.className = index < currentPhase ? "is-complete" : index === currentPhase ? "is-current" : "is-upcoming";
-        const mark = step.querySelector(".generation-step-mark");
-        if (mark) {
-          mark.textContent = index < currentPhase ? "✓" : String(index + 1).padStart(2, "0");
-        }
-      });
-      if (currentPhase === phases.length - 1) clearInterval(progressTimer);
-    }, 1500);
-  }
-
-  let countdownGantry = null;
-  const allowCountdown = state.f1CountdownActive;
-  if (allowCountdown) {
-    activity.classList.add("is-staging");
-    timelineWrap.classList.add("is-staging");
-    countdownGantry = createF1StartCountdown(isEn, () => {
-      markF1CountdownSeen();
-      if (typeof f1CountdownResolver === "function") {
-        f1CountdownResolver();
-        f1CountdownResolver = null;
-      }
-      startPhaseProgress();
-    });
-    view.append(statusLine, title, intro, countdownGantry, activity, timelineWrap, reassurance, cardActions);
-  } else {
-    state.f1CountdownActive = false;
-    view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
-    startPhaseProgress();
-  }
-
+  view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
   workspace.appendChild(view);
   document.body.appendChild(topActions);
+
+  progressTimer = setInterval(() => {
+    currentPhase = Math.min(currentPhase + 1, phases.length - 1);
+    activityTitle.textContent = phases[currentPhase][0];
+    copy.textContent = phases[currentPhase][1];
+    activityCount.textContent = `${String(currentPhase + 1).padStart(2, "0")} / ${String(phases.length).padStart(2, "0")}`;
+    [...progress.children].forEach((step, index) => {
+      step.className = index < currentPhase ? "is-complete" : index === currentPhase ? "is-current" : "is-upcoming";
+      const mark = step.querySelector(".generation-step-mark");
+      if (mark) {
+        mark.textContent = index < currentPhase ? "✓" : String(index + 1).padStart(2, "0");
+      }
+    });
+    if (currentPhase === phases.length - 1) clearInterval(progressTimer);
+  }, 1500);
 }
 
 function cancelCurrentAnalysis() {
   const isEn = getLanguage() === "en";
   clearInterval(progressTimer);
   clearInterval(loadingAskPlaceholderTimer);
-  if (typeof f1CountdownInterval !== "undefined" && f1CountdownInterval) {
-    clearInterval(f1CountdownInterval);
-    f1CountdownInterval = null;
-  }
-  if (typeof f1CountdownResolver === "function") {
-    f1CountdownResolver();
-    f1CountdownResolver = null;
-  }
-  state.f1CountdownActive = false;
   if (currentAbortController) {
     currentAbortController.abort();
     currentAbortController = null;
   }
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-modal-overlay, #f1StartGantry, #f1CarFlybyOverlay").forEach((el) => el.remove());
+  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-modal-overlay").forEach((el) => el.remove());
   state.status = "draft";
   showToast(isEn ? "Brief analysis canceled." : "Brif analizi dayandırıldı.", "default");
   render();
@@ -6141,30 +5860,18 @@ async function startAssessment() {
   currentAbortController?.abort();
   currentAbortController = new AbortController();
   setStatus("analyzing");
-  const allowCountdown = shouldShowF1Countdown();
-  state.f1CountdownActive = allowCountdown;
-  if (allowCountdown) {
-    state.hasSeenF1Countdown = true;
-    try {
-      sessionStorage.setItem("hasSeenF1Countdown", state.clientSaveId);
-    } catch { }
-  }
-  await new Promise((resolve) => setTimeout(resolve, 220));
   render();
   try {
-    const [data] = await Promise.all([
-      api("/api/strategy/assess", {
-        method: "POST",
-        signal: currentAbortController.signal,
-        body: JSON.stringify({
-          brief: state.brief,
-          answers: state.answers,
-          round: state.round,
-          language: getLanguage(),
-        }),
+    const data = await api("/api/strategy/assess", {
+      method: "POST",
+      signal: currentAbortController.signal,
+      body: JSON.stringify({
+        brief: state.brief,
+        answers: state.answers,
+        round: state.round,
+        language: getLanguage(),
       }),
-      waitForF1Countdown(),
-    ]);
+    });
     currentAbortController = null;
     const assessment = data.assessment;
     state.understanding = assessment.understanding;
@@ -6319,7 +6026,6 @@ async function startGeneration() {
   const generationKey = state.clientSaveId;
   state.buildStreamingText = "";
   state.buildStreamingFinishReason = null;
-  state.f1CountdownActive = false;
   setStatus("generating");
   render();
 
@@ -6479,7 +6185,6 @@ async function startGeneration() {
           }
         }
         setStatus("saved");
-        state.shouldTriggerCarTransition = true;
         render();
         showToast(isEn ? "Strategy generated and saved to archive ✓" : "Strategiya hazırlandı və arxivə saxlanıldı ✓");
         await loadSavedStrategies();
@@ -6501,14 +6206,12 @@ async function startGeneration() {
           state.updatedAt = saveData.strategy.updatedAt;
           state.versions = saveData.strategy.versions;
           setStatus("saved");
-          state.shouldTriggerCarTransition = true;
           render();
           showToast(isEn ? "Strategy generated and saved to archive ✓" : "Strategiya hazırlandı və arxivə saxlanıldı ✓");
           await loadSavedStrategies();
         } catch (saveErr) {
           console.error("Auto-save fallback failed:", saveErr);
           setStatus("ready");
-          state.shouldTriggerCarTransition = true;
           render();
           showToast(isEn ? "Strategy is ready ✓" : "Strategiya hazırdır ✓");
         }
@@ -6516,7 +6219,6 @@ async function startGeneration() {
     } else {
       state.savedId = null;
       setStatus("ready");
-      state.shouldTriggerCarTransition = true;
       render();
       showToast(isEn ? "Strategy is ready ✓" : "Strategiya hazırdır ✓");
     }
@@ -8417,10 +8119,6 @@ function buildStrategySummaryModal() {
 }
 
 function renderStrategyWorkspace() {
-  if (state.shouldTriggerCarTransition) {
-    state.shouldTriggerCarTransition = false;
-    playF1CarTransition();
-  }
   const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-document");
   const strategy = state.strategy;
