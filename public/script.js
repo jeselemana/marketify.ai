@@ -1537,8 +1537,33 @@ function openMobileModelSheet() {
   const body = element("div", "mobile-sheet-body");
   const options = element("div", "mobile-model-options");
 
+  const isFlashSelected = state.askModel === "gemini-3.7-flash";
+
+  // Flash Card
+  const flashCard = button("", `mobile-model-option-card${isFlashSelected ? " is-active" : ""}`, () => {
+    state.askModel = "gemini-3.7-flash";
+    try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
+    closeMobileModelSheet();
+    syncMode();
+    if (state.mode === "ask") render();
+  });
+  flashCard.type = "button";
+  const flashLeading = element("div", "mobile-model-card-leading");
+  const flashIcon = element("div", "mobile-model-card-icon");
+  flashIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
+  const flashCopy = element("div", "mobile-model-card-copy");
+  flashCopy.append(
+    element("strong", "", t("ask.modelSheet.flashTitle")),
+    element("small", "", t("ask.modelSheet.flashDesc"))
+  );
+  flashLeading.append(flashIcon, flashCopy);
+  flashCard.append(flashLeading);
+  if (isFlashSelected) {
+    flashCard.appendChild(element("span", "mobile-model-card-check", "✓"));
+  }
+
   // Auto Card
-  const autoCard = button("", "mobile-model-option-card is-active", () => {
+  const autoCard = button("", `mobile-model-option-card${!isFlashSelected ? " is-active" : ""}`, () => {
     state.askModel = "auto";
     try { localStorage.setItem("helmer_ask_model", "auto"); } catch { }
     closeMobileModelSheet();
@@ -1556,9 +1581,39 @@ function openMobileModelSheet() {
   );
   autoLeading.append(autoIcon, autoCopy);
   autoCard.append(autoLeading);
-  autoCard.appendChild(element("span", "mobile-model-card-check", "✓"));
+  if (!isFlashSelected) {
+    autoCard.appendChild(element("span", "mobile-model-card-check", "✓"));
+  }
 
-  options.append(autoCard);
+  options.append(flashCard, autoCard);
+
+  // If Flash is selected: Thinking toggle row
+  if (isFlashSelected) {
+    const thinkingRow = element("div", "mobile-model-thinking-row");
+    const thinkingCopy = element("div", "mobile-model-card-copy");
+    const thinkingTitle = element("strong", "", t("ask.modelSheet.thinkingTitle"));
+    const thinkingStatus = element("small", "", state.askThinking ? t("ask.modelSheet.thinkingOn") : t("ask.modelSheet.thinkingOff"));
+    thinkingCopy.append(thinkingTitle, thinkingStatus);
+
+    const toggleLabel = element("label", "ask-toggle-switch");
+    const toggleInput = document.createElement("input");
+    toggleInput.type = "checkbox";
+    toggleInput.checked = Boolean(state.askThinking);
+    toggleInput.setAttribute("aria-label", t("ask.modelSheet.thinkingTitle"));
+    const toggleSlider = element("span", "ask-toggle-slider");
+    toggleLabel.append(toggleInput, toggleSlider);
+
+    toggleInput.addEventListener("change", (e) => {
+      e.stopPropagation();
+      state.askThinking = toggleInput.checked;
+      try { localStorage.setItem("helmer_ask_thinking", String(state.askThinking)); } catch { }
+      thinkingStatus.textContent = state.askThinking ? t("ask.modelSheet.thinkingOn") : t("ask.modelSheet.thinkingOff");
+      trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
+    });
+
+    thinkingRow.append(thinkingCopy, toggleLabel);
+    options.appendChild(thinkingRow);
+  }
 
   body.appendChild(options);
   sheet.append(dragArea, header, body);
@@ -2132,7 +2187,7 @@ const state = {
   askModel: (() => {
     try {
       const saved = localStorage.getItem("helmer_ask_model");
-      if (saved === "auto") return saved;
+      if (saved === "gemini-3.7-flash" || saved === "auto") return saved;
     } catch { }
     return "auto";
   })(),
@@ -2164,6 +2219,46 @@ const state = {
 
 let progressTimer;
 const freshAskResponses = new WeakSet();
+const askWaitTimers = new WeakMap();
+const askWaitStages = [
+  [4500, "Cavabı hazırlayıram...", "Preparing your response..."],
+  [10000, "Məlumatları yoxlayıram...", "Checking the information..."],
+  [18000, "Detalları dəqiqləşdirirəm...", "Refining the details..."],
+  [30000, "Demək olar hazırdır...", "Almost ready..."],
+];
+
+function clearAskWaitStages(message) {
+  (askWaitTimers.get(message) || []).forEach(clearTimeout);
+  askWaitTimers.delete(message);
+}
+
+function startAskWaitStages(message) {
+  clearAskWaitStages(message);
+  askWaitTimers.set(message, askWaitStages.map(([delay, az, en]) => setTimeout(() => {
+    if (!message.isStreaming || message.content || message.status === "searching") return;
+    message.statusText = getLanguage() === "en" ? en : az;
+    updateActiveAskThinkingStatus(message);
+  }, delay)));
+}
+
+function askThinkingIcon(isSearching) {
+  return isSearching
+    ? '<svg class="ask-searching-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>'
+    : '<svg class="ask-thinking-sparkle" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/></svg>';
+}
+
+function askThinkingLabel(message, isEn) {
+  if (message.status === "searching") return isEn ? "Searching the web..." : "Vebdə axtarıram...";
+  if (message.statusText) return message.statusText;
+  const modelInfo = getAskMessageModelInfo(message.model);
+  const isThinkingActive = modelInfo.isGemini ? Boolean(state.askThinking) : modelInfo.isTerra;
+  if (isThinkingActive) {
+    return modelInfo.isGemini
+      ? (isEn ? "Helmer is reasoning…" : "Helmer düşünür")
+      : (isEn ? "Deep Strategic Analysis…" : "Dərin analiz");
+  }
+  return isEn ? "Preparing your response" : "Cavab hazırlanır";
+}
 
 // Background Jobs — analysis processes that continue when user leaves loading page
 let backgroundJobs = loadBackgroundJobs();
@@ -2352,6 +2447,7 @@ function abortAskMessage() {
   state.askError = "";
   const streamingMsg = state.askMessages.find((m) => m && m.isStreaming);
   if (streamingMsg) {
+    clearAskWaitStages(streamingMsg);
     streamingMsg.isStreaming = false;
     if (!streamingMsg.content) {
       const idx = state.askMessages.indexOf(streamingMsg);
@@ -3213,9 +3309,18 @@ function renderIntake() {
 }
 
 function appendAskInline(parent, value) {
-  const parts = String(value).split(/(\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|`[^`]+`)/g).filter(Boolean);
+  const parts = String(value).split(/(\[[^\]]+\]\(https?:\/\/[^\s)]+\)|\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|`[^`]+`)/g).filter(Boolean);
   parts.forEach((part) => {
-    if ((part.startsWith("**") && part.endsWith("**")) || (part.startsWith("__") && part.endsWith("__"))) {
+    const linkMatch = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (linkMatch) {
+      const a = document.createElement("a");
+      a.href = linkMatch[2];
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = linkMatch[1];
+      a.className = "ask-inline-link";
+      parent.appendChild(a);
+    } else if ((part.startsWith("**") && part.endsWith("**")) || (part.startsWith("__") && part.endsWith("__"))) {
       parent.appendChild(element("strong", "", part.slice(2, -2)));
     } else if ((part.startsWith("*") && part.endsWith("*") && part.length > 2) || (part.startsWith("_") && part.endsWith("_") && part.length > 2)) {
       parent.appendChild(element("em", "", part.slice(1, -1)));
@@ -3411,40 +3516,22 @@ function renderAsk() {
         if (isStreamingMsg && !message.content) {
           const isSearching = message.status === "searching";
           const thinking = element("div", `ask-thinking${isSearching ? " is-searching" : ""}`);
+          thinking.setAttribute("role", "status");
+          thinking.setAttribute("aria-live", "polite");
           const iconWrap = element("span", "ask-thinking-icon");
-          if (isSearching) {
-            iconWrap.innerHTML = `
-              <svg class="ask-searching-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-              </svg>
-            `;
-          } else {
-            iconWrap.innerHTML = `
-              <svg class="ask-thinking-sparkle" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
-              </svg>
-            `;
-          }
-          const modelInfo = getAskMessageModelInfo(message.model);
-          const isThinkingActive = modelInfo.isGemini ? Boolean(state.askThinking) : modelInfo.isTerra;
-          let label = isThinkingActive
-            ? (modelInfo.isGemini ? (isEn ? "Helmer is reasoning…" : "Helmer düşünür") : (isEn ? "Deep Strategic Analysis…" : "Dərin analiz"))
-            : (isEn ? "Synthesizing response…" : "Cavab hazırlanır");
-          if (isSearching || message.statusText) {
-            label = message.statusText || (isEn ? "Searching the web…" : "Veb axtarışı...");
-          }
-          const thinkingLabel = element("span", "ask-thinking-label", label);
-          const dots = element("span", "ask-thinking-dots");
-          dots.append(element("i"), element("i"), element("i"));
-          thinking.append(iconWrap, thinkingLabel, dots);
+          iconWrap.innerHTML = askThinkingIcon(isSearching);
+          const thinkingLabel = element("span", "ask-thinking-label", askThinkingLabel(message, isEn));
+          thinking.append(iconWrap, thinkingLabel);
           content.appendChild(thinking);
         } else {
           content.appendChild(renderAskRichText(message.content));
           if (isStreamingMsg) {
             const caret = element("span", "ask-answer-caret is-streaming");
             content.appendChild(caret);
+          }
+          if (message.groundingMetadata) {
+            const chips = renderAskSourceChips(message.groundingMetadata);
+            if (chips) content.appendChild(chips);
           }
         }
 
@@ -3669,8 +3756,8 @@ function renderAsk() {
     try {
       const fileData = await readUploadedFileAsData(file);
       state.askPendingFile = fileData;
-      state.askModel = "auto";
-      try { localStorage.setItem("helmer_ask_model", "auto"); } catch { }
+      state.askModel = "gemini-3.7-flash";
+      try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
       state.askError = "";
     } catch (err) {
       console.error("Failed to read attached file:", err);
@@ -3905,20 +3992,21 @@ function renderAsk() {
     submit.appendChild(createAskSendIcon());
   }
 
+  const isFlashSelected = state.askModel === "gemini-3.7-flash";
   const modelSelectorMenu = document.createElement("details");
   modelSelectorMenu.className = "ask-model-selector-menu";
   const modelTrigger = element("summary", "ask-model-selector-trigger");
   modelTrigger.setAttribute("aria-label", isEn ? "Model mode" : "Model rejimi");
-  modelTrigger.title = isEn ? "Mode: Auto" : "Rejim: Auto";
+  modelTrigger.title = isFlashSelected ? (isEn ? "Mode: Flash (Files & Search)" : "Rejim: Flash (Fayl və Axtarış)") : (isEn ? "Mode: Auto" : "Rejim: Auto");
 
   modelTrigger.innerHTML = `
-    <span class="ask-model-name">Auto</span>
+    <span class="ask-model-name">${isFlashSelected ? "Flash" : "Auto"}</span>
     <svg class="ask-model-chevron-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
   `;
 
   const modelPopover = element("div", "ask-model-selector-popover");
 
-  const autoOption = button("", "ask-model-option is-active", (e) => {
+  const autoOption = button("", `ask-model-option${!isFlashSelected ? " is-active" : ""}`, (e) => {
     e.preventDefault();
     state.askModel = "auto";
     try { localStorage.setItem("helmer_ask_model", "auto"); } catch { }
@@ -3931,10 +4019,54 @@ function renderAsk() {
       <strong>Auto</strong>
       <small>${isEn ? "Automatic routing" : "Avtomatik rejim"}</small>
     </div>
-    <span class="ask-model-check">✓</span>
+    ${!isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
   `;
 
-  modelPopover.append(autoOption);
+  const flashOption = button("", `ask-model-option${isFlashSelected ? " is-active" : ""}`, (e) => {
+    e.preventDefault();
+    state.askModel = "gemini-3.7-flash";
+    try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
+    modelSelectorMenu.open = false;
+    render();
+  });
+  flashOption.type = "button";
+  flashOption.innerHTML = `
+    <div class="ask-model-option-info">
+      <strong>Flash</strong>
+      <small>${isEn ? "For daily workflows" : "Gündəlik işlər üçün"}</small>
+    </div>
+    ${isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
+  `;
+
+  modelPopover.append(autoOption, flashOption);
+
+  if (isFlashSelected) {
+    const divider = element("div", "ask-model-popover-divider");
+    const thinkingRow = element("div", "ask-model-toggle-row");
+    const thinkingInfo = element("div", "ask-model-toggle-info");
+    const thinkingTitle = element("strong", "", isEn ? "Thinking" : "Düşünmə");
+    const thinkingSub = element("small", "", state.askThinking ? (isEn ? "Deep analysis active" : "Dərin analiz aktivdir") : (isEn ? "Fast direct response" : "Sürətli birbaşa cavab"));
+    thinkingInfo.append(thinkingTitle, thinkingSub);
+
+    const switchLabel = element("label", "ask-toggle-switch");
+    const switchInput = document.createElement("input");
+    switchInput.type = "checkbox";
+    switchInput.checked = Boolean(state.askThinking);
+    switchInput.setAttribute("aria-label", isEn ? "Toggle thinking mode" : "Düşünmə rejimini dəyiş");
+    switchInput.addEventListener("change", (e) => {
+      e.stopPropagation();
+      state.askThinking = switchInput.checked;
+      try { localStorage.setItem("helmer_ask_thinking", String(state.askThinking)); } catch { }
+      thinkingSub.textContent = state.askThinking ? (isEn ? "Deep analysis active" : "Dərin analiz aktivdir") : (isEn ? "Fast direct response" : "Sürətli birbaşa cavab");
+      trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
+    });
+
+    const switchSlider = element("span", "ask-toggle-slider");
+    switchLabel.append(switchInput, switchSlider);
+    thinkingRow.append(thinkingInfo, switchLabel);
+
+    modelPopover.append(divider, thinkingRow);
+  }
 
   modelSelectorMenu.append(modelTrigger, modelPopover);
 
@@ -4138,18 +4270,18 @@ class LiveTypewriter {
   }
 
   finish(finalText) {
+    if (this.hasCompleted) return;
     if (typeof finalText === "string" && finalText.length > 0) {
       if (finalText.length >= this.targetText.length || !this.targetText) {
         this.targetText = finalText;
       }
     }
-    this.isDone = true;
-    if (!this.rafId) {
-      this.tick();
-    }
+    this.flush();
   }
 
   flush() {
+    if (this.hasCompleted) return;
+    this.hasCompleted = true;
     if (this.rafId) {
       clearTimeout(this.rafId);
       this.rafId = null;
@@ -4197,6 +4329,134 @@ class LiveTypewriter {
       this.resolveCompletion?.();
     }
   }
+}
+
+function extractGroundingWebChunks(groundingMetadata) {
+  if (!groundingMetadata || typeof groundingMetadata !== "object") return [];
+  const chunks = Array.isArray(groundingMetadata.groundingChunks) ? groundingMetadata.groundingChunks : [];
+  const webChunks = [];
+  const seen = new Set();
+
+  for (const c of chunks) {
+    const web = c && c.web;
+    if (!web || typeof web.uri !== "string") continue;
+    const uri = web.uri.trim();
+    if (!/^https?:\/\//i.test(uri)) continue;
+    if (seen.has(uri)) continue;
+    seen.add(uri);
+
+    let hostname = "";
+    try {
+      hostname = new URL(uri).hostname.replace(/^www\./, "");
+    } catch {
+      hostname = uri;
+    }
+
+    const title = typeof web.title === "string" && web.title.trim() ? web.title.trim() : hostname;
+    webChunks.push({ uri, title, hostname });
+  }
+
+  const citations = Array.isArray(groundingMetadata.citations) ? groundingMetadata.citations : [];
+  for (const cit of citations) {
+    const uri = (cit?.url || cit?.uri || "").trim();
+    if (!uri || !/^https?:\/\//i.test(uri) || seen.has(uri)) continue;
+    seen.add(uri);
+    let hostname = "";
+    try {
+      hostname = new URL(uri).hostname.replace(/^www\./, "");
+    } catch {
+      hostname = uri;
+    }
+    const title = typeof cit?.title === "string" && cit.title.trim() ? cit.title.trim() : (cit?.text || hostname);
+    webChunks.push({ uri, title, hostname });
+  }
+
+  return webChunks;
+}
+
+function renderAskSourceChips(groundingMetadata) {
+  const webChunks = extractGroundingWebChunks(groundingMetadata);
+  if (!webChunks.length) return null;
+
+  const isEn = getLanguage() === "en";
+  const container = element("div", "ask-grounding-container");
+  container.setAttribute("aria-label", isEn ? "Web sources" : "Veb mənbələri");
+
+  const header = element("div", "ask-grounding-header");
+  const icon = element("span", "ask-grounding-icon");
+  icon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+  const label = element("span", "ask-grounding-header-label", isEn ? "Sources" : "Mənbələr");
+  header.append(icon, label);
+
+  const viewAllBtn = button(isEn ? "View all" : "Hamısı", "ask-grounding-all-btn", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openGroundingSourcesModal(groundingMetadata);
+  });
+  viewAllBtn.type = "button";
+  viewAllBtn.title = isEn ? "View grounding details & queries" : "Bütün mənbələrə və axtarış sorğularına bax";
+  header.appendChild(viewAllBtn);
+
+  container.appendChild(header);
+
+  const list = element("div", "ask-grounding-list");
+  const MAX_VISIBLE_CHIPS = 4;
+  const visibleChunks = webChunks.slice(0, MAX_VISIBLE_CHIPS);
+  const remainingCount = webChunks.length - visibleChunks.length;
+
+  visibleChunks.forEach((item) => {
+    const chip = document.createElement("a");
+    chip.className = "ask-grounding-chip";
+    chip.href = item.uri;
+    chip.target = "_blank";
+    chip.rel = "noopener noreferrer";
+    chip.title = `${item.title} (${item.hostname})`;
+    chip.setAttribute("aria-label", `${item.title} (${item.hostname})`);
+
+    const faviconWrap = element("span", "ask-grounding-chip-favicon");
+    const faviconImg = document.createElement("img");
+    faviconImg.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(item.hostname)}&sz=32`;
+    faviconImg.alt = "";
+    faviconImg.loading = "lazy";
+    faviconImg.referrerPolicy = "no-referrer";
+    faviconImg.width = 13;
+    faviconImg.height = 13;
+    faviconImg.onerror = () => {
+      faviconImg.style.display = "none";
+      if (!faviconWrap.querySelector("svg")) {
+        faviconWrap.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+      }
+    };
+    faviconWrap.appendChild(faviconImg);
+
+    const domainSpan = element("span", "ask-grounding-chip-domain", item.hostname);
+    chip.append(faviconWrap, domainSpan);
+
+    if (item.title && item.title !== item.hostname) {
+      const titleSpan = element("span", "ask-grounding-chip-title", ` · ${item.title}`);
+      chip.appendChild(titleSpan);
+    }
+
+    const extIcon = element("span", "ask-grounding-chip-ext");
+    extIcon.innerHTML = '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+    chip.appendChild(extIcon);
+
+    list.appendChild(chip);
+  });
+
+  if (remainingCount > 0) {
+    const moreBtn = button(`+${remainingCount} ${isEn ? "more" : "daha"}`, "ask-grounding-chip ask-grounding-chip-more", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openGroundingSourcesModal(groundingMetadata);
+    });
+    moreBtn.type = "button";
+    moreBtn.title = isEn ? `View all ${webChunks.length} sources` : `Bütün ${webChunks.length} mənbəyə bax`;
+    list.appendChild(moreBtn);
+  }
+
+  container.appendChild(list);
+  return container;
 }
 
 function openGroundingSourcesModal(groundingMetadata) {
@@ -4331,39 +4591,20 @@ function openGroundingSourcesModal(groundingMetadata) {
 
 function updateActiveAskThinkingStatus(message) {
   const activeBubble = document.querySelector(".ask-message.is-streaming .ask-thinking");
-  if (activeBubble) {
-    const isSearching = message.status === "searching";
-    if (isSearching) {
-      activeBubble.classList.add("is-searching");
-    } else {
-      activeBubble.classList.remove("is-searching");
-    }
-
-    const labelEl = activeBubble.querySelector(".ask-thinking-label");
-    if (labelEl) {
-      labelEl.textContent = message.statusText || (isSearching ? "Veb axtarışı..." : "Cavab hazırlanır");
-    }
-
-    const iconEl = activeBubble.querySelector(".ask-thinking-icon");
-    if (iconEl) {
-      if (isSearching) {
-        iconEl.innerHTML = `
-          <svg class="ask-searching-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="2" y1="12" x2="22" y2="12"></line>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-          </svg>
-        `;
-      } else {
-        iconEl.innerHTML = `
-          <svg class="ask-thinking-sparkle" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
-          </svg>
-        `;
-      }
-    }
-    const strategyAskBody = document.querySelector(".strategy-ask-body");
-    if (strategyAskBody) strategyAskBody.scrollTop = strategyAskBody.scrollHeight;
+  if (!activeBubble || message.content || !message.isStreaming) return;
+  const isSearching = message.status === "searching";
+  activeBubble.classList.toggle("is-searching", isSearching);
+  const labelEl = activeBubble.querySelector(".ask-thinking-label");
+  const nextLabel = askThinkingLabel(message, getLanguage() === "en");
+  if (labelEl && labelEl.textContent !== nextLabel) {
+    labelEl.textContent = nextLabel;
+    labelEl.classList.remove("is-changing");
+    void labelEl.offsetWidth;
+    labelEl.classList.add("is-changing");
+  }
+  const iconEl = activeBubble.querySelector(".ask-thinking-icon");
+  if (iconEl && Boolean(iconEl.querySelector(".ask-searching-icon")) !== isSearching) {
+    iconEl.innerHTML = askThinkingIcon(isSearching);
   }
 }
 
@@ -4377,6 +4618,10 @@ function updateActiveAskMessageContent(message, showCaret = true) {
     if (showCaret) {
       const caret = element("span", "ask-answer-caret is-streaming");
       activeBubble.appendChild(caret);
+    }
+    if (message.groundingMetadata) {
+      const chips = renderAskSourceChips(message.groundingMetadata);
+      if (chips) activeBubble.appendChild(chips);
     }
     const composerArea = document.querySelector(".ask-composer-area");
     if (composerArea) composerArea.scrollIntoView({ behavior: "instant", block: "end" });
@@ -4416,6 +4661,7 @@ async function thinkDeeperWithTerra(messageIndex) {
   state.askError = "";
   freshAskResponses.add(assistantMsg);
   render();
+  startAskWaitStages(assistantMsg);
 
   let typewriter = null;
   let accumulatedFullText = "";
@@ -4482,13 +4728,14 @@ async function thinkDeeperWithTerra(messageIndex) {
 
           if (data.status) {
             assistantMsg.status = data.status;
-            assistantMsg.statusText = data.statusText || "";
+            assistantMsg.statusText = "";
             updateActiveAskThinkingStatus(assistantMsg);
           }
 
           if (data.model) assistantMsg.model = data.model;
 
           if (data.chunk) {
+            clearAskWaitStages(assistantMsg);
             assistantMsg.status = "";
             assistantMsg.statusText = "";
             accumulatedFullText += data.chunk;
@@ -4496,6 +4743,7 @@ async function thinkDeeperWithTerra(messageIndex) {
           }
 
           if (data.done) {
+            clearAskWaitStages(assistantMsg);
             const finalReply = data.reply || accumulatedFullText;
             accumulatedFullText = finalReply;
             if (data.groundingMetadata) {
@@ -4556,6 +4804,7 @@ async function thinkDeeperWithTerra(messageIndex) {
       state.askError = error.message;
     }
   } finally {
+    clearAskWaitStages(assistantMsg);
     activeAskReader = null;
     activeAskTypewriter = null;
     currentAskAbortController = null;
@@ -4584,8 +4833,8 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     taskTitle: selectedTask?.text || "",
   });
 
-  const chosenModel = state.askModel || "auto";
-  const initialPlaceholderModel = chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : (chosenModel === "gpt-6-sol" ? "gpt-6-sol" : "auto"));
+  const chosenModel = fileToAttach ? "gemini-3.7-flash" : (state.askModel || "auto");
+  const initialPlaceholderModel = chosenModel === "gemini-3.7-flash" ? "gemini-3.7-flash" : (chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : "auto"));
   const assistantMsg = {
     role: "assistant",
     content: "",
@@ -4597,8 +4846,8 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   state.askError = "";
   freshAskResponses.add(assistantMsg);
   trackEvent("ask_message_sent", { messageCount: state.askMessages.length, model: chosenModel, hasFile: Boolean(fileToAttach) });
-  await new Promise((resolve) => setTimeout(resolve, 220));
   render();
+  startAskWaitStages(assistantMsg);
 
   let typewriter = null;
   let accumulatedFullText = "";
@@ -4620,6 +4869,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       body: JSON.stringify({
         messages: state.askMessages.slice(0, -1),
         model: chosenModel,
+        thinking: chosenModel === "gemini-3.7-flash" ? Boolean(state.askThinking) : undefined,
         strategyId: state.askStrategyId || undefined,
         taskId: state.askTaskId || undefined,
         chatId: state.askChatId || undefined,
@@ -4668,13 +4918,14 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
 
           if (data.status) {
             assistantMsg.status = data.status;
-            assistantMsg.statusText = data.statusText || "";
+            assistantMsg.statusText = "";
             updateActiveAskThinkingStatus(assistantMsg);
           }
 
           if (data.model) assistantMsg.model = data.model;
 
           if (data.chunk) {
+            clearAskWaitStages(assistantMsg);
             assistantMsg.status = "";
             assistantMsg.statusText = "";
             accumulatedFullText += data.chunk;
@@ -4682,6 +4933,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
           }
 
           if (data.done) {
+            clearAskWaitStages(assistantMsg);
             const finalReply = data.reply || accumulatedFullText;
             accumulatedFullText = finalReply;
             if (data.groundingMetadata) {
@@ -4749,6 +5001,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       if (idx !== -1) state.askMessages.splice(idx, 1);
     }
   } finally {
+    clearAskWaitStages(assistantMsg);
     activeAskReader = null;
     activeAskTypewriter = null;
     currentAskAbortController = null;
@@ -5801,11 +6054,8 @@ function showLoadingAskModal(initialQuery) {
             reply = data.reply || reply;
             renderReply();
             if (data.groundingMetadata) {
-              const sourcesBtn = button(isEn ? "🌐 Sources" : "🌐 Mənbələr", "ask-thread-sources-btn", () => {
-                openGroundingSourcesModal(data.groundingMetadata);
-              });
-              sourcesBtn.type = "button";
-              loadingItem.querySelector(".ask-thread-msg-content")?.appendChild(sourcesBtn);
+              const chips = renderAskSourceChips(data.groundingMetadata);
+              if (chips) loadingItem.querySelector(".ask-thread-msg-content")?.appendChild(chips);
             }
             rememberSavedAskChat(data.chat);
           }
@@ -6216,7 +6466,7 @@ async function startGeneration() {
         createdAt: state.updatedAt,
       },
     ];
-    trackEvent("strategy_generated", { clarificationRounds: state.round, model: "gpt-6-astra" });
+    trackEvent("strategy_generated", { clarificationRounds: state.round, model: "gemini-3.8-flash" });
 
     const isEn = getLanguage() === "en";
     if (autoSaveActive) {
@@ -7603,30 +7853,20 @@ function buildStrategyAskMessage(message, messageIndex) {
   if (isStreaming && !message.content) {
     const isSearching = message.status === "searching";
     const thinking = element("div", `ask-thinking strategy-ask-thinking${isSearching ? " is-searching" : ""}`);
-    const sparkle = isSearching
-      ? element("span", "ask-thinking-icon", `
-          <svg class="ask-searching-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="2" y1="12" x2="22" y2="12"></line>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-          </svg>
-        `)
-      : element("span", "strategy-ask-thinking-spark", "✦");
-    const modelInfo = getAskMessageModelInfo(message.model);
-    let labelText = modelInfo.isTerra
-      ? (isEn ? "Deep Strategic Analysis…" : "Dərin analiz")
-      : (isEn ? "Synthesizing response…" : "Cavab hazırlanır");
-    if (isSearching || message.statusText) {
-      labelText = message.statusText || (isEn ? "Searching the web…" : "Veb axtarışı...");
-    }
-    const label = element("span", "ask-thinking-label", labelText);
-    const dots = element("span", "ask-thinking-dots");
-    dots.append(element("i"), element("i"), element("i"));
-    thinking.append(sparkle, label, dots);
+    thinking.setAttribute("role", "status");
+    thinking.setAttribute("aria-live", "polite");
+    const sparkle = element("span", "ask-thinking-icon");
+    sparkle.innerHTML = askThinkingIcon(isSearching);
+    const label = element("span", "ask-thinking-label", askThinkingLabel(message, isEn));
+    thinking.append(sparkle, label);
     content.appendChild(thinking);
   } else {
     content.appendChild(renderAskRichText(message.content));
     if (isStreaming) content.appendChild(element("span", "ask-answer-caret is-streaming"));
+    if (message.groundingMetadata) {
+      const chips = renderAskSourceChips(message.groundingMetadata);
+      if (chips) content.appendChild(chips);
+    }
   }
 
   if (!isStreaming && message.content) {

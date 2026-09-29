@@ -1,8 +1,6 @@
 export const USD_TO_AZN_RATE = 1.70;
 
 const DEFAULT_PRICING = Object.freeze({
-  "gpt-6-astra": { inputPerMillion: 10.00, outputPerMillion: 50.00 },
-  "gpt-6-sol": { inputPerMillion: 2.00, outputPerMillion: 10.00 },
   "gemini-3.8-flash": { inputPerMillion: 0.15, outputPerMillion: 0.60 },
   "gemini-3.7-flash": { inputPerMillion: 0.15, outputPerMillion: 0.60 },
   "gpt-5.6-luna": { inputPerMillion: 0.25, outputPerMillion: 1.00 },
@@ -19,20 +17,6 @@ export function getPricingForModel(modelName = "") {
   const model = String(modelName || "").toLowerCase().trim();
   const fallback = DEFAULT_PRICING[model] || { inputPerMillion: 0.20, outputPerMillion: 0.80 };
 
-  if (model.includes("astra")) {
-    return {
-      model,
-      inputPerMillion: getEnvNumber("OPENAI_ASTRA_INPUT_USD_PER_1M", fallback.inputPerMillion),
-      outputPerMillion: getEnvNumber("OPENAI_ASTRA_OUTPUT_USD_PER_1M", fallback.outputPerMillion),
-    };
-  }
-  if (model.includes("sol")) {
-    return {
-      model,
-      inputPerMillion: getEnvNumber("OPENAI_SOL_INPUT_USD_PER_1M", fallback.inputPerMillion),
-      outputPerMillion: getEnvNumber("OPENAI_SOL_OUTPUT_USD_PER_1M", fallback.outputPerMillion),
-    };
-  }
   if (model.includes("luna")) {
     return {
       model,

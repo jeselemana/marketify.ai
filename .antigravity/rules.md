@@ -51,3 +51,10 @@ These directives are MANDATORY and NON-NEGOTIABLE across all coding, refactoring
 ### 7. Verification Gate
 - Before declaring any task, feature, refactor, or commit complete, run `npm run check` and `npm test`.
 - All tests must pass (100%). Any failure, syntax error, or test failure blocks completion and commits immediately.
+
+---
+
+### 8. Ask Mode Web Search Grounding & Source Chips
+- Whenever an Ask mode answer involves web search grounding, the linked sources MUST be rendered in a compact chip format directly at the end of the response.
+- All web source URLs must be strictly sanitized (`https?://` only) to protect against malicious URL schemes (`javascript:`, `data:`).
+- Web source titles and domains must be safely rendered without raw `innerHTML`.

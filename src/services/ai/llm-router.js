@@ -102,11 +102,100 @@ export async function streamOpenAIContent({ model = aiConfig.strategyFallbackMod
   }
 }
 
-async function tryGenerateWithOpenAI({ model, schema, name, instructions, input, maxOutputTokens, reasoning = "medium", ownerId, signal, onChunk, onUsage }) {
+export async function routeStructuredGeneration({ schema, name, instructions, input, maxOutputTokens, reasoning = "medium", ownerId, signal, onChunk, onUsage }) {
+  const primaryModel = aiConfig.strategyModel;
+  const fallbackModel = aiConfig.strategyFallbackModel || "gpt-5.6-terra";
+
+  // 1. Primary: Try Gemini 3.8 Flash via Vertex AI
+  if (hasGeminiConfiguration()) {
+    try {
+      const gemini = getGeminiClient();
+      const geminiSchema = formatGeminiResponseSchema(schema, name);
+
+      const response = await gemini.models.generateContent(
+        {
+          model: primaryModel,
+          contents: input,
+          config: {
+            systemInstruction: instructions || undefined,
+            responseMimeType: "application/json",
+            responseSchema: geminiSchema,
+            maxOutputTokens: maxOutputTokens || aiConfig.strategyMaxOutputTokens,
+            thinkingConfig: {
+              thinkingLevel: aiConfig.strategyThinkingLevel || "HIGH",
+            },
+          },
+        },
+        signal ? { signal } : undefined,
+      );
+
+      const rawText = response.text?.trim() || "";
+      if (!rawText) {
+        throw new LLMProviderError("Gemini 3.8 Flash boş cavab qaytardı.", {
+          code: "AI_INVALID_OUTPUT",
+          status: 502,
+          model: primaryModel,
+          provider: "google",
+          details: response,
+        });
+      }
+
+      let parsedJson;
+      try {
+        parsedJson = JSON.parse(rawText);
+      } catch (parseError) {
+        throw new LLMProviderError("Gemini 3.8 Flash JSON formatı etibarsızdır.", {
+          code: "AI_INVALID_OUTPUT",
+          status: 502,
+          model: primaryModel,
+          provider: "google",
+          details: parseError,
+        });
+      }
+
+      const data = schema.parse(normalizeStructuredOutput(parsedJson, name));
+      const finalRawText = JSON.stringify(data);
+
+      let usage = null;
+      if (response.usageMetadata) {
+        usage = {
+          prompt_tokens: response.usageMetadata.promptTokenCount || null,
+          completion_tokens: response.usageMetadata.candidatesTokenCount || null,
+          total_tokens: response.usageMetadata.totalTokenCount || null,
+        };
+      }
+
+      onChunk?.({ chunk: finalRawText, finishReason: "STOP", model: primaryModel });
+      onUsage?.({ usage, model: primaryModel, provider: "google" });
+
+      return {
+        data,
+        model: primaryModel,
+        provider: "google",
+        usage,
+        finishReason: "STOP",
+        rawText: finalRawText,
+      };
+    } catch (geminiError) {
+      if (geminiError.name === "AbortError" || signal?.aborted) throw geminiError;
+      console.warn(`[Build Route] ${primaryModel} xətası baş verdi, fallback modelinə (${fallbackModel}) yönləndirilir:`, geminiError.message || geminiError);
+    }
+  }
+
+  // 2. Fallback: Terra (gpt-5.6-terra via OpenAI)
+  if (!hasOpenAIConfiguration()) {
+    throw new LLMProviderError("OpenAI xidməti hələ konfiqurasiya edilməyib. OPENAI_API_KEY əlavə et və yenidən yoxla.", {
+      code: "AI_NOT_CONFIGURED",
+      status: 503,
+      model: fallbackModel,
+      provider: "openai",
+    });
+  }
+
   try {
     const response = await getOpenAIClient().responses.parse(
       {
-        model,
+        model: fallbackModel,
         instructions,
         input,
         text: { format: zodTextFormat(schema, name) },
@@ -118,10 +207,10 @@ async function tryGenerateWithOpenAI({ model, schema, name, instructions, input,
     );
 
     if (!response.output_parsed) {
-      throw new LLMProviderError(`OpenAI (${model}) cavabı doğrulana bilmədi.`, {
+      throw new LLMProviderError("OpenAI cavabı doğrulana bilmədi.", {
         code: "AI_INVALID_OUTPUT",
         status: 502,
-        model,
+        model: fallbackModel,
         provider: "openai",
         details: response,
       });
@@ -129,12 +218,12 @@ async function tryGenerateWithOpenAI({ model, schema, name, instructions, input,
 
     const data = schema.parse(normalizeStructuredOutput(response.output_parsed, name));
     const rawText = JSON.stringify(data);
-    onChunk?.({ chunk: rawText, finishReason: "STOP", model });
-    onUsage?.({ usage: response.usage || null, model, provider: "openai" });
+    onChunk?.({ chunk: rawText, finishReason: "STOP", model: fallbackModel });
+    onUsage?.({ usage: response.usage || null, model: fallbackModel, provider: "openai" });
 
     return {
       data,
-      model,
+      model: fallbackModel,
       provider: "openai",
       usage: response.usage || null,
       finishReason: "STOP",
@@ -146,10 +235,10 @@ async function tryGenerateWithOpenAI({ model, schema, name, instructions, input,
 
     const httpStatus = error.status || 500;
     if (httpStatus === 429 || error.code === "rate_limit_exceeded") {
-      throw new LLMProviderError(`OpenAI (${model}) xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.`, {
+      throw new LLMProviderError("GPT-5.6 Terra xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
         code: "AI_RATE_LIMITED",
         status: 429,
-        model,
+        model: fallbackModel,
         provider: "openai",
         details: error,
       });
@@ -158,188 +247,9 @@ async function tryGenerateWithOpenAI({ model, schema, name, instructions, input,
     throw new LLMProviderError(`OpenAI generasiya xətası: ${error.message}`, {
       code: error.code || "AI_PROVIDER_ERROR",
       status: httpStatus >= 500 ? 503 : httpStatus,
-      model,
+      model: fallbackModel,
       provider: "openai",
       details: error,
-    });
-  }
-}
-
-async function tryGenerateWithGemini({ model, schema, name, instructions, input, maxOutputTokens, signal, onChunk, onUsage }) {
-  try {
-    const gemini = getGeminiClient();
-    const geminiSchema = formatGeminiResponseSchema(schema, name);
-
-    const response = await gemini.models.generateContent(
-      {
-        model,
-        contents: input,
-        config: {
-          systemInstruction: instructions || undefined,
-          responseMimeType: "application/json",
-          responseSchema: geminiSchema,
-          maxOutputTokens: maxOutputTokens || aiConfig.strategyMaxOutputTokens,
-          thinkingConfig: {
-            thinkingLevel: aiConfig.strategyThinkingLevel || "HIGH",
-          },
-        },
-      },
-      signal ? { signal } : undefined,
-    );
-
-    const rawText = response.text?.trim() || "";
-    if (!rawText) {
-      throw new LLMProviderError(`Gemini (${model}) boş cavab qaytardı.`, {
-        code: "AI_INVALID_OUTPUT",
-        status: 502,
-        model,
-        provider: "google",
-        details: response,
-      });
-    }
-
-    let parsedJson;
-    try {
-      parsedJson = JSON.parse(rawText);
-    } catch (parseError) {
-      throw new LLMProviderError(`Gemini (${model}) JSON formatı etibarsızdır.`, {
-        code: "AI_INVALID_OUTPUT",
-        status: 502,
-        model,
-        provider: "google",
-        details: parseError,
-      });
-    }
-
-    const data = schema.parse(normalizeStructuredOutput(parsedJson, name));
-    const finalRawText = JSON.stringify(data);
-
-    let usage = null;
-    if (response.usageMetadata) {
-      usage = {
-        prompt_tokens: response.usageMetadata.promptTokenCount || null,
-        completion_tokens: response.usageMetadata.candidatesTokenCount || null,
-        total_tokens: response.usageMetadata.totalTokenCount || null,
-      };
-    }
-
-    onChunk?.({ chunk: finalRawText, finishReason: "STOP", model });
-    onUsage?.({ usage, model, provider: "google" });
-
-    return {
-      data,
-      model,
-      provider: "google",
-      usage,
-      finishReason: "STOP",
-      rawText: finalRawText,
-    };
-  } catch (geminiError) {
-    if (geminiError instanceof LLMProviderError) throw geminiError;
-    if (geminiError.name === "AbortError" || signal?.aborted) throw geminiError;
-
-    throw new LLMProviderError(`Gemini generasiya xətası: ${geminiError.message}`, {
-      code: geminiError.code || "AI_PROVIDER_ERROR",
-      status: geminiError.status || 503,
-      model,
-      provider: "google",
-      details: geminiError,
-    });
-  }
-}
-
-export async function routeStructuredGeneration({ schema, name, instructions, input, maxOutputTokens, reasoning = "medium", ownerId, signal, onChunk, onUsage }) {
-  const primaryModel = aiConfig.strategyModel;
-  const fallbackModel = aiConfig.strategyFallbackModel || "gemini-3.8-flash";
-  const isPrimaryOpenAI = !primaryModel.startsWith("gemini");
-
-  if (isPrimaryOpenAI) {
-    // 1. Primary: Try OpenAI (gpt-6-astra)
-    if (hasOpenAIConfiguration()) {
-      try {
-        return await tryGenerateWithOpenAI({
-          model: primaryModel,
-          schema,
-          name,
-          instructions,
-          input,
-          maxOutputTokens,
-          reasoning,
-          ownerId,
-          signal,
-          onChunk,
-          onUsage,
-        });
-      } catch (primaryErr) {
-        if (primaryErr.name === "AbortError" || signal?.aborted) throw primaryErr;
-        console.warn(`[Build Route] ${primaryModel} xətası baş verdi, fallback modelinə (${fallbackModel}) yönləndirilir:`, primaryErr.message || primaryErr);
-      }
-    }
-
-    // 2. Fallback: Gemini (gemini-3.8-flash)
-    if (!hasGeminiConfiguration()) {
-      throw new LLMProviderError("Google Gemini xidməti hələ konfiqurasiya edilməyib. GEMINI_API_KEY əlavə et və yenidən yoxla.", {
-        code: "AI_NOT_CONFIGURED",
-        status: 503,
-        model: fallbackModel,
-        provider: "google",
-      });
-    }
-
-    return await tryGenerateWithGemini({
-      model: fallbackModel,
-      schema,
-      name,
-      instructions,
-      input,
-      maxOutputTokens,
-      signal,
-      onChunk,
-      onUsage,
-    });
-  } else {
-    // 1. Primary: Try Gemini
-    if (hasGeminiConfiguration()) {
-      try {
-        return await tryGenerateWithGemini({
-          model: primaryModel,
-          schema,
-          name,
-          instructions,
-          input,
-          maxOutputTokens,
-          signal,
-          onChunk,
-          onUsage,
-        });
-      } catch (geminiError) {
-        if (geminiError.name === "AbortError" || signal?.aborted) throw geminiError;
-        console.warn(`[Build Route] ${primaryModel} xətası baş verdi, fallback modelinə (${fallbackModel}) yönləndirilir:`, geminiError.message || geminiError);
-      }
-    }
-
-    // 2. Fallback: OpenAI
-    if (!hasOpenAIConfiguration()) {
-      throw new LLMProviderError("OpenAI xidməti hələ konfiqurasiya edilməyib. OPENAI_API_KEY əlavə et və yenidən yoxla.", {
-        code: "AI_NOT_CONFIGURED",
-        status: 503,
-        model: fallbackModel,
-        provider: "openai",
-      });
-    }
-
-    return await tryGenerateWithOpenAI({
-      model: fallbackModel,
-      schema,
-      name,
-      instructions,
-      input,
-      maxOutputTokens,
-      reasoning,
-      ownerId,
-      signal,
-      onChunk,
-      onUsage,
     });
   }
 }

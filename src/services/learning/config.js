@@ -27,7 +27,6 @@ export const learningConfig = Object.freeze({
   pricing: Object.freeze([
     price(process.env.OPENAI_ASK_MODEL || "gpt-5.6-luna", "OPENAI_LUNA_INPUT_USD_PER_1M", "OPENAI_LUNA_OUTPUT_USD_PER_1M"),
     price(process.env.OPENAI_ASK_COMPLEX_MODEL || "gpt-5.6-terra", "OPENAI_TERRA_INPUT_USD_PER_1M", "OPENAI_TERRA_OUTPUT_USD_PER_1M"),
-    price(process.env.OPENAI_ASK_SOL_MODEL || "gpt-6-sol", "OPENAI_SOL_INPUT_USD_PER_1M", "OPENAI_SOL_OUTPUT_USD_PER_1M"),
     price(process.env.GEMINI_ASK_MODEL || "gemini-3.7-flash", "GEMINI_FLASH_INPUT_USD_PER_1M", "GEMINI_FLASH_OUTPUT_USD_PER_1M"),
   ]),
 });
