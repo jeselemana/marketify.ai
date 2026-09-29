@@ -1578,6 +1578,7 @@ function createAskThinkingControls(isEn) {
 function openMobileModelSheet() {
   const overlay = document.querySelector("#mobileModelSheetOverlay");
   if (!overlay) return;
+  const isEn = getLanguage() === "en";
 
   closeMobileBottomSheet();
   overlay.replaceChildren();

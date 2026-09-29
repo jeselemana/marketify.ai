@@ -8665,6 +8665,31 @@ html:not(.dark) .mobile-model-options .ask-thinking-card {
   border: 1px solid rgba(20, 27, 42, 0.07);
 }
 
+@media (max-width: 767px) {
+  .mobile-model-options .ask-ios-toggle {
+    width: 46px;
+    height: 28px;
+  }
+
+  .mobile-model-options .ask-ios-toggle-track::before {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mobile-model-options .ask-ios-toggle input:checked + .ask-ios-toggle-track::before {
+    transform: translateX(18px);
+  }
+
+  .mobile-model-options .ask-thinking-pill-group {
+    gap: 8px;
+  }
+
+  .mobile-model-options .ask-thinking-pill-btn {
+    flex: 1 1 0;
+    min-height: 40px;
+    font-size: 13px;
+  }
+}
 
 .ask-toggle-switch {
   position: relative;
@@ -27333,4 +27358,3 @@ html.dark .support-copy-email-btn:hover {
   color: #f8fafc;
   border-color: rgba(255, 255, 255, 0.25);
 }
-
