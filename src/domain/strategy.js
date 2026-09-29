@@ -100,6 +100,13 @@ export const StrategySchema = z.object({
     .max(10),
   assumptions: z.array(paragraph).max(12),
   nextSteps: z.array(paragraph).min(1).max(12),
+  orchestration: z
+    .object({
+      models: z.array(z.string().trim().max(100)).max(10).nullable().optional(),
+      searchGrounded: z.boolean().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const ClarificationAnswerSchema = z.object({

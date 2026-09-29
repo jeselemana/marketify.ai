@@ -7108,20 +7108,83 @@ function buildBlogView(strategy) {
   // 06. NEXT STEPS
   const closeout = buildNextStepsSection(strategy, isEn, false);
 
+  // Model & Search Intelligence metadata panel (strictly rendered before assumptions)
+  const metaPanel = buildOrchestrationMetaPanel(strategy, isEn);
+
   // Assumptions
   if (strategy.assumptions && strategy.assumptions.length) {
     const assumptions = document.createElement("details");
     assumptions.className = "assumptions-panel";
-    assumptions.appendChild(element("summary", "", "Fərziyyələr və əsas kontekst"));
+    assumptions.appendChild(element("summary", "", isEn ? "Assumptions and Core Context" : "Fərziyyələr və əsas kontekst"));
     const assumptionList = element("ul", "decision-list");
     strategy.assumptions.forEach((item) => assumptionList.appendChild(element("li", "", item)));
     assumptions.append(assumptionList);
-    container.append(priorities, direction, actionPlan, measurement, risks, closeout, assumptions);
+    container.append(priorities, direction, actionPlan, measurement, risks, closeout, metaPanel, assumptions);
   } else {
-    container.append(priorities, direction, actionPlan, measurement, risks, closeout);
+    container.append(priorities, direction, actionPlan, measurement, risks, closeout, metaPanel);
   }
 
   return container;
+}
+
+function buildOrchestrationMetaPanel(strategy, isEn) {
+  const meta = strategy?.orchestration || {
+    models: ["Core"],
+    searchGrounded: false,
+  };
+
+  const panel = element("div", "strategy-orchestration-panel");
+  const header = element("div", "orchestration-panel-header");
+  const title = element(
+    "span",
+    "orchestration-title",
+    isEn ? "Generation Intelligence & Architecture" : "Generasiya Mühərriki və İntellekt Məlumatı"
+  );
+  header.appendChild(title);
+
+  const chipsContainer = element("div", "orchestration-chips");
+
+  // Determine models display: strict mapping - Gemini -> Core, Opus -> Legacy, never raw model names
+  const rawModels = Array.isArray(meta.models) && meta.models.length > 0 ? meta.models : ["Core"];
+  const displayModels = [];
+
+  const hasCore = rawModels.some((m) => {
+    const lower = String(m || "").toLowerCase();
+    return lower.includes("core") || lower.includes("gemini") || lower.includes("flash") || lower.includes("google");
+  });
+  const hasLegacy = rawModels.some((m) => {
+    const lower = String(m || "").toLowerCase();
+    return lower.includes("legacy") || lower.includes("opus") || lower.includes("claude") || lower.includes("anthropic");
+  });
+
+  if (hasCore || (!hasCore && !hasLegacy)) {
+    displayModels.push("Core");
+  }
+  if (hasLegacy) {
+    displayModels.push("Legacy");
+  }
+
+  const modelChip = element("div", "orchestration-chip model-chip");
+  const modelLabel = element("span", "chip-label", isEn ? "Engine:" : "Mühərrik:");
+  const modelValue = element("strong", "chip-value", displayModels.join(" + "));
+  modelChip.append(modelLabel, modelValue);
+
+  const isSearchUsed = Boolean(meta.searchGrounded);
+  const searchChip = element("div", `orchestration-chip search-chip ${isSearchUsed ? "is-active" : "is-inactive"}`);
+  const searchLabel = element("span", "chip-label", isEn ? "Web Search:" : "Veb Axtarış:");
+  const searchValue = element(
+    "strong",
+    "chip-value",
+    isSearchUsed
+      ? (isEn ? "Used" : "İstifadə edilib")
+      : (isEn ? "Not used" : "İstifadə edilməyib")
+  );
+  searchChip.append(searchLabel, searchValue);
+
+  chipsContainer.append(modelChip, searchChip);
+  panel.append(header, chipsContainer);
+
+  return panel;
 }
 
 function buildFaqView(strategy) {

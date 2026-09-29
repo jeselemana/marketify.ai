@@ -7,6 +7,10 @@ export const aiConfig = Object.freeze({
   strategyModel: process.env.GEMINI_STRATEGY_MODEL || process.env.STRATEGY_MODEL || "gemini-3.8-flash",
   strategyFallbackModel: process.env.OPENAI_STRATEGY_MODEL || "gpt-5.6-terra",
   strategyThinkingLevel: process.env.GEMINI_STRATEGY_THINKING_LEVEL || "HIGH",
+  opusModel: process.env.VERTEX_OPUS_MODEL || process.env.OPUS_STRATEGY_MODEL || process.env.OPUS_MODEL || "opus-5.5",
+  enableOpusOrchestration: process.env.ENABLE_OPUS_ORCHESTRATION !== "false",
+  opusMaxTokens: positiveInteger(process.env.OPUS_MAX_TOKENS, 2048),
+  enableBuildSearchGrounding: process.env.ENABLE_BUILD_SEARCH_GROUNDING !== "false",
   askModel: process.env.OPENAI_ASK_MODEL || "gpt-5.6-luna",
   askComplexModel: process.env.OPENAI_ASK_COMPLEX_MODEL || "gpt-5.6-terra",
   askGeminiModel: process.env.GEMINI_ASK_MODEL || "gemini-3.7-flash",
@@ -31,4 +35,13 @@ export function hasOpenAIConfiguration() {
 
 export function hasGeminiConfiguration() {
   return Boolean(process.env.GEMINI_API_KEY?.trim());
+}
+
+export function hasOpusConfiguration() {
+  if (process.env.ENABLE_OPUS_ORCHESTRATION === "false") return false;
+  return Boolean(
+    process.env.ANTHROPIC_API_KEY?.trim() ||
+    process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
+    process.env.GEMINI_API_KEY?.trim()
+  );
 }

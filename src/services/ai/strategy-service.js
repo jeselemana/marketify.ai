@@ -8,9 +8,10 @@ import {
   analyzeBriefSignals,
   validateAssessment,
 } from "../../domain/strategy.js";
-import { aiConfig, hasOpenAIConfiguration } from "./config.js";
-import { getOpenAIClient } from "./client.js";
+import { aiConfig, hasOpenAIConfiguration, hasGeminiConfiguration, hasOpusConfiguration } from "./config.js";
+import { getOpenAIClient, getGeminiClient, callOpusVertexModel } from "./client.js";
 import { LLMProviderError, routeStructuredGeneration } from "./llm-router.js";
+import { shouldEnableSearch } from "./search-router.js";
 import {
   ASSESSOR_PROMPT,
   REFINEMENT_PROMPT,
@@ -219,6 +220,239 @@ export async function assessBrief({
   return { ...assessment, model: result.model };
 }
 
+export async function conductGeminiGroundedResearch({
+  brief,
+  answers = [],
+  language = "az",
+  signal = null,
+}) {
+  if (!hasGeminiConfiguration()) return null;
+
+  const isEn = language === "en";
+  const gemini = getGeminiClient();
+  const searchPrompt = `Conduct rapid, factual market and competitor research for this strategy intake:
+Brief: ${brief}
+Context answers: ${clarificationContext(answers)}
+
+Find and extract:
+1. Real active competitors (local or global relevant to the niche).
+2. Verifiable market dynamics, pricing benchmarks, or industry metrics.
+3. Current consumer trends and relevant operational realities.
+Provide concise, purely factual findings (2-3 short bullet points, no corporate boilerplate).`;
+
+  const systemInstruction = isEn
+    ? "You are Helmer's real-time factual intelligence engine. Extract verified facts, real competitor names, current pricing ranges, and active trends using live Google Search. Never invent statistics."
+    : "Sən Helmer-in faktiki bazar intellekti sistemisən. Google Search vasitəsilə aktiv rəqibləri, real qiymət aralıqlarını və aktual bazar faktlarını topla. Əsla uydurma rəqəm yazma.";
+
+  const executeSearch = async (modelToUse) => {
+    return await gemini.models.generateContent(
+      {
+        model: modelToUse,
+        contents: searchPrompt,
+        config: {
+          systemInstruction,
+          tools: [{ googleSearch: {} }],
+          maxOutputTokens: 1024,
+        },
+      },
+      signal ? { signal } : undefined,
+    );
+  };
+
+  try {
+    // 1. Try with primary strategy model (gemini-3.8-flash)
+    let response;
+    try {
+      response = await executeSearch(aiConfig.strategyModel);
+    } catch (primaryErr) {
+      if (primaryErr.name === "AbortError" || signal?.aborted) throw primaryErr;
+      console.warn(`[Build Grounding] ${aiConfig.strategyModel} ilə axtarış xətası, gemini-3.7-flash ilə təkrar yoxlanılır:`, primaryErr?.message || primaryErr);
+      // 2. Fallback to battle-tested search engine
+      response = await executeSearch(aiConfig.askGeminiModel || "gemini-3.7-flash");
+    }
+
+    const text = response?.text?.trim() || "";
+    let usage = null;
+    if (response?.usageMetadata) {
+      usage = {
+        prompt_tokens: response.usageMetadata.promptTokenCount || null,
+        completion_tokens: response.usageMetadata.candidatesTokenCount || null,
+        total_tokens: response.usageMetadata.totalTokenCount || null,
+      };
+    }
+    return text ? { text, usage } : null;
+  } catch (error) {
+    if (error.name === "AbortError" || signal?.aborted) throw error;
+    console.warn("⚠️ [Build Grounding Xətası]:", error?.message || error);
+    return null;
+  }
+}
+
+export function shouldTriggerOpusReasoning({ brief = "", answers = [], action = "" } = {}) {
+  if (!aiConfig.enableOpusOrchestration || !hasOpusConfiguration()) {
+    return false;
+  }
+
+  // Refinement action filters:
+  // Skip formatting/shortening/simple translation (low reasoning, zero benefit from Opus)
+  if (action === "shorten" || action === "localize_azerbaijan") {
+    return false;
+  }
+  // High-leverage strategic actions strongly benefit from Opus
+  if (action === "think_deeper" || action === "budget_optimize" || action === "make_practical") {
+    return true;
+  }
+
+  // Intake / Generation criteria:
+  const text = `${brief} ${answers.map((a) => a.answer || "").join(" ")}`.trim();
+  // Too brief / trivial query -> skip Opus to minimize cost
+  if (text.length < 35) {
+    return false;
+  }
+
+  // Check for simple formatting or generic copywriting request that lacks strategic depth
+  const isGenericCopywriting = /^(sadəcə|yalnız)\s+(post|mətn|şüar|sloqan|tərcümə)\s+yaz/i.test(text);
+  if (isGenericCopywriting) {
+    return false;
+  }
+
+  return true;
+}
+
+export async function extractOpusStrategicInsights({
+  brief = "",
+  answers = [],
+  groundedFacts = "",
+  language = "az",
+  signal = null,
+} = {}) {
+  const isEn = language === "en";
+  const systemPrompt = isEn
+    ? `You are an elite Chief Strategy Officer and Principal Brand Strategist acting as the strategic reasoning layer.
+Your role is NOT to write a full strategy document. Instead, evaluate the strategic problem and provide ultra-targeted, high-reasoning strategic synthesis to elevate the final brief.
+
+STRICT FOCUS (High-Reasoning Only):
+1. Positioning Wedge: What is the single sharp, defensible contrarian angle that prevents commoditization?
+2. Strategic Differentiation: How does this business decisively separate itself from alternatives?
+3. Contradictions & Risks: What hidden operational friction, false assumptions, or execution traps exist?
+4. Breakthrough Priority: What single 80/20 move will produce the highest commercial leverage?
+
+OUTPUT REQUIREMENTS:
+- Return ONLY a valid JSON object matching this schema:
+{
+  "positioningWedge": "Concise, sharp positioning directive (1-2 sentences)",
+  "strategicDifferentiation": "Decisive differentiation factor (1-2 sentences)",
+  "identifiedRisks": [
+    { "risk": "Latent contradiction or trap", "mitigation": "Targeted countermeasure" }
+  ],
+  "breakthroughPriorities": [
+    { "title": "High-leverage priority title", "description": "Why this specific move drives outsized leverage" }
+  ]
+}`
+    : `Sən Helmer-in strateji mühakimə və kəskinləşdirmə qatı kimi çıxış edən Baş Strateqsən (Chief Strategy Officer).
+Vəzifən bütün böyük strategiyanı yazmaq DEYİL. Yalnız ən yüksək reasoning tələb edən strateji mövqelənmə, diferensiasiya və ziddiyyətləri aşkar edib, brifi keyfiyyətcə yeni səviyyəyə qaldırmaqdır.
+
+ƏSAS FOKUS (Yalnız Yüksək Reasoning):
+1. Kəskin Mövqelənmə (Positioning Wedge): Rəqabətdə "hər kəsdən biri" olmamaq üçün ən kəsərli kommersiya bucağı nədir?
+2. Strateji Diferensiasiya: Bazardakı alternativlərdən qəti şəkildə necə ayrılır?
+3. Ziddiyyət və Tələlər: Brifdə və ya icrada hansı gizli ziddiyyətlər, yanlış fərziyyələr və ya əməliyyat tələləri var?
+4. Sıçrayış Prioriteti: Ən böyük nəticəni verəcək 80/20 addım nə olmalıdır?
+
+ÇIXIŞ TƏLƏBİ:
+- YALNIZ aşağıdakı struktura uyğun valid JSON formatında cavab ver:
+{
+  "positioningWedge": "Kəsərli mövqelənmə direktivi (1-2 cümlə)",
+  "strategicDifferentiation": "Qəti fərqlənmə faktoru (1-2 cümlə)",
+  "identifiedRisks": [
+    { "risk": "Gizli ziddiyyət və ya icra tələsi", "mitigation": "Konkret qabaqlayıcı tədbir" }
+  ],
+  "breakthroughPriorities": [
+    { "title": "Yüksək təsirli prioritetin adı", "description": "Bu gedişin nəyə görə həlledici fərq yaratdığının izahı" }
+  ]
+}`;
+
+  const userPrompt = `Core Brief:\n${brief}\n\nClarification Answers:\n${clarificationContext(answers)}${
+    groundedFacts ? `\n\nLive Factual Grounding & Market Intelligence:\n${groundedFacts}` : ""
+  }`;
+
+  const result = await callOpusVertexModel({
+    system: systemPrompt,
+    prompt: userPrompt,
+    maxTokens: aiConfig.opusMaxTokens,
+    signal,
+  });
+
+  if (!result || !result.text) return null;
+
+  try {
+    let cleanJson = result.text.trim();
+    if (cleanJson.startsWith("```")) {
+      cleanJson = cleanJson.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+    }
+    const parsed = JSON.parse(cleanJson);
+    return {
+      insights: parsed,
+      usage: result.usage,
+      model: result.model,
+    };
+  } catch (parseErr) {
+    console.warn("⚠️ [Opus Strategic Insights] JSON parse xətası:", parseErr?.message);
+    return null;
+  }
+}
+
+export function synthesizeStrategyWithOpusInsights(strategy, insights, language = "az") {
+  if (!strategy || !insights) return strategy;
+
+  const synthesized = JSON.parse(JSON.stringify(strategy));
+
+  // 1. Enrich positioning and strategic differentiation in summary/context
+  if (insights.positioningWedge && typeof insights.positioningWedge === "string") {
+    if (synthesized.context?.business && !synthesized.context.business.includes(insights.positioningWedge)) {
+      synthesized.context.business = `${synthesized.context.business}\n\nStrateji Mövqelənmə: ${insights.positioningWedge}`;
+    }
+  }
+
+  if (insights.strategicDifferentiation && typeof insights.strategicDifferentiation === "string") {
+    if (synthesized.summary && !synthesized.summary.includes(insights.strategicDifferentiation)) {
+      synthesized.summary = `${synthesized.summary}\n\nStrateji Fərqləndirici Üstünlük: ${insights.strategicDifferentiation}`;
+    }
+  }
+
+  // 2. Synthesize breakthrough priorities into priorities list (keep max 10)
+  if (Array.isArray(insights.breakthroughPriorities) && insights.breakthroughPriorities.length > 0) {
+    const existingPriorities = Array.isArray(synthesized.priorities) ? synthesized.priorities : [];
+    const newPriorities = insights.breakthroughPriorities
+      .filter((bp) => bp && bp.title && !existingPriorities.some((p) => p.title?.toLowerCase() === bp.title?.toLowerCase()))
+      .map((bp) => ({
+        title: String(bp.title).slice(0, 300),
+        description: String(bp.description || "Yüksək strateji təsirə malik əsas prioritet addım.").slice(0, 3000),
+        priority: "high",
+      }));
+
+    if (newPriorities.length > 0) {
+      synthesized.priorities = [...newPriorities, ...existingPriorities].slice(0, 10);
+    }
+  }
+
+  // 3. Synthesize identified contradictions & operational risks (keep max 10)
+  if (Array.isArray(insights.identifiedRisks) && insights.identifiedRisks.length > 0) {
+    const existingRisks = Array.isArray(synthesized.risks) ? synthesized.risks : [];
+    const newRisks = insights.identifiedRisks
+      .filter((ir) => ir && ir.risk && !existingRisks.some((r) => r.risk?.toLowerCase() === ir.risk?.toLowerCase()))
+      .map((ir) => ({
+        risk: String(ir.risk).slice(0, 3000),
+        mitigation: String(ir.mitigation || "Müvafiq risk idarəetmə və monitorinq mexanizmi.").slice(0, 3000),
+      }));
+
+    if (newRisks.length > 0) {
+      synthesized.risks = [...existingRisks, ...newRisks].slice(0, 10);
+    }
+  }
+
+  return synthesized;
+}
+
 export async function generateStrategy({
   brief,
   answers = [],
@@ -235,30 +469,103 @@ export async function generateStrategy({
     ? "\n\nLanguage Directive: The user has selected English. Generate the entire strategy in clear, professional English."
     : "\n\nLanguage Directive: Strategiyanı təmiz, peşəkar Azərbaycan dilində hazırla.";
 
-  const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
-    assumptions.length ? assumptions.join("\n- ") : "None supplied."
-  }${languageDirective}`;
+  // 1. Google Search Grounding for factual/market intelligence when required
+  const searchCandidates = `${brief} ${answers.map((a) => a.answer || "").join(" ")}`;
+  const needsGrounding = aiConfig.enableBuildSearchGrounding && shouldEnableSearch(searchCandidates);
+  let groundedResearch = null;
 
-  const instructions = buildStrategyPrompt({ brief, answers, personalizationContext });
-
-  const result = await routeStructuredGeneration({
-    schema: StrategySchema,
-    name: "helmer_strategy",
-    instructions,
-    input,
-    maxOutputTokens: aiConfig.strategyMaxOutputTokens,
-    reasoning: "medium",
-    ownerId,
-    signal,
-    onChunk,
-    onUsage,
-  });
-
-  if (Array.isArray(result.data?.nextSteps)) {
-    result.data.nextSteps = alignNextStepsLogic(result.data.nextSteps, language);
+  if (needsGrounding && hasGeminiConfiguration()) {
+    try {
+      groundedResearch = await conductGeminiGroundedResearch({
+        brief,
+        answers,
+        language,
+        signal,
+      });
+      if (groundedResearch?.usage) {
+        onUsage?.({ usage: groundedResearch.usage, model: aiConfig.strategyModel, provider: "google" });
+      }
+    } catch (groundingErr) {
+      console.warn("⚠️ [Build Grounding Xətası]:", groundingErr?.message || groundingErr);
+    }
   }
 
-  return result.data;
+  // 2. Parallel Execution Setup
+  // Task A: Gemini 3.8 Flash (High) - High-volume research & execution workhorse
+  const geminiGenerationPromise = (async () => {
+    const factualContext = groundedResearch?.text
+      ? `\n\n[REAL-TIME FACTUAL GROUNDING & MARKET INTELLIGENCE]:\n${groundedResearch.text}`
+      : "";
+
+    const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
+      assumptions.length ? assumptions.join("\n- ") : "None supplied."
+    }${factualContext}${languageDirective}`;
+
+    const instructions = buildStrategyPrompt({ brief, answers, personalizationContext });
+
+    return await routeStructuredGeneration({
+      schema: StrategySchema,
+      name: "helmer_strategy",
+      instructions,
+      input,
+      maxOutputTokens: aiConfig.strategyMaxOutputTokens,
+      reasoning: "medium",
+      ownerId,
+      signal,
+      onChunk,
+      onUsage,
+    });
+  })();
+
+  // Task B: Opus 5.5 - Selective strategic intelligence layer (runs in parallel if eligible)
+  const shouldInvokeOpus = shouldTriggerOpusReasoning({ brief, answers });
+  const opusReasoningPromise = shouldInvokeOpus
+    ? extractOpusStrategicInsights({
+        brief,
+        answers,
+        groundedFacts: groundedResearch?.text || "",
+        language,
+        signal,
+      }).then((res) => {
+        if (res?.usage) {
+          onUsage?.({ usage: res.usage, model: res.model || aiConfig.opusModel, provider: "vertex-anthropic" });
+        }
+        return res;
+      }).catch((err) => {
+        console.warn("⚠️ [Opus Selective Reasoning Xətası]:", err?.message || err);
+        return null;
+      })
+    : Promise.resolve(null);
+
+  // Parallel Execution: neither model blocks the other
+  const [geminiResult, opusResult] = await Promise.all([
+    geminiGenerationPromise,
+    opusReasoningPromise,
+  ]);
+
+  let strategyData = geminiResult.data;
+
+  // 3. Final Synthesis & Aggregation Layer (coherent unified brief)
+  if (opusResult?.insights) {
+    strategyData = synthesizeStrategyWithOpusInsights(strategyData, opusResult.insights, language);
+  }
+
+  if (Array.isArray(strategyData?.nextSteps)) {
+    strategyData.nextSteps = alignNextStepsLogic(strategyData.nextSteps, language);
+  }
+
+  // Model & Grounding metadata (User-facing names: Core for Gemini, Legacy for Opus)
+  const usedModels = ["Core"];
+  if (opusResult?.insights) {
+    usedModels.push("Legacy");
+  }
+
+  strategyData.orchestration = {
+    models: usedModels,
+    searchGrounded: Boolean(groundedResearch?.text),
+  };
+
+  return strategyData;
 }
 
 export async function refineStrategy(payload, ownerId, signal, personalizationContext = "", onChunk, onUsage) {
@@ -267,6 +574,28 @@ export async function refineStrategy(payload, ownerId, signal, personalizationCo
     ? "\n\nLanguage Directive: The user has selected English. Maintain and output the refined strategy in professional English."
     : "";
 
+  // Selective Opus reasoning for high-leverage strategic actions (e.g. think_deeper, budget_optimize)
+  const shouldInvokeOpus = shouldTriggerOpusReasoning({ brief: payload.brief, action: payload.action });
+  let opusInsights = null;
+
+  if (shouldInvokeOpus) {
+    try {
+      const res = await extractOpusStrategicInsights({
+        brief: payload.brief,
+        answers: payload.answers,
+        groundedFacts: payload.strategy?.summary || "",
+        language: payload.language || "az",
+        signal,
+      });
+      if (res?.usage) {
+        onUsage?.({ usage: res.usage, model: res.model || aiConfig.opusModel, provider: "vertex-anthropic" });
+      }
+      opusInsights = res?.insights || null;
+    } catch (err) {
+      console.warn("⚠️ [Refine Opus Reasoning Xətası]:", err?.message || err);
+    }
+  }
+
   const instructions = buildRefinementPrompt({
     brief: payload.brief,
     answers: payload.answers,
@@ -274,11 +603,18 @@ export async function refineStrategy(payload, ownerId, signal, personalizationCo
     personalizationContext,
   });
 
+  const opusStrategicDirective = opusInsights
+    ? `\n\n[STRATEGIC INTELLIGENCE DIRECTIVE (Opus Layer)]:
+- Positioning Wedge: ${opusInsights.positioningWedge || "Deepen differentiation"}
+- Strategic Differentiation: ${opusInsights.strategicDifferentiation || "Eliminate generic compromises"}
+- Latent Contradictions to resolve: ${(opusInsights.identifiedRisks || []).map((r) => r.risk).join("; ") || "None identified"}`
+    : "";
+
   const result = await routeStructuredGeneration({
     schema: StrategySchema,
     name: "helmer_refined_strategy",
     instructions,
-    input: `${buildRefinementInput(payload)}${languageDirective}`,
+    input: `${buildRefinementInput(payload)}${opusStrategicDirective}${languageDirective}`,
     maxOutputTokens: aiConfig.refinementMaxOutputTokens,
     reasoning: payload.action === "think_deeper" ? "high" : "medium",
     ownerId,
@@ -287,11 +623,28 @@ export async function refineStrategy(payload, ownerId, signal, personalizationCo
     onUsage,
   });
 
-  if (Array.isArray(result.data?.nextSteps)) {
-    result.data.nextSteps = alignNextStepsLogic(result.data.nextSteps, payload.language || "az");
+  let strategyData = result.data;
+
+  if (opusInsights) {
+    strategyData = synthesizeStrategyWithOpusInsights(strategyData, opusInsights, payload.language || "az");
   }
 
-  return result.data;
+  if (Array.isArray(strategyData?.nextSteps)) {
+    strategyData.nextSteps = alignNextStepsLogic(strategyData.nextSteps, payload.language || "az");
+  }
+
+  // Preserve and update orchestration metadata
+  const refineModels = ["Core"];
+  if (opusInsights || payload.strategy?.orchestration?.models?.includes("Legacy")) {
+    refineModels.push("Legacy");
+  }
+
+  strategyData.orchestration = {
+    models: refineModels,
+    searchGrounded: Boolean(payload.strategy?.orchestration?.searchGrounded),
+  };
+
+  return strategyData;
 }
 
 export async function summarizeStrategyWithLuna({
