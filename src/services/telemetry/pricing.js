@@ -1,14 +1,11 @@
 export const USD_TO_AZN_RATE = 1.70;
 
 const DEFAULT_PRICING = Object.freeze({
-  "gemini-3.8-flash": { inputPerMillion: 0.15, outputPerMillion: 0.60 },
-  "gemini-3.7-flash": { inputPerMillion: 0.15, outputPerMillion: 0.60 },
+  "gemini-3.8-flash": { inputPerMillion: 0.75, outputPerMillion: 3.75 },
   "gpt-5.6-luna": { inputPerMillion: 0.25, outputPerMillion: 1.00 },
   "gpt-6-luna": { inputPerMillion: 0.25, outputPerMillion: 1.00 },
   "gpt-5.6-terra": { inputPerMillion: 1.25, outputPerMillion: 5.00 },
-  "opus-5.5": { inputPerMillion: 15.00, outputPerMillion: 75.00 },
-  "claude-opus-5.5": { inputPerMillion: 15.00, outputPerMillion: 75.00 },
-  "claude-opus-5-5": { inputPerMillion: 15.00, outputPerMillion: 75.00 },
+  "gpt-6-sol": { inputPerMillion: 2.00, outputPerMillion: 10.00 },
 });
 
 function getEnvNumber(name, fallback) {
@@ -20,13 +17,6 @@ export function getPricingForModel(modelName = "") {
   const model = String(modelName || "").toLowerCase().trim();
   const fallback = DEFAULT_PRICING[model] || { inputPerMillion: 0.20, outputPerMillion: 0.80 };
 
-  if (model.includes("opus")) {
-    return {
-      model,
-      inputPerMillion: getEnvNumber("OPUS_INPUT_USD_PER_1M", fallback.inputPerMillion),
-      outputPerMillion: getEnvNumber("OPUS_OUTPUT_USD_PER_1M", fallback.outputPerMillion),
-    };
-  }
   if (model.includes("luna")) {
     return {
       model,

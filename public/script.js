@@ -1494,6 +1494,87 @@ function closeMobileModelSheet() {
   setTimeout(finishClose, 250);
 }
 
+function createAskThinkingControls(isEn) {
+  const card = element("div", `ask-thinking-card${state.askThinkingEnabled ? " is-active" : ""}`);
+
+  const mainRow = element("div", "ask-thinking-main-row");
+
+  const info = element("div", "ask-thinking-info");
+  const title = element("strong", "ask-thinking-title", isEn ? "Thinking" : "Düşünmə");
+  const desc = element("small", "ask-thinking-desc", isEn ? "Smart analysis" : "Ağıllı analiz");
+  info.append(title, desc);
+
+  // iOS-style Toggle Switch
+  const toggleLabel = element("label", "ask-ios-toggle");
+  const toggleInput = document.createElement("input");
+  toggleInput.type = "checkbox";
+  toggleInput.checked = Boolean(state.askThinkingEnabled);
+  toggleInput.setAttribute("aria-label", isEn ? "Enable thinking" : "Düşünməni aktiv et");
+  const toggleTrack = element("span", "ask-ios-toggle-track");
+  toggleLabel.append(toggleInput, toggleTrack);
+
+  mainRow.append(info, toggleLabel);
+
+  // Smooth collapsible pills container
+  const pillsContainer = element("div", `ask-thinking-pills${state.askThinkingEnabled ? " is-open" : ""}`);
+  pillsContainer.setAttribute("role", "radiogroup");
+  pillsContainer.setAttribute("aria-label", isEn ? "Thinking level" : "Düşünmə səviyyəsi");
+
+  const pillGroup = element("div", "ask-thinking-pill-group");
+  const pillButtons = new Map();
+
+  const setLevel = (level) => {
+    state.askThinkingLevel = level;
+    try { localStorage.setItem("helmer_ask_thinking_level", level); } catch { }
+    for (const [lvl, btn] of pillButtons.entries()) {
+      const active = lvl === level;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-checked", String(active));
+    }
+  };
+
+  ["medium", "high"].forEach((lvl) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `ask-thinking-pill-btn${state.askThinkingLevel === lvl ? " is-active" : ""}`;
+    btn.setAttribute("role", "radio");
+    btn.setAttribute("aria-checked", String(state.askThinkingLevel === lvl));
+    btn.textContent = lvl === "high" ? "High" : "Medium";
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setLevel(lvl);
+    });
+
+    pillButtons.set(lvl, btn);
+    pillGroup.appendChild(btn);
+  });
+
+  pillsContainer.appendChild(pillGroup);
+
+  toggleInput.addEventListener("change", (e) => {
+    e.stopPropagation();
+    const isChecked = toggleInput.checked;
+    state.askThinkingEnabled = isChecked;
+    try { localStorage.setItem("helmer_ask_thinking_enabled", String(isChecked)); } catch { }
+
+    if (isChecked) {
+      if (!state.askThinkingLevel || state.askThinkingLevel === "off") {
+        setLevel("medium");
+      }
+      card.classList.add("is-active");
+      pillsContainer.classList.add("is-open");
+    } else {
+      card.classList.remove("is-active");
+      pillsContainer.classList.remove("is-open");
+    }
+  });
+
+  card.append(mainRow, pillsContainer);
+  return card;
+}
+
 function openMobileModelSheet() {
   const overlay = document.querySelector("#mobileModelSheetOverlay");
   if (!overlay) return;
@@ -1537,12 +1618,12 @@ function openMobileModelSheet() {
   const body = element("div", "mobile-sheet-body");
   const options = element("div", "mobile-model-options");
 
-  const isFlashSelected = state.askModel === "gemini-3.7-flash";
+  const isFlashSelected = state.askModel === "gemini-3.8-flash";
 
   // Flash Card
   const flashCard = button("", `mobile-model-option-card${isFlashSelected ? " is-active" : ""}`, () => {
-    state.askModel = "gemini-3.7-flash";
-    try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
+    state.askModel = "gemini-3.8-flash";
+    try { localStorage.setItem("helmer_ask_model", "gemini-3.8-flash"); } catch { }
     closeMobileModelSheet();
     syncMode();
     if (state.mode === "ask") render();
@@ -1559,7 +1640,10 @@ function openMobileModelSheet() {
   flashLeading.append(flashIcon, flashCopy);
   flashCard.append(flashLeading);
   if (isFlashSelected) {
-    flashCard.appendChild(element("span", "mobile-model-card-check", "✓"));
+    const check = element("span", "mobile-model-card-check");
+    check.setAttribute("aria-hidden", "true");
+    check.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    flashCard.appendChild(check);
   }
 
   // Auto Card
@@ -1582,37 +1666,17 @@ function openMobileModelSheet() {
   autoLeading.append(autoIcon, autoCopy);
   autoCard.append(autoLeading);
   if (!isFlashSelected) {
-    autoCard.appendChild(element("span", "mobile-model-card-check", "✓"));
+    const check = element("span", "mobile-model-card-check");
+    check.setAttribute("aria-hidden", "true");
+    check.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    autoCard.appendChild(check);
   }
 
   options.append(flashCard, autoCard);
 
-  // If Flash is selected: Thinking toggle row
   if (isFlashSelected) {
-    const thinkingRow = element("div", "mobile-model-thinking-row");
-    const thinkingCopy = element("div", "mobile-model-card-copy");
-    const thinkingTitle = element("strong", "", t("ask.modelSheet.thinkingTitle"));
-    const thinkingStatus = element("small", "", state.askThinking ? t("ask.modelSheet.thinkingOn") : t("ask.modelSheet.thinkingOff"));
-    thinkingCopy.append(thinkingTitle, thinkingStatus);
-
-    const toggleLabel = element("label", "ask-toggle-switch");
-    const toggleInput = document.createElement("input");
-    toggleInput.type = "checkbox";
-    toggleInput.checked = Boolean(state.askThinking);
-    toggleInput.setAttribute("aria-label", t("ask.modelSheet.thinkingTitle"));
-    const toggleSlider = element("span", "ask-toggle-slider");
-    toggleLabel.append(toggleInput, toggleSlider);
-
-    toggleInput.addEventListener("change", (e) => {
-      e.stopPropagation();
-      state.askThinking = toggleInput.checked;
-      try { localStorage.setItem("helmer_ask_thinking", String(state.askThinking)); } catch { }
-      thinkingStatus.textContent = state.askThinking ? t("ask.modelSheet.thinkingOn") : t("ask.modelSheet.thinkingOff");
-      trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
-    });
-
-    thinkingRow.append(thinkingCopy, toggleLabel);
-    options.appendChild(thinkingRow);
+    const divider = element("div", "ask-model-popover-divider");
+    options.append(divider, createAskThinkingControls(isEn));
   }
 
   body.appendChild(options);
@@ -2184,17 +2248,20 @@ const state = {
   askModel: (() => {
     try {
       const saved = localStorage.getItem("helmer_ask_model");
-      if (saved === "gemini-3.7-flash" || saved === "auto") return saved;
+      if (saved === "gemini-3.8-flash" || saved === "auto") return saved;
     } catch { }
     return "auto";
   })(),
-  askThinking: (() => {
+  askThinkingLevel: (() => {
     try {
-      const saved = localStorage.getItem("helmer_ask_thinking");
-      if (saved === "true") return true;
-      if (saved === "false") return false;
+      const saved = localStorage.getItem("helmer_ask_thinking_level");
+      if (["low", "medium", "high"].includes(saved)) return saved;
     } catch { }
-    return false;
+    return "medium";
+  })(),
+  askThinkingEnabled: (() => {
+    try { return localStorage.getItem("helmer_ask_thinking_enabled") === "true"; }
+    catch { return false; }
   })(),
   strategyAskOpen: false,
   strategySummaryOpen: false,
@@ -2248,7 +2315,7 @@ function askThinkingLabel(message, isEn) {
   if (message.status === "searching") return isEn ? "Searching the web..." : "Vebdə axtarıram...";
   if (message.statusText) return message.statusText;
   const modelInfo = getAskMessageModelInfo(message.model);
-  const isThinkingActive = modelInfo.isGemini ? Boolean(state.askThinking) : modelInfo.isTerra;
+  const isThinkingActive = modelInfo.isGemini || modelInfo.isTerra;
   if (isThinkingActive) {
     return modelInfo.isGemini
       ? (isEn ? "Helmer is reasoning…" : "Helmer düşünür")
@@ -2740,7 +2807,7 @@ function isHomePage() {
 function updateMobileActiveModelName() {
   const el = document.querySelector("#mobileActiveModelName");
   if (!el) return;
-  const isFlash = state.askModel === "gemini-3.7-flash";
+  const isFlash = state.askModel === "gemini-3.8-flash";
   el.textContent = isFlash ? "Flash" : "Helmer";
 }
 
@@ -3705,8 +3772,8 @@ function renderAsk() {
     try {
       const fileData = await readUploadedFileAsData(file);
       state.askPendingFile = fileData;
-      state.askModel = "gemini-3.7-flash";
-      try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
+      state.askModel = "gemini-3.8-flash";
+      try { localStorage.setItem("helmer_ask_model", "gemini-3.8-flash"); } catch { }
       state.askError = "";
     } catch (err) {
       console.error("Failed to read attached file:", err);
@@ -3941,7 +4008,7 @@ function renderAsk() {
     submit.appendChild(createAskSendIcon());
   }
 
-  const isFlashSelected = state.askModel === "gemini-3.7-flash";
+  const isFlashSelected = state.askModel === "gemini-3.8-flash";
   const modelSelectorMenu = document.createElement("details");
   modelSelectorMenu.className = "ask-model-selector-menu";
   const modelTrigger = element("summary", "ask-model-selector-trigger");
@@ -3954,6 +4021,8 @@ function renderAsk() {
   `;
 
   const modelPopover = element("div", "ask-model-selector-popover");
+  modelPopover.setAttribute("role", "menu");
+  modelPopover.setAttribute("aria-label", isEn ? "Model selection" : "Model seçimi");
 
   const autoOption = button("", `ask-model-option${!isFlashSelected ? " is-active" : ""}`, (e) => {
     e.preventDefault();
@@ -3963,58 +4032,58 @@ function renderAsk() {
     render();
   });
   autoOption.type = "button";
+  autoOption.setAttribute("role", "menuitemradio");
+  autoOption.setAttribute("aria-checked", String(!isFlashSelected));
   autoOption.innerHTML = `
-    <div class="ask-model-option-info">
-      <strong>Auto</strong>
-      <small>${isEn ? "Automatic routing" : "Avtomatik rejim"}</small>
+    <div class="ask-model-option-leading">
+      <div class="ask-model-option-badge">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/>
+          <path d="M5 3v4"/>
+          <path d="M19 17v4"/>
+          <path d="M3 5h4"/>
+          <path d="M17 19h4"/>
+        </svg>
+      </div>
+      <div class="ask-model-option-info">
+        <strong>Auto</strong>
+        <small>${isEn ? "Automatic routing" : "Avtomatik rejim"}</small>
+      </div>
     </div>
-    ${!isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
+    ${!isFlashSelected ? '<span class="ask-model-check" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>' : ''}
   `;
 
   const flashOption = button("", `ask-model-option${isFlashSelected ? " is-active" : ""}`, (e) => {
     e.preventDefault();
-    state.askModel = "gemini-3.7-flash";
-    try { localStorage.setItem("helmer_ask_model", "gemini-3.7-flash"); } catch { }
+    state.askModel = "gemini-3.8-flash";
+    try { localStorage.setItem("helmer_ask_model", "gemini-3.8-flash"); } catch { }
     modelSelectorMenu.open = false;
     render();
   });
   flashOption.type = "button";
+  flashOption.setAttribute("role", "menuitemradio");
+  flashOption.setAttribute("aria-checked", String(isFlashSelected));
   flashOption.innerHTML = `
-    <div class="ask-model-option-info">
-      <strong>Flash</strong>
-      <small>${isEn ? "For daily workflows" : "Gündəlik işlər üçün"}</small>
+    <div class="ask-model-option-leading">
+      <div class="ask-model-option-badge">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      </div>
+      <div class="ask-model-option-info">
+        <strong>Flash</strong>
+        <small>${isEn ? "For daily workflows" : "Gündəlik işlər üçün"}</small>
+      </div>
     </div>
-    ${isFlashSelected ? '<span class="ask-model-check">✓</span>' : ''}
+    ${isFlashSelected ? '<span class="ask-model-check" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>' : ''}
   `;
-
-  modelPopover.append(autoOption, flashOption);
 
   if (isFlashSelected) {
     const divider = element("div", "ask-model-popover-divider");
-    const thinkingRow = element("div", "ask-model-toggle-row");
-    const thinkingInfo = element("div", "ask-model-toggle-info");
-    const thinkingTitle = element("strong", "", isEn ? "Thinking" : "Düşünmə");
-    const thinkingSub = element("small", "", state.askThinking ? (isEn ? "Deep analysis active" : "Dərin analiz aktivdir") : (isEn ? "Fast direct response" : "Sürətli birbaşa cavab"));
-    thinkingInfo.append(thinkingTitle, thinkingSub);
-
-    const switchLabel = element("label", "ask-toggle-switch");
-    const switchInput = document.createElement("input");
-    switchInput.type = "checkbox";
-    switchInput.checked = Boolean(state.askThinking);
-    switchInput.setAttribute("aria-label", isEn ? "Toggle thinking mode" : "Düşünmə rejimini dəyiş");
-    switchInput.addEventListener("change", (e) => {
-      e.stopPropagation();
-      state.askThinking = switchInput.checked;
-      try { localStorage.setItem("helmer_ask_thinking", String(state.askThinking)); } catch { }
-      thinkingSub.textContent = state.askThinking ? (isEn ? "Deep analysis active" : "Dərin analiz aktivdir") : (isEn ? "Fast direct response" : "Sürətli birbaşa cavab");
-      trackEvent("ask_thinking_toggled", { thinking: state.askThinking });
-    });
-
-    const switchSlider = element("span", "ask-toggle-slider");
-    switchLabel.append(switchInput, switchSlider);
-    thinkingRow.append(thinkingInfo, switchLabel);
-
-    modelPopover.append(divider, thinkingRow);
+    const thinkingControls = createAskThinkingControls(isEn);
+    modelPopover.append(autoOption, flashOption, divider, thinkingControls);
+  } else {
+    modelPopover.append(autoOption, flashOption);
   }
 
   modelSelectorMenu.append(modelTrigger, modelPopover);
@@ -4779,8 +4848,8 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     taskTitle: selectedTask?.text || "",
   });
 
-  const chosenModel = fileToAttach ? "gemini-3.7-flash" : (state.askModel || "auto");
-  const initialPlaceholderModel = chosenModel === "gemini-3.7-flash" ? "gemini-3.7-flash" : (chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : "auto"));
+  const chosenModel = fileToAttach ? "gemini-3.8-flash" : (state.askModel || "auto");
+  const initialPlaceholderModel = chosenModel === "gemini-3.8-flash" ? "gemini-3.8-flash" : (chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : "auto"));
   const assistantMsg = {
     role: "assistant",
     content: "",
@@ -4815,7 +4884,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       body: JSON.stringify({
         messages: state.askMessages.slice(0, -1),
         model: chosenModel,
-        thinking: chosenModel === "gemini-3.7-flash" ? Boolean(state.askThinking) : undefined,
+        thinkingLevel: chosenModel === "gemini-3.8-flash" ? (state.askThinkingEnabled ? state.askThinkingLevel : "low") : undefined,
         strategyId: state.askStrategyId || undefined,
         taskId: state.askTaskId || undefined,
         chatId: state.askChatId || undefined,
@@ -7119,71 +7188,48 @@ function buildBlogView(strategy) {
     const assumptionList = element("ul", "decision-list");
     strategy.assumptions.forEach((item) => assumptionList.appendChild(element("li", "", item)));
     assumptions.append(assumptionList);
-    container.append(priorities, direction, actionPlan, measurement, risks, closeout, metaPanel, assumptions);
+    container.append(priorities, direction, actionPlan, measurement, risks, closeout);
+    if (metaPanel) container.appendChild(metaPanel);
+    container.appendChild(assumptions);
   } else {
-    container.append(priorities, direction, actionPlan, measurement, risks, closeout, metaPanel);
+    container.append(priorities, direction, actionPlan, measurement, risks, closeout);
+    if (metaPanel) container.appendChild(metaPanel);
   }
 
   return container;
 }
 
 function buildOrchestrationMetaPanel(strategy, isEn) {
-  const meta = strategy?.orchestration || {
-    models: ["Core"],
-    searchGrounded: false,
-  };
+  const sources = Array.isArray(strategy?.orchestration?.sources)
+    ? strategy.orchestration.sources.filter((source) => source?.url && /^https?:\/\//i.test(source.url))
+    : [];
+  if (!sources.length) return null;
 
-  const panel = element("div", "strategy-orchestration-panel");
-  const header = element("div", "orchestration-panel-header");
-  const title = element(
-    "span",
-    "orchestration-title",
-    isEn ? "Generation Intelligence & Architecture" : "Generasiya Mühərriki və İntellekt Məlumatı"
+  const panel = element("section", "strategy-sources-card");
+  panel.setAttribute("aria-label", isEn ? "Research sources" : "Araşdırma mənbələri");
+  const heading = element("div", "strategy-sources-heading");
+  heading.append(
+    element("span", "strategy-sources-icon", "↗"),
+    element("div", "strategy-sources-heading-copy")
   );
-  header.appendChild(title);
-
-  const chipsContainer = element("div", "orchestration-chips");
-
-  // Determine models display: strict mapping - Gemini -> Core, Opus -> Reasoning, never raw model names
-  const rawModels = Array.isArray(meta.models) && meta.models.length > 0 ? meta.models : ["Core"];
-  const displayModels = [];
-
-  const hasCore = rawModels.some((m) => {
-    const lower = String(m || "").toLowerCase();
-    return lower.includes("core") || lower.includes("gemini") || lower.includes("flash") || lower.includes("google");
-  });
-  const hasReasoning = rawModels.some((m) => {
-    const lower = String(m || "").toLowerCase();
-    return lower.includes("reasoning") || lower.includes("legacy") || lower.includes("opus") || lower.includes("claude") || lower.includes("anthropic");
-  });
-
-  if (hasReasoning) {
-    displayModels.push("Reasoning");
-  }
-  if (hasCore || (!hasCore && !hasReasoning)) {
-    displayModels.push("Core");
-  }
-
-  const modelChip = element("div", "orchestration-chip model-chip");
-  const modelLabel = element("span", "chip-label", isEn ? "Engine:" : "Mühərrik:");
-  const modelValue = element("strong", "chip-value", displayModels.join(" + "));
-  modelChip.append(modelLabel, modelValue);
-
-  const isSearchUsed = Boolean(meta.searchGrounded);
-  const searchChip = element("div", `orchestration-chip search-chip ${isSearchUsed ? "is-active" : "is-inactive"}`);
-  const searchLabel = element("span", "chip-label", isEn ? "Web Search:" : "Veb Axtarış:");
-  const searchValue = element(
-    "strong",
-    "chip-value",
-    isSearchUsed
-      ? (isEn ? "Used" : "İstifadə edilib")
-      : (isEn ? "Not used" : "İstifadə edilməyib")
+  heading.lastChild.append(
+    element("h3", "", isEn ? "Sources used" : "İstifadə olunan mənbələr"),
+    element("p", "", isEn ? "References from the web research behind this strategy" : "Strategiyanın əsaslandığı veb araşdırma istinadları")
   );
-  searchChip.append(searchLabel, searchValue);
-
-  chipsContainer.append(modelChip, searchChip);
-  panel.append(header, chipsContainer);
-
+  panel.appendChild(heading);
+  const list = element("div", "strategy-sources-list");
+  for (const source of sources.slice(0, 20)) {
+    const link = element("a", "strategy-source-link");
+    link.href = source.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    let hostname;
+    try { hostname = new URL(source.url).hostname.replace(/^www\./, ""); }
+    catch { continue; }
+    link.append(element("strong", "", source.title || hostname), element("span", "", hostname + " ↗"));
+    list.appendChild(link);
+  }
+  panel.appendChild(list);
   return panel;
 }
 

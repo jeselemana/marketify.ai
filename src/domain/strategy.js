@@ -104,6 +104,7 @@ export const StrategySchema = z.object({
     .object({
       models: z.array(z.string().trim().max(100)).max(10).nullable().optional(),
       searchGrounded: z.boolean().nullable().optional(),
+      sources: z.array(z.object({ title: z.string().max(200), url: z.string().url() })).max(20).nullable().optional(),
     })
     .nullable()
     .optional(),

@@ -4824,85 +4824,24 @@ body.sidebar-open .app-main {
   text-decoration: line-through;
 }
 
-/* ==========================================================================
-   STRATEGY ORCHESTRATION / GENERATION INTELLIGENCE PANEL
-   ========================================================================== */
-.strategy-orchestration-panel {
-  margin-top: 32px;
-  margin-bottom: 24px;
-  padding: 14px 18px;
-  background: var(--bg-surface-elevated, var(--bg-surface, #ffffff));
-  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
-  border-radius: var(--radius-md, 12px);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+/* Sources shown only for grounded strategy briefs. */
+.strategy-sources-card {
+  margin: 32px 0 24px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, .08));
+  border-radius: 20px;
+  background: var(--bg-surface-elevated, var(--bg-surface, #fff));
+  box-shadow: 0 12px 36px rgba(18, 35, 54, .06);
 }
-
-.orchestration-panel-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.orchestration-title {
-  font-size: 11.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-tertiary, #6b7280);
-}
-
-.orchestration-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.orchestration-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: var(--radius-full, 9999px);
-  font-size: 12px;
-  background: var(--bg-subtle, rgba(0, 0, 0, 0.04));
-  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
-  color: var(--text-secondary, #374151);
-}
-
-.orchestration-chip .chip-label {
-  color: var(--text-tertiary, #6b7280);
-  font-weight: 500;
-}
-
-.orchestration-chip .chip-value {
-  color: var(--text-primary, #111827);
-  font-weight: 600;
-}
-
-.orchestration-chip.search-chip.is-active {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.25);
-  color: #059669;
-}
-
-.orchestration-chip.search-chip.is-active .chip-value {
-  color: #059669;
-}
-
-[data-theme="dark"] .orchestration-chip.search-chip.is-active {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.35);
-  color: #34d399;
-}
-
-[data-theme="dark"] .orchestration-chip.search-chip.is-active .chip-value {
-  color: #34d399;
-}
+.strategy-sources-heading { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.strategy-sources-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: rgba(49, 118, 203, .12); color: #3176cb; font-size: 22px; }
+.strategy-sources-heading h3 { margin: 0 0 3px; font-size: 16px; color: var(--text-primary, #111827); }
+.strategy-sources-heading p { margin: 0; font-size: 12px; color: var(--text-tertiary, #6b7280); }
+.strategy-sources-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.strategy-source-link { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 13px 15px; border: 1px solid var(--border-subtle, rgba(0,0,0,.08)); border-radius: 12px; background: var(--bg-subtle, rgba(0,0,0,.025)); text-decoration: none; transition: transform .15s, border-color .15s; }
+.strategy-source-link:hover { transform: translateY(-2px); border-color: #3176cb; }
+.strategy-source-link strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-primary, #111827); }
+.strategy-source-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-tertiary, #6b7280); }
 
 .assumptions-panel {
   margin-top: 32px;
@@ -8406,15 +8345,19 @@ html.dark .ask-stop-icon {
   bottom: calc(100% + 8px);
   right: 0;
   z-index: 50;
-  display: grid;
-  gap: 3px;
-  width: 190px;
-  padding: 5px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  background: var(--bg-elevated);
-  box-shadow: 0 12px 32px var(--theme-shadow-soft, rgba(0, 0, 0, 0.12)), 0 2px 6px var(--theme-shadow-soft, rgba(0, 0, 0, 0.04));
-  animation: menu-in 140ms ease both;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 276px;
+  padding: 6px;
+  border: 1px solid var(--border-subtle, rgba(20, 27, 42, 0.09));
+  border-radius: 16px;
+  background: var(--bg-elevated, #ffffff);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+  animation: menu-in 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  user-select: none;
 }
 
 .ask-model-selector-menu:not([open]) .ask-model-selector-popover {
@@ -8425,28 +8368,34 @@ html.dark .ask-stop-icon {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 7px 10px;
-  border-radius: 8px;
+  padding: 8px 10px;
+  border-radius: 11px;
   border: 0;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text-primary, #0f172a);
   cursor: pointer;
   text-align: left;
-  transition: background 120ms ease;
+  transition: background 130ms ease, color 130ms ease;
 }
 
 .ask-model-option:hover {
-  background: var(--bg-hover);
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
 }
 
 .ask-model-option.is-active {
-  background: var(--accent-soft);
+  background: var(--accent-soft, rgba(49, 118, 203, 0.08));
+}
+
+.ask-model-option:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1.5px var(--border-focus, #9ca3af);
 }
 
 .ask-model-option-info {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 1px;
   min-width: 0;
 }
@@ -8454,54 +8403,268 @@ html.dark .ask-stop-icon {
 .ask-model-option-info strong {
   font-size: 13px;
   font-weight: 550;
-  color: var(--text-primary);
+  color: var(--text-primary, #0f172a);
+  line-height: 1.25;
 }
 
 .ask-model-option-info small {
   font-size: 11px;
-  color: var(--text-tertiary);
+  color: var(--text-tertiary, #64748b);
+  line-height: 1.2;
 }
 
 .ask-model-check {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--theme-blue-ink, var(--accent));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-blue-ink, var(--accent, #2563eb));
   flex-shrink: 0;
 }
 
 .ask-model-popover-divider {
   height: 1px;
-  background: var(--border-subtle);
-  margin: 3px 0;
+  background: var(--border-subtle, rgba(20, 27, 42, 0.08));
+  margin: 4px 2px;
 }
 
-.ask-model-toggle-row {
+/* ── Icon Badges for Model Options ── */
+.ask-model-option-leading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ask-model-option-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--bg-soft, rgba(0, 0, 0, 0.04));
+  color: var(--text-secondary, #64748b);
+  flex-shrink: 0;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.ask-model-option.is-active .ask-model-option-badge {
+  background: var(--accent-soft, rgba(49, 118, 203, 0.12));
+  color: var(--theme-blue-ink, var(--accent, #2563eb));
+}
+
+/* ── Thinking Card (toggle + collapsible pills) ── */
+.ask-thinking-card {
+  padding: 6px 10px;
+  border-radius: 11px;
+  transition: opacity 150ms ease;
+}
+
+.ask-thinking-card.is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.ask-thinking-main-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  user-select: none;
-  background: var(--theme-wash, rgba(0, 0, 0, 0.02));
+  gap: 10px;
+  width: 100%;
 }
 
-.ask-model-toggle-info {
-  display: grid;
+.ask-thinking-info {
+  display: flex;
+  flex-direction: column;
   gap: 1px;
   min-width: 0;
 }
 
-.ask-model-toggle-info strong {
+.ask-thinking-title {
   font-size: 13px;
   font-weight: 550;
-  color: var(--text-primary);
+  color: var(--text-primary, #0f172a);
+  line-height: 1.25;
 }
 
-.ask-model-toggle-info small {
+.ask-thinking-desc {
   font-size: 11px;
-  color: var(--text-tertiary);
+  color: var(--text-tertiary, #64748b);
+  line-height: 1.2;
 }
+
+/* ── iOS-style Toggle ── */
+.ask-ios-toggle {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 25px;
+  flex-shrink: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ask-ios-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.ask-ios-toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-soft, rgba(0, 0, 0, 0.12));
+  border-radius: 25px;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ask-ios-toggle-track::before {
+  content: "";
+  position: absolute;
+  width: 19px;
+  height: 19px;
+  left: 3px;
+  top: 3px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.06);
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ask-ios-toggle input:checked + .ask-ios-toggle-track {
+  background: var(--accent, #3b82f6);
+}
+
+.ask-ios-toggle input:checked + .ask-ios-toggle-track::before {
+  transform: translateX(17px);
+}
+
+.ask-ios-toggle input:focus-visible + .ask-ios-toggle-track {
+  box-shadow: 0 0 0 2px var(--bg-elevated, #fff), 0 0 0 4px var(--accent, #3b82f6);
+}
+
+/* ── Collapsible Level Pills ── */
+.ask-thinking-pills {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms cubic-bezier(0.4, 0, 0.2, 1), opacity 220ms ease;
+  opacity: 0;
+}
+
+.ask-thinking-pills.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.ask-thinking-pill-group {
+  overflow: hidden;
+  display: flex;
+  gap: 6px;
+  padding-top: 8px;
+  min-height: 0;
+}
+
+.ask-thinking-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 14px;
+  border: 1px solid var(--border-subtle, rgba(20, 27, 42, 0.1));
+  border-radius: 20px;
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.ask-thinking-pill-btn:hover:not(.is-active) {
+  border-color: var(--text-tertiary, #94a3b8);
+  color: var(--text-primary, #0f172a);
+}
+
+.ask-thinking-pill-btn.is-active {
+  background: var(--accent, #3b82f6);
+  border-color: var(--accent, #3b82f6);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.25);
+}
+
+.ask-thinking-pill-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1.5px var(--border-focus, #9ca3af);
+}
+
+/* ── Dark Mode ── */
+html.dark .ask-model-option-badge,
+:root[data-theme="dark"] .ask-model-option-badge {
+  background: rgba(255, 255, 255, 0.07);
+  color: #94a3b8;
+}
+
+html.dark .ask-model-option.is-active .ask-model-option-badge,
+:root[data-theme="dark"] .ask-model-option.is-active .ask-model-option-badge {
+  background: rgba(99, 128, 255, 0.18);
+  color: #93b4ff;
+}
+
+html.dark .ask-ios-toggle-track,
+:root[data-theme="dark"] .ask-ios-toggle-track {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+html.dark .ask-ios-toggle-track::before,
+:root[data-theme="dark"] .ask-ios-toggle-track::before {
+  background: #e2e8f0;
+}
+
+html.dark .ask-ios-toggle input:checked + .ask-ios-toggle-track,
+:root[data-theme="dark"] .ask-ios-toggle input:checked + .ask-ios-toggle-track {
+  background: #6380ff;
+}
+
+html.dark .ask-thinking-pill-btn,
+:root[data-theme="dark"] .ask-thinking-pill-btn {
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+html.dark .ask-thinking-pill-btn:hover:not(.is-active),
+:root[data-theme="dark"] .ask-thinking-pill-btn:hover:not(.is-active) {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #e2e8f0;
+}
+
+html.dark .ask-thinking-pill-btn.is-active,
+:root[data-theme="dark"] .ask-thinking-pill-btn.is-active {
+  background: #6380ff;
+  border-color: #6380ff;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(99, 128, 255, 0.3);
+}
+
+/* ── Mobile model sheet integration ── */
+.mobile-model-options .ask-thinking-card {
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .mobile-model-options .ask-thinking-card,
+html:not(.dark) .mobile-model-options .ask-thinking-card {
+  background: #F8FAFC;
+  border: 1px solid rgba(20, 27, 42, 0.07);
+}
+
 
 .ask-toggle-switch {
   position: relative;
@@ -27170,8 +27333,4 @@ html.dark .support-copy-email-btn:hover {
   color: #f8fafc;
   border-color: rgba(255, 255, 255, 0.25);
 }
-
-
-
-
 

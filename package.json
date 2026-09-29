@@ -13,7 +13,6 @@
     "build": "npm run check"
   },
   "dependencies": {
-    "@anthropic-ai/vertex-sdk": "^0.20.0",
     "@aws-sdk/client-s3": "^3.1111.0",
     "@google/genai": "^2.19.0",
     "argon2": "^0.45.1",

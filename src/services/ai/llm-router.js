@@ -69,7 +69,7 @@ export function formatGeminiResponseSchema(schema, name) {
   return resolve(rawSchema);
 }
 
-export async function streamOpenAIContent({ model = aiConfig.strategyFallbackModel || "gpt-5.6-terra", instructions, input, onChunk, onUsage, ownerId, signal, maxOutputTokens = aiConfig.strategyMaxOutputTokens, reasoning = "medium" }) {
+export async function streamOpenAIContent({ model = aiConfig.strategyFallbackModel, instructions, input, onChunk, onUsage, ownerId, signal, maxOutputTokens = aiConfig.strategyMaxOutputTokens, reasoning = "medium" }) {
   if (!hasOpenAIConfiguration()) {
     throw new LLMProviderError("OpenAI xidməti hələ konfiqurasiya edilməyib. OPENAI_API_KEY əlavə et və yenidən yoxla.", { code: "AI_NOT_CONFIGURED", status: 503, model, provider: "openai" });
   }
@@ -104,7 +104,7 @@ export async function streamOpenAIContent({ model = aiConfig.strategyFallbackMod
 
 export async function routeStructuredGeneration({ schema, name, instructions, input, maxOutputTokens, reasoning = "medium", ownerId, signal, onChunk, onUsage }) {
   const primaryModel = aiConfig.strategyModel;
-  const fallbackModel = aiConfig.strategyFallbackModel || "gpt-5.6-terra";
+  const fallbackModel = aiConfig.strategyFallbackModel;
 
   // 1. Primary: Try Gemini 3.8 Flash via Vertex AI
   if (hasGeminiConfiguration()) {
@@ -182,7 +182,7 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
     }
   }
 
-  // 2. Fallback: Terra (gpt-5.6-terra via OpenAI)
+  // 2. Fallback: GPT-6 Sol via the Responses API.
   if (!hasOpenAIConfiguration()) {
     throw new LLMProviderError("OpenAI xidməti hələ konfiqurasiya edilməyib. OPENAI_API_KEY əlavə et və yenidən yoxla.", {
       code: "AI_NOT_CONFIGURED",
@@ -235,7 +235,7 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
 
     const httpStatus = error.status || 500;
     if (httpStatus === 429 || error.code === "rate_limit_exceeded") {
-      throw new LLMProviderError("GPT-5.6 Terra xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
+      throw new LLMProviderError("GPT-6 Sol xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
         code: "AI_RATE_LIMITED",
         status: 429,
         model: fallbackModel,

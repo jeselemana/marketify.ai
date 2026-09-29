@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
 /**
- * Server-side File & Context Cache for Gemini 3.7 Flash.
+ * Server-side File & Context Cache for Gemini 3.8 Flash.
  *
  * Solves two key problems for multi-turn Ask conversations:
  * 1. Network Bandwidth & Latency: Client does not repeatedly transmit 10-20MB base64 data on every follow-up turn.
@@ -154,7 +154,7 @@ export class GeminiFileCache {
    * Attempt to create or reuse a Gemini Context Cache resource for large documents.
    * Safe with automatic graceful fallback if CacheService is not enabled on the API key or token count is < 32k.
    */
-  async getOrCreateGeminiCachedContent({ geminiClient, model = "gemini-3.7-flash", file, systemInstruction = "" }) {
+  async getOrCreateGeminiCachedContent({ geminiClient, model = "gemini-3.8-flash", file, systemInstruction = "" }) {
     if (!geminiClient || !file) return null;
 
     const fileEntry = this.resolveFile(file);

@@ -869,7 +869,7 @@ async function generateGeminiAskStreamResponse({
   model = ASK_GEMINI_MODEL,
   instructions = "",
   messages = [],
-  thinking = true,
+  thinkingLevel = "medium",
   enableSearch = false,
   onChunk = () => {},
   signal,
@@ -917,7 +917,7 @@ Google Search Grounding tool is actively configured and available for this conve
       firstFileMsg.file = resolvedFile;
       geminiCachedContentName = await geminiFileCache.getOrCreateGeminiCachedContent({
         geminiClient: gemini,
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         file: resolvedFile,
         systemInstruction: fullSystemInstruction,
       });
@@ -988,19 +988,7 @@ Google Search Grounding tool is actively configured and available for this conve
     safetySettings: GEMINI_SAFETY_SETTINGS,
   };
 
-  const isThinkingEnabled = thinking !== false && thinking !== "false" && thinking !== 0;
-  if (isThinkingEnabled) {
-    const budget = typeof aiConfig.geminiThinkingBudget === "number" && !Number.isNaN(aiConfig.geminiThinkingBudget)
-      ? aiConfig.geminiThinkingBudget
-      : -1;
-    config.thinkingConfig = {
-      thinkingBudget: budget,
-    };
-  } else {
-    config.thinkingConfig = {
-      thinkingBudget: 0,
-    };
-  }
+  config.thinkingConfig = { thinkingLevel: thinkingLevel.toUpperCase() };
 
   if (hasSearchCapability) {
     config.tools = [{ googleSearch: {} }];
@@ -1118,7 +1106,7 @@ async function generateGeminiAskResponse({
   model = ASK_GEMINI_MODEL,
   instructions = "",
   messages = [],
-  thinking = true,
+  thinkingLevel = "medium",
   enableSearch = false,
   signal,
 }) {
@@ -1165,7 +1153,7 @@ Google Search Grounding tool is actively configured and available for this conve
       firstFileMsg.file = resolvedFile;
       geminiCachedContentName = await geminiFileCache.getOrCreateGeminiCachedContent({
         geminiClient: gemini,
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         file: resolvedFile,
         systemInstruction: fullSystemInstruction,
       });
@@ -1236,19 +1224,7 @@ Google Search Grounding tool is actively configured and available for this conve
     safetySettings: GEMINI_SAFETY_SETTINGS,
   };
 
-  const isThinkingEnabled = thinking !== false && thinking !== "false" && thinking !== 0;
-  if (isThinkingEnabled) {
-    const budget = typeof aiConfig.geminiThinkingBudget === "number" && !Number.isNaN(aiConfig.geminiThinkingBudget)
-      ? aiConfig.geminiThinkingBudget
-      : -1;
-    config.thinkingConfig = {
-      thinkingBudget: budget,
-    };
-  } else {
-    config.thinkingConfig = {
-      thinkingBudget: 0,
-    };
-  }
+  config.thinkingConfig = { thinkingLevel: thinkingLevel.toUpperCase() };
 
   if (hasSearchCapability) {
     config.tools = [{ googleSearch: {} }];
@@ -1435,7 +1411,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     const hasAnyAttachment = messages.some((m) => Boolean(m.file && (m.file.data || m.file.textContent || m.file.name || m.file.fileId)));
     const lastUserMsg = messages.at(-1)?.content || "";
     const route = resolveAskModelRoute({ requestedModel, lastUserMsg, hasStrategyContext, hasAttachment: hasAnyAttachment });
-    const isGemini = route === "gemini-3.7-flash";
+    const isGemini = route === "gemini-3.8-flash";
     isGeminiRoute = isGemini;
 
     if (isGemini && !hasGeminiConfiguration()) {
@@ -1508,8 +1484,10 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     };
     activeModel = route;
 
-    const requestedThinking = req.body.thinking;
-    const isThinking = requestedThinking !== undefined ? (requestedThinking === true || requestedThinking === "true") : true;
+    const requestedThinkingLevel = String(req.body.thinkingLevel || "medium").toLowerCase();
+    if (!["low", "medium", "high"].includes(requestedThinkingLevel)) {
+      return res.status(400).json({ code: "VALIDATION_ERROR", error: "Düşünmə səviyyəsi düzgün deyil." });
+    }
 
     const prepareMessagesForStorage = (msgs) => msgs.map((m) => {
       if (m.file) {
@@ -1558,7 +1536,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
               model: selectedAskModel,
               instructions: fullInstructions,
               messages,
-              thinking: isThinking,
+              thinkingLevel: requestedThinkingLevel,
               enableSearch,
               signal: abortController.signal,
               onChunk: (chunk) => {
@@ -1686,7 +1664,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           model: selectedAskModel,
           instructions: fullInstructions,
           messages,
-          thinking: isThinking,
+          thinkingLevel: requestedThinkingLevel,
           enableSearch,
         })
       : await generateOpenAIAskResponse({

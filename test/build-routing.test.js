@@ -18,12 +18,12 @@ test("LLMProviderError retains provider metadata", () => {
   const error = new LLMProviderError("OpenAI xidməti əlçatan deyil.", {
     code: "AI_PROVIDER_UNAVAILABLE",
     status: 503,
-    model: "gpt-5.6-terra",
+    model: "gpt-6-sol",
     provider: "openai",
   });
   assert.equal(error.code, "AI_PROVIDER_UNAVAILABLE");
   assert.equal(error.status, 503);
-  assert.equal(error.model, "gpt-5.6-terra");
+  assert.equal(error.model, "gpt-6-sol");
   assert.equal(error.provider, "openai");
 });
 
@@ -200,10 +200,10 @@ test("strategy router POST /generate returns existing saved strategy if clientSa
   assert.equal(response.body?.strategy?.title, "Pre-existing Strategy");
 });
 
-test("build mode defaults to gemini-3.8-flash with High thinking and gpt-5.6-terra fallback", async () => {
+test("build mode defaults to gemini-3.8-flash with High thinking and gpt-6-sol fallback", async () => {
   const { aiConfig } = await import("../src/services/ai/config.js");
   assert.equal(aiConfig.strategyModel, "gemini-3.8-flash");
-  assert.equal(aiConfig.strategyFallbackModel, "gpt-5.6-terra");
+  assert.equal(aiConfig.strategyFallbackModel, "gpt-6-sol");
   assert.equal(aiConfig.strategyThinkingLevel, "HIGH");
 });
 
@@ -373,198 +373,31 @@ test("buildAssessorPrompt and buildRefinementPrompt correctly apply context-awar
   assert.match(localAzInst, /İlk 7 gün/);
 });
 
-test("build mode config registers Opus 5.5 and Google Search Grounding with cost-control pricing", async () => {
+test("Build configuration uses Gemini High with GPT-6 Sol fallback and no Opus orchestration", async () => {
   const { aiConfig } = await import("../src/services/ai/config.js");
-  const { getPricingForModel, calculateEstimatedCost } = await import("../src/services/telemetry/pricing.js");
-
+  const { getPricingForModel } = await import("../src/services/telemetry/pricing.js");
   assert.equal(aiConfig.strategyModel, "gemini-3.8-flash");
-  assert.equal(aiConfig.opusModel, "claude-opus-5-5");
+  assert.equal(aiConfig.strategyThinkingLevel, "HIGH");
+  assert.equal(aiConfig.strategyFallbackModel, "gpt-6-sol");
+  assert.equal(aiConfig.opusModel, undefined);
   assert.equal(aiConfig.enableBuildSearchGrounding, true);
-  assert.equal(aiConfig.enableOpusOrchestration, true);
-
-  const opusPricing = getPricingForModel("claude-opus-5-5");
-  assert.equal(opusPricing.inputPerMillion, 15.00);
-  assert.equal(opusPricing.outputPerMillion, 75.00);
-
-  const cost = calculateEstimatedCost("claude-opus-5-5", 1000, 500);
-  assert.ok(cost.costUsd > 0);
-  assert.ok(cost.costAzn > 0);
-  assert.equal(cost.totalTokens, 1500);
-});
-
-test("shouldTriggerOpusReasoning selectively invokes Opus only for high-reasoning tasks and skips simple formatting", async () => {
-  const { shouldTriggerOpusReasoning } = await import("../src/services/ai/strategy-service.js");
-
-  const origAnthropic = process.env.ANTHROPIC_API_KEY;
-  process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
-
-  try {
-    // 1. Skip on low-reasoning actions
-    assert.equal(shouldTriggerOpusReasoning({ action: "shorten", brief: "Detailed strategy brief" }), false);
-    assert.equal(shouldTriggerOpusReasoning({ action: "localize_azerbaijan", brief: "Detailed strategy brief" }), false);
-
-    // 2. Trigger on high-reasoning actions
-    assert.equal(shouldTriggerOpusReasoning({ action: "think_deeper", brief: "Strategic brief" }), true);
-    assert.equal(shouldTriggerOpusReasoning({ action: "budget_optimize", brief: "Strategic brief" }), true);
-    assert.equal(shouldTriggerOpusReasoning({ action: "make_practical", brief: "Strategic brief" }), true);
-
-    // 3. Skip on trivial / too short intake (< 35 chars)
-    assert.equal(shouldTriggerOpusReasoning({ brief: "Short" }), false);
-
-    // 4. Skip on simple generic copywriting
-    assert.equal(shouldTriggerOpusReasoning({ brief: "Sadəcə post yaz bizim butik üçün" }), false);
-
-    // 5. Trigger on full business/marketing strategy intake
-    assert.equal(
-      shouldTriggerOpusReasoning({
-        brief: "Bakıda yeni açılan premium qadın geyim butiki üçün 3 aylıq böyümə və diferensiasiya planı",
-      }),
-      true,
-    );
-  } finally {
-    if (origAnthropic !== undefined) {
-      process.env.ANTHROPIC_API_KEY = origAnthropic;
-    } else {
-      delete process.env.ANTHROPIC_API_KEY;
-    }
-  }
-});
-
-test("synthesizeStrategyWithOpusInsights unites Gemini execution and Opus strategic intelligence without schema violation", async () => {
-  const { synthesizeStrategyWithOpusInsights } = await import("../src/services/ai/strategy-service.js");
-  const { StrategySchema } = await import("../src/domain/strategy.js");
-
-  const baseGeminiStrategy = {
-    title: "EcoBottle Market Expansion",
-    summary: "Comprehensive market expansion strategy for eco-friendly reusable bottles.",
-    context: {
-      business: "Manufacturing and retail of durable stainless steel insulated bottles.",
-      objective: "Capture 15% local market share in the premium reusable bottle sector.",
-      market: "Growing eco-conscious consumer segment in urban hubs.",
-      targetAudience: "Urban professionals and fitness enthusiasts aged 22-40.",
-    },
-    sections: [
-      {
-        id: "market_analysis",
-        title: "Bazar Analizi",
-        summary: "Urban adoption trends.",
-        content: "Detailed market analysis indicating strong shift toward sustainable lifestyle goods.",
-        bullets: ["Point 1", "Point 2"],
-      },
-      {
-        id: "acquisition_channels",
-        title: "Müştəri Cəlbi Kanalları",
-        summary: "Targeted digital and experiential channels.",
-        content: "Performance marketing combined with community influencer seeding.",
-        bullets: ["Direct to consumer", "Fitness studio pop-ups"],
-      },
-      {
-        id: "operations",
-        title: "Əməliyyat və İcra",
-        summary: "Supply chain and fulfillment logic.",
-        content: "Local warehousing and on-demand laser engraving personalization.",
-        bullets: ["48h delivery guarantee"],
-      },
-    ],
-    priorities: [
-      {
-        title: "Launch Digital DTC Storefront",
-        description: "Set up high-converting landing page with 1-click checkout.",
-        priority: "high",
-      },
-    ],
-    actionPlan: [
-      {
-        phase: "Phase 1 - Foundation",
-        actions: ["Establish supply chain agreements", "Launch digital portal"],
-        expectedOutcome: "First 100 pilot orders delivered.",
-      },
-    ],
-    kpis: [
-      {
-        name: "Monthly CAC",
-        reason: "Monitor acquisition efficiency.",
-        target: "Below 15 AZN",
-      },
-    ],
-    risks: [
-      {
-        risk: "Supply chain delay in international freight",
-        mitigation: "Maintain 30-day buffer inventory in local warehouse",
-      },
-    ],
-    assumptions: ["Consumer demand for sustainability remains high"],
-    nextSteps: [
-      "Send brief to legal counsel today",
-      "Open draft budget allocation spreadsheet today",
-      "Draft interview questions and contact first 3 candidates within 48h",
-      "Finalize 3 pilot packages and pricing within 48h",
-      "Set up pilot offer and collect first test orders this week",
-      "Review pilot order delivery and customer feedback this week",
-    ],
-  };
-
-  const opusInsights = {
-    positioningWedge: "Position not as generic hydration, but as an executive status accessory with lifetime warranty.",
-    strategicDifferentiation: "Uncompromising thermal durability and zero-plastic bespoke engraving.",
-    identifiedRisks: [
-      {
-        risk: "Low barrier to entry for cheap imported alternatives on marketplaces",
-        mitigation: "Build community membership locking in free cap and seal replacements",
-      },
-    ],
-    breakthroughPriorities: [
-      {
-        title: "Executive Corporate Gifting Partnerships",
-        description: "Bypass retail clutter by signing corporate bulk gifting contracts for tech companies.",
-      },
-    ],
-  };
-
-  const unified = synthesizeStrategyWithOpusInsights(baseGeminiStrategy, opusInsights, "az");
-
-  const validated = StrategySchema.parse(unified);
-  assert.ok(validated);
-
-  assert.match(validated.context.business, /Strateji Mövqelənmə:/);
-  assert.match(validated.summary, /Strateji Fərqləndirici Üstünlük:/);
-
-  assert.equal(validated.priorities.length, 2);
-  assert.equal(validated.priorities[0].title, "Executive Corporate Gifting Partnerships");
-  assert.equal(validated.priorities[0].priority, "high");
-
-  assert.equal(validated.risks.length, 2);
-  assert.ok(validated.risks.some((r) => r.risk.includes("cheap imported alternatives")));
-});
-
-test("callOpusVertexModel interacts gracefully and handles missing configuration without throwing", async () => {
-  const { callOpusVertexModel, setTestOpusCaller } = await import("../src/services/ai/client.js");
-
-  const result = await callOpusVertexModel({ system: "System", prompt: "Prompt" });
-  assert.equal(result, null);
-
-  setTestOpusCaller(async () => {
-    return {
-      text: JSON.stringify({
-        positioningWedge: "Sharp wedge",
-        strategicDifferentiation: "Pure differentiation",
-      }),
-      model: "claude-opus-5-5",
-      provider: "vertex-anthropic",
-      usage: { prompt_tokens: 150, completion_tokens: 60, total_tokens: 210 },
-    };
+  assert.deepEqual(getPricingForModel("gpt-6-sol"), {
+    model: "gpt-6-sol", inputPerMillion: 2, outputPerMillion: 10,
   });
+});
 
-  try {
-    const mockedRes = await callOpusVertexModel({ system: "Test", prompt: "Hello" });
-    assert.equal(mockedRes.model, "claude-opus-5-5");
-    assert.equal(mockedRes.provider, "vertex-anthropic");
-    assert.equal(mockedRes.usage.total_tokens, 210);
-    const parsed = JSON.parse(mockedRes.text);
-    assert.equal(parsed.positioningWedge, "Sharp wedge");
-  } finally {
-    setTestOpusCaller(null);
-  }
+test("grounded Build research keeps distinct safe source links", async () => {
+  const { extractGroundingSources } = await import("../src/services/ai/strategy-service.js");
+  const sources = extractGroundingSources({ groundingChunks: [
+    { web: { uri: "https://example.com/report", title: "Market report" } },
+    { web: { uri: "https://example.com/report", title: "Duplicate" } },
+    { web: { uri: "javascript:alert(1)", title: "Unsafe" } },
+    { web: { uri: "https://example.org/", title: "" } },
+  ] });
+  assert.deepEqual(sources, [
+    { title: "Market report", url: "https://example.com/report" },
+    { title: "example.org", url: "https://example.org/" },
+  ]);
 });
 
 test("StrategySchema validates orchestration metadata and defaults correctly", async () => {
@@ -591,15 +424,16 @@ test("StrategySchema validates orchestration metadata and defaults correctly", a
     assumptions: ["Assumption 1"],
     nextSteps: ["Step 1"],
     orchestration: {
-      models: ["Reasoning", "Core"],
+      models: ["gemini-3.8-flash"],
       searchGrounded: true,
+      sources: [{ title: "Market report", url: "https://example.com/market" }],
     },
   };
 
   const parsed = StrategySchema.parse(validStrategy);
-  assert.equal(parsed.orchestration.models.length, 2);
-  assert.equal(parsed.orchestration.models[0], "Reasoning");
-  assert.equal(parsed.orchestration.models[1], "Core");
+  assert.equal(parsed.orchestration.models.length, 1);
+  assert.equal(parsed.orchestration.models[0], "gemini-3.8-flash");
+  assert.equal(parsed.orchestration.sources[0].url, "https://example.com/market");
   assert.equal(parsed.orchestration.searchGrounded, true);
 
   // Without orchestration property, it remains optional
@@ -608,29 +442,10 @@ test("StrategySchema validates orchestration metadata and defaults correctly", a
   assert.equal(parsedWithout.orchestration, undefined);
 });
 
-test("Frontend script.js safely renders orchestration metadata panel before assumptions with Core and Reasoning labels", async () => {
+test("Brief source card is conditional and renders safe links", async () => {
   const fs = (await import("node:fs/promises")).default;
-  const path = (await import("node:path")).default;
-
-  const scriptContent = await fs.readFile(path.resolve("public/script.js"), "utf-8");
-
-  // 1. Panel is inserted before assumptions in buildStrategyView
-  const closeoutIndex = scriptContent.indexOf("const closeout = buildNextStepsSection(strategy, isEn, false);");
-  const metaPanelIndex = scriptContent.indexOf("const metaPanel = buildOrchestrationMetaPanel(strategy, isEn);");
-  const assumptionsIndex = scriptContent.indexOf("if (strategy.assumptions && strategy.assumptions.length) {");
-
-  assert.ok(closeoutIndex > 0, "buildNextStepsSection found");
-  assert.ok(metaPanelIndex > closeoutIndex, "metaPanel is built after closeout");
-  assert.ok(assumptionsIndex > metaPanelIndex, "assumptions panel is built after metaPanel");
-
-  // 2. buildOrchestrationMetaPanel exists and uses safe DOM creation without innerHTML
-  assert.ok(scriptContent.includes("function buildOrchestrationMetaPanel(strategy, isEn)"), "buildOrchestrationMetaPanel function exists");
-  assert.ok(scriptContent.includes("element(\"div\", \"strategy-orchestration-panel\")"), "Creates safe panel container");
-  assert.ok(!scriptContent.slice(metaPanelIndex, metaPanelIndex + 2500).includes("innerHTML"), "Zero innerHTML used in orchestration panel");
-
-  // 3. Model display maps Gemini to Core and Opus to Reasoning, never exposing raw internal model names
-  assert.ok(scriptContent.includes('displayModels.push("Core")'), "Maps to Core");
-  assert.ok(scriptContent.includes('displayModels.push("Reasoning")'), "Maps to Reasoning");
-  assert.match(scriptContent, /isSearchUsed[\s\S]*?(?:Used|İstifadə edilib)/, "Localizes web search used");
-  assert.match(scriptContent, /(?:Not used|İstifadə edilməyib)/, "Localizes web search not used");
+  const script = await fs.readFile("public/script.js", "utf8");
+  assert.match(script, /if \(!sources\.length\) return null/);
+  assert.match(script, /link\.rel = "noopener noreferrer"/);
+  assert.match(script, /if \(metaPanel\) container\.appendChild\(metaPanel\)/);
 });

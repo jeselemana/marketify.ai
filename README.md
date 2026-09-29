@@ -12,11 +12,10 @@ Helmer is an AI strategy workspace built on the project's existing Express and v
 ## Configuration
 
 - `GEMINI_API_KEY` — required for Build mode (`gemini-3.8-flash` via Vertex AI), Gemini Ask mode, and Live Search Grounding.
-- `OPENAI_API_KEY` — used for Build mode fallback (`gpt-5.6-terra`) and OpenAI Ask mode (`gpt-5.6-luna`, `gpt-5.6-terra`).
-- `GEMINI_STRATEGY_MODEL` — Build mode primary generation/refinement model; defaults to `gemini-3.8-flash` (High thinking mode via Vertex AI).
-- `OPENAI_STRATEGY_MODEL` — Build mode fallback model; defaults to `gpt-5.6-terra`.
+- `OPENAI_API_KEY` — used for Build mode fallback (`gpt-6-sol`) and OpenAI Ask mode (`gpt-5.6-luna`, `gpt-5.6-terra`).
+- Build mode uses `gemini-3.8-flash` with High thinking and falls back to `gpt-6-sol`.
 - `OPENAI_ASK_MODEL` — model for Ask mode; defaults to `gpt-5.6-luna`.
-- `GEMINI_ASK_MODEL` — Gemini model for Ask mode; defaults to `gemini-3.7-flash`.
+- Ask Flash uses `gemini-3.8-flash` with selectable Low, Medium, and High thinking levels.
 - `MAX_CLARIFICATION_ROUNDS` — defaults to `2`.
 - `PORT` — defaults to `8080`.
 - `APP_URL` — the canonical public origin, for example `https://helmerworkspace.com`.

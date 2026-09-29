@@ -17,4 +17,4 @@ data/ai-learning-*.json
 data/telemetry*.json
 data/legal_reports*.json
 data/*.tmp
-
+gcp-key.json
