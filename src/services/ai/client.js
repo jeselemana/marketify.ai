@@ -1,15 +1,34 @@
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
-import { GoogleAuth } from "google-auth-library";
+import { AnthropicVertex } from "@anthropic-ai/vertex-sdk";
 import { hasOpenAIConfiguration, hasGeminiConfiguration, hasOpusConfiguration, aiConfig } from "./config.js";
 
 let client;
 let geminiClient;
-let googleAuth;
+let anthropicVertexClient = null;
 let testOpusCaller = null;
 
 export function setTestOpusCaller(fn) {
   testOpusCaller = fn;
+}
+
+export function getAnthropicVertexClient() {
+  if (!anthropicVertexClient) {
+    const projectId =
+      process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
+      process.env.GCP_PROJECT?.trim() ||
+      "gen-lang-client-0045930484";
+    const region = "global";
+
+    anthropicVertexClient = new AnthropicVertex({
+      projectId,
+      region,
+    });
+    if (anthropicVertexClient._authClientPromise) {
+      anthropicVertexClient._authClientPromise.catch(() => {});
+    }
+  }
+  return anthropicVertexClient;
 }
 
 export function getOpenAIClient() {
@@ -59,112 +78,32 @@ export async function callOpusVertexModel({ system = "", prompt = "", maxTokens 
     return null;
   }
 
-  const model = aiConfig.opusModel || "opus-5.5";
-  const anthropicApiKey = process.env.ANTHROPIC_API_KEY?.trim();
-  const gcpProject = process.env.GOOGLE_CLOUD_PROJECT?.trim();
-  const gcpLocation = process.env.GOOGLE_CLOUD_LOCATION?.trim() || "us-central1";
+  const model = aiConfig.opusModel || "claude-opus-5-5";
 
-  // 1. Direct Anthropic API option if key is set
-  if (anthropicApiKey) {
-    try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicApiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model,
-          system: system || undefined,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: maxTokens,
-          temperature: 0.2,
-        }),
-        signal,
-      });
+  try {
+    const vertex = getAnthropicVertexClient();
+    const response = await vertex.messages.create(
+      {
+        model,
+        max_tokens: maxTokens,
+        system: system || undefined,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+      },
+      { signal }
+    );
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        console.warn(`[Opus Direct API] HTTP ${response.status}: ${errorText}`);
-        return null;
-      }
+    const text = (response.content || []).map((c) => c.text || "").join("").trim();
+    const usage = response.usage ? {
+      prompt_tokens: response.usage.input_tokens || null,
+      completion_tokens: response.usage.output_tokens || null,
+      total_tokens: (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0) || null,
+    } : null;
 
-      const data = await response.json();
-      const text = (data.content || []).map((c) => c.text || "").join("").trim();
-      const usage = data.usage ? {
-        prompt_tokens: data.usage.input_tokens || null,
-        completion_tokens: data.usage.output_tokens || null,
-        total_tokens: (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0) || null,
-      } : null;
-
-      return { text, model, provider: "anthropic", usage };
-    } catch (err) {
-      if (err.name === "AbortError" || signal?.aborted) throw err;
-      console.warn("[Opus Direct API] Xəta:", err?.message || err);
-      return null;
-    }
+    return { text, model, provider: "vertex-anthropic", usage };
+  } catch (err) {
+    if (err.name === "AbortError" || signal?.aborted) throw err;
+    console.error("❌ [Opus Vertex AI Xətası]:", err);
+    return null;
   }
-
-  // 2. Vertex AI Model Garden
-  if (gcpProject || process.env.GEMINI_API_KEY?.trim()) {
-    try {
-      const headers = {
-        "Content-Type": "application/json; charset=utf-8",
-      };
-      let endpoint = `https://${gcpLocation}-aiplatform.googleapis.com/v1/projects/${gcpProject || "default"}/locations/${gcpLocation}/publishers/anthropic/models/${model}:rawPredict`;
-
-      if (process.env.GEMINI_API_KEY?.trim() && !gcpProject) {
-        endpoint += `?key=${process.env.GEMINI_API_KEY.trim()}`;
-        headers["x-goog-api-key"] = process.env.GEMINI_API_KEY.trim();
-      } else {
-        if (!googleAuth) {
-          googleAuth = new GoogleAuth({
-            scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-          });
-        }
-        const authClient = await googleAuth.getClient();
-        const tokenRes = await authClient.getAccessToken();
-        const token = tokenRes?.token || tokenRes;
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-      }
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          anthropic_version: "vertex-2023-10-16",
-          system: system || undefined,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: maxTokens,
-          temperature: 0.2,
-        }),
-        signal,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        console.warn(`[Vertex AI Model Garden Opus] HTTP ${response.status}: ${errorText}`);
-        return null;
-      }
-
-      const data = await response.json();
-      const text = (data.content || []).map((c) => c.text || "").join("").trim();
-      const usage = data.usage ? {
-        prompt_tokens: data.usage.input_tokens || null,
-        completion_tokens: data.usage.output_tokens || null,
-        total_tokens: (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0) || null,
-      } : null;
-
-      return { text, model, provider: "vertex-anthropic", usage };
-    } catch (err) {
-      if (err.name === "AbortError" || signal?.aborted) throw err;
-      console.warn("[Vertex AI Model Garden Opus] Xəta:", err?.message || err);
-      return null;
-    }
-  }
-
-  return null;
 }

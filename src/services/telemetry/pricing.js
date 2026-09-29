@@ -8,6 +8,7 @@ const DEFAULT_PRICING = Object.freeze({
   "gpt-5.6-terra": { inputPerMillion: 1.25, outputPerMillion: 5.00 },
   "opus-5.5": { inputPerMillion: 15.00, outputPerMillion: 75.00 },
   "claude-opus-5.5": { inputPerMillion: 15.00, outputPerMillion: 75.00 },
+  "claude-opus-5-5": { inputPerMillion: 15.00, outputPerMillion: 75.00 },
 });
 
 function getEnvNumber(name, fallback) {

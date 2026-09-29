@@ -554,10 +554,10 @@ export async function generateStrategy({
     strategyData.nextSteps = alignNextStepsLogic(strategyData.nextSteps, language);
   }
 
-  // Model & Grounding metadata (User-facing names: Core for Gemini, Legacy for Opus)
+  // Model & Grounding metadata (User-facing names: Core for Gemini, Reasoning for Opus)
   const usedModels = ["Core"];
   if (opusResult?.insights) {
-    usedModels.push("Legacy");
+    usedModels.unshift("Reasoning");
   }
 
   strategyData.orchestration = {
@@ -635,8 +635,8 @@ export async function refineStrategy(payload, ownerId, signal, personalizationCo
 
   // Preserve and update orchestration metadata
   const refineModels = ["Core"];
-  if (opusInsights || payload.strategy?.orchestration?.models?.includes("Legacy")) {
-    refineModels.push("Legacy");
+  if (opusInsights || payload.strategy?.orchestration?.models?.some((m) => m === "Reasoning" || m === "Legacy")) {
+    refineModels.unshift("Reasoning");
   }
 
   strategyData.orchestration = {

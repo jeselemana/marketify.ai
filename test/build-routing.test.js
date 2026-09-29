@@ -378,15 +378,15 @@ test("build mode config registers Opus 5.5 and Google Search Grounding with cost
   const { getPricingForModel, calculateEstimatedCost } = await import("../src/services/telemetry/pricing.js");
 
   assert.equal(aiConfig.strategyModel, "gemini-3.8-flash");
-  assert.equal(aiConfig.opusModel, "opus-5.5");
+  assert.equal(aiConfig.opusModel, "claude-opus-5-5");
   assert.equal(aiConfig.enableBuildSearchGrounding, true);
   assert.equal(aiConfig.enableOpusOrchestration, true);
 
-  const opusPricing = getPricingForModel("opus-5.5");
+  const opusPricing = getPricingForModel("claude-opus-5-5");
   assert.equal(opusPricing.inputPerMillion, 15.00);
   assert.equal(opusPricing.outputPerMillion, 75.00);
 
-  const cost = calculateEstimatedCost("opus-5.5", 1000, 500);
+  const cost = calculateEstimatedCost("claude-opus-5-5", 1000, 500);
   assert.ok(cost.costUsd > 0);
   assert.ok(cost.costAzn > 0);
   assert.equal(cost.totalTokens, 1500);
@@ -549,7 +549,7 @@ test("callOpusVertexModel interacts gracefully and handles missing configuration
         positioningWedge: "Sharp wedge",
         strategicDifferentiation: "Pure differentiation",
       }),
-      model: "opus-5.5",
+      model: "claude-opus-5-5",
       provider: "vertex-anthropic",
       usage: { prompt_tokens: 150, completion_tokens: 60, total_tokens: 210 },
     };
@@ -557,7 +557,7 @@ test("callOpusVertexModel interacts gracefully and handles missing configuration
 
   try {
     const mockedRes = await callOpusVertexModel({ system: "Test", prompt: "Hello" });
-    assert.equal(mockedRes.model, "opus-5.5");
+    assert.equal(mockedRes.model, "claude-opus-5-5");
     assert.equal(mockedRes.provider, "vertex-anthropic");
     assert.equal(mockedRes.usage.total_tokens, 210);
     const parsed = JSON.parse(mockedRes.text);
@@ -591,15 +591,15 @@ test("StrategySchema validates orchestration metadata and defaults correctly", a
     assumptions: ["Assumption 1"],
     nextSteps: ["Step 1"],
     orchestration: {
-      models: ["Core", "Legacy"],
+      models: ["Reasoning", "Core"],
       searchGrounded: true,
     },
   };
 
   const parsed = StrategySchema.parse(validStrategy);
   assert.equal(parsed.orchestration.models.length, 2);
-  assert.equal(parsed.orchestration.models[0], "Core");
-  assert.equal(parsed.orchestration.models[1], "Legacy");
+  assert.equal(parsed.orchestration.models[0], "Reasoning");
+  assert.equal(parsed.orchestration.models[1], "Core");
   assert.equal(parsed.orchestration.searchGrounded, true);
 
   // Without orchestration property, it remains optional
@@ -608,7 +608,7 @@ test("StrategySchema validates orchestration metadata and defaults correctly", a
   assert.equal(parsedWithout.orchestration, undefined);
 });
 
-test("Frontend script.js safely renders orchestration metadata panel before assumptions with Core and Legacy labels", async () => {
+test("Frontend script.js safely renders orchestration metadata panel before assumptions with Core and Reasoning labels", async () => {
   const fs = (await import("node:fs/promises")).default;
   const path = (await import("node:path")).default;
 
@@ -628,9 +628,9 @@ test("Frontend script.js safely renders orchestration metadata panel before assu
   assert.ok(scriptContent.includes("element(\"div\", \"strategy-orchestration-panel\")"), "Creates safe panel container");
   assert.ok(!scriptContent.slice(metaPanelIndex, metaPanelIndex + 2500).includes("innerHTML"), "Zero innerHTML used in orchestration panel");
 
-  // 3. Model display maps Gemini to Core and Opus to Legacy, never exposing raw internal model names
+  // 3. Model display maps Gemini to Core and Opus to Reasoning, never exposing raw internal model names
   assert.ok(scriptContent.includes('displayModels.push("Core")'), "Maps to Core");
-  assert.ok(scriptContent.includes('displayModels.push("Legacy")'), "Maps to Legacy");
+  assert.ok(scriptContent.includes('displayModels.push("Reasoning")'), "Maps to Reasoning");
   assert.match(scriptContent, /isSearchUsed[\s\S]*?(?:Used|İstifadə edilib)/, "Localizes web search used");
   assert.match(scriptContent, /(?:Not used|İstifadə edilməyib)/, "Localizes web search not used");
 });

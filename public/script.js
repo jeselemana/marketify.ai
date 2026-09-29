@@ -7144,7 +7144,7 @@ function buildOrchestrationMetaPanel(strategy, isEn) {
 
   const chipsContainer = element("div", "orchestration-chips");
 
-  // Determine models display: strict mapping - Gemini -> Core, Opus -> Legacy, never raw model names
+  // Determine models display: strict mapping - Gemini -> Core, Opus -> Reasoning, never raw model names
   const rawModels = Array.isArray(meta.models) && meta.models.length > 0 ? meta.models : ["Core"];
   const displayModels = [];
 
@@ -7152,16 +7152,16 @@ function buildOrchestrationMetaPanel(strategy, isEn) {
     const lower = String(m || "").toLowerCase();
     return lower.includes("core") || lower.includes("gemini") || lower.includes("flash") || lower.includes("google");
   });
-  const hasLegacy = rawModels.some((m) => {
+  const hasReasoning = rawModels.some((m) => {
     const lower = String(m || "").toLowerCase();
-    return lower.includes("legacy") || lower.includes("opus") || lower.includes("claude") || lower.includes("anthropic");
+    return lower.includes("reasoning") || lower.includes("legacy") || lower.includes("opus") || lower.includes("claude") || lower.includes("anthropic");
   });
 
-  if (hasCore || (!hasCore && !hasLegacy)) {
-    displayModels.push("Core");
+  if (hasReasoning) {
+    displayModels.push("Reasoning");
   }
-  if (hasLegacy) {
-    displayModels.push("Legacy");
+  if (hasCore || (!hasCore && !hasReasoning)) {
+    displayModels.push("Core");
   }
 
   const modelChip = element("div", "orchestration-chip model-chip");
