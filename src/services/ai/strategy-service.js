@@ -236,11 +236,22 @@ export function extractGroundingSources(metadata) {
   return sources;
 }
 
+export function shouldResearchBuild(text = "") {
+  return shouldEnableSearch(text) || /\b(?:api|erp|crm|rag|llm|slm|routing|model routing|model selection|technology stack|tech stack|integration|inteqrasiya|arxitektura|architecture|knowledge graph)\b/i.test(text);
+}
+
+function formatGroundedResearch(research) {
+  if (!research?.text || !research?.sources?.length) return "";
+  const sourceList = research.sources.map((source) => `- ${source.title}: ${source.url}`).join("\n");
+  return `\n\n[LIVE RESEARCH — VERIFY EACH CLAIM AGAINST THE LINKED SOURCE]:\n${research.text}\nSources:\n${sourceList}\nThe search summary alone is not proof. Use a claim only if its linked source supports it; otherwise omit the claim or mark it unverified. Do not present an old or user-provided model name as current without provider confirmation.`;
+}
+
 export async function conductGeminiGroundedResearch({
   brief,
   answers = [],
   language = "az",
   signal = null,
+  focus = "",
 }) {
   if (!hasGeminiConfiguration()) return null;
 
@@ -249,12 +260,14 @@ export async function conductGeminiGroundedResearch({
   const searchPrompt = `Conduct rapid, factual market and competitor research for this strategy intake:
 Brief: ${brief}
 Context answers: ${clarificationContext(answers)}
+Current change or research focus: ${focus || "Initial strategy"}
 
 Find and extract:
 1. Real active competitors (local or global relevant to the niche).
 2. Verifiable market dynamics, pricing benchmarks, or industry metrics.
 3. Current consumer trends and relevant operational realities.
-Provide concise, purely factual findings (2-3 short bullet points, no corporate boilerplate).`;
+4. If AI architecture, external APIs, model routing or integrations are relevant, verify current model availability and specifications against official provider documentation; include publication/update dates when shown. If no credible source confirms a model, say so and use capability categories.
+Provide concise findings with the source URL beside each external claim. Exclude unsupported claims, fabricated figures and stale flagship labels.`;
 
   const systemInstruction = isEn
     ? "You are Helmer's real-time factual intelligence engine. Extract verified facts, real competitor names, current pricing ranges, and active trends using live Google Search. Never invent statistics."
@@ -290,7 +303,7 @@ Provide concise, purely factual findings (2-3 short bullet points, no corporate 
     }
     const metadata = response?.candidates?.[0]?.groundingMetadata || response?.groundingMetadata;
     const sources = extractGroundingSources(metadata);
-    return text ? { text, usage, sources } : null;
+    return text && sources.length ? { text, usage, sources } : null;
   } catch (error) {
     if (error.name === "AbortError" || signal?.aborted) throw error;
     console.warn("⚠️ [Build Grounding Xətası]:", error?.message || error);
@@ -316,7 +329,7 @@ export async function generateStrategy({
 
   // 1. Google Search Grounding for factual/market intelligence when required
   const searchCandidates = `${brief} ${answers.map((a) => a.answer || "").join(" ")}`;
-  const needsGrounding = aiConfig.enableBuildSearchGrounding && shouldEnableSearch(searchCandidates);
+  const needsGrounding = aiConfig.enableBuildSearchGrounding && shouldResearchBuild(searchCandidates);
   let groundedResearch = null;
 
   if (needsGrounding && hasGeminiConfiguration()) {
@@ -335,9 +348,7 @@ export async function generateStrategy({
     }
   }
 
-  const factualContext = groundedResearch?.text
-    ? `\n\n[REAL-TIME FACTUAL GROUNDING & MARKET INTELLIGENCE]:\n${groundedResearch.text}`
-    : "";
+  const factualContext = formatGroundedResearch(groundedResearch);
 
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
     assumptions.length ? assumptions.join("\n- ") : "None supplied."
@@ -386,11 +397,26 @@ export async function refineStrategy(payload, ownerId, signal, personalizationCo
     personalizationContext,
   });
 
+  const researchCandidates = `${payload.brief} ${payload.request || ""}`;
+  let groundedResearch = null;
+  if (aiConfig.enableBuildSearchGrounding && hasGeminiConfiguration() && shouldResearchBuild(researchCandidates)) {
+    groundedResearch = await conductGeminiGroundedResearch({
+      brief: payload.brief,
+      answers: payload.answers,
+      language: payload.language || "az",
+      signal,
+      focus: payload.request || payload.action,
+    });
+    if (groundedResearch?.usage) {
+      onUsage?.({ usage: groundedResearch.usage, model: aiConfig.strategyModel, provider: "google" });
+    }
+  }
+
   const result = await routeStructuredGeneration({
     schema: StrategySchema,
     name: "helmer_refined_strategy",
     instructions,
-    input: `${buildRefinementInput(payload)}${languageDirective}`,
+    input: `${buildRefinementInput(payload)}${formatGroundedResearch(groundedResearch)}${languageDirective}`,
     maxOutputTokens: aiConfig.refinementMaxOutputTokens,
     reasoning: payload.action === "think_deeper" ? "high" : "medium",
     ownerId,
@@ -407,8 +433,9 @@ export async function refineStrategy(payload, ownerId, signal, personalizationCo
 
   strategyData.orchestration = {
     models: [result.model],
-    searchGrounded: Boolean(payload.strategy?.orchestration?.sources?.length),
-    sources: payload.strategy?.orchestration?.sources || [],
+    searchGrounded: Boolean(groundedResearch?.sources?.length || payload.strategy?.orchestration?.sources?.length),
+    sources: [...new Map([...(groundedResearch?.sources || []), ...(payload.strategy?.orchestration?.sources || [])]
+      .map((source) => [source.url, source])).values()].slice(0, 20),
   };
 
   return strategyData;

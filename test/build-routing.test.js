@@ -373,6 +373,35 @@ test("buildAssessorPrompt and buildRefinementPrompt correctly apply context-awar
   assert.match(localAzInst, /İlk 7 gün/);
 });
 
+test("Build prompts enforce the architect profile and factual pre-flight across generation stages", async () => {
+  const {
+    HELMER_BUILD_ARCHITECT_PROFILE,
+    buildAssessorPrompt,
+    buildStrategyPrompt,
+    buildRefinementPrompt,
+  } = await import("../src/services/ai/prompts.js");
+
+  for (const prompt of [
+    buildAssessorPrompt({ brief: "B2B workflow platform" }),
+    buildStrategyPrompt({ brief: "B2B workflow platform" }),
+    buildRefinementPrompt({ brief: "B2B workflow platform" }),
+  ]) {
+    assert.ok(prompt.includes(HELMER_BUILD_ARCHITECT_PROFILE));
+    assert.match(prompt, /\[High-tier Reasoning Model\]/);
+    assert.match(prompt, /cost per million tokens/);
+    assert.match(prompt, /\[Hədəf KPI\]/);
+    assert.match(prompt, /Never portray an unrun experiment/);
+    assert.match(prompt, /PRE-FLIGHT BEFORE RETURNING STRUCTURED DATA/);
+  }
+});
+
+test("Build research routing covers AI architecture without a named model", async () => {
+  const { shouldResearchBuild } = await import("../src/services/ai/strategy-service.js");
+  assert.equal(shouldResearchBuild("Design a RAG architecture with ERP integration"), true);
+  assert.equal(shouldResearchBuild("Build a model routing workflow"), true);
+  assert.equal(shouldResearchBuild("Write a timeless brand slogan"), false);
+});
+
 test("Build configuration uses Gemini High with GPT-6 Sol fallback and no Opus orchestration", async () => {
   const { aiConfig } = await import("../src/services/ai/config.js");
   const { getPricingForModel } = await import("../src/services/telemetry/pricing.js");

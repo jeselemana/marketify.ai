@@ -33,8 +33,9 @@ test("2. EPISTEMIC_HUMILITY_RULES strictly bans invented numbers and mandates ra
   assert.match(EPISTEMIC_HUMILITY_RULES, /aylıq 4,820 AZN/);
   assert.match(EPISTEMIC_HUMILITY_RULES, /bazarın 18\.4%-i/);
 
-  // Mandatory range & benchmark or formula
-  assert.match(EPISTEMIC_HUMILITY_RULES, /Bakı bazarında bu tip kampaniyalar üçün ilkin test büdcəsi adətən 500 – 1,200 AZN aralığında götürülür/);
+  // A range needs evidence or an explicit projection label.
+  assert.match(EPISTEMIC_HUMILITY_RULES, /mənbə ilə təsdiqlənmiş diapazon/);
+  assert.match(EPISTEMIC_HUMILITY_RULES, /\[Proyeksiya\]/);
   assert.match(EPISTEMIC_HUMILITY_RULES, /düstur\/məntiq ver və istifadəçidən əsas dəyişəni soruş/);
 });
 
@@ -52,7 +53,7 @@ test("4. Build Mode: STRATEGY_PROMPT, REFINEMENT_PROMPT, and ASSESSOR_PROMPT inc
   // Strategy prompt contains epistemic humility rules and local AZ mode rules
   assert.match(STRATEGY_PROMPT, /EPISTEMIC HUMILITY/i);
   assert.match(STRATEGY_PROMPT, /aylıq 4,820 AZN/);
-  assert.match(STRATEGY_PROMPT, /Bakı bazarında bu tip kampaniyalar üçün ilkin test büdcəsi adətən 500 – 1,200 AZN aralığında götürülür/);
+  assert.match(STRATEGY_PROMPT, /mənbə ilə təsdiqlənmiş diapazon/);
   assert.match(STRATEGY_PROMPT, /\[LOCAL_AZ_MODE\]/);
 
   // Refinement prompt contains epistemic humility rules
@@ -61,13 +62,13 @@ test("4. Build Mode: STRATEGY_PROMPT, REFINEMENT_PROMPT, and ASSESSOR_PROMPT inc
 
   // Assessor prompt contains epistemic humility instruction
   assert.match(ASSESSOR_PROMPT, /Epistemic Humility/i);
-  assert.match(ASSESSOR_PROMPT, /working assumptions with benchmark ranges/i);
+  assert.match(ASSESSOR_PROMPT, /benchmark ranges only with a verifiable source/i);
 });
 
 test("5. LOCAL_AZ_MODE_RULES integrates metric discipline and senior strategist tone without breaking existing laws", () => {
   // Metric discipline in local mode finance
   assert.match(LOCAL_AZ_MODE_RULES, /Rəqəm və Metrika İntizamı/);
-  assert.match(LOCAL_AZ_MODE_RULES, /500 – 1,200 AZN/);
+  assert.match(LOCAL_AZ_MODE_RULES, /\[Proyeksiya\]/);
 
   // Style and tone guidance in local mode
   assert.match(LOCAL_AZ_MODE_RULES, /Mən sadəcə süni intellektəm/);
