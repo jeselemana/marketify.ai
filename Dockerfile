@@ -1,5 +1,5 @@
 # Production Dockerfile for Google Cloud Run
-FROM node:20-slim
+FROM node:24-bookworm-slim
 
 # Set production environment variables
 ENV NODE_ENV=production
@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY package*.json ./
 
 # Install production dependencies
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Purge build dependencies to keep the image lightweight and secure
 RUN apt-get purge -y --auto-remove python3 make g++ \
@@ -29,7 +29,10 @@ RUN apt-get purge -y --auto-remove python3 make g++ \
 COPY . .
 
 # Defense-in-depth: Ensure no sensitive or local user data files remain in the image
-RUN rm -rf .env* data/*.json data/*.tmp
+RUN rm -rf .env* data/*.json data/*.tmp gcp-key.json *-key.json gcp*.json
+
+RUN mkdir -p /app/data && chown -R node:node /app/data
+USER node
 
 # Expose container port for Cloud Run
 EXPOSE 8080

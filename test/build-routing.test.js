@@ -449,3 +449,111 @@ test("Brief source card is conditional and renders safe links", async () => {
   assert.match(script, /link\.rel = "noopener noreferrer"/);
   assert.match(script, /if \(metaPanel\) container\.appendChild\(metaPanel\)/);
 });
+
+test("extractJsonFromText handles direct JSON, markdown code blocks, and preambles", async () => {
+  const { extractJsonFromText } = await import("../src/services/ai/llm-router.js");
+
+  // 1. Direct JSON
+  const direct = extractJsonFromText('{"status": "ready", "count": 42}');
+  assert.deepEqual(direct, { status: "ready", count: 42 });
+
+  // 2. Wrapped in ```json ... ``` code fence
+  const markdownJson = extractJsonFromText('```json\n{"name": "test", "valid": true}\n```');
+  assert.deepEqual(markdownJson, { name: "test", valid: true });
+
+  // 3. Wrapped in generic ``` ... ``` code fence
+  const genericFence = extractJsonFromText('```\n{"score": 98}\n```');
+  assert.deepEqual(genericFence, { score: 98 });
+
+  // 4. Wrapped with conversational preamble and trailing notes
+  const conversational = extractJsonFromText('Here is the generated analysis:\n```json\n{"analysis": "complete"}\n```\nHope this helps!');
+  assert.deepEqual(conversational, { analysis: "complete" });
+
+  // 5. Array extraction
+  const arrayResult = extractJsonFromText('["item1", "item2"]');
+  assert.deepEqual(arrayResult, ["item1", "item2"]);
+
+  // 6. Invalid input throws clear error
+  assert.throws(() => extractJsonFromText("Not a valid json at all"), /Mətndən etibarlı JSON strukturu çıxarıla bilmədi/);
+  assert.throws(() => extractJsonFromText("   "), /Boş mətn təqdim edilib/);
+});
+
+test("normalizeStructuredOutput normalizes strategy_assessment and handles edge cases", async () => {
+  const { normalizeStructuredOutput } = await import("../src/services/ai/llm-router.js");
+  const { StrategyAssessmentSchema } = await import("../src/domain/strategy.js");
+
+  // 1. Synonym status 'clarification_needed' converted to 'needs_clarification'
+  const rawAssessment1 = {
+    status: "clarification_needed",
+    understanding: "Intake understanding",
+    questions: [
+      { id: "q1", question: "What is your target?", reason: "Target context", inputType: "single_choice", options: ["A", "B"] },
+    ],
+    assumptions: ["Working assumption 1"],
+  };
+  const normalized1 = normalizeStructuredOutput(rawAssessment1, "strategy_assessment");
+  assert.equal(normalized1.status, "needs_clarification");
+  const validated1 = StrategyAssessmentSchema.parse(normalized1);
+  assert.equal(validated1.status, "needs_clarification");
+
+  // 2. Missing understanding and non-standard status with questions
+  const rawAssessment2 = {
+    status: "requires_input",
+    questions: [
+      { question: "What is your primary market?", inputType: "unknown_type" },
+    ],
+  };
+  const normalized2 = normalizeStructuredOutput(rawAssessment2, "strategy_assessment");
+  assert.equal(normalized2.status, "needs_clarification");
+  assert.equal(normalized2.questions[0].inputType, "single_choice");
+  assert.ok(normalized2.understanding.length > 0);
+  const validated2 = StrategyAssessmentSchema.parse(normalized2);
+  assert.equal(validated2.status, "needs_clarification");
+});
+
+test("normalizeStructuredOutput normalizes helmer_strategy and satisfies StrategySchema", async () => {
+  const { normalizeStructuredOutput } = await import("../src/services/ai/llm-router.js");
+  const { StrategySchema } = await import("../src/domain/strategy.js");
+
+  // Raw strategy with uppercase priority enum, insufficient sections, empty kpis, empty nextSteps
+  const rawStrategy = {
+    title: "AI Strategy for Fintech",
+    summary: "Comprehensive strategy summary.",
+    context: {
+      business: "Fintech engine.",
+    },
+    sections: [
+      { title: "Only Section", content: "Section details", summary: "Summary" },
+    ],
+    priorities: [
+      { title: "Priority 1", description: "Desc 1", priority: "HIGH" },
+      { title: "Priority 2", description: "Desc 2", priority: "Medium" },
+      { title: "Priority 3", description: "Desc 3", priority: "INVALID_ENUM" },
+    ],
+    actionPlan: [],
+    kpis: [],
+    nextSteps: [],
+  };
+
+  const normalized = normalizeStructuredOutput(rawStrategy, "helmer_strategy");
+
+  // Uppercase enum normalized to strictly lowercase
+  assert.equal(normalized.priorities[0].priority, "high");
+  assert.equal(normalized.priorities[1].priority, "medium");
+  assert.equal(normalized.priorities[2].priority, "medium");
+
+  // Insufficient sections (< 3) padded to at least 3 sections
+  assert.ok(normalized.sections.length >= 3);
+
+  // Missing actionPlan, kpis, and nextSteps padded with valid defaults
+  assert.ok(normalized.actionPlan.length >= 1);
+  assert.ok(normalized.kpis.length >= 1);
+  assert.ok(normalized.nextSteps.length >= 1);
+
+  // Complete schema validation passes cleanly
+  const validated = StrategySchema.parse(normalized);
+  assert.equal(validated.title, "AI Strategy for Fintech");
+  assert.equal(validated.priorities[0].priority, "high");
+  assert.ok(validated.sections.length >= 3);
+});
+

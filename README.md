@@ -9,6 +9,8 @@ Helmer is an AI strategy workspace built on the project's existing Express and v
 3. Start with `npm start`.
 4. Open `http://localhost:8080` in the browser.
 
+For local development, use `npm run dev` so changes to imported server modules restart the process automatically. With `npm start`, restart the server after backend changes. If `PORT` is configured in `.env`, use that port instead of `8080`.
+
 ## Configuration
 
 - `GEMINI_API_KEY` — required for Build mode (`gemini-3.8-flash` via Vertex AI), Gemini Ask mode, and Live Search Grounding.
@@ -51,8 +53,18 @@ Password reset tokens are random, stored only as hashes, expire after 20 minutes
 - CSV spreadsheet export: implemented locally with normalized priority, action-plan, KPI, and risk rows.
 - Google Docs, Google Sheets, and connected Excel: visibly marked as coming soon; no connection is faked.
 
+## Ask capabilities (V4)
+
+Ask and Strategy Copilot support `@Word`, `@Excel`, `@PowerPoint`, `@PDF` and `@Web`. A registry-driven selector routes requests to grounded research or validated structured specifications and deterministic native files. Cards provide authenticated downloads, structural previews, edits and immutable version history. Saved Build strategies can supply source context.
+
+See [Ask artifacts architecture and deployment](docs/ask-artifacts-v4.md) for provider/storage configuration, API contracts, limits, permissions, extension points and verification.
+
 ## Verification
 
 - `npm run check` — JavaScript syntax checks.
-- `npm test` — auth hashing/session/reset flows plus domain, refinement-context, versioning, and ownership tests.
-- `npm run build` — complete static-app validation (`check` + `test`).
+- `npm test` — auth/domain regression tests plus capability routing, real file integrity, versioning, ownership, recovery, orchestration and UI tests.
+- `npm run build` — static-app syntax validation; run `npm test` separately.
+
+## Helmer UP
+
+UP adds account-backed business practice with GPT-6 Luna generation/evaluation, deterministic Points, goals, streaks, levels and skill progression. Open it from UP in desktop/mobile navigation or `/workspace?view=up`. See [UP architecture and verification](docs/up-v4.md). `npm test` includes the UP security and persistence tests; `node scripts/test-up-live.js` runs an isolated live API smoke test, and `--cloud` checks real R2 conditional persistence.

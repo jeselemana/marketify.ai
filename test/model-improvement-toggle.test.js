@@ -27,7 +27,7 @@ test("1. UserSettingsSchema validates modelImprovement and enforces .strict()", 
   }, /unrecognized_keys/i);
 });
 
-test("2. FileUserRepository initializes modelImprovement to true by default", async (t) => {
+test("2. FileUserRepository requires explicit opt-in for modelImprovement", async (t) => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-user-"));
   t.after(() => fs.rm(tmpDir, { recursive: true, force: true }));
   const repo = new FileUserRepository(path.join(tmpDir, "users.json"), null, { mirrorToR2: false });
@@ -39,12 +39,12 @@ test("2. FileUserRepository initializes modelImprovement to true by default", as
     passwordHash: "hash12345",
   });
 
-  assert.equal(user.settings.modelImprovement, true, "Default modelImprovement must be true");
+  assert.equal(user.settings.modelImprovement, false, "New accounts must opt in explicitly");
 });
 
 test("3. isModelImprovementEnabled middleware helper accurately detects toggle state", () => {
   // Default guest / unauthenticated
-  assert.equal(isModelImprovementEnabled({}), true);
+  assert.equal(isModelImprovementEnabled({}), false);
 
   // Authenticated user with modelImprovement enabled
   assert.equal(isModelImprovementEnabled({ user: { settings: { modelImprovement: true } } }), true);
@@ -135,7 +135,7 @@ test("5. LearningLoopService redacts interactions and prevents training candidat
   assert.equal(candidates.items.length, 0, "Restricted interactions must never become training candidates");
 });
 
-test("6. Deactivating modelImprovement via /settings automatically deactivates personalIntelligence", async (t) => {
+test("6. Deactivating modelImprovement via /settings preserves the independent personalIntelligence preference", async (t) => {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-auth-"));
   t.after(() => fs.rm(tmpDir, { recursive: true, force: true }));
   const userRepo = new FileUserRepository(path.join(tmpDir, "users.json"), null, { mirrorToR2: false });
@@ -181,7 +181,7 @@ test("6. Deactivating modelImprovement via /settings automatically deactivates p
   assert.equal(res.status, 200);
   const data = await res.json();
   assert.equal(data.user.settings.modelImprovement, false, "modelImprovement must be false");
-  assert.equal(data.user.settings.personalIntelligence, false, "personalIntelligence must be automatically disabled");
+  assert.equal(data.user.settings.personalIntelligence, true, "Contribution and personalization are independent");
 });
 
 test("7. Tone selection accepts professional, direct, creative, and executive without validation error", async (t) => {
@@ -244,5 +244,95 @@ test("8. Mobile styles and close button exist for model improvement popover", as
   const js = await fs.readFile(path.join(process.cwd(), "public", "script.js"), "utf8");
   assert.ok(js.includes("model-info-popover-close"), "script.js must render close button for popover");
   assert.ok(js.includes("modelInfoWrap.classList.remove(\"is-visible\")"), "script.js must wire close handler");
+});
+
+test("9. Deactivating modelImprovement immediately scrubs existing learning interactions, purges training candidates, and rejects export", async (t) => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-privacy-scrub-"));
+  t.after(() => fs.rm(tmpDir, { recursive: true, force: true }));
+  const userRepo = new FileUserRepository(path.join(tmpDir, "users.json"), null, { mirrorToR2: false });
+  const authStore = new FileAuthStore(path.join(tmpDir, "auth-store.json"), null, { mirrorToR2: false });
+  const learningRepo = new FileAiLearningRepository(path.join(tmpDir, "learning.json"), null, { mirrorToR2: false });
+  const learningService = new LearningLoopService(learningRepo);
+
+  const user = await userRepo.create({
+    fullName: "Privacy User",
+    username: "privacy_user",
+    email: "privacy@example.com",
+    passwordHash: "hash12345",
+  });
+
+  // Enable modelImprovement initially
+  let currentUser = await userRepo.update(user.id, {
+    settings: { ...user.settings, modelImprovement: true },
+  });
+  assert.equal(currentUser.settings.modelImprovement, true);
+  const initialEpoch = currentUser.privacyEpoch || 0;
+
+  // Record an interaction while opted-in
+  const interaction = await learningService.recordInteraction({
+    ownerId: user.id,
+    mode: "ask",
+    taskType: "ask_query",
+    modelProvider: "google",
+    modelName: "gemini-3.7-flash",
+    userPrompt: "Məxfi şirkət gəlir məlumatları və maliyyə planı",
+    modelResponse: "Şirkətinizin büdcə balansı və gizli strategiya planı",
+    onlyNecessaryData: false,
+    modelImprovement: true,
+  });
+
+  // Record signal to generate a candidate
+  await learningService.recordSignal(interaction.id, user.id, { explicitRating: "positive", accepted: true });
+  await learningService.recalculate();
+  let candidates = await learningService.listCandidates({});
+  assert.equal(candidates.total, 1, "Candidate should be generated for opted-in user");
+
+  // Spin up app with learning repository wired
+  const app = express();
+  app.use(express.json());
+  app.use((req, res, next) => {
+    req.user = currentUser;
+    next();
+  });
+  app.use("/api/auth", createAuthRouter({
+    userRepository: userRepo,
+    authStore,
+    aiLearningRepository: learningRepo,
+  }));
+  app.use(authErrorHandler);
+
+  const server = app.listen(0, "127.0.0.1");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  await new Promise((resolve) => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  // User toggles off modelImprovement
+  const res = await fetch(`${base}/api/auth/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ modelImprovement: false }),
+  });
+
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.user.settings.modelImprovement, false);
+
+  // Verify learning store was scrubbed
+  const store = await learningRepo.readStore();
+  const scrubbedInteraction = store.interactions.find((i) => i.id === interaction.id);
+  assert.ok(scrubbedInteraction, "Interaction should still exist as operational record");
+  assert.equal(scrubbedInteraction.onlyNecessaryData, true);
+  assert.equal(scrubbedInteraction.modelImprovement, false);
+  assert.doesNotMatch(scrubbedInteraction.userPrompt, /gəlir məlumatları/);
+  assert.match(scrubbedInteraction.userPrompt, /Zəruri əməliyyat qeydi/);
+  assert.doesNotMatch(scrubbedInteraction.modelResponse, /büdcə balansı/);
+  assert.match(scrubbedInteraction.modelResponse, /Məzmun gizlədilib/);
+
+  // Verify training candidates were completely purged
+  assert.equal(store.candidates.length, 0, "All candidates for opted-out user must be purged immediately");
+
+  // Verify privacy epoch was incremented
+  const refreshedUser = await userRepo.findById(user.id);
+  assert.equal(refreshedUser.privacyEpoch, initialEpoch + 1, "Privacy epoch must increment on opt-out");
 });
 

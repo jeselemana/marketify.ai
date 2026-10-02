@@ -12,7 +12,7 @@ import express from "express";
 
 test("1. UserSettingsSchema defines autoSaveStrategies defaulting to true", () => {
   const defaults = UserSettingsSchema.parse({});
-  assert.equal(defaults.autoSaveStrategies, true);
+  assert.equal(defaults.autoSaveStrategies, undefined, "PATCH must preserve omitted settings");
 
   const disabled = UserSettingsSchema.parse({ autoSaveStrategies: false });
   assert.equal(disabled.autoSaveStrategies, false);

@@ -2,6 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { summarizeTasksWithLuna, prioritizeTasksWithLuna } from "../services/ai/strategy-service.js";
 import { aiConfig } from "../services/ai/config.js";
+import { publicErrorMessage } from "./error-response.js";
 
 export const TaskInputSchema = z.object({
   text: z.string().trim().min(1).max(1000).optional(),
@@ -226,7 +227,7 @@ export function createPlannerRouter(plannerRepository, options = {}) {
       });
     } catch (error) {
       console.error("Planner summarize error:", error);
-      return res.status(500).json({ error: error.message || "Tapşırıqları xülasələndirmək mümkün olmadı." });
+      return res.status(500).json({ error: publicErrorMessage(error, "Tapşırıqları xülasələndirmək mümkün olmadı.") });
     }
   });
 
@@ -310,7 +311,7 @@ export function createPlannerRouter(plannerRepository, options = {}) {
       });
     } catch (error) {
       console.error("Planner prioritize error:", error);
-      return res.status(500).json({ error: error.message || "Tapşırıqları prioritetləşdirmək mümkün olmadı." });
+      return res.status(500).json({ error: publicErrorMessage(error, "Tapşırıqları prioritetləşdirmək mümkün olmadı.") });
     }
   });
 

@@ -1,139 +1,145 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { TenantLockManager } from "./tenant-lock.js";
+import { storageCorruption, writeJsonAtomically } from "./atomic-json-store.js";
 import { migrateAuthUserStore } from "./auth-store-migrations.js";
 import { normalizeEmail, normalizeUsername } from "../auth/validation.js";
-import { loadJSONFromR2, saveJSONToR2 } from "../http/r2-storage.js";
+import {
+  isR2Configured,
+  readUserObject,
+  writeUserObject,
+} from "../http/r2-storage.js";
 
 export class UserConflictError extends Error {
   constructor(field) {
     super(field === "email" ? "Bu e-poçt artıq istifadə olunur." : "Bu istifadəçi adı artıq götürülüb.");
     this.code = "USER_CONFLICT";
+    this.statusCode = 409;
+    this.status = 409;
     this.field = field;
   }
 }
 
 export class FileUserRepository {
-  constructor(filePath, redis = null) {
+  /**
+   * @param {string} filePath - Path to users.json
+   * @param {any} redis - Optional Redis client
+   * @param {object} options - Optional overrides for cloud functions
+   */
+  constructor(filePath, redis = null, options = {}) {
     this.filePath = filePath;
     this.redis = redis;
     this.redisKey = "marketify:store:users";
-    this.writeQueue = Promise.resolve();
+    this.cloud = options.cloud ?? isR2Configured();
+    this.readCloud = options.readCloud || readUserObject;
+    this.writeCloud = options.writeCloud || writeUserObject;
+    this.lockManager = new TenantLockManager(path.dirname(filePath));
+    this.lockKey = createHash("sha256").update(path.resolve(filePath)).digest("hex");
     this.cache = null;
+    this.lastMtimeMs = 0;
     this.lastR2Sync = 0;
     this.syncPromise = null;
   }
 
   async ensure() {
-    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-    try {
-      await fs.access(this.filePath);
-    } catch {
-      await this.writeStore(migrateAuthUserStore(null));
-    }
+    if (this.cloud) return this.syncFromR2();
+    await writeJsonAtomically(this.filePath, migrateAuthUserStore(null), { initialize: true });
   }
 
-  async syncFromR2(force = false) {
+  async withLock(operation) {
+    return this.lockManager.runInLock(this.lockKey, operation);
+  }
+
+  async syncFromR2() {
     if (this.syncPromise) return this.syncPromise;
-
-    this.syncPromise = (async () => {
-      let localStore = null;
-      try {
-        const raw = await fs.readFile(this.filePath, "utf8");
-        localStore = JSON.parse(raw || "{}");
-      } catch {}
-
-      try {
-        const r2Data = await loadJSONFromR2("users.json");
-        const userMap = new Map();
-
-        // 1. R2-dən gələn istifadəçilər
-        if (r2Data && Array.isArray(r2Data.users)) {
-          for (const u of r2Data.users) {
-            if (u?.id) userMap.set(u.id, u);
-          }
-        }
-
-        // 2. Lokal diskdəki istifadəçilərlə birləşdirmək (merge)
-        if (localStore && Array.isArray(localStore.users)) {
-          for (const lu of localStore.users) {
-            if (!lu?.id) continue;
-            const existing = userMap.get(lu.id);
-            if (!existing) {
-              userMap.set(lu.id, lu);
-            } else {
-              const luTime = new Date(lu.updatedAt || lu.createdAt || 0).getTime();
-              const exTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
-              userMap.set(lu.id, luTime >= exTime ? { ...existing, ...lu } : { ...lu, ...existing });
-            }
-          }
-        }
-
-        if (userMap.size > 0) {
-          const mergedUsers = Array.from(userMap.values());
-          const store = migrateAuthUserStore({ schemaVersion: 2, users: mergedUsers });
-
-          await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-          const temporaryPath = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
-          await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
-          await fs.rename(temporaryPath, this.filePath).catch(() => {});
-
-          this.cache = store;
-          this.lastR2Sync = Date.now();
-
-          if (this.redis?.isReady) {
-            await this.redis.set(this.redisKey, JSON.stringify(store)).catch(() => {});
-          }
-
-          if (r2Data?.users && mergedUsers.length > r2Data.users.length) {
-            saveJSONToR2("users.json", store).catch(() => {});
-          }
-
-          return store;
-        }
-      } catch (err) {
-        console.error("R2 user sync error:", err?.message || err);
-      }
-
-      if (localStore && Array.isArray(localStore.users)) {
-        this.cache = migrateAuthUserStore(localStore);
-        return this.cache;
-      }
-
-      return this.cache || migrateAuthUserStore(null);
-    })();
-
-    try {
-      return await this.syncPromise;
-    } finally {
-      this.syncPromise = null;
-    }
+    this.syncPromise = this.withLock(async () => {
+      // R2 is authoritative, including an empty store or deleted cloud object.
+      const { store } = await this.readAuthoritativeStore();
+      await writeJsonAtomically(this.filePath, store);
+      this.cache = store;
+      this.lastR2Sync = Date.now();
+      this.lastMtimeMs = (await fs.stat(this.filePath)).mtimeMs;
+      if (this.redis?.isReady) await this.redis.set(this.redisKey, JSON.stringify(store)).catch(() => {});
+      return store;
+    });
+    try { return await this.syncPromise; }
+    finally { this.syncPromise = null; }
   }
 
-  async readStore() {
-    if (this.cache) return this.cache;
+  async readAuthoritativeStore() {
+    if (this.cloud) {
+      try {
+        const { record, etag, notFound } = await this.readCloud();
+        if (record && !Array.isArray(record) && Array.isArray(record.users)) {
+          const store = migrateAuthUserStore(record);
+          this.cache = store;
+          return { store, etag };
+        }
+        if (notFound || record === null) {
+          const store = migrateAuthUserStore(null);
+          this.cache = store;
+          return { store, etag: etag || null };
+        }
+        throw storageCorruption("Invalid cloud user storage.");
+      } catch (err) {
+        console.error("Authoritative R2 user read error:", err?.message || err);
+        throw err;
+      }
+    }
 
+    // Local file mode: always read fresh from disk
     await fs.mkdir(path.dirname(this.filePath), { recursive: true });
     try {
       const raw = await fs.readFile(this.filePath, "utf8");
       const store = migrateAuthUserStore(JSON.parse(raw || "{}"));
       this.cache = store;
-      return store;
+      try {
+        this.lastMtimeMs = (await fs.stat(this.filePath)).mtimeMs;
+      } catch {}
+      return { store, etag: null };
     } catch (error) {
       if (error.code === "ENOENT") {
-        return await this.syncFromR2(true);
+        const store = migrateAuthUserStore(null);
+        this.cache = store;
+        return { store, etag: null };
       }
-      if (error instanceof SyntaxError) throw new Error("User storage contains invalid JSON.");
+      if (error instanceof SyntaxError) throw storageCorruption("User storage contains invalid JSON.", error);
       throw error;
     }
   }
 
+  async readStore() {
+    const { store } = await this.readAuthoritativeStore();
+    this.lastR2Sync = Date.now();
+    return store;
+  }
+
   async writeStore(store) {
-    this.cache = store;
-    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-    const temporaryPath = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
-    await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
-    await fs.rename(temporaryPath, this.filePath);
+    return this.withLock(async () => {
+      const { etag } = await this.readAuthoritativeStore();
+      if (!await this.commitStore(store, etag)) {
+        const error = new Error("User storage concurrency conflict.");
+        error.code = "STORAGE_BUSY";
+        error.statusCode = error.status = 503;
+        throw error;
+      }
+    });
+  }
+
+  async commitStore(store, etag = null) {
+    if (this.cloud) {
+      const success = await this.writeCloud(store, etag);
+      if (!success) {
+        return false;
+      }
+    }
+
+    await writeJsonAtomically(this.filePath, store);
+
+    try {
+      this.lastMtimeMs = (await fs.stat(this.filePath)).mtimeMs;
+    } catch {}
 
     if (this.redis?.isReady) {
       try {
@@ -143,24 +149,48 @@ export class FileUserRepository {
       }
     }
 
-    await saveJSONToR2("users.json", store).catch((err) => {
-      console.error("⚠️ Failed to save users to R2:", err?.message || err);
+    // Cache updated only AFTER successful commit
+    this.cache = store;
+    return true;
+  }
+
+  async mutateUsers(mutator) {
+    return this.withLock(async () => {
+      const isCloud = this.cloud;
+      const maxAttempts = isCloud ? 10 : 1;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const { store, etag } = await this.readAuthoritativeStore();
+        const storeCopy = JSON.parse(JSON.stringify(store));
+
+        const mutatorOutput = await mutator(storeCopy);
+        const nextStore = mutatorOutput?.store !== undefined ? mutatorOutput.store : storeCopy;
+        const returnValue = mutatorOutput?.result !== undefined ? mutatorOutput.result : mutatorOutput;
+
+        const committed = await this.commitStore(nextStore, etag);
+        if (!committed) {
+          // OCC conflict detected in cloud: back off with jitter and retry
+          await new Promise((resolve) => setTimeout(resolve, 20 + Math.floor(Math.random() * 30) + attempt * 25));
+          continue;
+        }
+
+        return returnValue;
+      }
+
+      const err = new Error("User storage concurrency conflict. Maximum retries exceeded.");
+      err.code = "STORAGE_BUSY";
+      err.statusCode = 503;
+      throw err;
     });
   }
 
   enqueue(operation) {
-    this.writeQueue = this.writeQueue.then(operation, operation);
-    return this.writeQueue;
+    return this.withLock(operation);
   }
 
   async findById(id) {
     const { users } = await this.readStore();
-    let user = users.find((item) => item.id === id);
-    if (!user && Date.now() - this.lastR2Sync > 15000) {
-      const freshStore = await this.syncFromR2(true);
-      user = freshStore.users?.find((item) => item.id === id) || null;
-    }
-    return user || null;
+    return users.find((item) => item.id === id) || null;
   }
 
   async findByUsername(username) {
@@ -180,11 +210,9 @@ export class FileUserRepository {
   async findByIdentifier(identifier) {
     const raw = String(identifier || "").trim();
     if (!raw) return null;
-    // Treat leading @ as a username (UI shows @username)
     if (raw.startsWith("@")) {
       return this.findByUsername(raw.slice(1));
     }
-    // If it looks like an email, try email first, then fall back to username
     if (raw.includes("@")) {
       const byEmail = await this.findByEmail(raw);
       if (byEmail) return byEmail;
@@ -218,14 +246,13 @@ export class FileUserRepository {
   }
 
   create(payload) {
-    return this.enqueue(async () => {
-      const store = await this.readStore();
+    return this.mutateUsers(async (store) => {
       const username = normalizeUsername(payload.username).replace(/^@+/, "");
       const email = normalizeEmail(payload.email);
       if (store.users.some((user) => normalizeUsername(user.username).replace(/^@+/, "") === username)) {
         throw new UserConflictError("username");
       }
-      if (store.users.some((user) => normalizeEmail(user.email) === email)) {
+      if (store.users.some((user) => (normalizeEmail(user.email) === email || (user.pendingEmailExpiresAt > Date.now() && normalizeEmail(user.pendingEmail) === email)))) {
         throw new UserConflictError("email");
       }
       const now = new Date().toISOString();
@@ -237,13 +264,14 @@ export class FileUserRepository {
         passwordHash: payload.passwordHash,
         avatarUrl: payload.avatarUrl || null,
         emailVerifiedAt: payload.emailVerifiedAt || null,
+        googleSub: payload.googleSub || null,
         onboardingFocus: payload.onboardingFocus || null,
         onboardingRole: payload.onboardingRole || null,
         onboardingGoal: payload.onboardingGoal || null,
         onboardingCompletedAt: payload.onboardingCompletedAt || null,
         settings: {
           personalIntelligence: false,
-          modelImprovement: true,
+          modelImprovement: false,
           brandName: "",
           industry: "",
           targetAudience: "",
@@ -258,46 +286,55 @@ export class FileUserRepository {
           defaultMode: "build",
           language: "az",
         },
+        authVersion: 1,
+        privacyEpoch: 0,
         passwordChangedAt: now,
         lastLoginAt: now,
         createdAt: now,
         updatedAt: now,
       };
       store.users.push(user);
-      await this.writeStore(store);
-      return user;
+      return { store, result: user };
     });
   }
 
-  update(id, changes, { allowSystemFields = false } = {}) {
-    return this.enqueue(async () => {
-      const store = await this.readStore();
+  update(id, changes, { allowSystemFields = false, expectedAuthVersion = null } = {}) {
+    return this.mutateUsers(async (store) => {
       const index = store.users.findIndex((user) => user.id === id);
-      if (index === -1) return null;
+      if (index === -1) return { store, result: null };
 
-      // Defense-in-depth: mass assignment protection for immutable/sensitive fields
-      const {
-        id: _ignoredId,
-        createdAt: _ignoredCreatedAt,
-        passwordHash: _ignoredPasswordHash,
-        role: _ignoredRole,
-        ...safeChanges
-      } = changes;
-
-      const effectiveChanges = allowSystemFields ? changes : safeChanges;
+      const publicFields = ['fullName', 'username', 'email', 'avatarUrl', 'settings', 'aiSummary', 'lastLoginAt', 'onboardingFocus', 'onboardingRole', 'onboardingGoal', 'onboardingCompletedAt', 'status', 'deletionRequestedAt', 'scheduledDeletionAt'];
+      const internalFields = ['emailVerifiedAt', 'googleSub', 'pendingEmail', 'pendingEmailExpiresAt', 'authVersion', 'privacyEpoch', 'mfa'];
+      const fields = allowSystemFields ? [...publicFields, ...internalFields] : publicFields;
+      const effectiveChanges = Object.fromEntries(fields.filter(key => changes[key] !== undefined).map(key => [key, changes[key]]));
       const current = store.users[index];
-      const username = effectiveChanges.username ? normalizeUsername(effectiveChanges.username).replace(/^@+/, "") : normalizeUsername(current.username).replace(/^@+/, "");
-      const email = effectiveChanges.email ? normalizeEmail(effectiveChanges.email) : normalizeEmail(current.email);
+      if (expectedAuthVersion !== null && (current.authVersion || 1) !== expectedAuthVersion) throw Object.assign(new Error('Session changed'), { status: 401, code: 'SESSION_CHANGED' });
+      const username = effectiveChanges.username
+        ? normalizeUsername(effectiveChanges.username).replace(/^@+/, "")
+        : normalizeUsername(current.username).replace(/^@+/, "");
+      const email = effectiveChanges.email
+        ? normalizeEmail(effectiveChanges.email)
+        : normalizeEmail(current.email);
 
       if (store.users.some((user, i) => i !== index && normalizeUsername(user.username).replace(/^@+/, "") === username)) {
         throw new UserConflictError("username");
       }
-      if (store.users.some((user, i) => i !== index && normalizeEmail(user.email) === email)) {
+      if (store.users.some((user, i) => i !== index && (normalizeEmail(user.email) === email || (user.pendingEmailExpiresAt > Date.now() && normalizeEmail(user.pendingEmail) === email)))) {
         throw new UserConflictError("email");
       }
 
+      if (effectiveChanges.settings?.modelImprovement === false && current.settings?.modelImprovement !== false) {
+        effectiveChanges.privacyEpoch = (current.privacyEpoch || 0) + 1;
+      }
+      if (effectiveChanges.email && email !== normalizeEmail(current.email)) {
+        effectiveChanges.authVersion = (current.authVersion || 1) + 1;
+      }
+      if (effectiveChanges.pendingEmail && store.users.some((user, i) => i !== index && (normalizeEmail(user.email) === normalizeEmail(effectiveChanges.pendingEmail) || (user.pendingEmailExpiresAt > Date.now() && normalizeEmail(user.pendingEmail) === normalizeEmail(effectiveChanges.pendingEmail))))) throw new UserConflictError('email');
+      if (effectiveChanges.settings) effectiveChanges.settings = { ...(current.settings || {}), ...effectiveChanges.settings };
       // SEC-08: If email is changed, reset emailVerifiedAt to null
-      let emailVerifiedAt = effectiveChanges.emailVerifiedAt !== undefined ? effectiveChanges.emailVerifiedAt : current.emailVerifiedAt;
+      let emailVerifiedAt = allowSystemFields && changes.emailVerifiedAt !== undefined
+        ? changes.emailVerifiedAt
+        : current.emailVerifiedAt;
       if (effectiveChanges.email && email !== normalizeEmail(current.email)) {
         emailVerifiedAt = null;
       }
@@ -305,30 +342,46 @@ export class FileUserRepository {
       store.users[index] = {
         ...current,
         ...effectiveChanges,
-        id: allowSystemFields && changes.id ? changes.id : current.id,
-        createdAt: allowSystemFields && changes.createdAt ? changes.createdAt : current.createdAt,
-        passwordHash: allowSystemFields && changes.passwordHash ? changes.passwordHash : current.passwordHash,
+        id: current.id,
+        createdAt: current.createdAt,
+        passwordHash: current.passwordHash,
         username,
         email,
         emailVerifiedAt,
         updatedAt: new Date().toISOString(),
       };
-      await this.writeStore(store);
-      return store.users[index];
+      return { store, result: store.users[index] };
+    });
+  }
+
+  confirmVerification(id, email, authVersion, purpose) {
+    return this.mutateUsers(async store => {
+      const user = store.users.find(item => item.id === id);
+      if (!user || (user.authVersion || 1) !== authVersion) return { store, result: null };
+      if (purpose === 'email-change') {
+        if (user.pendingEmail !== email || user.pendingEmailExpiresAt <= Date.now()) return { store, result: null };
+        if (store.users.some(item => item.id !== id && normalizeEmail(item.email) === email)) throw new UserConflictError('email');
+        user.email = email;
+        user.pendingEmail = null;
+        user.pendingEmailExpiresAt = null;
+        user.authVersion = authVersion + 1;
+      } else if (user.email !== email) return { store, result: null };
+      user.emailVerifiedAt = new Date().toISOString();
+      user.updatedAt = user.emailVerifiedAt;
+      return { store, result: user };
     });
   }
 
   updatePassword(id, passwordHash) {
-    return this.enqueue(async () => {
-      const store = await this.readStore();
+    return this.mutateUsers(async (store) => {
       const index = store.users.findIndex((user) => user.id === id);
-      if (index === -1) return null;
+      if (index === -1) return { store, result: null };
       const now = new Date().toISOString();
       store.users[index].passwordHash = passwordHash;
       store.users[index].passwordChangedAt = now;
+      store.users[index].authVersion = (store.users[index].authVersion || 1) + 1;
       store.users[index].updatedAt = now;
-      await this.writeStore(store);
-      return store.users[index];
+      return { store, result: store.users[index] };
     });
   }
 
@@ -354,22 +407,27 @@ export class FileUserRepository {
     });
   }
 
-  deleteUser(id) {
-    return this.enqueue(async () => {
-      const store = await this.readStore();
-      const initialLength = store.users.length;
-      store.users = store.users.filter((user) => user.id !== id);
-      if (store.users.length !== initialLength) {
-        await this.writeStore(store);
-        return true;
+  deleteUser(id, { strategyRepository = null, chatRepository = null, plannerRepository = null, upRepository = null, aiLearningRepository = null, authStore = null } = {}) {
+    return this.mutateUsers(async (store) => {
+      const userExists = store.users.some((user) => user.id === id);
+      if (!userExists) {
+        return { store, result: false };
       }
-      return false;
+
+      if (strategyRepository?.deleteAllByOwner) await strategyRepository.deleteAllByOwner(id);
+      if (chatRepository?.deleteAllByOwner) await chatRepository.deleteAllByOwner(id);
+      if (plannerRepository?.deleteAllByOwner) await plannerRepository.deleteAllByOwner(id);
+      if (upRepository?.deleteAllByOwner) await upRepository.deleteAllByOwner(id);
+      if (aiLearningRepository?.deleteAllByOwner) await aiLearningRepository.deleteAllByOwner(id);
+      if (authStore?.invalidateUserSessions) await authStore.invalidateUserSessions(id);
+
+      store.users = store.users.filter((user) => user.id !== id);
+      return { store, result: true };
     });
   }
 
-  async purgeExpiredAccounts({ strategyRepository = null, chatRepository = null, plannerRepository = null, aiLearningRepository = null, authStore = null } = {}) {
-    return this.enqueue(async () => {
-      const store = await this.readStore();
+  async purgeExpiredAccounts({ strategyRepository = null, chatRepository = null, plannerRepository = null, upRepository = null, aiLearningRepository = null, authStore = null } = {}) {
+    return this.mutateUsers(async (store) => {
       const now = new Date();
       const expiredUsers = store.users.filter((user) => {
         if (user.scheduledDeletionAt) {
@@ -377,32 +435,33 @@ export class FileUserRepository {
           if (!isNaN(sched.getTime()) && sched <= now) return true;
         }
 
-        // Signup hesabı 24 saat ərzində e-poçtla təsdiqlənməzsə,
-        // yarımçıq qeydiyyat məlumatını saxlamırıq.
         if (user.emailVerifiedAt) return false;
         const createdAt = new Date(user.createdAt);
         const unverifiedExpiry = now.getTime() - 24 * 60 * 60 * 1000;
         return !isNaN(createdAt.getTime()) && createdAt.getTime() <= unverifiedExpiry;
       });
 
-      if (expiredUsers.length === 0) return 0;
+      if (expiredUsers.length === 0) return { store, result: 0 };
 
       const expiredIds = new Set(expiredUsers.map((u) => u.id));
+      const successfullyPurgedIds = new Set();
 
       for (const userId of expiredIds) {
         try {
           if (strategyRepository?.deleteAllByOwner) await strategyRepository.deleteAllByOwner(userId);
           if (chatRepository?.deleteAllByOwner) await chatRepository.deleteAllByOwner(userId);
           if (plannerRepository?.deleteAllByOwner) await plannerRepository.deleteAllByOwner(userId);
+          if (upRepository?.deleteAllByOwner) await upRepository.deleteAllByOwner(userId);
           if (aiLearningRepository?.deleteAllByOwner) await aiLearningRepository.deleteAllByOwner(userId);
+          if (authStore?.invalidateUserSessions) await authStore.invalidateUserSessions(userId);
+          successfullyPurgedIds.add(userId);
         } catch (err) {
           console.error(`Error cascading data deletion for expired user ${userId}:`, err);
         }
       }
 
-      store.users = store.users.filter((user) => !expiredIds.has(user.id));
-      await this.writeStore(store);
-      return expiredUsers.length;
+      store.users = store.users.filter((user) => !successfullyPurgedIds.has(user.id));
+      return { store, result: successfullyPurgedIds.size };
     });
   }
 }

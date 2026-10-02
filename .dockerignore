@@ -9,6 +9,7 @@ yarn-error.log*
 .gitignore
 .gcloudignore
 .github
+.agents
 
 # STRICT: Environment and sensitive credential files
 .env
@@ -18,6 +19,9 @@ yarn-error.log*
 *.pem
 *.key
 *.cert
+gcp-key.json
+*-key.json
+gcp*.json
 
 # Local persistent data and user stores
 data/

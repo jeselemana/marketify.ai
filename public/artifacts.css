@@ -1,0 +1,37 @@
+.ask-composer-body, .strategy-artifact-composer-body { position: relative; }
+.strategy-artifact-composer-body { flex: 1; min-width: 0; }
+.strategy-artifact-composer-body textarea { width: 100%; }
+.ask-plugin-tokens { display: flex; flex-wrap: wrap; gap: 6px; }
+.ask-plugin-tokens:empty { display: none; }
+.ask-plugin-token, .ask-artifact-edit-context { display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px; margin-bottom: 7px; border: 1px solid var(--border, #dce2e8); border-radius: 8px; background: var(--surface, #f3f5f7); color: var(--text-primary, #172033); font-size: 12px; }
+.ask-plugin-token-remove { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 16px; }
+.ask-plugin-icon { width: 25px; text-align: center; font-size: 17px; font-weight: 600; }
+.ask-plugin-selector { position: absolute; z-index: 50; bottom: calc(100% + 12px); left: 0; width: min(360px, 85vw); padding: 6px; border: 1px solid var(--border, #dce2e8); border-radius: 14px; background: var(--surface, #fff); box-shadow: 0 12px 36px #0002; max-height: 330px; overflow: auto; }
+.ask-plugin-selector[hidden] { display: none; }
+.ask-plugin-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; text-align: left; color: inherit; border: 0; background: transparent; border-radius: 9px; cursor: pointer; }
+.ask-plugin-option.is-active, .ask-plugin-option:hover { background: var(--bg-hover, #eef2f6); }
+.ask-plugin-option:disabled { opacity: .45; cursor: default; }
+.ask-plugin-option-copy { display: grid; gap: 3px; }
+.ask-plugin-option-copy strong { font-size: 13px; }
+.ask-plugin-option-copy small, .ask-plugin-empty { font-size: 11px; opacity: .7; }
+.ask-artifact-card { display: flex; gap: 12px; align-items: center; padding: 16px; margin: 14px 0; border: 1px solid var(--border, #dce2e8); border-radius: 14px; background: var(--surface, #fff); color: var(--text-primary, #172033); flex-wrap: wrap; }
+.ask-artifact-icon { display: grid; place-items: center; width: 44px; height: 50px; border-radius: 9px; background: var(--bg-soft, #edf1f6); font-size: 10px; font-weight: 700; }
+.ask-artifact-info { display: grid; gap: 5px; flex: 1; min-width: 140px; overflow-wrap: anywhere; }
+.ask-artifact-info strong { font-size: 13px; }
+.ask-artifact-info small { font-size: 11px; opacity: .65; }
+.ask-artifact-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.ask-artifact-action { font: inherit; font-size: 12px; border: 1px solid var(--border, #dce2e8); border-radius: 7px; padding: 6px 10px; text-decoration: none; background: transparent; color: inherit; cursor: pointer; }
+.ask-artifact-action:hover { background: var(--bg-hover, #eef2f6); }
+.artifact-preview-dialog { width: min(960px, 94vw); max-height: 90vh; padding: 0; border: 1px solid var(--border, #dce2e8); border-radius: 18px; background: var(--surface, #fff); color: var(--text-primary, #172033); }
+.artifact-preview-dialog::backdrop { background: #0007; backdrop-filter: blur(3px); }
+.artifact-preview-toolbar { position: sticky; top: 0; display: flex; align-items: center; gap: 12px; padding: 16px 24px; background: inherit; border-bottom: 1px solid var(--border, #dce2e8); z-index: 1; }
+.artifact-preview-toolbar strong { flex: 1; overflow-wrap: anywhere; }
+.artifact-version-select { max-width: 200px; padding: 6px; border: 1px solid var(--border, #dce2e8); border-radius: 6px; background: inherit; color: inherit; }
+.artifact-preview-body { padding: 24px; }
+.artifact-preview-body h1 { font-size: 25px; }
+.artifact-preview-body h2 { font-size: 19px; }
+.artifact-preview-section { padding: 14px 0; border-bottom: 1px solid var(--border, #dce2e8); line-height: 1.65; }
+.artifact-preview-table-wrap { overflow: auto; margin: 14px 0; }
+.artifact-preview-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.artifact-preview-table td, .artifact-preview-table th { border: 1px solid var(--border, #dce2e8); padding: 8px 10px; text-align: left; white-space: pre-wrap; min-width: 80px; max-width: 350px; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .ask-artifact-actions { width: 100%; } .artifact-preview-toolbar { padding: 12px; flex-wrap: wrap; } .artifact-preview-body { padding: 16px; } }

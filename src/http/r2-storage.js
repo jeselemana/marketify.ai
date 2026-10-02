@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 
 let _s3 = null;
 
@@ -17,6 +17,7 @@ function getS3Client() {
       region: "auto",
       endpoint: process.env.R2_ENDPOINT,
       forcePathStyle: true,
+      requestHandler: { requestTimeout: 30000, connectionTimeout: 5000 },
       credentials: {
         accessKeyId: process.env.R2_ACCESS_KEY_ID,
         secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
@@ -28,6 +29,31 @@ function getS3Client() {
 
 function getBucket() {
   return process.env.R2_BUCKET_NAME || "innovagrp";
+}
+
+function artifactKey(key) {
+  if (!/^artifacts\/[a-f0-9]{64}\/[a-f0-9-]{36}\/(?:manifest\.json|v[1-9]\d*(?:-[a-f0-9-]{36})?\.(?:docx|xlsx|pptx|pdf))$/.test(key)) throw new Error("Invalid artifact storage key");
+  return key;
+}
+
+// Artifact persistence fails closed: never publish a card after an R2 write failure.
+export async function putArtifactObject(key, body, contentType, condition = {}) {
+  if (!isR2Configured()) return;
+  await getS3Client().send(new PutObjectCommand({ Bucket: getBucket(), Key: artifactKey(key), Body: body, ContentType: contentType, ...condition }));
+}
+export async function readArtifactObject(key) {
+  if (!isR2Configured()) return { buffer: null, etag: null };
+  try {
+    const result = await getS3Client().send(new GetObjectCommand({ Bucket: getBucket(), Key: artifactKey(key) }));
+    return { buffer: Buffer.from(await result.Body.transformToByteArray()), etag: result.ETag };
+  } catch (error) {
+    if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) return { buffer: null, etag: null };
+    throw error;
+  }
+}
+export async function getArtifactObject(key) { return (await readArtifactObject(key)).buffer; }
+export async function deleteArtifactObject(key) {
+  if (isR2Configured()) await getS3Client().send(new DeleteObjectCommand({ Bucket: getBucket(), Key: artifactKey(key) }));
 }
 
 // Cloudflare R2-dən JSON faylı oxumaq
@@ -122,4 +148,337 @@ export async function testR2Connection() {
       code: err.name || err.Code || err.$metadata?.httpStatusCode,
     };
   }
+}
+
+// UP uses one conditional object per owner, making the answer, ledger and progression
+// one atomic commit across Cloud Run replicas. A configured R2 failure never falls back.
+function upKey(ownerHash) {
+  if (!/^[a-f0-9]{64}$/.test(ownerHash)) throw new Error('Invalid UP owner key');
+  return `data/up-v1/${ownerHash}.json`;
+}
+export async function readUpObject(ownerHash) {
+  try {
+    const response = await getS3Client().send(new GetObjectCommand({ Bucket: getBucket(), Key: upKey(ownerHash) }));
+    return { record: JSON.parse(await response.Body.transformToString()), etag: response.ETag };
+  } catch (error) {
+    if (error.name === 'NoSuchKey' || error.$metadata?.httpStatusCode === 404) return { record: null, etag: null };
+    throw error;
+  }
+}
+export async function writeUpObject(ownerHash, record, etag) {
+  try {
+    await getS3Client().send(new PutObjectCommand({ Bucket: getBucket(), Key: upKey(ownerHash),
+      Body: JSON.stringify(record), ContentType: 'application/json', ...(etag ? { IfMatch: etag } : { IfNoneMatch: '*' }) }));
+    return true;
+  } catch (error) {
+    if ([409, 412].includes(error.$metadata?.httpStatusCode)) return false;
+    throw error;
+  }
+}
+
+// Cloudflare R2-dən Users JSON faylı oxumaq (OCC ETag ilə)
+export async function readUserObject() {
+  if (!isR2Configured()) return { record: null, etag: null, isCloud: false };
+  const s3 = getS3Client();
+  if (!s3) return { record: null, etag: null, isCloud: false };
+
+  try {
+    const command = new GetObjectCommand({
+      Bucket: getBucket(),
+      Key: "data/users.json",
+    });
+    const response = await s3.send(command);
+    const str = await response.Body.transformToString();
+    if (!str || !str.trim()) return { record: null, etag: response.ETag || null, isCloud: true };
+    return { record: JSON.parse(str), etag: response.ETag || null, isCloud: true, notFound: false };
+  } catch (err) {
+    const code = err.name || err.Code || err.$metadata?.httpStatusCode;
+    if (code === "NoSuchKey" || code === 404 || err.message?.includes("NoSuchKey")) {
+      return { record: null, etag: null, notFound: true, isCloud: true };
+    }
+    console.error("❌ Cloudflare R2 readUserObject error:", err?.message || err);
+    throw err;
+  }
+}
+
+// Cloudflare R2-yə Users JSON faylı yazmaq (OCC ETag CAS ilə)
+export async function writeUserObject(record, etag = null) {
+  if (!isR2Configured()) return true;
+  const s3 = getS3Client();
+  if (!s3) return false;
+
+  try {
+    const command = new PutObjectCommand({
+      Bucket: getBucket(),
+      Key: "data/users.json",
+      Body: `${JSON.stringify(record, null, 2)}\n`,
+      ContentType: "application/json",
+      ...(etag ? { IfMatch: etag } : { IfNoneMatch: "*" }),
+    });
+    await s3.send(command);
+    return true;
+  } catch (err) {
+    const statusCode = err.$metadata?.httpStatusCode;
+    if (statusCode === 409 || statusCode === 412 || err.name === "PreconditionFailed") {
+      return false; // OCC conflict
+    }
+    console.error("❌ Cloudflare R2 writeUserObject error:", err?.message || err);
+    throw err;
+  }
+}
+
+// Cloudflare R2-dən AuthStore JSON faylı oxumaq (OCC ETag ilə)
+export async function readAuthStoreObject() {
+  if (!isR2Configured()) return { record: null, etag: null, isCloud: false };
+  const s3 = getS3Client();
+  if (!s3) return { record: null, etag: null, isCloud: false };
+
+  try {
+    const command = new GetObjectCommand({
+      Bucket: getBucket(),
+      Key: "data/auth-store.json",
+    });
+    const response = await s3.send(command);
+    const str = await response.Body.transformToString();
+    if (!str || !str.trim()) return { record: null, etag: response.ETag || null, isCloud: true };
+    return { record: JSON.parse(str), etag: response.ETag || null, isCloud: true, notFound: false };
+  } catch (err) {
+    const code = err.name || err.Code || err.$metadata?.httpStatusCode;
+    if (code === "NoSuchKey" || code === 404 || err.message?.includes("NoSuchKey")) {
+      return { record: null, etag: null, notFound: true, isCloud: true };
+    }
+    console.error("❌ Cloudflare R2 readAuthStoreObject error:", err?.message || err);
+    throw err;
+  }
+}
+
+// Cloudflare R2-yə AuthStore JSON faylı yazmaq (OCC ETag CAS ilə)
+export async function writeAuthStoreObject(record, etag = null) {
+  if (!isR2Configured()) return true;
+  const s3 = getS3Client();
+  if (!s3) return false;
+
+  try {
+    const command = new PutObjectCommand({
+      Bucket: getBucket(),
+      Key: "data/auth-store.json",
+      Body: `${JSON.stringify(record, null, 2)}\n`,
+      ContentType: "application/json",
+      ...(etag ? { IfMatch: etag } : { IfNoneMatch: "*" }),
+    });
+    await s3.send(command);
+    return true;
+  } catch (err) {
+    const statusCode = err.$metadata?.httpStatusCode;
+    if (statusCode === 409 || statusCode === 412 || err.name === "PreconditionFailed") {
+      return false; // OCC conflict
+    }
+    console.error("❌ Cloudflare R2 writeAuthStoreObject error:", err?.message || err);
+    throw err;
+  }
+}
+
+// --------------------------------------------------------------------------
+// Multi-Tenant Sharded Object Storage Helpers (Strategies, Chats, Planner)
+// --------------------------------------------------------------------------
+
+function resolveTenantStorageKey(prefixOrKey, maybeTenantKey = null) {
+  if (maybeTenantKey) {
+    const cleanPrefix = prefixOrKey.replace(/^data\//, "").replace(/\/$/, "");
+    return `data/${cleanPrefix}/${maybeTenantKey}.json`;
+  }
+  if (prefixOrKey.startsWith("data/")) {
+    return prefixOrKey;
+  }
+  return `data/${prefixOrKey}`;
+}
+
+/**
+ * Reads a tenant-sharded JSON object from Cloudflare R2, returning data and ETag for OCC.
+ * Supports both readTenantObject(fullKey) and readTenantObject(prefix, tenantKey).
+ * @param {string} prefixOrKey - e.g. "chats-v1" or "data/chats-v1/${tenantKey}.json"
+ * @param {string} [maybeTenantKey] - 64-char hex SHA-256 hash of ownerId (optional)
+ * @returns {Promise<{ record: any, etag: string | null, notFound?: boolean, isCloud: boolean, tombstone?: boolean }>}
+ */
+export async function readTenantObject(prefixOrKey, maybeTenantKey = null) {
+  if (!isR2Configured()) return { record: null, etag: null, isCloud: false, notFound: true, tombstone: false };
+  const s3 = getS3Client();
+  if (!s3) return { record: null, etag: null, isCloud: false, notFound: true, tombstone: false };
+
+  const fullKey = resolveTenantStorageKey(prefixOrKey, maybeTenantKey);
+  try {
+    const response = await s3.send(
+      new GetObjectCommand({
+        Bucket: getBucket(),
+        Key: fullKey,
+      })
+    );
+    const bodyStr = await response.Body.transformToString();
+    if (!bodyStr || !bodyStr.trim()) return { record: null, etag: response.ETag || null, isCloud: true, notFound: false, tombstone: false };
+    const parsed = JSON.parse(bodyStr);
+    const isTombstone = Boolean(parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed._tombstone);
+    return { record: parsed, etag: response.ETag || null, notFound: false, isCloud: true, tombstone: isTombstone };
+  } catch (error) {
+    const code = error.name || error.Code || error.$metadata?.httpStatusCode;
+    if (code === "NoSuchKey" || code === 404 || error.message?.includes("NoSuchKey")) {
+      return { record: null, etag: null, notFound: true, isCloud: true, tombstone: false };
+    }
+    console.error(`❌ Cloudflare R2 readTenantObject error (${fullKey}):`, error?.message || error);
+    throw error;
+  }
+}
+
+/**
+ * Writes a tenant-sharded JSON object to Cloudflare R2 using Optimistic Concurrency Control (ETag).
+ * Supports both writeTenantObject(key, data, etag) and writeTenantObject(prefix, tenantKey, data, etag).
+ * @param {string} prefixOrKey
+ * @param {...any} args
+ * @returns {Promise<boolean>} True if written successfully, false if OCC conflict (412/409)
+ */
+export async function writeTenantObject(prefixOrKey, ...args) {
+  if (!isR2Configured()) return true;
+  const s3 = getS3Client();
+  if (!s3) return false;
+
+  let fullKey;
+  let data;
+  let etag = null;
+
+  if (typeof args[0] === "string") {
+    // Called as: writeTenantObject(prefix, tenantKey, data, etag)
+    fullKey = resolveTenantStorageKey(prefixOrKey, args[0]);
+    data = args[1];
+    etag = args[2] || null;
+  } else {
+    // Called as: writeTenantObject(key, data, etag)
+    fullKey = resolveTenantStorageKey(prefixOrKey);
+    data = args[0];
+    etag = args[1] || null;
+  }
+
+  try {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: getBucket(),
+        Key: fullKey,
+        Body: `${JSON.stringify(data, null, 2)}\n`,
+        ContentType: "application/json",
+        ...(etag ? { IfMatch: etag } : { IfNoneMatch: "*" }),
+      })
+    );
+    return true;
+  } catch (error) {
+    const statusCode = error.$metadata?.httpStatusCode;
+    if (statusCode === 409 || statusCode === 412 || error.name === "PreconditionFailed") {
+      return false; // OCC conflict detected
+    }
+    console.error(`❌ Cloudflare R2 writeTenantObject error (${fullKey}):`, error?.message || error);
+    throw error;
+  }
+}
+
+/**
+ * Deletes a tenant-sharded JSON object from Cloudflare R2.
+ * Supports both deleteTenantObject(key) and deleteTenantObject(prefix, tenantKey).
+ * @param {string} prefixOrKey
+ * @param {string} [maybeTenantKey]
+ * @returns {Promise<boolean>}
+ */
+export async function deleteTenantObject(prefixOrKey, maybeTenantKey = null) {
+  if (!isR2Configured()) return true;
+  const s3 = getS3Client();
+  if (!s3) return false;
+
+  const fullKey = resolveTenantStorageKey(prefixOrKey, maybeTenantKey);
+  try {
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: getBucket(),
+        Key: fullKey,
+      })
+    );
+    return true;
+  } catch (error) {
+    const code = error.name || error.Code || error.$metadata?.httpStatusCode;
+    if (code === "NoSuchKey" || code === 404) return true;
+    console.error(`❌ Cloudflare R2 deleteTenantObject error (${fullKey}):`, error?.message || error);
+    return false;
+  }
+}
+
+// Strategy domain helpers
+export async function readStrategyObject(tenantKey) {
+  return readTenantObject("strategies-v1", tenantKey);
+}
+
+export async function writeStrategyObject(tenantKey, record, etag = null) {
+  return writeTenantObject("strategies-v1", tenantKey, record, etag);
+}
+
+export async function deleteStrategyObject(tenantKey) {
+  return deleteTenantObject("strategies-v1", tenantKey);
+}
+
+// Chat domain helpers
+export async function readChatObject(tenantKey) {
+  return readTenantObject("chats-v1", tenantKey);
+}
+
+export async function writeChatObject(tenantKey, record, etag = null) {
+  return writeTenantObject("chats-v1", tenantKey, record, etag);
+}
+
+export async function deleteChatObject(tenantKey) {
+  return deleteTenantObject("chats-v1", tenantKey);
+}
+
+// Planner domain helpers
+export async function readPlannerObject(tenantKey) {
+  return readTenantObject("planner-v1", tenantKey);
+}
+
+export async function writePlannerObject(tenantKey, record, etag = null) {
+  return writeTenantObject("planner-v1", tenantKey, record, etag);
+}
+
+export async function deletePlannerObject(tenantKey) {
+  return deleteTenantObject("planner-v1", tenantKey);
+}
+
+// Tombstone helpers
+export async function tombstoneTenantObject(prefixOrKey, maybeTenantKey = null, etag = null) {
+  const tombstone = {
+    _tombstone: true,
+    deletedAt: new Date().toISOString(),
+  };
+  if (maybeTenantKey && typeof maybeTenantKey === "string" && !etag) {
+    return writeTenantObject(prefixOrKey, maybeTenantKey, tombstone, null);
+  }
+  return writeTenantObject(prefixOrKey, maybeTenantKey, tombstone, etag);
+}
+
+export async function tombstoneStrategyObject(tenantKey, etag = null) {
+  return tombstoneTenantObject("strategies-v1", tenantKey, etag);
+}
+
+export async function tombstoneChatObject(tenantKey, etag = null) {
+  return tombstoneTenantObject("chats-v1", tenantKey, etag);
+}
+
+export async function tombstonePlannerObject(tenantKey, etag = null) {
+  return tombstoneTenantObject("planner-v1", tenantKey, etag);
+}
+
+
+
+export async function listTenantObjects(prefix) {
+  if (!/^[a-z0-9-]+\/$/.test(prefix)) throw new Error('Invalid storage prefix');
+  if (!isR2Configured()) return [];
+  const keys = []; let token;
+  do {
+    const page = await getS3Client().send(new ListObjectsV2Command({ Bucket: getBucket(), Prefix: `data/${prefix}`, ContinuationToken: token, MaxKeys: 1000 }));
+    keys.push(...(page.Contents || []).map(item => item.Key));
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return keys;
 }

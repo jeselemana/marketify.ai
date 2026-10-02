@@ -1,6 +1,4 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { loadJSONFromR2, saveJSONToR2 } from "../http/r2-storage.js";
+import { AtomicJsonStore, storageCorruption } from "./atomic-json-store.js";
 
 export const EMPTY_LEARNING_STORE = Object.freeze({
   schemaVersion: 1,
@@ -12,6 +10,9 @@ export const EMPTY_LEARNING_STORE = Object.freeze({
 
 function normalizeStore(value) {
   const source = value && typeof value === "object" ? value : {};
+  for (const key of ["interactions", "signals", "iterations", "candidates"]) {
+    if (source[key] !== undefined && !Array.isArray(source[key])) throw storageCorruption(`Invalid learning ${key}.`);
+  }
   return {
     schemaVersion: 1,
     interactions: Array.isArray(source.interactions) ? source.interactions : [],
@@ -21,73 +22,14 @@ function normalizeStore(value) {
   };
 }
 
-export class FileAiLearningRepository {
-  constructor(filePath, redis = null, { mirrorToR2 = true } = {}) {
-    this.filePath = filePath;
-    this.redis = redis;
-    this.redisKey = "marketify:store:ai-learning:v1";
-    this.r2FileName = "ai-learning-v1.json";
-    this.mirrorToR2 = mirrorToR2;
-    this.writeQueue = Promise.resolve();
-  }
-
-  async ensure() {
-    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-    try { await fs.access(this.filePath); }
-    catch { await fs.writeFile(this.filePath, `${JSON.stringify(EMPTY_LEARNING_STORE, null, 2)}\n`, "utf8"); }
-  }
-
-  async readStore() {
-    if (this.redis?.isReady) {
-      try {
-        const cached = await this.redis.get(this.redisKey);
-        if (cached) return normalizeStore(JSON.parse(cached));
-      } catch (error) { console.error("AI learning Redis read error:", error.message); }
-    }
-    if (this.mirrorToR2) {
-      try {
-        const remote = await loadJSONFromR2(this.r2FileName, null);
-        if (remote?.schemaVersion) return normalizeStore(remote);
-      } catch (error) { console.error("AI learning R2 read error:", error.message); }
-    }
-    await this.ensure();
-    try { return normalizeStore(JSON.parse(await fs.readFile(this.filePath, "utf8"))); }
-    catch (error) {
-      if (error instanceof SyntaxError) return normalizeStore(null);
-      throw error;
-    }
-  }
-
-  async writeStore(store) {
-    const normalized = normalizeStore(store);
-    const operation = async () => {
-      await this.ensure();
-      const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
-      await fs.writeFile(temporaryPath, `${JSON.stringify(normalized, null, 2)}\n`, "utf8");
-      await fs.rename(temporaryPath, this.filePath);
-      if (this.redis?.isReady) await this.redis.set(this.redisKey, JSON.stringify(normalized)).catch((error) => console.error("AI learning Redis write error:", error.message));
-      if (this.mirrorToR2) await saveJSONToR2(this.r2FileName, normalized).catch((error) => console.error("AI learning R2 write error:", error.message));
-      return normalized;
-    };
-    this.writeQueue = this.writeQueue.then(operation, operation);
-    return this.writeQueue;
-  }
-
-  async update(mutator) {
-    let result;
-    const operation = async () => {
-      const store = await this.readStore();
-      result = await mutator(store);
-      await this.ensure();
-      const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
-      await fs.writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
-      await fs.rename(temporaryPath, this.filePath);
-      if (this.redis?.isReady) await this.redis.set(this.redisKey, JSON.stringify(store)).catch(() => {});
-      if (this.mirrorToR2) await saveJSONToR2(this.r2FileName, store).catch(() => {});
-    };
-    this.writeQueue = this.writeQueue.then(operation, operation);
-    await this.writeQueue;
-    return result;
+export class FileAiLearningRepository extends AtomicJsonStore {
+  constructor(filePath, redis = null, options = {}) {
+    super(filePath, redis, options, {
+      redisKey: "marketify:store:ai-learning:v1",
+      r2FileName: "ai-learning-v1.json",
+      empty: EMPTY_LEARNING_STORE,
+      normalize: normalizeStore,
+    });
   }
 
   async deleteAllByOwner(ownerId) {

@@ -10,7 +10,7 @@ import {
 } from "../../domain/strategy.js";
 import { aiConfig, hasOpenAIConfiguration, hasGeminiConfiguration } from "./config.js";
 import { getOpenAIClient, getGeminiClient } from "./client.js";
-import { LLMProviderError, routeStructuredGeneration } from "./llm-router.js";
+import { LLMProviderError, routeStructuredGeneration, extractJsonFromText } from "./llm-router.js";
 import { shouldEnableSearch } from "./search-router.js";
 import {
   ASSESSOR_PROMPT,
@@ -269,6 +269,7 @@ Provide concise, purely factual findings (2-3 short bullet points, no corporate 
           systemInstruction,
           tools: [{ googleSearch: {} }],
           maxOutputTokens: 1024,
+          abortSignal: signal,
           thinkingConfig: { thinkingLevel: "HIGH" },
         },
       },
@@ -331,6 +332,7 @@ export async function generateStrategy({
         onUsage?.({ usage: groundedResearch.usage, model: aiConfig.strategyModel, provider: "google" });
       }
     } catch (groundingErr) {
+      if (groundingErr.name === "AbortError" || signal?.aborted) throw groundingErr;
       console.warn("⚠️ [Build Grounding Xətası]:", groundingErr?.message || groundingErr);
     }
   }
@@ -517,7 +519,7 @@ CİDDİ TƏLƏBLƏR:
   const rawContent = completion.choices?.[0]?.message?.content?.trim() || "{}";
   let parsed;
   try {
-    parsed = JSON.parse(rawContent);
+    parsed = extractJsonFromText(rawContent);
   } catch (jsonErr) {
     throw new LLMProviderError("Model etibarsız JSON cavabı qaytardı.", {
       code: "AI_INVALID_OUTPUT",
@@ -684,7 +686,7 @@ CİDDİ TƏLƏBLƏR:
   const rawContent = completion.choices?.[0]?.message?.content?.trim() || "{}";
   let parsed;
   try {
-    parsed = JSON.parse(rawContent);
+    parsed = extractJsonFromText(rawContent);
   } catch (jsonErr) {
     throw new LLMProviderError("Model etibarsız JSON cavabı qaytardı.", {
       code: "AI_INVALID_OUTPUT",
@@ -857,7 +859,7 @@ CİDDİ TƏLƏBLƏR:
   const rawContent = completion.choices?.[0]?.message?.content?.trim() || "{}";
   let parsed;
   try {
-    parsed = JSON.parse(rawContent);
+    parsed = extractJsonFromText(rawContent);
   } catch (jsonErr) {
     throw new LLMProviderError("Model etibarsız JSON cavabı qaytardı.", {
       code: "AI_INVALID_OUTPUT",

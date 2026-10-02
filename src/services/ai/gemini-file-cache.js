@@ -10,8 +10,11 @@ import crypto from "node:crypto";
  */
 export class GeminiFileCache {
   constructor(options = {}) {
-    this.ttlMs = options.ttlMs || 60 * 60 * 1000; // 1 hour default TTL
+    this.ttlMs = options.ttlMs || 15 * 60 * 1000; // 1 hour default TTL
     this.maxEntries = options.maxEntries || 100; // Max 100 entries to prevent memory exhaustion
+    this.maxBytes = options.maxBytes || 64 * 1024 * 1024;
+    this.maxOwnerBytes = options.maxOwnerBytes || 20 * 1024 * 1024;
+    this.onDelete = options.onDelete || null;
     this.cache = new Map();
     this.hashToId = new Map();
     this.minTokenThresholdForGeminiCache = 32768; // Gemini API requirement for cachedContent
@@ -43,10 +46,10 @@ export class GeminiFileCache {
   /**
    * Store a file in server cache and return its unique fileId.
    */
-  storeFile(file) {
+  storeFile(file, ownerId = file?.ownerId || null) {
     if (!file || typeof file !== "object") return null;
 
-    const hash = this._computeHash(file);
+    const hash = `${ownerId || "legacy"}:${this._computeHash(file)}`;
     if (this.hashToId.has(hash)) {
       const existingId = this.hashToId.get(hash);
       const existing = this.cache.get(existingId);
@@ -76,6 +79,7 @@ export class GeminiFileCache {
     const size = Number(file.size) || 0;
 
     const entry = {
+      ownerId,
       fileId,
       hash,
       name,
@@ -90,6 +94,15 @@ export class GeminiFileCache {
       expiresAt: Date.now() + this.ttlMs,
     };
 
+    const bytes = Buffer.byteLength(data) + Buffer.byteLength(textContent);
+    if (bytes > this.maxOwnerBytes || bytes > this.maxBytes) throw Object.assign(new Error('File exceeds cache capacity'), { status: 413, code: 'FILE_TOO_LARGE' });
+    const used = owner => [...this.cache.values()].filter(item => owner === undefined || item.ownerId === owner).reduce((sum, item) => sum + (item.bytes || 0), 0);
+    for (const [id, item] of this.cache) {
+      if (used(ownerId) + bytes <= this.maxOwnerBytes) break;
+      if (item.ownerId === ownerId) this.deleteFile(id);
+    }
+    while (used() + bytes > this.maxBytes) this.deleteFile(this.cache.keys().next().value);
+    entry.bytes = bytes;
     this.cache.set(fileId, entry);
     this.hashToId.set(hash, fileId);
     return fileId;
@@ -98,10 +111,11 @@ export class GeminiFileCache {
   /**
    * Retrieve cached file by fileId.
    */
-  getFile(fileId) {
+  getFile(fileId, ownerId = null) {
     if (!fileId) return null;
     const entry = this.cache.get(fileId);
     if (!entry) return null;
+    if (entry.ownerId !== ownerId) return null;
     if (entry.expiresAt <= Date.now()) {
       this.deleteFile(fileId);
       return null;
@@ -117,16 +131,16 @@ export class GeminiFileCache {
    * Hydrate / normalize message file object.
    * If message has only fileId or lightweight metadata, resolves full payload from server cache.
    */
-  resolveFile(file) {
+  resolveFile(file, ownerId = file?.ownerId || null) {
     if (!file) return null;
     if (file.data || file.textContent) {
       // Message has raw data; ensure it is stored and indexed in cache
-      const fileId = this.storeFile(file);
+      const fileId = this.storeFile(file, ownerId);
       const entry = this.cache.get(fileId);
       return entry || file;
     }
     if (file.fileId) {
-      const cached = this.getFile(file.fileId);
+      const cached = this.getFile(file.fileId, ownerId);
       if (cached) return cached;
     }
     return file;
@@ -195,7 +209,7 @@ export class GeminiFileCache {
         model,
         config: {
           displayName: "helmer_doc_" + fileEntry.fileId.slice(0, 12),
-          ttl: "3600s",
+          ttl: "900s",
           contents,
           systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
         },
@@ -203,7 +217,7 @@ export class GeminiFileCache {
 
       if (cacheResponse && cacheResponse.name) {
         fileEntry.cachedContentName = cacheResponse.name;
-        fileEntry.cachedContentExpiresAt = Date.now() + 3500 * 1000;
+        fileEntry.cachedContentExpiresAt = Date.now() + 850 * 1000;
         return cacheResponse.name;
       }
     } catch (err) {
@@ -221,6 +235,7 @@ export class GeminiFileCache {
     if (entry) {
       if (entry.hash) this.hashToId.delete(entry.hash);
       this.cache.delete(fileId);
+      if (entry.cachedContentName && this.onDelete) Promise.resolve(this.onDelete(entry.cachedContentName)).catch(() => {});
     }
   }
 
@@ -233,7 +248,12 @@ export class GeminiFileCache {
     }
   }
 
+  clearOwner(ownerId) {
+    for (const [id, entry] of this.cache) if (entry.ownerId === ownerId) this.deleteFile(id);
+  }
+
   clear() {
+    for (const id of [...this.cache.keys()]) this.deleteFile(id);
     this.cache.clear();
     this.hashToId.clear();
   }

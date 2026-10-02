@@ -167,46 +167,46 @@ test("index.html and style.css: sidebar navigation icons use smooth rounded ~20p
     html.includes('<circle cx="11" cy="11" r="7.5"/>'),
     "searchNav uses circular search magnifier"
   );
-  // Home uses smooth rounded home
+  // Home uses smooth Home icon
   assert.ok(
-    html.includes('d="M3.5 10.5 12 3l8.5 7.5v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"'),
-    "homeNav uses smooth rounded home"
+    html.includes('d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"'),
+    "homeNav uses unified Home icon"
   );
-  // Archive uses 4-quadrant rounded library icon from reference
+  // Archive uses unified Archive icon
   assert.ok(
-    html.includes('<rect x="3" y="3" width="7.5" height="7.5" rx="2.5"/>'),
-    "strategiesNav uses 4-quadrant rounded library icon"
+    html.includes('<rect width="20" height="5" x="2" y="3" rx="1"/>'),
+    "strategiesNav uses unified Archive icon"
   );
-  // Planner uses smooth rounded calendar
+  // Planner uses unified CalendarDays icon
   assert.ok(
-    html.includes('rx="3.5"'),
-    "plannerNav uses smooth rounded calendar"
+    html.includes('<rect width="18" height="18" x="3" y="4" rx="2"/>'),
+    "plannerNav uses unified CalendarDays icon"
   );
-  // Usage uses smooth activity/spark line
+  // Usage uses unified Activity spark/line icon
   assert.ok(
-    html.includes('d="M3 12h3.5l3-7 5 14 3-7H21"'),
-    "limitsNav uses smooth activity/spark"
+    html.includes('d="M22 12h-4l-3 9L9 3l-3 9H2"'),
+    "limitsNav uses unified Activity icon"
   );
   // Settings uses smooth rounded gear
   assert.ok(
     html.includes('<circle cx="12" cy="12" r="3"/>'),
     "settingsNav uses smooth rounded gear"
   );
-  // Sidebar close uses clean rounded x
+  // Sidebar close uses minimalist PanelLeftClose
   assert.ok(
-    html.includes('d="m18 6-12 12M6 6l12 12"'),
-    "sidebarClose uses clean rounded X"
+    html.includes('d="m16 15-3-3 3-3"'),
+    "sidebarClose uses minimalist PanelLeftClose icon"
   );
 
   // CSS enforces 20px dimensions, 1.75 stroke-width, and smooth rounded caps
   assert.ok(css.includes(".nav-svg {\n  width: 20px;\n  height: 20px;\n  fill: none !important;\n  stroke: currentColor !important;\n  stroke-width: 1.75;"), "nav-svg dimensions are 20px and stroke-width is 1.75");
   assert.ok(
-    css.includes("color: var(--text-tertiary, #64748b);"),
-    "nav-item .nav-svg inactive state uses subtle slate"
+    css.includes("color: #52525b;"),
+    "nav-item .nav-svg inactive state uses text-zinc-600 (#52525b)"
   );
   assert.ok(
-    css.includes(".nav-item.is-active .nav-svg {\n  opacity: 1;\n  color: var(--theme-blue-ink, var(--accent));\n}"),
-    "nav-item.is-active .nav-svg is emphasized with accent color"
+    css.includes(".nav-item.is-active .nav-svg {\n  color: #09090b;\n}"),
+    "nav-item.is-active .nav-svg is emphasized with solid monochrome dark tone"
   );
   assert.ok(
     css.includes('[data-theme="dark"] .nav-item .nav-svg'),

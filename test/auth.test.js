@@ -328,7 +328,7 @@ test("signup, session, login, reset, and single-use reset token work end to end"
   const invalidGoogleCred = await fetch(`${base}/api/auth/google`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ credential: "invalid.jwt.token" }),
+    body: JSON.stringify({ credential: "invalid.jwt.token", nonce: "n".repeat(43) }),
   });
   assert.ok([401, 503].includes(invalidGoogleCred.status));
 });

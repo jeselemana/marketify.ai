@@ -1,6 +1,4 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { loadJSONFromR2, saveJSONToR2 } from "../http/r2-storage.js";
+import { AtomicJsonStore, storageCorruption } from "./atomic-json-store.js";
 
 export const EMPTY_TELEMETRY_STORE = Object.freeze({
   schemaVersion: 1,
@@ -11,89 +9,41 @@ const MAX_STORED_EVENTS = 10000;
 
 function normalizeStore(value) {
   const source = value && typeof value === "object" ? value : {};
+  if (source.events !== undefined && !Array.isArray(source.events)) throw storageCorruption("Invalid telemetry events.");
   return {
     schemaVersion: 1,
     events: Array.isArray(source.events) ? source.events : [],
   };
 }
 
-export class FileTelemetryRepository {
-  constructor(filePath, redis = null, { mirrorToR2 = true } = {}) {
-    this.filePath = filePath;
-    this.redis = redis;
-    this.redisKey = "helmer:store:telemetry:v1";
-    this.r2FileName = "telemetry-v1.json";
-    this.mirrorToR2 = mirrorToR2;
-    this.writeQueue = Promise.resolve();
-  }
-
-  async ensure() {
-    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-    try {
-      await fs.access(this.filePath);
-    } catch {
-      await fs.writeFile(this.filePath, `${JSON.stringify(EMPTY_TELEMETRY_STORE, null, 2)}\n`, "utf8");
-    }
-  }
-
-  async readStore() {
-    if (this.redis?.isReady) {
-      try {
-        const cached = await this.redis.get(this.redisKey);
-        if (cached) return normalizeStore(JSON.parse(cached));
-      } catch (error) {
-        console.error("Telemetry Redis read error:", error.message);
-      }
-    }
-    if (this.mirrorToR2) {
-      try {
-        const remote = await loadJSONFromR2(this.r2FileName, null);
-        if (remote?.schemaVersion) return normalizeStore(remote);
-      } catch (error) {
-        console.error("Telemetry R2 read error:", error.message);
-      }
-    }
-    await this.ensure();
-    try {
-      return normalizeStore(JSON.parse(await fs.readFile(this.filePath, "utf8")));
-    } catch (error) {
-      if (error instanceof SyntaxError) return normalizeStore(null);
-      throw error;
-    }
+export class FileTelemetryRepository extends AtomicJsonStore {
+  constructor(filePath, redis = null, options = {}) {
+    super(filePath, redis, options, {
+      redisKey: "helmer:store:telemetry:v1",
+      r2FileName: "telemetry-v1.json",
+      empty: EMPTY_TELEMETRY_STORE,
+      normalize: normalizeStore,
+    });
   }
 
   async update(updater) {
-    this.writeQueue = this.writeQueue.then(async () => {
-      const store = await this.readStore();
+    return super.update(async store => {
       const result = await updater(store);
-      if (store.events.length > MAX_STORED_EVENTS) {
-        store.events = store.events.slice(0, MAX_STORED_EVENTS);
-      }
-      const serialized = `${JSON.stringify(store, null, 2)}\n`;
-      await this.ensure();
-      await fs.writeFile(this.filePath, serialized, "utf8");
-      if (this.redis?.isReady) {
-        try {
-          await this.redis.set(this.redisKey, JSON.stringify(store));
-        } catch (error) {
-          console.error("Telemetry Redis write error:", error.message);
-        }
-      }
-      if (this.mirrorToR2) {
-        try {
-          await saveJSONToR2(this.r2FileName, store);
-        } catch (error) {
-          console.error("Telemetry R2 write error:", error.message);
-        }
-      }
+      if (store.events.length > MAX_STORED_EVENTS) store.events = store.events.slice(0, MAX_STORED_EVENTS);
       return result;
     });
-    return this.writeQueue;
   }
 
   async recordEvent(event) {
     return this.update((store) => {
       store.events.unshift(event);
+      return event;
+    });
+  }
+
+  async recordEventOnce(event) {
+    return this.update((store) => {
+      if (!store.events.some(existing => existing.id === event.id)) store.events.unshift(event);
       return event;
     });
   }

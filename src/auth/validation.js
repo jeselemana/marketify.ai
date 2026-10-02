@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const RESERVED_USERNAMES = new Set([
-  "account", "admin", "administrator", "api", "app", "auth", "billing", "dashboard",
+  "account", "admin", "administrator", "api", "app", "auth", "billing", "boss", "dashboard",
   "help", "helmer", "login", "logout", "marketify", "register", "root", "security", "settings",
   "signup", "support", "system", "www",
 ]);
@@ -37,36 +37,44 @@ export const SignupSchema = z.object({
   username: z.string().trim().transform((val) => val.replace(/^@+/, "")).pipe(UsernameSchema),
   email: z.string().trim().email("Düzgün e-poçt ünvanı daxil et.").max(254).transform(normalizeEmail),
   password: PasswordSchema,
-});
+  language: z.enum(["az", "en"]).optional(),
+}).strict();
 
 export const LoginSchema = z.object({
   identifier: z.string().trim().min(1, "E-poçt və ya istifadəçi adını daxil et.").max(254),
   password: z.string().min(1, "Şifrəni daxil et.").max(128),
-});
+}).strict();
+
+export const GoogleAuthSchema = z.object({
+  credential: z.string().trim().min(1, "Google giriş məlumatı göndərilməyib.").max(4096),
+  nonce: z.string().min(32).max(128),
+}).strict();
 
 export const ChangePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Cari şifrəni daxil et.").max(128),
   newPassword: PasswordSchema,
-});
+}).strict();
 
 export const ForgotPasswordSchema = z.object({
   email: z.string().trim().email("Düzgün e-poçt ünvanı daxil et.").max(254).transform(normalizeEmail),
-});
+}).strict();
 
 export const ResetPasswordSchema = z.object({
   token: z.string().min(32).max(512),
   password: PasswordSchema,
-});
+}).strict();
 
 export const EmailVerificationRequestSchema = z.object({
   email: z.string().trim().email("Düzgün e-poçt ünvanı daxil et.").max(254).transform(normalizeEmail),
-});
+}).strict();
 
 export const EmailVerificationConfirmSchema = EmailVerificationRequestSchema.extend({
   code: z.string().trim().regex(/^\d{6}$/, "6 rəqəmli təsdiq kodunu daxil et."),
-});
+}).strict();
 
 export const AccountUpdateSchema = z.object({
+  currentPassword: z.string().max(128).optional(),
+  reauthToken: z.string().min(32).max(128).optional(),
   fullName: z.string().trim().min(2, "Ad və soyadı daxil et.").max(80),
   username: z.string().trim().transform((val) => val.replace(/^@+/, "")).pipe(UsernameSchema),
   email: z.string().trim().email("Düzgün e-poçt ünvanı daxil et.").max(254).transform(normalizeEmail),
@@ -188,7 +196,7 @@ export const UserMemoryItemSchema = z.object({
     })),
   category: z.enum(["business", "audience", "preference", "constraint", "general"]).default("general"),
   createdAt: z.string().max(80),
-});
+}).strict();
 
 export const AddMemoryItemSchema = z.object({
   text: z
@@ -200,24 +208,24 @@ export const AddMemoryItemSchema = z.object({
       message: detectSensitiveInformation(text).reason || "Yaddaşda həssas şəxsi məlumatların saxlanılmasına icazə verilmir.",
     })),
   category: z.enum(["business", "audience", "preference", "constraint", "general"]).optional().default("general"),
-});
+}).strict();
 
 export const UserSettingsSchema = z.object({
   personalIntelligence: z.boolean().optional(),
   modelImprovement: z.boolean().optional(),
-  brandName: z.string().trim().max(100, "Brend adı 100 simvoldan uzun ola bilməz.").optional().default(""),
-  industry: z.string().trim().max(100, "Sənaye sahəsi 100 simvoldan uzun ola bilməz.").optional().default(""),
-  targetAudience: z.string().trim().max(500, "Hədəf kütlə 500 simvoldan uzun ola bilməz.").optional().default(""),
-  primaryMarket: z.string().trim().max(100, "Bazar məlumatı 100 simvoldan uzun ola bilməz.").optional().default(""),
-  tone: z.enum(["professional", "direct", "creative", "executive", "concise", "friendly", "data_driven"]).optional().default("professional"),
-  customInstructions: z.string().trim().max(2000, "Xüsusi təlimatlar 2000 simvoldan uzun ola bilməz.").optional().default(""),
+  brandName: z.string().trim().max(100, "Brend adı 100 simvoldan uzun ola bilməz.").optional(),
+  industry: z.string().trim().max(100, "Sənaye sahəsi 100 simvoldan uzun ola bilməz.").optional(),
+  targetAudience: z.string().trim().max(500, "Hədəf kütlə 500 simvoldan uzun ola bilməz.").optional(),
+  primaryMarket: z.string().trim().max(100, "Bazar məlumatı 100 simvoldan uzun ola bilməz.").optional(),
+  tone: z.enum(["professional", "direct", "creative", "executive", "concise", "friendly", "data_driven"]).optional(),
+  customInstructions: z.string().trim().max(2000, "Xüsusi təlimatlar 2000 simvoldan uzun ola bilməz.").optional(),
   memories: z.array(UserMemoryItemSchema).max(50, "Maksimum 50 yaddaş qeydi saxlanıla bilər.").optional(),
-  autoContext: z.boolean().optional().default(true),
-  strategyPersonalization: z.boolean().optional().default(true),
-  autoSaveStrategies: z.boolean().optional().default(true),
-  plannerNotifications: z.boolean().optional().default(true),
-  defaultMode: z.enum(["build", "ask"]).optional().default("build"),
-  language: z.enum(["az", "en"]).optional().default("az"),
+  autoContext: z.boolean().optional(),
+  strategyPersonalization: z.boolean().optional(),
+  autoSaveStrategies: z.boolean().optional(),
+  plannerNotifications: z.boolean().optional(),
+  defaultMode: z.enum(["build", "ask"]).optional(),
+  language: z.enum(["az", "en"]).optional(),
 }).strict();
 
 export const ImportedMemoryItemSchema = z.object({
@@ -231,7 +239,7 @@ export const ImportedMemoryItemSchema = z.object({
       message: detectSensitiveInformation(text).reason || "Yaddaşda həssas şəxsi məlumatların saxlanılmasına icazə verilmir.",
     })),
   category: z.enum(["business", "audience", "preference", "constraint", "general"]).optional().default("general"),
-});
+}).strict();
 
 export const ImportMemoryPayloadSchema = z.object({
   brandName: z.string().trim().max(100, "Brend adı 100 simvoldan uzun ola bilməz.").optional().default(""),
@@ -244,7 +252,7 @@ export const ImportMemoryPayloadSchema = z.object({
   mergeMode: z.enum(["merge", "replace"]).optional().default("merge"),
   enablePersonalIntelligence: z.boolean().optional().default(true),
   language: z.enum(["az", "en"]).optional().default("az"),
-});
+}).strict();
 
 export function parseBody(schema, body) {
   const result = schema.safeParse(body);
@@ -259,3 +267,5 @@ export function parseBody(schema, body) {
 }
 
 export { UsernameSchema, PasswordSchema };
+
+export const EmptyBodySchema = z.object({}).strict();

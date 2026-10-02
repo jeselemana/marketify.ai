@@ -27,17 +27,17 @@ export const refinementActions = [
 export const ClarificationQuestionSchema = z.object({
   id: z.string().trim().min(1).max(80),
   question: shortText,
-  reason: z.string().trim().max(300),
+  reason: z.string().trim().max(800),
   inputType: z.enum(["text", "single_choice", "multi_choice"]),
-  options: z.array(z.string().trim().min(1).max(120)).max(8),
-});
+  options: z.array(z.string().trim().min(1).max(200)).max(8),
+}).strict();
 
 export const StrategyAssessmentSchema = z.object({
   status: z.enum(["needs_clarification", "ready"]),
   understanding: paragraph,
   questions: z.array(ClarificationQuestionSchema).max(5),
-  assumptions: z.array(shortText).max(12),
-});
+  assumptions: z.array(paragraph).max(12),
+}).strict();
 
 export const StrategySchema = z.object({
   title: shortText,
@@ -47,7 +47,7 @@ export const StrategySchema = z.object({
     objective: paragraph,
     market: paragraph,
     targetAudience: paragraph,
-  }),
+  }).strict(),
   sections: z
     .array(
       z.object({
@@ -56,7 +56,7 @@ export const StrategySchema = z.object({
         summary: z.string().trim().max(800),
         content: longText,
         bullets: z.array(paragraph).max(12),
-      }),
+      }).strict(),
     )
     .min(3)
     .max(12),
@@ -66,7 +66,7 @@ export const StrategySchema = z.object({
         title: shortText,
         description: paragraph,
         priority: z.enum(["high", "medium", "low"]),
-      }),
+      }).strict(),
     )
     .min(1)
     .max(10),
@@ -76,7 +76,7 @@ export const StrategySchema = z.object({
         phase: shortText,
         actions: z.array(paragraph).min(1).max(10),
         expectedOutcome: z.string().trim().max(800),
-      }),
+      }).strict(),
     )
     .min(1)
     .max(10),
@@ -86,7 +86,7 @@ export const StrategySchema = z.object({
         name: shortText,
         reason: paragraph,
         target: z.string().trim().max(300),
-      }),
+      }).strict(),
     )
     .min(1)
     .max(12),
@@ -95,7 +95,7 @@ export const StrategySchema = z.object({
       z.object({
         risk: paragraph,
         mitigation: paragraph,
-      }),
+      }).strict(),
     )
     .max(10),
   assumptions: z.array(paragraph).max(12),
@@ -104,33 +104,44 @@ export const StrategySchema = z.object({
     .object({
       models: z.array(z.string().trim().max(100)).max(10).nullable().optional(),
       searchGrounded: z.boolean().nullable().optional(),
-      sources: z.array(z.object({ title: z.string().max(200), url: z.string().url() })).max(20).nullable().optional(),
+      sources: z.array(z.object({
+        title: z.string().max(200).nullable().optional(),
+        url: z.string().refine((u) => {
+          try {
+            const p = new URL(u).protocol;
+            return p === "http:" || p === "https:";
+          } catch {
+            return false;
+          }
+        }, "URL must be http or https"),
+      }).strict()).max(20).nullable().optional(),
     })
+    .strict()
     .nullable()
     .optional(),
-});
+}).strict();
 
 export const ClarificationAnswerSchema = z.object({
   questionId: z.string().trim().min(1).max(80),
-  question: shortText,
+  question: paragraph,
   answer: z.string().trim().min(1).max(1500),
-});
+}).strict();
 
 export const AssessRequestSchema = z.object({
   brief: z.string().trim().min(8).max(8000),
   answers: z.array(ClarificationAnswerSchema).max(10).default([]),
   round: z.number().int().min(0).max(2).default(0),
   language: z.enum(["az", "en"]).optional(),
-});
+}).strict();
 
 export const GenerateRequestSchema = z.object({
   brief: z.string().trim().min(8).max(8000),
   answers: z.array(ClarificationAnswerSchema).max(10).default([]),
-  assumptions: z.array(shortText).max(12).default([]),
+  assumptions: z.array(paragraph).max(12).default([]),
   idempotencyKey: z.string().trim().min(8).max(120),
   language: z.enum(["az", "en"]).optional(),
   autoSave: z.boolean().optional().default(true),
-});
+}).strict();
 
 export const RefineRequestSchema = z
   .object({
@@ -140,7 +151,9 @@ export const RefineRequestSchema = z
     action: z.enum(refinementActions),
     request: z.string().trim().max(2000).default(""),
     language: z.enum(["az", "en"]).optional(),
+    idempotencyKey: z.string().trim().max(120).optional(),
   })
+  .strict()
   .superRefine((value, context) => {
     if (value.action === "custom" && value.request.length < 3) {
       context.addIssue({
@@ -164,11 +177,11 @@ export const SaveStrategyRequestSchema = z.object({
         data: StrategySchema,
         changeRequest: z.string().trim().max(2000),
         createdAt: z.string().datetime(),
-      }),
+      }).strict(),
     )
     .min(1)
     .max(100),
-});
+}).strict();
 
 export const StrategySummaryRequestSchema = z
   .object({

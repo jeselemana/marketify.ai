@@ -10,17 +10,17 @@
       content="Your all-in-one AI operating system for strategy, market intelligence, and executive decisions."
     />
     <title>Helmer | Build, Ask & Act</title>
-    <link rel="canonical" href="https://helmerworkspace.com/" />
+    <link rel="canonical" href="https://helmeros.com/" />
     <meta name="robots" content="index, follow" />
     <meta property="og:title" content="Helmer | Build, Ask & Act" />
     <meta property="og:description" content="Your all-in-one AI operating system for strategy, market intelligence, and executive decisions." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://helmerworkspace.com/" />
-    <meta property="og:image" content="https://helmerworkspace.com/MarketifyAINewFavicon.png" />
+    <meta property="og:url" content="https://helmeros.com/" />
+    <meta property="og:image" content="https://helmeros.com/MarketifyAINewFavicon.png" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Helmer | Build, Ask & Act" />
     <meta name="twitter:description" content="Your all-in-one AI operating system for strategy, market intelligence, and executive decisions." />
-    <meta name="twitter:image" content="https://helmerworkspace.com/MarketifyAINewFavicon.png" />
+    <meta name="twitter:image" content="https://helmeros.com/MarketifyAINewFavicon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/MarketifyAINewFavicon.png?v=4" />
     <link rel="icon" type="image/png" sizes="192x192" href="/MarketifyAINewFavicon.png?v=4" />
     <link rel="shortcut icon" href="/favicon.ico?v=4" />
@@ -36,6 +36,8 @@
       rel="stylesheet"
     />
 <link rel="stylesheet" href="/style.css?v=9.4" />
+<link rel="stylesheet" href="/artifacts.css?v=4.0" />
+<link rel="stylesheet" href="/up.css?v=4.0" />
 
 <script
   src="https://accounts.google.com/gsi/client"
@@ -43,6 +45,7 @@
   defer
 ></script>
 
+<script src="/security.js" defer></script>
 <script src="/script.js?v=9.4" type="module"></script>
     <link rel="stylesheet" href="/theme.css?v=1.1" />
   </head>
@@ -63,26 +66,46 @@
             </span>
           </button>
           <button class="rail-button is-active" id="railHomeButton" type="button" aria-label="Başlanğıc" data-tooltip="Başlanğıc">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </button>
+          <button class="rail-button" id="railSearchButton" type="button" aria-label="Axtarış" data-tooltip="Axtarış">
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7.5"/><path d="m16.5 16.5 4.5 4.5"/></svg>
           </button>
           <div class="rail-archive-container" id="railArchiveContainer">
             <button class="rail-button" id="railStrategiesButton" type="button" aria-label="Arxiv" data-tooltip="Arxiv">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 8 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+              <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
             </button>
             <div class="rail-archive-popover" id="railArchivePopover" role="menu" aria-label="Son strategiyalar" hidden></div>
           </div>
           <button class="rail-button" id="railPlannerButton" type="button" aria-label="Planlaşdırılanlar" data-tooltip="Planlaşdırılanlar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
+          </button>
+          <button class="rail-button" id="railUpButton" type="button" aria-label="Helmer UP" data-tooltip="Helmer UP">
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
+              <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
+              <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>
+              <path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/>
+              <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/>
+              <path d="M3.477 10.896a4 4 0 0 1 .585-.396"/>
+              <path d="M19.938 10.5a4 4 0 0 1 .585.396"/>
+              <path d="M6 18a4 4 0 0 1-1.967-.516"/>
+              <path d="M19.967 17.484A4 4 0 0 1 18 18"/>
+            </svg>
           </button>
           <button class="rail-button" id="railLimitsButton" type="button" aria-label="İstifadə" data-tooltip="İstifadə">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3.34 17a10 10 0 1 1 17.32 0"/>
-              <path d="m12 14 4-4"/>
-              <circle cx="12" cy="14" r="2"/>
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+          </button>
+          <button class="rail-button" id="railSettingsButton" type="button" aria-label="Parametrlər" data-tooltip="Parametrlər">
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
           </button>
           <button class="rail-button" id="railInstallAppButton" type="button" aria-label="Tətbiqi yüklə" data-tooltip="Tətbiqi yüklə">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
@@ -112,8 +135,12 @@
             <img class="brand-logo" src="/MarketifyAINewFavicon.png?v=4" alt="Helmer" width="24" height="24" />
             <strong class="brand-wordmark">Helmer</strong>
           </a>
-          <button class="icon-button sidebar-close" id="sidebarClose" type="button" aria-label="Menyunu bağla">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>
+          <button class="icon-button sidebar-close" id="sidebarClose" type="button" aria-label="Menyunu bağla" data-tooltip="Menyunu bağla">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect width="18" height="18" x="3" y="3" rx="2"/>
+              <path d="M9 3v18"/>
+              <path d="m16 15-3-3 3-3"/>
+            </svg>
           </button>
         </div>
 
@@ -137,8 +164,8 @@
         <nav class="primary-nav" aria-label="Workspace">
           <button class="nav-item is-active" id="homeNav" type="button">
             <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3.5 10.5 12 3l8.5 7.5v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>
-              <path d="M9 21.5v-7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v7"/>
+              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
             </svg>
             <span>Başlanğıc</span>
           </button>
@@ -151,33 +178,54 @@
           </button>
           <button class="nav-item" id="strategiesNav" type="button">
             <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="3" width="7.5" height="7.5" rx="2.5"/>
-              <rect x="13.5" y="3" width="7.5" height="7.5" rx="2.5"/>
-              <rect x="3" y="13.5" width="7.5" height="7.5" rx="2.5"/>
-              <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2.5"/>
+              <rect width="20" height="5" x="2" y="3" rx="1"/>
+              <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
+              <path d="M10 12h4"/>
             </svg>
             <span>Arxiv</span>
             <span class="nav-count" id="strategyCount">0</span>
           </button>
           <button class="nav-item" id="plannerNav" type="button">
             <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="17" rx="3.5"/>
-              <path d="M16 2v4M8 2v4M3 9.5h18"/>
-              <path d="m9 15 2 2 4-4"/>
+              <rect width="18" height="18" x="3" y="4" rx="2"/>
+              <path d="M8 2v4"/>
+              <path d="M16 2v4"/>
+              <path d="M3 10h18"/>
+              <path d="M8 14h.01"/>
+              <path d="M12 14h.01"/>
+              <path d="M16 14h.01"/>
+              <path d="M8 18h.01"/>
+              <path d="M12 18h.01"/>
+              <path d="M16 18h.01"/>
             </svg>
             <span>Planlaşdırılanlar</span>
             <span class="nav-count" id="plannerCount">0</span>
           </button>
+          <button class="nav-item" id="upNav" type="button">
+            <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
+              <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
+              <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>
+              <path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/>
+              <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/>
+              <path d="M3.477 10.896a4 4 0 0 1 .585-.396"/>
+              <path d="M19.938 10.5a4 4 0 0 1 .585.396"/>
+              <path d="M6 18a4 4 0 0 1-1.967-.516"/>
+              <path d="M19.967 17.484A4 4 0 0 1 18 18"/>
+            </svg>
+            <span>UP</span>
+          </button>
           <button class="nav-item" id="limitsNav" type="button">
             <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3 12h3.5l3-7 5 14 3-7H21"/>
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
             </svg>
             <span>İstifadə</span>
           </button>
           <button class="nav-item" id="installAppNav" type="button">
             <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <path d="m7 10 5 5 5-5M12 15V3"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
             <span>Tətbiqi yüklə</span>
           </button>

@@ -1,23 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { hashOpaqueToken } from "../auth/password.js";
-import { verifyGuestCookie } from "./session.js";
+import { GUEST_COOKIE, parseCookies, verifyGuestCookie } from "./session.js";
 
+export { GUEST_COOKIE, parseCookies };
 export const SESSION_COOKIE = "helmer_session";
-export const GUEST_COOKIE = "helmer_guest";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
-
-export function parseCookies(header = "") {
-  return Object.fromEntries(header.split(";").map((part) => part.trim()).filter(Boolean).map((part) => {
-    const separator = part.indexOf("=");
-    if (separator === -1) return [part, ""];
-    try { return [part.slice(0, separator), decodeURIComponent(part.slice(separator + 1))]; }
-    catch { return [part.slice(0, separator), ""]; }
-  }));
-}
 
 function secureRequest(req) {
   const forwarded = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
-  return req.secure || forwarded === "https";
+  return process.env.NODE_ENV === "production" || req.secure || forwarded === "https";
 }
 
 export function setSessionCookie(req, res, token) {
@@ -54,12 +45,31 @@ export function createIdentityMiddleware({ authStore, userRepository }) {
         clearSessionCookie(req, res);
         return next();
       }
-      if (user.scheduledDeletionAt && new Date(user.scheduledDeletionAt) <= new Date()) {
+      if (session.protocolVersion !== 2 || session.authVersion !== (user.authVersion || 1)) {
         await authStore.deleteSession(sessionId);
         clearSessionCookie(req, res);
         return next();
       }
-      req.auth = { user, sessionId };
+      if (user.passwordChangedAt && session.createdAt) {
+        const passwordChangedTime = new Date(user.passwordChangedAt).getTime();
+        if (passwordChangedTime > session.createdAt + 1000) {
+          if (authStore?.deleteSession) {
+            await authStore.deleteSession(sessionId).catch(() => {});
+          }
+          clearSessionCookie(req, res);
+          return next();
+        }
+      }
+      if (user.status === "deleted" || (user.scheduledDeletionAt && new Date(user.scheduledDeletionAt) <= new Date())) {
+        if (authStore?.invalidateUserSessions) {
+          await authStore.invalidateUserSessions(user.id).catch(() => {});
+        } else {
+          await authStore.deleteSession(sessionId).catch(() => {});
+        }
+        clearSessionCookie(req, res);
+        return next();
+      }
+      req.auth = { user, sessionId, session };
       req.user = user;
       req.ownerId = user.id;
       return next();
@@ -70,21 +80,14 @@ export function createIdentityMiddleware({ authStore, userRepository }) {
 }
 
 export function requireAuth(req, res, next) {
-  if (req.auth?.user) return next();
+  if (req.auth?.user?.emailVerifiedAt && req.auth.user.status !== "deleted") return next();
   return res.status(401).json({ error: "Davam etmək üçün hesabına daxil ol.", code: "AUTH_REQUIRED" });
 }
 
 export function isModelImprovementEnabled(req) {
   if (req?.user?.settings) {
-    return req.user.settings.modelImprovement !== false;
+    return req.user.settings.modelImprovement === true;
   }
-  const header = req?.headers?.["x-helmer-model-improvement"];
-  if (header !== undefined) {
-    return header !== "false" && header !== false;
-  }
-  const cookies = req?.cookies || parseCookies(req?.headers?.cookie || "");
-  if (cookies.helmer_model_improvement !== undefined) {
-    return cookies.helmer_model_improvement !== "false" && cookies.helmer_model_improvement !== false;
-  }
-  return true;
+  return false;
 }
+

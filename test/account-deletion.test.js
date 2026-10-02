@@ -121,9 +121,10 @@ test("14-day account deletion: schedule, cancel, and auto-purge with cascading c
   assert.equal(remainingTasks.length, 0);
 
   // 7. Unverified signup accounts are removed after 24 hours.
-  await userRepo.update(userB.id, {
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000 - 1).toISOString(),
-  }, { allowSystemFields: true });
+  await userRepo.mutateUsers(state => {
+    state.users.find(u => u.id === userB.id).createdAt = new Date(Date.now() - 24 * 60 * 60 * 1000 - 1).toISOString();
+    return { store: state };
+  });
   const unverifiedPurged = await userRepo.purgeExpiredAccounts({
     strategyRepository: strategyRepo,
     chatRepository: chatRepo,

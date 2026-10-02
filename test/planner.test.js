@@ -248,7 +248,7 @@ test("planner notifications: notification bell, site visit greeting, and user pr
 
   // 4. UserSettingsSchema supports plannerNotifications (Rule 2)
   const defaultSettings = UserSettingsSchema.parse({});
-  assert.equal(defaultSettings.plannerNotifications, true);
+  assert.equal(defaultSettings.plannerNotifications, undefined, "PATCH must preserve omitted settings");
 
   const disabledSettings = UserSettingsSchema.parse({ plannerNotifications: false });
   assert.equal(disabledSettings.plannerNotifications, false);

@@ -4,8 +4,19 @@ import { calculateEstimatedCost } from "./pricing.js";
 import { detectTargetMarket } from "../ai/prompts.js";
 
 export class TelemetryService {
-  constructor(repository) {
+  constructor(repository, privacyPolicy = null) {
     this.repository = repository;
+    this.privacyPolicy = privacyPolicy;
+  }
+
+  async trackUp(ownerId, event) {
+    const id = `evt_${event.id}`;
+    await this.repository.recordEventOnce({
+      id, eventType: `up_${event.type}`, mode: "up", maskedUserId: maskIdentifier(ownerId),
+      model: null, status: event.type === "evaluation_failed" ? "error" : "success",
+      tokens: null, costUsd: 0, costAzn: 0, marketMode: null, category: "Business practice",
+      summary: `Helmer UP: ${event.type}`, metadata: { eventType: event.type }, timestamp: event.timestamp,
+    });
   }
 
   async trackBuildStrategy({
@@ -24,7 +35,7 @@ export class TelemetryService {
     onlyNecessaryData = false,
     modelImprovement = true,
   } = {}) {
-    const isRestricted = onlyNecessaryData === true || modelImprovement === false;
+    const isRestricted = onlyNecessaryData === true || modelImprovement === false || (this.privacyPolicy && !await this.privacyPolicy.allows(ownerId));
     const rawMarket = isRestricted ? "global" : detectTargetMarket({ brief, answers, strategy });
     const marketMode = rawMarket === "azerbaijan" ? "LOCAL_AZ_MODE" : "GLOBAL_MODE";
     const category = isRestricted ? "Zəruri Əməliyyat" : categorizeBrief(brief || strategy?.title || "");
@@ -52,7 +63,7 @@ export class TelemetryService {
       status: status === "error" ? "error" : "success",
       qualityScore: isRestricted ? null : (Number.isFinite(Number(qualityScore)) ? Number(Number(qualityScore).toFixed(2)) : null),
       summary,
-      error: error ? String(error.message || error).slice(0, 200) : null,
+      error: error ? String(error.code || "OPERATION_FAILED").slice(0, 80) : null,
       onlyNecessaryData: isRestricted,
       modelImprovement: !isRestricted,
       metadata: isRestricted
@@ -95,7 +106,7 @@ export class TelemetryService {
     onlyNecessaryData = false,
     modelImprovement = true,
   } = {}) {
-    const isRestricted = onlyNecessaryData === true || modelImprovement === false;
+    const isRestricted = onlyNecessaryData === true || modelImprovement === false || (this.privacyPolicy && !await this.privacyPolicy.allows(ownerId));
     const cost = calculateEstimatedCost(model, usage?.prompt_tokens, usage?.completion_tokens);
     const rawMarket = isRestricted ? "global" : detectTargetMarket({ brief: querySnippet });
     const marketMode = rawMarket === "azerbaijan" ? "LOCAL_AZ_MODE" : "GLOBAL_MODE";
@@ -122,7 +133,7 @@ export class TelemetryService {
       costAzn: cost.costAzn,
       status: status === "error" ? "error" : "success",
       summary,
-      error: error ? String(error.message || error).slice(0, 200) : null,
+      error: error ? String(error.code || "OPERATION_FAILED").slice(0, 80) : null,
       onlyNecessaryData: isRestricted,
       modelImprovement: !isRestricted,
       metadata: isRestricted
@@ -161,7 +172,7 @@ export class TelemetryService {
     onlyNecessaryData = false,
     modelImprovement = true,
   } = {}) {
-    const isRestricted = onlyNecessaryData === true || modelImprovement === false;
+    const isRestricted = onlyNecessaryData === true || modelImprovement === false || (this.privacyPolicy && !await this.privacyPolicy.allows(ownerId));
     const cost = calculateEstimatedCost(model, usage?.prompt_tokens, usage?.completion_tokens);
 
     const event = {
@@ -184,7 +195,7 @@ export class TelemetryService {
       summary: isRestricted
         ? "[Zəruri məlumat] Model inkişafına töhfə deaktivdir - Məzmun ötürülmür"
         : "Strateji icraçı xülasəsi generasiyası (Luna)",
-      error: error ? String(error.message || error).slice(0, 200) : null,
+      error: error ? String(error.code || "OPERATION_FAILED").slice(0, 80) : null,
       onlyNecessaryData: isRestricted,
       modelImprovement: !isRestricted,
       metadata: isRestricted
@@ -216,9 +227,12 @@ export class TelemetryService {
     format = "pdf",
     title = "",
     status = "success",
+    onlyNecessaryData = false,
+    modelImprovement = true,
   } = {}) {
+    const isRestricted = onlyNecessaryData === true || modelImprovement === false || (this.privacyPolicy && !await this.privacyPolicy.allows(ownerId));
     const cleanFormat = String(format || "pdf").toLowerCase().replace(/[^a-z0-9_-]/g, "");
-    const safeTitle = redactSensitiveText(title || "Strategiya hesabatı", 60);
+    const safeTitle = isRestricted ? "" : redactSensitiveText(title || "Strategiya hesabatı", 60);
 
     const event = {
       id: `evt_exp_${randomUUID()}`,
@@ -226,7 +240,7 @@ export class TelemetryService {
       mode: "export",
       maskedUserId: maskIdentifier(ownerId || sessionId),
       marketMode: null,
-      category: "Sənəd İxracı",
+      category: isRestricted ? "Zəruri Əməliyyat" : "Sənəd İxracı",
       model: "system-exporter",
       format: cleanFormat,
       latencyMs: null,
@@ -234,11 +248,22 @@ export class TelemetryService {
       costUsd: 0,
       costAzn: 0,
       status: status === "error" ? "error" : "success",
-      summary: `Strategiya ixracı: ${cleanFormat.toUpperCase()}${safeTitle ? ` (${safeTitle})` : ""}`,
-      metadata: redactPayload({
-        format: cleanFormat,
-        titleLength: safeTitle.length,
-      }),
+      summary: isRestricted
+        ? `Strategiya ixracı: ${cleanFormat.toUpperCase()}`
+        : `Strategiya ixracı: ${cleanFormat.toUpperCase()}${safeTitle ? ` (${safeTitle})` : ""}`,
+      onlyNecessaryData: isRestricted,
+      modelImprovement: !isRestricted,
+      metadata: isRestricted
+        ? {
+            format: cleanFormat,
+            onlyNecessaryData: true,
+            dataRestricted: true,
+            restrictedReason: "Model inkişafına töhfə deaktivdir - yalnız zəruri telemetriya ötürülüb",
+          }
+        : redactPayload({
+            format: cleanFormat,
+            titleLength: safeTitle.length,
+          }),
       timestamp: new Date().toISOString(),
     };
 

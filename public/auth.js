@@ -1,3 +1,4 @@
+let currentGoogleNonce = "";
 import { t, getLanguage, setLanguage } from "./i18n.js";
 
 const authRoot = document.querySelector("#authRoot");
@@ -402,6 +403,7 @@ async function handleGoogleCredential(response) {
       method: "POST",
       body: JSON.stringify({
         credential: response.credential,
+        nonce: currentGoogleNonce,
       }),
     });
 
@@ -457,9 +459,11 @@ function googleSignInButton() {
     if (!runtimeGoogleClientId) return;
 
     try {
-      if (initializedGoogleClientId !== runtimeGoogleClientId) {
+      {
+        currentGoogleNonce = (await request("/api/auth/google/nonce", { method: "POST", body: JSON.stringify({}) })).nonce;
         google.accounts.id.initialize({
           client_id: runtimeGoogleClientId,
+          nonce: currentGoogleNonce,
           callback: handleGoogleCredential,
           ux_mode: "popup",
         });

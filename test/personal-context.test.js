@@ -266,7 +266,7 @@ test("UserSettingsSchema and AddMemoryItemSchema validation works correctly", ()
   assert.equal(validSettings.memories.length, 1);
 
   const defaultModeDefault = UserSettingsSchema.parse({});
-  assert.equal(defaultModeDefault.defaultMode, "build");
+  assert.equal(defaultModeDefault.defaultMode, undefined, "PATCH must preserve omitted settings");
 
   const memory = AddMemoryItemSchema.parse({ text: "Biz yalnız B2B şirkətlərlə işləyirik.", category: "business" });
   assert.equal(memory.text, "Biz yalnız B2B şirkətlərlə işləyirik.");

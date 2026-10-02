@@ -49,7 +49,7 @@ export class PasswordResetEmailService {
     if (this.env.RESEND_API_KEY) return this.sendWithResend({ to, subject, text, html, replyTo });
     if (this.transport) {
       await this.transport.sendMail({
-        from: this.env.EMAIL_FROM || "Helmer <no-reply@helmerworkspace.com>",
+        from: this.env.EMAIL_FROM || "Helmer <no-reply@helmeros.com>",
         to,
         subject,
         text,
@@ -159,7 +159,7 @@ export class PasswordResetEmailService {
 
     if (this.transport) {
       await this.transport.sendMail({
-        from: this.env.EMAIL_FROM || "Helmer Legal <no-reply@helmerworkspace.com>",
+        from: this.env.EMAIL_FROM || "Helmer Legal <no-reply@helmeros.com>",
         to: recipient,
         replyTo: userEmail || undefined,
         subject,

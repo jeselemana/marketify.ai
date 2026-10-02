@@ -1,13 +1,16 @@
 import { OAuth2Client } from "google-auth-library";
 import express from "express";
+import { z } from "zod";
 import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
 import {
+  EmptyBodySchema,
   AccountUpdateSchema,
   AddMemoryItemSchema,
   ChangePasswordSchema,
   EmailVerificationConfirmSchema,
   EmailVerificationRequestSchema,
   ForgotPasswordSchema,
+  GoogleAuthSchema,
   ImportMemoryPayloadSchema,
   LoginSchema,
   OnboardingSchema,
@@ -41,7 +44,9 @@ export function publicUser(user) {
     fullName: user.fullName,
     username: user.username,
     email: user.email,
+    pendingEmail: user.pendingEmailExpiresAt > Date.now() ? user.pendingEmail || null : null,
     avatarUrl: user.avatarUrl,
+    hasGoogleAuth: Boolean(user.googleSub),
     emailVerified: Boolean(user.emailVerifiedAt),
     onboardingFocus: user.onboardingFocus,
     onboardingRole: user.onboardingRole || null,
@@ -53,7 +58,7 @@ export function publicUser(user) {
     aiSummary: user.aiSummary && typeof user.aiSummary === "object" ? user.aiSummary : null,
     settings: {
       personalIntelligence: settings.personalIntelligence === true,
-      modelImprovement: settings.modelImprovement !== false,
+      modelImprovement: settings.modelImprovement === true,
       brandName: typeof settings.brandName === "string" ? settings.brandName : "",
       industry: typeof settings.industry === "string" ? settings.industry : "",
       targetAudience: typeof settings.targetAudience === "string" ? settings.targetAudience : "",
@@ -76,9 +81,23 @@ function rateKey(req, scope, identity = "") {
   return createHash("sha256").update(source).digest("hex");
 }
 
-function limit(authStore, scope, count, seconds, identity) {
+// Keyed on the target account only, so rotating IPs cannot multiply the
+// number of guesses against a single login identifier or verification code.
+function accountRateKey(scope, identity) {
+  return createHash("sha256").update(`${scope}:account:${identity}`).digest("hex");
+}
+
+// Mirrors how the schemas normalize identifiers, so whitespace/case/"@"
+// variants of the same account cannot each get a fresh rate-limit bucket.
+function normalizeIdentifier(value) {
+  return String(value || "").trim().toLowerCase().replace(/^@+/, "");
+}
+
+function limit(authStore, scope, count, seconds, identity, { perAccount = false } = {}) {
   return asyncRoute(async (req, res, next) => {
-    const result = await authStore.hitRateLimit(rateKey(req, scope, identity?.(req)), count, seconds);
+    const key = identity?.(req);
+    if (perAccount && !key) return next();
+    const result = await authStore.hitRateLimit(perAccount ? accountRateKey(scope, key) : rateKey(req, scope, key), count, seconds);
     res.set("X-RateLimit-Remaining", String(result.remaining));
     if (!result.allowed) {
       res.set("Retry-After", String(Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000))));
@@ -91,30 +110,71 @@ function limit(authStore, scope, count, seconds, identity) {
   });
 }
 
-async function startSession(req, res, authStore, userId) {
+async function startSession(req, res, authStore, user) {
   const rawToken = createSessionToken();
   const sessionId = hashOpaqueToken(rawToken);
-  await authStore.createSession(sessionId, userId, SESSION_TTL_SECONDS);
+  await authStore.createSession(sessionId, user.id, SESSION_TTL_SECONDS, { authVersion: user.authVersion || 1 });
   setSessionCookie(req, res, rawToken);
   return sessionId;
 }
 
-export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, aiLearningRepository, appUrl, telemetryService }) {
+export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, aiLearningRepository, upRepository, appUrl, telemetryService }) {
   // server.js loads dotenv after ESM imports have been evaluated. Resolve this
   // value when the router is created so the configured client ID is available.
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
   const googleClient = new OAuth2Client(googleClientId);
   const router = express.Router();
 
+  async function verificationUser(email) {
+    const direct = await userRepository.findByEmail(email);
+    if (direct) return direct;
+    const { users } = await userRepository.readStore();
+    return users.find(u => u.pendingEmailExpiresAt > Date.now() && u.pendingEmail === email) || null;
+  }
+  async function reauthenticate(req, payload) {
+    if (payload.currentPassword) return verifyPassword(req.user.passwordHash, payload.currentPassword);
+    if (!payload.reauthToken) return false;
+    const proof = await authStore.consumeResetToken(hashOpaqueToken(payload.reauthToken));
+    return proof?.purpose === 'reauth' && proof.userId === req.user.id && proof.sessionId === req.auth.sessionId && proof.authVersion === (req.user.authVersion || 1);
+  }
+  router.post('/google/nonce', limit(authStore, 'google-nonce', 20, 300), asyncRoute(async (req, res) => {
+    parseBody(EmptyBodySchema, req.body || {});
+    const nonce = randomBytes(32).toString('base64url');
+    await authStore.createResetToken(hashOpaqueToken(nonce), 'google', 300, { purpose: 'google-nonce', sessionId: req.auth?.sessionId || req.ownerId });
+    res.set('Cache-Control', 'no-store');
+    res.json({ nonce });
+  }));
+  const ReauthSchema = z.object({ currentPassword: z.string().min(1).max(128).optional(), credential: z.string().min(1).max(4096).optional(), nonce: z.string().min(32).max(128).optional() }).strict();
+  router.post('/reauth', limit(authStore, 'reauth', 8, 300, req => req.user?.id), asyncRoute(async (req, res) => {
+    if (!req.auth?.user?.emailVerifiedAt) return res.status(401).json({ code: 'AUTH_REQUIRED' });
+    const payload = ReauthSchema.parse(req.body); let accepted = false;
+    if (payload.currentPassword) accepted = await verifyPassword(req.user.passwordHash, payload.currentPassword);
+    else if (payload.credential && payload.nonce && googleClientId) {
+      const record = await authStore.consumeResetToken(hashOpaqueToken(payload.nonce));
+      if (record?.purpose === 'google-nonce' && record.sessionId === req.auth.sessionId) {
+        try {
+          const ticket = await googleClient.verifyIdToken({ idToken: payload.credential, audience: googleClientId });
+          const profile = ticket.getPayload();
+          accepted = profile?.nonce === payload.nonce && profile.email_verified && (req.user.googleSub ? profile.sub === req.user.googleSub : normalizeEmail(profile.email) === req.user.email);
+        } catch { accepted = false; }
+      }
+    }
+    if (!accepted) return res.status(403).json({ code: 'INVALID_REAUTH' });
+    const reauthToken = randomBytes(32).toString('base64url');
+    await authStore.createResetToken(hashOpaqueToken(reauthToken), req.user.id, 300, { purpose: 'reauth', sessionId: req.auth.sessionId, authVersion: req.user.authVersion || 1 });
+    res.set('Cache-Control', 'no-store'); res.json({ reauthToken });
+  }));
   async function sendEmailVerificationCode(user) {
     const code = String(randomInt(100000, 1000000));
-    const tokenId = hashOpaqueToken(`${user.id}:${code}`);
-    await authStore.createEmailVerificationToken(tokenId, user.id, EMAIL_VERIFICATION_TTL_SECONDS);
+    const address = user.pendingEmailExpiresAt > Date.now() ? user.pendingEmail : user.email;
+    const purpose = address === user.email ? "signup" : "email-change";
+    const tokenId = hashOpaqueToken(`${user.id}:${address}:${user.authVersion || 1}:${purpose}:${code}`);
+    await authStore.createEmailVerificationToken(tokenId, user.id, EMAIL_VERIFICATION_TTL_SECONDS, { email: address, purpose, authVersion: user.authVersion || 1 });
     if (process.env.NODE_ENV !== "production") {
       console.log(`\n🔑 [DEV ONLY] E-poçt təsdiq kodu (${user.email}): ${code}\n`);
     }
     try {
-      await emailService.sendEmailVerificationCode({ email: user.email, fullName: user.fullName, code });
+      await emailService.sendEmailVerificationCode({ email: address, fullName: user.fullName, code });
     } catch (error) {
       if (process.env.NODE_ENV === "production") {
         // Do not leave a usable code behind if delivery fails in production.
@@ -162,14 +222,8 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   "/google",
   limit(authStore, "google-login", 20, 15 * 60),
   asyncRoute(async (req, res) => {
-    const credential = String(req.body?.credential || "");
-
-    if (!credential) {
-      return res.status(400).json({
-        error: "Google giriş məlumatı göndərilməyib.",
-        code: "GOOGLE_CREDENTIAL_REQUIRED",
-      });
-    }
+    const payload = parseBody(GoogleAuthSchema, req.body);
+    const credential = payload.credential;
 
     if (!googleClientId) {
       return res.status(503).json({
@@ -193,6 +247,8 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     }
 
     const profile = ticket?.getPayload();
+    const nonce = await authStore.consumeResetToken(hashOpaqueToken(payload.nonce));
+    if (!nonce || nonce.purpose !== 'google-nonce' || nonce.sessionId !== (req.auth?.sessionId || req.ownerId) || profile?.nonce !== payload.nonce) return res.status(401).json({ code: 'INVALID_GOOGLE_NONCE', error: 'Google təsdiqi yenilənməlidir.' });
 
     if (!profile?.sub || !profile?.email || !profile.email_verified) {
       return res.status(401).json({
@@ -221,10 +277,16 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
         googleSub: profile.sub,
       });
     } else {
+      if (user.googleSub && user.googleSub !== profile.sub) {
+        return res.status(401).json({
+          error: "Bu e-poçt başqa Google hesabına bağlıdır.",
+          code: "GOOGLE_ACCOUNT_MISMATCH",
+        });
+      }
       if (user.scheduledDeletionAt) {
         const scheduledTime = new Date(user.scheduledDeletionAt).getTime();
         if (!isNaN(scheduledTime) && scheduledTime <= Date.now()) {
-          await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore }).catch(() => {});
+          await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
           return res.status(401).json({
             error: "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
             code: "ACCOUNT_EXPIRED_DELETED",
@@ -232,6 +294,13 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
         }
         await userRepository.cancelDeletion(user.id);
         restoredFromPendingDeletion = true;
+      }
+      if (!user.emailVerifiedAt) {
+        // An unverified credentials account may have been pre-registered by
+        // someone who does not own this inbox. Google has just proven ownership,
+        // so revoke the password and sessions created before that proof.
+        await userRepository.updatePassword(user.id, await hashPassword(randomBytes(48).toString("base64url")));
+        await authStore.invalidateUserSessions(user.id);
       }
       user = await userRepository.update(user.id, {
         emailVerifiedAt:
@@ -243,20 +312,11 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
         status: "active",
         deletionRequestedAt: null,
         scheduledDeletionAt: null,
-      });
+      }, { allowSystemFields: true });
     }
 
-    await startSession(req, res, authStore, user.id);
-
-    if (req.guestOwnerId && strategyRepository?.claimOwner) {
-      await strategyRepository.claimOwner(req.guestOwnerId, user.id);
-    }
-    if (req.guestOwnerId && chatRepository?.claimOwner) {
-      await chatRepository.claimOwner(req.guestOwnerId, user.id);
-    }
-    if (req.guestOwnerId && plannerRepository?.claimOwner) {
-      await plannerRepository.claimOwner(req.guestOwnerId, user.id);
-    }
+    await startSession(req, res, authStore, user);
+    await claimGuestData(req, user.id);
 
     if (telemetryService) {
       telemetryService.trackAuth({
@@ -308,10 +368,14 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     });
   }));
 
-  router.post("/email-verification/resend", limit(authStore, "email-verification-resend", 3, 15 * 60, (req) => normalizeEmail(req.body?.email)), asyncRoute(async (req, res) => {
+  router.post(
+    "/email-verification/resend",
+    limit(authStore, "email-verification-resend-ip", 10, 15 * 60),
+    limit(authStore, "email-verification-resend", 3, 15 * 60, (req) => normalizeEmail(req.body?.email)),
+    asyncRoute(async (req, res) => {
     const payload = parseBody(EmailVerificationRequestSchema, req.body);
-    const user = await userRepository.findByEmail(payload.email);
-    if (user && !user.emailVerifiedAt) {
+    const user = await verificationUser(payload.email);
+    if (user && (!user.emailVerifiedAt || user.pendingEmail === payload.email)) {
       const cooldown = await startEmailVerificationCooldown(req, user.email);
       if (!cooldown.allowed) {
         const retryAfter = Math.max(1, Math.ceil((cooldown.resetAt - Date.now()) / 1000));
@@ -340,25 +404,35 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     return res.json({ message: "Hesab mövcuddursa, təsdiq kodu e-poçta göndərildi." });
   }));
 
-  router.post("/email-verification/confirm", limit(authStore, "email-verification-confirm", 10, 15 * 60, (req) => normalizeEmail(req.body?.email)), asyncRoute(async (req, res) => {
+  router.post(
+    "/email-verification/confirm",
+    limit(authStore, "email-verification-confirm", 10, 15 * 60, (req) => normalizeEmail(req.body?.email)),
+    limit(authStore, "email-verification-confirm", 20, 15 * 60, (req) => normalizeEmail(req.body?.email), { perAccount: true }),
+    asyncRoute(async (req, res) => {
     const payload = parseBody(EmailVerificationConfirmSchema, req.body);
-    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore });
-    const user = await userRepository.findByEmail(payload.email);
-    const tokenId = user ? hashOpaqueToken(`${user.id}:${payload.code}`) : hashOpaqueToken(`missing:${payload.code}`);
+    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
+    const user = await verificationUser(payload.email);
+    const purpose = user?.pendingEmail === payload.email ? 'email-change' : 'signup';
+    const tokenId = user ? hashOpaqueToken(`${user.id}:${payload.email}:${user.authVersion || 1}:${purpose}:${payload.code}`) : hashOpaqueToken(`missing:${payload.code}`);
     const token = await authStore.consumeEmailVerificationToken(tokenId);
-    if (!user || !token || token.userId !== user.id) {
+    if (!user || !token || token.userId !== user.id || token.email !== payload.email || token.authVersion !== (user.authVersion || 1) || token.purpose !== purpose) {
       return res.status(400).json({ error: "Təsdiq kodu yanlışdır və ya vaxtı bitib.", code: "INVALID_EMAIL_VERIFICATION_CODE" });
     }
-    const verifiedUser = user.emailVerifiedAt
-      ? user
-      : await userRepository.update(user.id, { emailVerifiedAt: new Date().toISOString() });
-    await startSession(req, res, authStore, verifiedUser.id);
+    const verifiedUser = await userRepository.confirmVerification(user.id, payload.email, token.authVersion, purpose);
+    if (!verifiedUser) return res.status(400).json({ error: "Kod etibarsızdır.", code: "INVALID_EMAIL_VERIFICATION_CODE" });
+    await authStore.invalidateUserSessions(user.id);
+    await startSession(req, res, authStore, verifiedUser);
     await claimGuestData(req, verifiedUser.id);
     return res.json({ user: publicUser(verifiedUser) });
   }));
 
-  router.post("/login", limit(authStore, "login", 12, 15 * 60, (req) => String(req.body?.identifier || "").toLowerCase()), asyncRoute(async (req, res) => {
-    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore }).catch(() => {});
+  router.post(
+    "/login",
+    limit(authStore, "login-ip", 60, 15 * 60),
+    limit(authStore, "login", 12, 15 * 60, (req) => normalizeIdentifier(req.body?.identifier)),
+    limit(authStore, "login", 50, 15 * 60, (req) => normalizeIdentifier(req.body?.identifier), { perAccount: true }),
+    asyncRoute(async (req, res) => {
+    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
 
     const payload = parseBody(LoginSchema, req.body);
     const user = await userRepository.findByIdentifier(payload.identifier);
@@ -401,7 +475,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     if (user.scheduledDeletionAt) {
       const scheduledTime = new Date(user.scheduledDeletionAt).getTime();
       if (!isNaN(scheduledTime) && scheduledTime <= Date.now()) {
-        await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, aiLearningRepository, authStore }).catch(() => {});
+        await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
         return res.status(401).json({
           error: "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
           code: "ACCOUNT_EXPIRED_DELETED",
@@ -412,17 +486,9 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       }
     }
 
-    await startSession(req, res, authStore, currentUser.id);
+    await startSession(req, res, authStore, currentUser);
     const updated = await userRepository.markLogin(currentUser.id);
-    if (req.guestOwnerId && strategyRepository?.claimOwner) {
-      await strategyRepository.claimOwner(req.guestOwnerId, currentUser.id);
-    }
-    if (req.guestOwnerId && chatRepository?.claimOwner) {
-      await chatRepository.claimOwner(req.guestOwnerId, currentUser.id);
-    }
-    if (req.guestOwnerId && plannerRepository?.claimOwner) {
-      await plannerRepository.claimOwner(req.guestOwnerId, currentUser.id);
-    }
+    await claimGuestData(req, currentUser.id);
     if (telemetryService) {
       telemetryService.trackAuth({
         ownerId: currentUser.id,
@@ -445,6 +511,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   });
 
   router.post("/logout", asyncRoute(async (req, res) => {
+    parseBody(EmptyBodySchema, req.body || {});
     if (telemetryService) {
       telemetryService.trackAuth({
         ownerId: req.user?.id || req.ownerId,
@@ -459,92 +526,147 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     return res.status(204).end();
   }));
 
-  router.post("/account/delete-request", asyncRoute(async (req, res) => {
-    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
-    const updated = await userRepository.scheduleDeletion(req.user.id, 14);
-    if (req.auth?.sessionId) await authStore.deleteSession(req.auth.sessionId);
-    clearSessionCookie(req, res);
-    return res.json({
-      success: true,
-      scheduledDeletionAt: updated.scheduledDeletionAt,
-      message: "Hesabınız 14 günlük silinmə rejiminə keçirildi.",
-    });
-  }));
+  router.post(
+    "/account/delete-request",
+    limit(authStore, "account-delete", 5, 15 * 60, (req) => req.user?.id),
+    asyncRoute(async (req, res) => {
+      if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+      const payload = z.object({ currentPassword: z.string().min(1).max(128).optional(), reauthToken: z.string().min(32).max(128).optional() }).strict().parse(req.body || {});
+      if (!await reauthenticate(req, payload)) {
+        return res.status(403).json({ code: 'REAUTH_REQUIRED', error: 'Hesabı silmək üçün təsdiq tələb olunur.' });
+      }
+      const updated = await userRepository.scheduleDeletion(req.user.id, 14);
+      if (authStore?.invalidateUserSessions) {
+        await authStore.invalidateUserSessions(req.user.id);
+      } else if (req.auth?.sessionId) {
+        await authStore.deleteSession(req.auth.sessionId);
+      }
+      clearSessionCookie(req, res);
+      return res.json({
+        success: true,
+        scheduledDeletionAt: updated.scheduledDeletionAt,
+        message: "Hesabınız 14 günlük silinmə rejiminə keçirildi.",
+      });
+    })
+  );
 
-  router.post("/account/cancel-deletion", asyncRoute(async (req, res) => {
-    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
-    const updated = await userRepository.cancelDeletion(req.user.id);
-    return res.json({
-      success: true,
-      user: publicUser(updated),
-      message: "Silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.",
-    });
-  }));
+  router.post(
+    "/account/cancel-deletion",
+    limit(authStore, "account-cancel-delete", 5, 15 * 60, (req) => req.user?.id),
+    asyncRoute(async (req, res) => {
+      if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+      parseBody(EmptyBodySchema, req.body || {});
+      const updated = await userRepository.cancelDeletion(req.user.id);
+      return res.json({
+        success: true,
+        user: publicUser(updated),
+        message: "Silinmə sorğusu ləğv edildi və hesabınız bərpa olundu.",
+      });
+    })
+  );
 
-  router.patch("/account", asyncRoute(async (req, res) => {
-    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
-    const payload = parseBody(AccountUpdateSchema, req.body);
-    const emailChanged = normalizeEmail(payload.email) !== normalizeEmail(req.user.email);
-    const updated = await userRepository.update(req.user.id, {
-      ...payload,
-      ...(emailChanged ? { emailVerifiedAt: null } : {}),
-    });
-    return res.json({ user: publicUser(updated) });
-  }));
+  router.patch(
+    "/account",
+    limit(authStore, "account-update", 20, 15 * 60, (req) => req.user?.id),
+    asyncRoute(async (req, res) => {
+      if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+      const payload = parseBody(AccountUpdateSchema, req.body);
+      const emailChanged = normalizeEmail(payload.email) !== normalizeEmail(req.user.email);
+      if (emailChanged && !await reauthenticate(req, payload)) return res.status(403).json({ code: 'REAUTH_REQUIRED', error: 'E-poçtu dəyişmək üçün yenidən təsdiq tələb olunur.' });
+      const updated = await userRepository.update(req.user.id, {
+        fullName: payload.fullName, username: payload.username,
+        ...(emailChanged ? { pendingEmail: payload.email, pendingEmailExpiresAt: Date.now() + EMAIL_VERIFICATION_TTL_SECONDS * 1000 } : {}),
+      }, { allowSystemFields: true, expectedAuthVersion: req.user.authVersion || 1 });
+      if (emailChanged) await sendEmailVerificationCode(updated);
+      return res.json({ user: publicUser(updated) });
+    })
+  );
 
-  router.patch("/settings", asyncRoute(async (req, res) => {
-    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
-    const payload = parseBody(UserSettingsSchema, req.body);
-    if (payload.modelImprovement === false) {
-      payload.personalIntelligence = false;
-    }
-    const updated = await userRepository.update(req.user.id, {
-      settings: {
-        ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
-        ...payload,
-      },
-    });
-    return res.json({ user: publicUser(updated) });
-  }));
+  router.patch(
+    "/settings",
+    limit(authStore, "settings-update", 30, 15 * 60, (req) => req.user?.id),
+    asyncRoute(async (req, res) => {
+      if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+      const payload = parseBody(UserSettingsSchema, req.body);
+      const updateData = {
+        settings: payload,
+      };
+      if (payload.personalIntelligence === false) {
+        updateData.aiSummary = null;
+      }
+      if (payload.modelImprovement === false && aiLearningRepository?.update) {
+        await aiLearningRepository.update((store) => {
+          const ownerInteractionIds = new Set(
+            store.interactions.filter((i) => i.ownerId === req.user.id).map((i) => i.id)
+          );
+          store.candidates = store.candidates.filter(
+            (c) => !ownerInteractionIds.has(c.sourceInteractionId)
+          );
+          for (const item of store.interactions) {
+            if (item.ownerId === req.user.id) {
+              item.onlyNecessaryData = true;
+              item.modelImprovement = false;
+              item.userPrompt = "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]";
+              item.modelResponse = "[Məzmun gizlədilib - Töhfə deaktivdir]";
+              item.relevantContext = null;
+            }
+          }
+        }).catch(() => {});
+      }
+      const updated = await userRepository.update(req.user.id, updateData);
+      return res.json({ user: publicUser(updated) });
+    })
+  );
 
-  router.post("/settings/memory", asyncRoute(async (req, res) => {
-    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
-    const payload = parseBody(AddMemoryItemSchema, req.body);
-    const currentMemories = Array.isArray(req.user.settings?.memories) ? req.user.settings.memories : [];
-    if (currentMemories.length >= 50) {
-      return res.status(400).json({ error: "Maksimum 50 yaddaş qeydi saxlanıla bilər.", code: "LIMIT_REACHED" });
-    }
-    const newMemory = {
-      id: `mem_${randomUUID().slice(0, 8)}`,
-      text: payload.text,
-      category: payload.category || "general",
-      createdAt: new Date().toISOString(),
-    };
-    const updatedMemories = [newMemory, ...currentMemories];
-    const updated = await userRepository.update(req.user.id, {
-      settings: {
-        ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
-        memories: updatedMemories,
-      },
-    });
-    return res.status(201).json({ memory: newMemory, user: publicUser(updated) });
-  }));
+  router.post(
+    "/settings/memory",
+    limit(authStore, "settings-memory-add", 30, 15 * 60, (req) => req.user?.id),
+    asyncRoute(async (req, res) => {
+      if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+      const payload = parseBody(AddMemoryItemSchema, req.body);
+      const currentMemories = Array.isArray(req.user.settings?.memories) ? req.user.settings.memories : [];
+      if (currentMemories.length >= 50) {
+        return res.status(400).json({ error: "Maksimum 50 yaddaş qeydi saxlanıla bilər.", code: "LIMIT_REACHED" });
+      }
+      const newMemory = {
+        id: `mem_${randomUUID().slice(0, 8)}`,
+        text: payload.text,
+        category: payload.category || "general",
+        createdAt: new Date().toISOString(),
+      };
+      const updatedMemories = [newMemory, ...currentMemories];
+      const updated = await userRepository.update(req.user.id, {
+        settings: {
+          ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
+          memories: updatedMemories,
+        },
+      });
+      return res.status(201).json({ memory: newMemory, user: publicUser(updated) });
+    })
+  );
 
-  router.delete("/settings/memory/:id", asyncRoute(async (req, res) => {
-    if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
-    const memoryId = String(req.params.id || "").trim();
-    const currentMemories = Array.isArray(req.user.settings?.memories) ? req.user.settings.memories : [];
-    const filtered = currentMemories.filter((m) => m.id !== memoryId);
-    const updated = await userRepository.update(req.user.id, {
-      settings: {
-        ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
-        memories: filtered,
-      },
-    });
-    return res.json({ ok: true, user: publicUser(updated) });
-  }));
+  router.delete(
+    "/settings/memory/:id",
+    asyncRoute(async (req, res) => {
+      if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+      const memoryId = String(req.params.id || "").trim();
+      if (!memoryId || !/^[a-zA-Z0-9_-]{1,100}$/.test(memoryId)) {
+        return res.status(400).json({ error: "Yaddaş ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
+      }
+      const currentMemories = Array.isArray(req.user.settings?.memories) ? req.user.settings.memories : [];
+      const filtered = currentMemories.filter((m) => m.id !== memoryId);
+      const updated = await userRepository.update(req.user.id, {
+        settings: {
+          ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
+          memories: filtered,
+        },
+      });
+      return res.json({ ok: true, user: publicUser(updated) });
+    })
+  );
 
   router.delete("/settings/memory", asyncRoute(async (req, res) => {
+    parseBody(EmptyBodySchema, req.body || {});
     if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
     const updated = await userRepository.update(req.user.id, {
       settings: {
@@ -555,7 +677,10 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     return res.json({ ok: true, user: publicUser(updated) });
   }));
 
-  router.post("/settings/import-memory", asyncRoute(async (req, res) => {
+  router.post(
+    "/settings/import-memory",
+    limit(authStore, "settings-memory-import", 10, 15 * 60, (req) => req.user?.id),
+    asyncRoute(async (req, res) => {
     if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
     const payload = parseBody(ImportMemoryPayloadSchema, req.body);
     const currentSettings = req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {};
@@ -643,18 +768,23 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       return res.status(400).json({ error: "Yeni şifrə cari şifrədən fərqli olmalıdır.", code: "PASSWORD_REUSED" });
     }
     await userRepository.updatePassword(req.user.id, await hashPassword(payload.newPassword));
-    await authStore.invalidateUserSessions(req.user.id, req.auth.sessionId);
+    await authStore.invalidateUserSessions(req.user.id);
+    clearSessionCookie(req, res);
     return res.json({ ok: true });
   }));
 
-  router.post("/forgot-password", limit(authStore, "forgot-password", 6, 30 * 60, (req) => normalizeEmail(req.body?.email)), asyncRoute(async (req, res) => {
+  router.post(
+    "/forgot-password",
+    limit(authStore, "forgot-password-ip", 20, 30 * 60),
+    limit(authStore, "forgot-password", 6, 30 * 60, (req) => normalizeEmail(req.body?.email)),
+    asyncRoute(async (req, res) => {
     const generic = { message: "Bu e-poçt sistemdə varsa, şifrə yeniləmə keçidi göndərildi." };
     const parsed = ForgotPasswordSchema.safeParse(req.body);
     if (!parsed.success) return res.json(generic);
     const user = await userRepository.findByEmail(parsed.data.email);
     if (!user) return res.json(generic);
     const rawToken = randomBytes(32).toString("base64url");
-    await authStore.createResetToken(hashOpaqueToken(rawToken), user.id, RESET_TTL_SECONDS);
+    await authStore.createResetToken(hashOpaqueToken(rawToken), user.id, RESET_TTL_SECONDS, { purpose: "password-reset", authVersion: user.authVersion || 1 });
     const resetUrl = `${appUrl.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(rawToken)}`;
     try {
       await emailService.sendPasswordResetEmail({ email: user.email, fullName: user.fullName, resetUrl });
@@ -671,7 +801,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       return res.status(400).json({ error: "Keçid etibarsızdır və ya vaxtı bitib.", code: "INVALID_RESET_TOKEN" });
     }
     const user = await userRepository.findById(reset.userId);
-    if (!user) return res.status(400).json({ error: "Keçid etibarsızdır və ya vaxtı bitib.", code: "INVALID_RESET_TOKEN" });
+    if (!user || reset.purpose !== "password-reset" || reset.authVersion !== (user.authVersion || 1)) return res.status(400).json({ error: "Keçid etibarsızdır və ya vaxtı bitib.", code: "INVALID_RESET_TOKEN" });
     await userRepository.updatePassword(user.id, await hashPassword(payload.password));
     await authStore.invalidateUserSessions(user.id);
     clearSessionCookie(req, res);
@@ -691,6 +821,13 @@ export function authErrorHandler(error, req, res, next) {
   if (!isAuthRoute) {
     return next(error);
   }
+  if (error.type === "entity.too.large") {
+    return res.status(413).json({ error: "Sorğu həcmi çox böyükdür.", code: "PAYLOAD_TOO_LARGE" });
+  }
+  if (error.type === "entity.parse.failed") {
+    return res.status(400).json({ error: "Sorğu formatı düzgün deyil.", code: "INVALID_JSON" });
+  }
+  if (error.name === "ZodError") return res.status(400).json({ error: "Sorğu düzgün deyil.", code: "VALIDATION_ERROR" });
   if (error.code === "VALIDATION_ERROR") {
     return res.status(400).json({ error: error.message, code: error.code, details: error.details });
   }
@@ -700,6 +837,7 @@ export function authErrorHandler(error, req, res, next) {
   if (error.code === "ORIGIN_NOT_ALLOWED") {
     return res.status(403).json({ error: "Bu mənbədən girişə icazə verilmir.", code: error.code });
   }
+  if (error.status === 401) return res.status(401).json({ code: error.code || "AUTH_REQUIRED" });
   console.error("Authentication request failed", { path: req.path, name: error.name, code: error.code });
   return res.status(500).json({ error: "Sorğunu tamamlamaq mümkün olmadı.", code: "AUTH_ERROR" });
 }

@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import {
   EPISTEMIC_HUMILITY_RULES,
+  HELMER_BUILD_ARCHITECT_RULES,
   STRATEGY_PROMPT,
   REFINEMENT_PROMPT,
   ASSESSOR_PROMPT,
@@ -135,3 +136,40 @@ test("8. server.js imports ASK_INSTRUCTIONS, buildAskPrompt and wires epistemic 
   assert.match(serverCode, /NEVER hallucinate an invented number or feign certainty/);
   assert.match(serverCode, /Never give a dead-end refusal or stop at "bilmirəm"/);
 });
+
+test("9. HELMER_BUILD_ARCHITECT_RULES enforces 2026 temporal reality and bans legacy models", () => {
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /PRODUCT & SYSTEMS ARCHITECT/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /2026-cı il reallığında/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /Köhnə Modellərin Qadağası/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /GPT-4o, Gemini 1\.5, Claude 3\.5/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /\[High-tier Reasoning Model\]/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /\[Low-latency High-throughput SLM\]/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /\[Long-context Multimodal Engine\]/);
+});
+
+test("10. HELMER_BUILD_ARCHITECT_RULES enforces strict metric standards and anti-hallucination", () => {
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /FAKTİKİ İNTİZAM VƏ METRİKA STANDARTLARI/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /İstehsalat Datalarının Qadağası/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /\[Hədəf KPI \/ Proyeksiya\]/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /\[Hipotetik Bençmark Nümunəsi\]/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /Mütləqiyyət İddialarının Qadağası/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /Cərimələrin sıfırlanması/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /100% schema guarantee/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /75% xərc azalması/);
+});
+
+test("11. HELMER_BUILD_ARCHITECT_RULES integrates architecture routing, moat layers, and pre-flight checklist into prompts", () => {
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /ARXİTEKTURA VƏ WORKFLOW ÇƏRÇİVƏSİ/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /Model Routing Məntiqi/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /Moat və Dəyər Qatı/);
+  assert.match(HELMER_BUILD_ARCHITECT_RULES, /PRE-FLIGHT CHECKLIST/);
+
+  // Embedded in STRATEGY_PROMPT, REFINEMENT_PROMPT, and ASSESSOR_PROMPT
+  assert.match(STRATEGY_PROMPT, /PRODUCT & SYSTEMS ARCHITECT/);
+  assert.match(STRATEGY_PROMPT, /2026-cı il reallığında/);
+  assert.match(STRATEGY_PROMPT, /\[High-tier Reasoning Model\]/);
+  assert.match(REFINEMENT_PROMPT, /PRODUCT & SYSTEMS ARCHITECT/);
+  assert.match(REFINEMENT_PROMPT, /Mütləqiyyət İddialarının Qadağası/);
+  assert.match(ASSESSOR_PROMPT, /PRODUCT & SYSTEMS ARCHITECT/);
+});
+

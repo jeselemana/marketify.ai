@@ -1945,173 +1945,258 @@ export const LEGAL_DOCS_I18N = {
   az: {
     terms: {
       title: "İstifadə Şərtləri",
-      subtitle: "Helmer Workspace platformasının istifadə qaydaları və hüquqi şərtləri",
+      subtitle: "Helmer Strategy OS platformasının istifadə qaydaları və hüquqi şərtləri",
       html: `
+        <table class="legal-table">
+          <thead>
+            <tr>
+              <th>Sənəd Rekvizitləri</th>
+              <th>Təfsilat</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Qüvvəyə minmə tarixi</strong></td>
+              <td>3 oktyabr 2026</td>
+            </tr>
+            <tr>
+              <td><strong>Xidmət operatoru</strong></td>
+              <td>Innova Group Azerbaijan</td>
+            </tr>
+            <tr>
+              <td><strong>Rəsmi internet informasiya ehtiyatı</strong></td>
+              <td><a href="https://helmeros.com">helmeros.com</a></td>
+            </tr>
+            <tr>
+              <td><strong>Hüquqi və texniki əlaqə ünvanı</strong></td>
+              <td><a href="mailto:support@helmeros.com">support@helmeros.com</a></td>
+            </tr>
+          </tbody>
+        </table>
+
         <div class="legal-highlight-box">
-          <strong>✦ Süni İntellekt və API İnfrastrukturu</strong>
-          <p>Helmer Workspace strateji analizlərin, marketinq materiallarının və digər nəticələrin generasiyası üçün süni intellekt, böyük dil modelləri (LLM), API infrastrukturları və digər üçüncü tərəf texnologiyalarından istifadə edə bilər. İstifadə olunan modellər, provayderlər və texniki infrastruktur xidmətin inkişafı ilə əlaqədar dəyişdirilə bilər.</p>
+          <strong>✦ Preambula və Süni İntellekt İnfrastrukturu</strong>
+          <p>Helmer Strategy OS platforması analitik tədqiqatların aparılması, biznes strategiyalarının modelləşdirilməsi, bazar araşdırmaları və strukturlaşdırılmış analitik məlumatların hasil edilməsi məqsədilə süni intellekt alqoritmlərindən, böyük dil modellərindən (LLM), tətbiqi proqramlaşdırma interfeyslərindən (API) və üçüncü tərəf hesablama texnologiyalarından istifadə edir. İstifadə olunan sistem modelləri, texniki provayderlər və arxitektur həllər platformanın əməliyyat zərurətlərinə müvafiq qaydada Innova Group Azerbaijan tərəfindən birtərəfli şəkildə dəyişdirilə və ya yenilənə bilər.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>1. Ümumi Müddəalar və Xidmətin Təyinatı</h3>
-          <p>Helmer Workspace platformasına (“Helmer Workspace”, “Platforma”, “Xidmət”) xoş gəlmisiniz. Bu İstifadə Şərtləri (“Şərtlər”) Platformaya girişinizi və ondan istifadənizi tənzimləyir. Platformaya daxil olmaqla və ya ondan istifadə etməklə bu Şərtləri oxuduğunuzu, başa düşdüyünüzü və onlara əməl etməyə razı olduğunuzu təsdiq edirsiniz. Şərtlərlə razı deyilsinizsə, Platformadan istifadə etməməlisiniz.</p>
-          <p>Helmer Workspace süni intellekt texnologiyalarından istifadə etməklə marketinq, biznes strategiyası, bazar analizi, ideya inkişafı, planlaşdırma və əlaqəli sahələr üzrə məzmun və analitik nəticələr yaratmağa kömək edən proqram təminatı platformasıdır.</p>
-          <p>Platformanın təqdim etdiyi nəticələr avtomatlaşdırılmış süni intellekt sistemləri tərəfindən generasiya edilir və peşəkar hüquqi, maliyyə, vergi, investisiya və ya digər ixtisaslaşdırılmış məsləhətin əvəzi hesab edilmir.</p>
+          <h3>Maddə 1. Ümumi Müddəalar və Tərəflərin Razılığı</h3>
+          <p>1.1. Bu İstifadə Şərtləri (“Şərtlər”) Innova Group Azerbaijan tərəfindən idarə olunan Helmer Strategy OS platformasına (“Helmer Strategy OS”, “Helmer”, “Platforma”, “Xidmət”) giriş və ondan istifadə qaydalarını, eləcə də tərəflərin hüquq və vəzifələrini tənzimləyir.</p>
+          <p>1.2. Platformadan hər hansı formada istifadə edilməsi, o cümlədən hesabın qeydiyyatdan keçirilməsi və ya sistemə sorğuların göndərilməsi istifadəçinin bu Şərtlərlə tam tanış olduğunu, onların hüquqi qüvvəsini anladığını və icrasına dair qeyd-şərtsiz razılıq verdiyini təsdiq edir. Bu Şərtlərlə razılaşmayan şəxslərin Platformadan istifadə hüququ yoxdur.</p>
+          <p>1.3. Helmer Strategy OS strateji və biznes təhlillərinə yardımçı xarakterli rəqəmsal proqram təminatı mühitidir.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>2. Süni İntellekt Emalı və Üçüncü Tərəf Xidmətləri</h3>
-          <p>Platformaya daxil etdiyiniz sorğular, biznes brifləri, mətnlər, fayllar və digər məlumatlar Xidmətin funksiyalarını təmin etmək məqsədilə süni intellekt modelləri, API-lər, hosting, məlumat bazası və digər texniki infrastrukturlar vasitəsilə emal edilə bilər.</p>
-          <p>Helmer Workspace konkret süni intellekt modelinin, API provayderinin və ya digər üçüncü tərəf xidmətinin daimi mövcudluğuna zəmanət vermir. Helmer Workspace istifadə olunan modelləri, provayderləri və texniki infrastrukturu tətbiq olunan qanunvericiliyin tələb etdiyi hallar istisna olmaqla dəyişdirmək hüququnu özündə saxlayır.</p>
+          <h3>Maddə 2. Yaş Həddi və Hüquqi Fəaliyyət Qabiliyyəti</h3>
+          <p>2.1. Azərbaycan Respublikasının Mülki Məcəlləsinin müvafiq tələblərinə uyğun olaraq, Platforma yalnız tam fəaliyyət qabiliyyətli və 18 yaşına çatmış şəxslərin istifadəsi üçün nəzərdə tutulur.</p>
+          <p>2.2. Platformadan istifadə edən hər bir şəxs ən azı 18 yaşının tamam olduğunu, müqavilə bağlamaq və öhdəlik götürmək üçün zəruri hüquq və fəaliyyət qabiliyyətinə malik olduğunu rəsmi qaydada bəyan və təsdiq edir.</p>
+          <p>2.3. Platformanın 18 yaşına çatmamış şəxslər tərəfindən istifadə edildiyi aşkar edildikdə, Innova Group Azerbaijan xəbərdarlıq etmədən müvafiq hesaba xidmət göstərilməsini dərhal və birtərəfli qaydada dayandırmaq və ya xitam vermək hüququnu özündə saxlayır.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>3. Süni İntellekt Nəticələrinin Dəqiqliyi</h3>
-          <p>Süni intellekt sistemlərinin xüsusiyyətlərinə görə Platforma tərəfindən generasiya olunan nəticələr yanlış, natamam, qeyri-dəqiq və ya köhnəlmiş məlumatlar ehtiva edə bilər. Sistem bəzi hallarda mövcud olmayan faktları, statistik məlumatları, mənbələri və ya digər məlumatları səhvən təqdim edə bilər.</p>
-          <p>Helmer Workspace generasiya edilən nəticələrin dəqiqliyinə, tamlığına, aktuallığına, etibarlılığına və ya konkret məqsədə uyğunluğuna zəmanət vermir. İstifadəçi mühüm məlumatları müstəqil və etibarlı mənbələrdən yoxlamalıdır.</p>
+          <h3>Maddə 3. Peşəkar Məsləhətin İstisnası və Etibarlılıq Qadağası (Non-Reliance)</h3>
+          <p>3.1. Platforma vasitəsilə təqdim olunan bütün analitik strukturlar, biznes modelləri, bazar təhlilləri, büdcə bölgüləri və fəaliyyət planları sırf yardımçı, konseptual və məlumatlandırıcı xarakter daşıyır.</p>
+          <p>3.2. Platformanın fəaliyyəti və təqdim etdiyi nəticələr peşəkar hüquqi, maliyyə, investisiya, vergi və ya lisenziyalaşdırılan digər sahələr üzrə ekspert rəyini əvəz etmir. İstifadəçi ilə Innova Group Azerbaijan arasında heç bir fiduciar, konsaltinq və ya digər peşəkar vəkillik münasibəti formalaşmır.</p>
+          <p>3.3. Süni intellekt texnologiyalarının təbiəti etibarilə sistem tərəfindən hasil edilən çıxışların qeyri-dəqiq, natamam, köhnəlmiş və ya təhrif olunmuş faktlar ehtiva etməsi mümkündür (alqoritmik hallusinasiya riski). İstifadəçi Platformanın məlumatlarına əsaslanan hər hansı kommersiya, əməliyyat, maliyyə və ya hüquqi qərar qəbul etməzdən əvvəl həmin məlumatların düzgünlüyünü müstəqil ixtisaslaşmış mütəxəssislər vasitəsilə yoxlamaq məsuliyyətini şəxsən daşıyır.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>4. Əqli Mülkiyyət və İstifadəçi Məzmunu</h3>
-          <p><strong>İstifadəçi Məzmunu:</strong> Platformaya daxil etdiyiniz biznes məlumatları, ideyalar, briflər, mətnlər, fayllar və digər materiallar üzərində mövcud hüquqlarınız sizdə qalır.</p>
-          <p>Helmer Workspace-ə məlumat təqdim etməklə həmin məlumatların Xidmətin funksiyalarını yerinə yetirmək üçün zəruri həcmdə emal edilməsinə icazə verirsiniz. Platformaya təqdim etdiyiniz məlumatlardan istifadə etmək və onların emalına icazə vermək üçün zəruri hüquq və səlahiyyətlərə malik olduğunuza görə məsuliyyət daşıyırsınız.</p>
-          <p><strong>Generasiya Edilən Məzmun:</strong> Qanunvericiliyin və tətbiq olunan üçüncü tərəf şərtlərinin icazə verdiyi həddə Helmer Workspace vasitəsilə sizin üçün generasiya edilmiş strategiya, fəaliyyət planı, mətn və digər nəticələrdən kommersiya və qeyri-kommersiya məqsədləri üçün istifadə edə bilərsiniz.</p>
-          <p>Süni intellekt sistemlərinin xüsusiyyətlərinə görə eyni və ya oxşar nəticələr digər istifadəçilər üçün də generasiya edilə bilər. Helmer Workspace generasiya edilmiş məzmunun unikal, eksklüziv və ya müəllif hüquqları ilə qoruna bilən olmasına zəmanət vermir.</p>
+          <h3>Maddə 4. Əqli Mülkiyyət, Məzmun və İkitərəfli Asılılıq Rejimi</h3>
+          <p>4.1. <strong>İstifadəçi Məzmunu:</strong> İstifadəçi tərəfindən sistemə daxil edilən fərdi biznes təsvirləri, briflər, təhlil sənədləri və digər materiallar (“İstifadəçi Məzmunu”) üzərindəki hüquqlar tam olaraq istifadəçiyə məxsus olaraq qalır. İstifadəçi bu materialları sistemə daxil etməklə Innova Group Azerbaijan-a yalnız Xidmətin texniki icrasının və funksiyalarının təmin edilməsi üçün zəruri olan həcmdə məhdud emal icazəsi verir.</p>
+          <p>4.2. <strong>Modellərin Təkmilləşdirilməsi Funksionallığı:</strong> Sistem alqoritmlərinin optimallaşdırılması, analitik dəqiqliyin artırılması və daxili modellərin adaptasiyası məqsədilə qarşılıqlı əlaqə məlumatlarının cəlb edilməsi funksionallığı sistem konfiqurasiyasında ilkin olaraq aktivləşdirilmiş vəziyyətdə təqdim oluna bilər. İstifadəçi şəxsi profil parametrləri bölməsindən bu funksionallığın tətbiqindən istədiyi vaxt sərbəst şəkildə imtina etmək (deaktivasiya etmək) hüququna malikdir.</p>
+          <p>4.3. <strong>İkitərəfli Qarşılıqlı Asılılıq Şərti:</strong> Modellərin təkmilləşdirilməsi funksionallığı ilə fərdiləşdirilmiş xidmət rejimi (yaddaş konteksti) bir-biri ilə qırılmaz və ikitərəfli əlaqədə fəaliyyət göstərir. İstifadəçi tərəfindən modellərin təkmilləşdirilməsi funksionallığı deaktiv edildiyi andan etibarən fərdiləşdirilmiş xidmət rejimi də sistem tərəfindən avtomatik və dərhal qeyri-aktiv vəziyyətə keçirilir; eləcə də fərdiləşdirilmiş xidmət rejimi deaktiv edildikdə modellərin təkmilləşdirilməsi funksionallığı da avtomatik qaydada dayandırılır. Fərdiləşdirilmiş analitik dəstək yalnız bu iki funksionallığın paralel şəkildə aktiv olduğu şəraitdə təmin edilir.</p>
+          <p>4.4. <strong>Generasiya Edilən Çıxışlar:</strong> Qanunvericiliyin və tərəfdaş provayderlərin icazə verdiyi hüdudlarda istifadəçi öz sorğuları nəticəsində formalaşmış analitik çıxışlardan kommersiya və qeyri-kommersiya məqsədləri üçün sərbəst istifadə edə bilər. Alqoritmik sistemlərin ümumi təbiətinə müvafiq olaraq, oxşar sorğu daxil edən digər şəxslər üçün bənzər nəticələrin hasil edilməsi mümkündür və bu hal çıxışların unikallığına dair iddia irəli sürmək hüququ yaratmır.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>5. Biznes Qərarları və Tövsiyə Xarakteri</h3>
-          <p>Helmer Workspace tərəfindən generasiya edilən strategiyalar, proqnozlar, bazar təhlilləri, büdcə təklifləri, fəaliyyət planları və digər nəticələr məlumatlandırıcı və yardımçı xarakter daşıyır.</p>
-          <p>Helmer Workspace müəyyən satış, gəlir, mənfəət, investisiya nəticəsinə, marketinq kampaniyasının uğuruna və ya digər konkret biznes nəticəsinə zəmanət vermir. Platformanın təqdim etdiyi məlumatlara əsaslanan qərarların qəbul edilməsi və həyata keçirilməsi istifadəçinin müstəqil qərarı və məsuliyyətidir.</p>
+          <h3>Maddə 5. Zəmanətlərin İstisnası və Biznes Qərarları</h3>
+          <p>5.1. Xidmət və onun bütün funksional imkanları “olduğu kimi” (“as is”) və “mövcud olduğu dərəcədə” (“as available”) prinsipi ilə təqdim edilir.</p>
+          <p>5.2. Innova Group Azerbaijan hər hansı kommersiya uğuruna, satış dövriyyəsinin və ya gəlirliliyin artırılmasına, bazar payının qazanılmasına, investisiyaların cəlb edilməsinə və ya Platformanın təqdim etdiyi analitik təkliflərin reallaşmasına dair heç bir birbaşa və ya dolayısı zəmanət vermir. Platformanın məlumatlarına əsaslanaraq həyata keçirilən bütün fəaliyyətin riskləri və iqtisadi nəticələri birbaşa istifadəçinin şəxsi məsuliyyətindədir.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>6. Qadağan Olunmuş İstifadə</h3>
-          <p>Platformadan qanunsuz fəaliyyət, fırıldaqçılıq, aldatma, üçüncü şəxslərin hüquqlarının pozulması, zərərli proqramların yayılması, sistemlərə icazəsiz giriş, təhlükəsizlik mexanizmlərinin aşılması və ya Platformanın normal fəaliyyətinə müdaxilə məqsədilə istifadə etmək qadağandır.</p>
-          <p>Helmer Workspace bu Şərtlərin pozulduğunu əsaslı şəkildə müəyyən etdikdə istifadəçinin Platformaya girişini məhdudlaşdırmaq, müvəqqəti dayandırmaq və ya ləğv etmək hüququnu özündə saxlayır.</p>
+          <h3>Maddə 6. Qadağan Olunmuş İstifadə</h3>
+          <p>6.1. Platformadan qanunvericiliyin tələblərini pozan məqsədlər üçün istifadə edilməsi, kibertəhlükəsizlik baryerlərinin aşılmasına yönəlmiş müdaxilələr (o cümlədən prompt injection, model dekompilyasiyası, arxitekturanın tərsinə mühəndisliyi), sistem resurslarının kütləvi sorğularla həddən artıq yüklənməsi və üçüncü tərəflərin qanuni hüquqlarının pozulması qadağandır.</p>
+          <p>6.2. İstifadə qaydalarının pozulması faktı aşkar edildikdə, Innova Group Azerbaijan istifadəçinin Platformaya giriş hüququnu xəbərdarlıq etmədən dayandırmaq və ya birdəfəlik ləğv etmək hüququna malikdir.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>7. Xidmətin Mövcudluğu və Dəyişdirilməsi</h3>
-          <p>Helmer Workspace Platformanın fasiləsiz, səhvsiz və ya hər zaman əlçatan olacağına zəmanət vermir. Texniki xidmət, yeniləmələr, server problemləri, üçüncü tərəf API-lərində nasazlıqlar və Helmer Workspace-in ağlabatan nəzarətindən kənar digər hallar Xidmətin müvəqqəti əlçatmaz olmasına və ya müəyyən funksiyaların işləməməsinə səbəb ola bilər.</p>
-          <p>Helmer Workspace Platformanın funksiyalarını, interfeysini, süni intellekt modellərini, istifadə limitlərini və digər texniki xüsusiyyətlərini dəyişdirmək, əlavə etmək və ya dayandırmaq hüququnu özündə saxlayır.</p>
+          <h3>Maddə 7. Zərərlərin Əvəzinin Ödənilməsi (Təqsirə Əsaslanan Məsuliyyət)</h3>
+          <p>İstifadəçinin bu Şərtləri qəsdən və ya kobud şəkildə pozması, Platformadan qanunsuz məqsədlər üçün istifadə etməsi və ya sistemə daxil etdiyi materiallarla üçüncü şəxslərin hüquqlarını (o cümlədən əqli mülkiyyət və ya məxfilik hüquqlarını) təqsirli şəkildə pozması nəticəsində Innova Group Azerbaijan-a, onun vəzifəli şəxslərinə və texnoloji tərəfdaşlarına qarşı üçüncü tərəflər tərəfindən irəli sürülmüş əsaslı iddialar üzrə vurulmuş birbaşa zərərin və rəsmi məhkəmə xərclərinin əvəzi qanunvericiliklə müəyyən edilmiş qaydada təqsirkar istifadəçi tərəfindən kompensasiya edilir.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>8. Zəmanətlərin Məhdudlaşdırılması</h3>
-          <p>Qanunvericiliyin icazə verdiyi maksimum həddə Platforma və onun funksiyaları “olduğu kimi” və “mövcud olduğu şəkildə” təqdim edilir.</p>
-          <p>Helmer Workspace Platformanın konkret məqsədə uyğunluğu, fasiləsiz işləməsi, bütün səhvlərdən azad olması və ya generasiya edilən nəticələrin konkret kommersiya və ya biznes nəticəsi yaradacağı barədə açıq və ya nəzərdə tutulan zəmanət vermir.</p>
+          <h3>Maddə 8. Məsuliyyətin Hədləri və Qanuni İstisnalar</h3>
+          <p>8.1. <strong>Dolayı Zərərlər üzrə:</strong> Qanunvericiliyin yol verdiyi hədlərdə Innova Group Azerbaijan Platformadan istifadə və ya ondan istifadənin qeyri-mümkünlüyü, habelə sistem nəticələrinə istinad edilməsi ilə əlaqədar yaranan dolayı zərərlərə, qaçırılmış faydaya, itirilmiş mənfəətə və ya biznesin dayanması nəticəsində yaranan itkilərə görə məsuliyyət daşımır.</p>
+          <p>8.2. <strong>Məsuliyyətin Həcmi:</strong> Xidmətin təmənnasız göstərildiyi nəzərə alınaraq, Innova Group Azerbaijan-ın Platforma ilə bağlı yarana biləcək birbaşa məsuliyyəti tətbiq olunan qanunvericiliyin yol verdiyi ağlabatan və minimum hədlə məhdudlaşır; ödənişli xidmətlər təqdim edildiyi halda isə bu məsuliyyət istifadəçinin iddia anından əvvəlki son 12 (on iki) ay ərzində müvafiq xidmət üçün faktiki ödədiyi məbləğdən artıq ola bilməz.</p>
+          <p>8.3. <strong>Məhdudlaşdırılması Mümkün Olmayan Hallar:</strong> Bu Şərtlərin heç bir müddəası Innova Group Azerbaijan-ın qəsd və ya kobud ehtiyatsızlığı nəticəsində dəyən zərərə, həyat və sağlamlığa vurulmuş ziyana, habelə Azərbaycan Respublikasının qanunvericiliyi (o cümlədən istehlakçıların hüquqlarının müdafiəsi və mülki hüquq normaları) ilə məhdudlaşdırılması və ya istisna edilməsi qadağan olunan digər məsuliyyət hallarına şamil edilmir və onları aradan qaldırmır.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>9. Məsuliyyətin Məhdudlaşdırılması</h3>
-          <p>Qanunvericiliyin icazə verdiyi maksimum həddə Helmer Workspace Platformadan istifadə, Platformadan istifadə edə bilməmə və ya generasiya edilmiş nəticələrə əsaslanan qərarlar nəticəsində yaranan dolayı, təsadüfi, xüsusi və ya nəticə etibarilə meydana çıxan zərərlərə, o cümlədən itirilmiş mənfəət, gəlir, biznes imkanı, məlumat və ya reputasiya itkisinə görə məsuliyyət daşımır.</p>
-          <p>Bu müddəa tətbiq olunan qanunvericiliklə məhdudlaşdırılması və ya istisna edilməsi mümkün olmayan məsuliyyət hallarını aradan qaldırmır.</p>
+          <h3>Maddə 9. Xidmətin Fəaliyyəti və Texniki Dəyişikliklər</h3>
+          <p>9.1. Platformanın işində texniki profilaktika, qlobal infrastruktur yeniləmələri və ya asılı xarici şəbəkələrin fəaliyyəti ilə əlaqədar fasilələrin və ya gecikmələrin yaranması mümkündür. Innova Group Azerbaijan sistemin tam fasiləsiz işləməsinə dair zəmanət vermir.</p>
+          <p>9.2. Innova Group Azerbaijan Platformanın funksional imkanlarını, təqdim olunan modelləri, texniki limitləri və interfeys parametrlərini zərurət olduqda birtərəfli qaydada dəyişdirmək hüququnu saxlayır.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>10. Hesab və Təhlükəsizlik</h3>
-          <p>Hesab funksiyası təqdim edildiyi halda istifadəçi öz giriş məlumatlarının məxfiliyini və təhlükəsizliyini qorumağa görə məsuliyyət daşıyır. İcazəsiz giriş və ya hesab təhlükəsizliyinin pozulmasından şübhələndikdə istifadəçi Helmer Workspace-ə mümkün qədər tez məlumat verməlidir.</p>
+          <h3>Maddə 10. Hesab Təhlükəsizliyi</h3>
+          <p>İstifadəçi öz hesabının giriş vasitələrinin və aktiv sessiya açarlarının konfidensiallığını qorumağa görə şəxsən cavabdehdir. Hesaba icazəsiz müdaxilə və ya təhlükəsizlik pozuntusu şübhəsi yarandıqda istifadəçi dərhal Platformanın dəstək xidmətinə məlumat verməlidir.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>11. Məxfilik və Fərdi Məlumatlar</h3>
-          <p>Fərdi məlumatların toplanması, istifadəsi, saxlanması və digər emal əməliyyatları Helmer Workspace-in qüvvədə olan Məxfilik Siyasətinə və tətbiq olunan qanunvericiliyə uyğun həyata keçirilir.</p>
-          <p>İstifadəçilər Platformaya xidmətin göstərilməsi üçün zəruri olmayan həssas, məxfi və ya üçüncü şəxslərə aid məlumatları daxil etməməlidirlər.</p>
+          <h3>Maddə 11. Şərtlərin Dəyişdirilməsi və Müstəqil Qüvvə</h3>
+          <p>11.1. Innova Group Azerbaijan bu Şərtləri zərurət olduqda birtərəfli qaydada yeniləyə bilər. Yenilənmiş Şərtlər Platformada dərc edildiyi andan qüvvəyə minir.</p>
+          <p>11.2. Bu Şərtlərin hər hansı müddəasının məhkəmə tərəfindən etibarsız və ya icraedilməz hesab edilməsi digər bəndlərin hüquqi qüvvəsinə təsir göstərmir.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>12. Şərtlərin Dəyişdirilməsi</h3>
-          <p>Helmer Workspace Platformanın inkişafı, hüquqi tələblər, təhlükəsizlik məsələləri və ya xidmət modelində dəyişikliklərlə əlaqədar bu Şərtləri vaxtaşırı yeniləyə bilər. Əhəmiyyətli dəyişikliklər barədə tətbiq olunan qanunvericiliyin tələb etdiyi hallarda istifadəçilərə uyğun vasitələrlə məlumat verilə bilər.</p>
-          <p>Yenilənmiş Şərtlər göstərilən qüvvəyə minmə tarixindən tətbiq edilir.</p>
-        </div>
-
-        <div class="legal-doc-section">
-          <h3>13. Şərtlərin Ayrı-ayrılıqda Qüvvədə Qalması</h3>
-          <p>Bu Şərtlərin hər hansı müddəasının etibarsız və ya icraedilməz hesab edilməsi digər müddəaların etibarlılığına təsir göstərmir.</p>
-        </div>
-
-        <div class="legal-doc-section">
-          <h3>14. Tətbiq Olunan Qanunvericilik</h3>
-          <p>Bu Şərtlər Azərbaycan Respublikasının qanunvericiliyinə uyğun olaraq şərh və tətbiq edilir. İstehlakçıların və digər şəxslərin tətbiq olunan qanunvericiliklə məhdudlaşdırılması mümkün olmayan hüquqları bu Şərtlərlə aradan qaldırılmır.</p>
-        </div>
-
-        <div class="legal-doc-note">
-          <strong>Vacib qeyd</strong>
-          <p>Helmer Workspace səhv edə bilər. Vacib məlumatları və Platformanın təqdim etdiyi nəticələri müstəqil və etibarlı mənbələrdən yoxlayın.</p>
+          <h3>Maddə 12. Mübahisələrin Həlli və Tətbiq Olunan Hüquq</h3>
+          <p>12.1. Bu Şərtlər Azərbaycan Respublikasının maddi və prosessual qanunvericiliyinə uyğun olaraq tənzimlənir və şərh edilir.</p>
+          <p>12.2. Tərəflər arasında yaranan bütün fikir ayrılıqları qarşılıqlı danışıqlar yolu ilə həll edilir. Razılıq əldə edilmədikdə, mübahisələr Azərbaycan Respublikasının müvafiq yurisdiksiyaya malik səlahiyyətli məhkəmələri tərəfindən araşdırılır.</p>
         </div>
       `,
     },
     privacy: {
       title: "Məxfilik Siyasəti",
-      subtitle: "Fərdi və konfidensial məlumatların toplanması, emalı və mühafizəsi qaydaları",
+      subtitle: "Fərdi və konfidensial məlumatların toplanması, emalı, saxlanması və mühafizəsi qaydaları",
       html: `
-        <div class="legal-doc-section">
-          <p>Bu Məxfilik Siyasəti (bundan sonra — «Siyasət») Innova Group Azerbaijan tərəfindən idarə olunan Helmer Workspace platformasında (bundan sonra — «Platforma», «Xidmət» və ya «Məlumat Sahibi/İdarəçi») fərdi və konfidensial məlumatların toplanması, emalı, saxlanması və mühafizəsi qaydalarını müəyyən edir.</p>
-          <p>Platformadan istifadə etməklə İstifadəçi Azərbaycan Respublikasının «Fərdi məlumatlar haqqında» Qanununa uyğun olaraq, öz fərdi məlumatlarının bu Siyasətdə göstərilən şərtlər daxilində toplanmasına və emalına tam razılığını bildirmiş olur.</p>
+        <table class="legal-table">
+          <thead>
+            <tr>
+              <th>Sənəd Göstəriciləri</th>
+              <th>Təfsilat</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Son yenilənmə tarixi</strong></td>
+              <td>3 oktyabr 2026</td>
+            </tr>
+            <tr>
+              <td><strong>Qüvvəyə minmə tarixi</strong></td>
+              <td>3 oktyabr 2026</td>
+            </tr>
+            <tr>
+              <td><strong>Xidmət operatoru</strong></td>
+              <td>Innova Group Azerbaijan</td>
+            </tr>
+            <tr>
+              <td><strong>Rəsmi internet informasiya ehtiyatı</strong></td>
+              <td><a href="https://helmeros.com">helmeros.com</a></td>
+            </tr>
+            <tr>
+              <td><strong>Məxfilik məsələləri üzrə əlaqə</strong></td>
+              <td><a href="mailto:support@helmeros.com">support@helmeros.com</a></td>
+            </tr>
+            <tr>
+              <td><strong>Hüquqi status</strong></td>
+              <td>Təmənnasız, qeyri-kommersiya əsaslı rəqəmsal xidmət</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="legal-highlight-box">
+          <strong>✦ Google API İstifadəçi Məlumatları Siyasətinə Uyğunluq (Limited Use Tələbi)</strong>
+          <p>Helmer Strategy OS platformasının Google API-lərindən əldə edilmiş məlumatlardan istifadəsi və onları hər hansı digər tətbiqə ötürməsi, Məhdud İstifadə (Limited Use) tələbləri də daxil olmaqla, <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a> şərtlərinə tam şəkildə uyğundur.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>1. Əsas Prinsiplər və Qeyri-Kommersiya Xarakteri</h3>
-          <p>1.1. Platforma qeyri-kommersiya təyinatlı fəaliyyət göstərir və toplanan məlumatlardan birbaşa və ya dolayısı ilə kommersiya, reklam və ya mənfəət əldə etmək məqsədilə istifadə etmir.</p>
-          <p>1.2. Məlumatların emalı qanunilik, konfidensiallıq, məqsədəuyğunluq və yalnız xidmətin texniki-funksional tələbləri ilə məhdudlaşma prinsiplərinə əsaslanır.</p>
+          <p><strong>Preambula</strong></p>
+          <p>Bu Məxfilik Siyasəti (“Siyasət”) Innova Group Azerbaijan tərəfindən idarə olunan Helmer Strategy OS platformasında (“Helmer Strategy OS”, “Platforma”, “Xidmət”, “Məlumat Sahibi / İdarəçi”) istifadəçilərə aid fərdi və konfidensial məlumatların toplanması, emalı, saxlanması, mühafizəsi və ötürülməsi qaydalarını müəyyən edir.</p>
+          <p>Platformadan istifadə edilməsi ilə istifadəçi Azərbaycan Respublikasının “Fərdi məlumatlar haqqında” Qanununa və tətbiq olunan digər qanunvericilik aktlarına uyğun olaraq, öz fərdi məlumatlarının bu Siyasətdə təsbit edilmiş şərtlər və hədlər çərçivəsində toplanmasına və emal edilməsinə razılığını ifadə etmiş olur.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>2. Toplanan Məlumatların Kateqoriyaları</h3>
-          <p>Platforma xidmətlərin təmənnasız göstərilməsi və sistem təhlükəsizliyinin təmin edilməsi məqsədilə aşağıdakı kateqoriyalar üzrə məlumatları emal edir:</p>
-          <p><strong>2.1. İdentifikasiya və Giriş Məlumatları:</strong> İstifadəçinin adı, soyadı, istifadəçi adı, elektron poçt ünvanı və təhlükəsiz şifrələnmiş (kriptoqrafik heşlənmiş) autentifikasiya identifikatorları.</p>
-          <p><strong>2.2. Google İstifadəçi Məlumatları (Google OAuth 2.0):</strong> İstifadəçi Platformaya Google hesabı vasitəsilə («Sign in with Google») daxil olduqda, Google tərəfindən yalnız əsas profil məlumatları (istifadəçinin adı, soyadı, e-poçt ünvanı və profil şəklinin URL-i) təqdim olunur. İstifadəçinin Google şifrələrinə, kontaktlarına, Google Drive və ya digər şəxsi sənədlərinə heç bir halda çıxış əldə olunmur və saxlanılmır. Bu məlumatlar yalnız istifadəçi profilini identifikasiya etmək, autentifikasiyanı tamamlamaq və təhlükəsiz sessiyanı idarə etmək üçün istifadə edilir.</p>
-          <p><strong>2.3. Biznes və Məzmun Konteksti:</strong> İstifadəçi tərəfindən sistemə daxil edilən marketinq brifləri, aydınlaşdırma sorğularına cavablar, generasiya olunmuş analitik nəticələr, söhbət tarixçəsi, planlaşdırılan tapşırıqlar və arxiv qeydləri.</p>
-          <p><strong>2.4. Texniki və Təhlükəsizlik Göstəriciləri:</strong> İstifadəçinin brauzer sessiya açarları, IP ünvanları, sistem hadisələrinin qeydiyyat jurnalları (server logları) və giriş vaxtı göstəriciləri.</p>
+          <h3>Maddə 1. Əsas Prinsiplər və Qeyri-Kommersiya Xarakteri</h3>
+          <p>1.1. Platforma qeyri-kommersiya tədqiqat və strateji idarəetmə təşəbbüsü kimi fəaliyyət göstərir və təmənnasız təqdim edilir.</p>
+          <p>1.2. İstifadəçilərin fərdi məlumatları birbaşa və ya dolayısı ilə kommersiya gəliri əldə etmək məqsədilə üçüncü şəxslərə satılmır, reklam şəbəkələrinə və ya məlumat brokerlərinə ötürülmür.</p>
+          <p>1.3. Məlumatların emalı qanunilik, konfidensiallıq, məqsədəuyğunluq və məlumatların minimallaşdırılması prinsiplərinə əsaslanır; yalnız Xidmətin texniki və funksional fəaliyyəti üçün zəruri olan minimum məlumat həcmi emala cəlb olunur.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>3. Fərdiləşdirilmiş Təcrübə, Həssas Məlumatlar və İstifadəçinin Mülahizə Öhdəliyi</h3>
-          <p><strong>3.1. Könüllü Razılıq və Fərdiləşdirmə:</strong> Platformada süni intellekt cavablarının daha dəqiq, kontekstə uyğun və effektiv formalaşdırılması məqsədilə «Fərdiləşdirilmiş təcrübə» funksiyası tətbiq olunur. Bu funksiya yalnız İstifadəçinin birmənalı və könüllü razılığı (opt-in) əsasında aktivləşdirilir və istənilən vaxt sistem parametrlərindən söndürülə bilər.</p>
-          <p><strong>3.2. Həssas Məlumatların Yaddaşda Saxlanılmaması:</strong> Fərdiləşdirmə mexanizmi çərçivəsində İstifadəçinin həssas və birbaşa identifikasiyaedici şəxsi məlumatları, o cümlədən mobil telefon nömrəsi, dəqiq yaşayış ünvanı məlumatları, şəxsiyyəti təsdiq edən sənədin fərdi identifikasiya nömrəsi (FİN kod), seriya və nömrəsi, habelə bank və ödəniş rekvizitləri qəti şəkildə fərdiləşdirmə yaddaşında saxlanılmır və profil kontekstinə daxil edilmir. Fərdiləşdirmə yalnız qeyri-həssas, ümumi üslub və marketinq konteksti parametrlərini əhatə edir.</p>
-          <p><strong>3.3. İstifadəçinin Mülahizəsi və Paylaşmamaq Məsuliyyəti:</strong> Qanunvericilikdə və ya xidmətin qeydiyyat formasında birbaşa tələb olunan məcburi texniki hallar (məsələn, hesabın yaradılması üçün e-poçt ünvanı) istisna olmaqla, sorğulara daxil edilən hər hansı məlumatın həcmi və xarakteri üzrə yekun mülahizə tam şəkildə İstifadəçinin öz üzərindədir. İstifadəçilər platformanın heç bir interfeysində, sorğu və ya brif daxiletmə sahələrində həssas fərdi məlumatlarını, dövlət qeydiyyat nömrələrini, bank rekvizitlərini və ya üçüncü şəxslərin gizli məlumatlarını heç bir halda paylaşmamalı və sistemə daxil etməməlidirlər. İstifadəçinin bu tələbə zidd olaraq öz təşəbbüsü ilə paylaşdığı həssas məlumatlara görə Platforma heç bir maddi və ya hüquqi məsuliyyət daşımır.</p>
+          <h3>Maddə 2. Emal Edilən Məlumat Kateqoriyaları</h3>
+          <p>Platforma xidmətlərin göstərilməsi və sistem təhlükəsizliyinin təmin olunması məqsədilə aşağıdakı kateqoriyalar üzrə məlumatları emal edir:</p>
+          <p><strong>2.1. İdentifikasiya və Giriş Göstəriciləri:</strong> İstifadəçinin adı, soyadı, istifadəçi adı, elektron poçt ünvanı və təhlükəsiz şəkildə kriptoqrafik heşlənmiş daxili identifikasiya parametrləri (User ID).</p>
+          <p><strong>2.2. Google Giriş Göstəriciləri (Google OAuth 2.0):</strong> İstifadəçi Platformaya vahid giriş texnologiyası vasitəsilə daxil olduqda, autentifikasiya təminatçısı tərəfindən yalnız icazə verilmiş baza profil məlumatları (istifadəçinin adı, soyadı, e-poçt ünvanı, profil təsvirinin internet ünvanı və sistem təhlükəsizlik tokeni) qəbul edilir. İstifadəçinin xarici platforma şifrələrinə, kontaktlar siyahısına, bulud saxlancına və ya digər fərdi sənədlərinə heç bir halda çıxış əldə olunmur və saxlanılmır.</p>
+          <p><strong>2.3. Biznes və Məzmun Konteksti:</strong> İstifadəçi tərəfindən sistemə daxil edilən strateji briflər, bazar təhlili parametrləri, suallar (Giriş Məlumatları), sistem tərəfindən hasil edilən analitik planlar, generasiya olunmuş hesabatlar (Çıxış Məlumatları), qarşılıqlı əlaqə tarixçəsi və layihə qeydləri.</p>
+          <p><strong>2.4. Texniki və Şəbəkə Təhlükəsizliyi Göstəriciləri:</strong> Şəbəkə təhlükəsizliyinin auditi və texniki nasazlıqların aradan qaldırılması üçün sessiya açarları, IP ünvanları, əməliyyat sistemi göstəriciləri, brauzer növü və sistem hadisələrinin qeydiyyat jurnalları (server logları).</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>4. Süni İntellekt API İnteqrasiyası və Məlumatların Transsərhəd Emalı</h3>
-          <p>4.1. Platforma strateji təhlil və mətn generasiyası funksiyalarını yerinə yetirmək üçün etibarlı qlobal süni intellekt provayderlərinin rəsmi Tətbiqi Proqramlaşdırma İnterfeyslərindən (API) istifadə edir.</p>
-          <p>4.2. Sorğular təhlükəsiz TLS/HTTPS şifrələmə protokolları vasitəsilə ötürülür və yalnız cari generasiya sessiyasının tələblərini icra etmək üçün emal olunur.</p>
-          <p>4.3. <strong>Model Təlimindən İmtiyaz:</strong> İstifadəçinin daxil etdiyi biznes sorğuları, fərdi məlumatları və ya fərdiləşdirmə parametrləri üçüncü tərəf süni intellekt modellərinin açıq təlimi (public training) üçün istifadə edilmir.</p>
-          <p>4.4. <strong>Məlumatların Satılmaması Təminatı:</strong> Innova Group Azerbaijan heç bir halda istifadəçilərin şəxsi identifikasiya məlumatlarını, əlaqə vasitələrini və ya biznes kontekstini reklam şirkətlərinə, marketinq agentliklərinə və ya digər kommersiya qurumlarına satmır, icarəyə vermir və ötürmür.</p>
+          <h3>Maddə 3. Fərdiləşdirilmiş Rejim, Modellərin Təkmilləşdirilməsi və İkitərəfli Asılılıq Mexanizmi</h3>
+          <p>Platformada məlumatların istifadə tərzinə nəzarət edən, qarşılıqlı əlaqəli və bir-birindən asılı aşağıdakı mexanizmlər tətbiq olunur:</p>
+          <p><strong>3.1. Fərdiləşdirilmiş Təcrübə Rejimi:</strong> Platforma cavabların istifadəçinin fərdi biznes strukturuna, üslubuna və layihə kontekstinə uyğunlaşdırılması məqsədilə konfiqurasiya edilə bilən fərdiləşdirilmiş yaddaş rejimini təqdim edir.</p>
+          <p><strong>3.2. Modellərin Təkmilləşdirilməsi Funksionallığı:</strong> Sistem alqoritmlərinin optimallaşdırılması, analitik dəqiqliyin artırılması, prompt yönləndirmə mexanizmlərinin və daxili modellərin adaptasiyası məqsədilə qarşılıqlı əlaqə məlumatlarının cəlb edilməsi funksionallığı istifadəçi profilində ilkin olaraq aktivləşdirilmiş vəziyyətdə təqdim oluna bilər. İstifadəçi şəxsi profil parametrləri bölməsindən bu funksionallığın tətbiqindən istədiyi vaxt sərbəst şəkildə imtina etmək (deaktivasiya etmək) hüququna malikdir.</p>
+          <p><strong>3.3. İkitərəfli Qarşılıqlı Asılılıq və Avtomatik Deaktivasiya Qaydası:</strong> Modellərin təkmilləşdirilməsi funksionallığı ilə fərdiləşdirilmiş təcrübə rejimi bir-biri ilə qırılmaz və ikitərəfli əlaqədə fəaliyyət göstərir. İstifadəçi profil parametrlərindən modellərin təkmilləşdirilməsi funksionallığını deaktiv etdikdə fərdiləşdirilmiş təcrübə rejimi də sistem tərəfindən dərhal və avtomatik qaydada qeyri-aktiv vəziyyətə keçirilir; eyni qaydada fərdiləşdirilmiş təcrübə rejimi deaktiv edildikdə modellərin təkmilləşdirilməsi funksionallığı da sistem tərəfindən dərhal dayandırılır. Fərdiləşdirilmiş analitik dəstək yalnız bu iki funksionallığın paralel şəkildə aktiv olduğu şəraitdə təmin edilir; funksionallıqlar qeyri-aktiv edildikdə daxil edilən məlumatlar daxili sistemlərin adaptasiyasına cəlb olunmur.</p>
+          <p><strong>3.4. Anonimləşdirmə Tədbirləri:</strong> Modellərin təkmilləşdirilməsi prosesinə yönləndirilən məlumatların şəxsi göstəricilərdən təmizlənməsi (sanitization / de-identification) məqsədilə avtomatlaşdırılmış süzgəclər tətbiq olunur; birbaşa identifikasiya detalları kənarlaşdırılır və məlumatlar istifadəçi profilindən ayrılmış şəkildə emal edilir. Bununla belə, sərbəst daxil edilən mətnlərin daxili xüsusiyyətlərinə görə bütün fərdi detalların kənarlaşdırılmasına mütləq zəmanət verilə bilməz və istifadəçilərə sistemə həssas məlumatları daxil etməmək tövsiyə olunur.</p>
+          <p><strong>3.5. İmtinanın Texniki Sərhədi:</strong> Funksionallıq deaktiv edildikdən sonra yeni daxil edilən sorğuların modellərin təkmilləşdirilməsi məqsədilə toplanması dərhal dayandırılır. İstifadəçi qəbul edir ki, funksionallığın aktiv olduğu dövrdə artıq ümumiləşdirilmiş riyazi parametrlərə (model weights) və ya yekunlaşdırılmış qiymətləndirmə dövrlərinə inteqrasiya edilmiş anonim göstəricilərin sonradan fərdi qaydada ayırd edilərək sistemdən geri çağırılması və ya silinməsi texnoloji cəhətdən mümkün deyil.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>5. Google API Xidmətləri İstifadəçi Məlumatları Siyasətinə Uyğunluq (Limited Use Tələbi)</h3>
-          <p><strong>5.1. Məhdud İstifadə Bəyannaməsi:</strong> Helmer Workspace platformasının Google API-lərindən əldə edilmiş məlumatlardan istifadəsi və onları hər hansı digər tətbiqə ötürməsi, Məhdud İstifadə (Limited Use) tələbləri də daxil olmaqla, <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a> şərtlərinə tam şəkildə uyğundur.</p>
-          <p><strong>5.2. Süni İntellekt Modellərinin Təlimində İstifadə Qadağası:</strong> Google API-ləri vasitəsilə əldə edilən istifadəçi məlumatları (o cümlədən ad, e-poçt və profil göstəriciləri) ümumiləşdirilmiş və ya üçüncü tərəf süni intellekt (AI) və maşın öyrənməsi (ML) modellərinin, o cümlədən böyük dil modellərinin (LLM) təlimi (training, fine-tuning) və ya inkişaf etdirilməsi üçün qəti şəkildə İSTİFADƏ EDİLMİR.</p>
-          <p><strong>5.3. Məlumatların Satılmaması və Reklam Qadağası:</strong> Google istifadəçi məlumatları heç bir halda reklam şəbəkələrinə, məlumat brokerlərinə satılmır, icarəyə verilmir və hədəfli və ya fərdiləşdirilmiş reklam nümayişi üçün istifadə olunmur.</p>
-          <p><strong>5.4. İcazələrin Geri Çağırılması və Məlumatların Silinməsi:</strong> İstifadəçilər platformaya verilmiş Google icazələrini istənilən vaxt birbaşa öz <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Təhlükəsizlik Parametrləri (Üçüncü tərəf tətbiqləri və xidmətləri)</a> səhifəsindən ləğv edə bilərlər. Həmçinin istifadəçilər platformadakı hesabını və toplanmış bütün məlumatlarını tətbiqin ayarlar bölməsindən birbaşa və ya support@helmeros.com ünvanına müraciət edərək tamamilə sildirə bilərlər.</p>
+          <h3>Maddə 4. Həssas Məlumatlar və İstifadəçinin Fərdi Məsuliyyəti</h3>
+          <p>4.1. Helmer Strategy OS biznes və strateji təhlil platformasıdır; sistemin funksional fəaliyyəti üçün xüsusi kateqoriyalı və ya yüksək həssaslıqlı fərdi məlumatların toplanmasına zərurət yoxdur.</p>
+          <p>4.2. Aşağıdakı məlumatların Platformaya daxil edilməməsi qətiyyətlə tələb olunur:</p>
+          <ul>
+            <li>Bank kartı rekvizitləri, CVV/CVC kodları və maliyyə hesabı sirləri;</li>
+            <li>Şəxsiyyəti təsdiq edən sənədlərin seriya, nömrə və fərdi identifikasiya nömrələri (FİN);</li>
+            <li>Biometrik, genetik və ya sağlamlıq göstəriciləri;</li>
+            <li>Konfidensial giriş açarları və sistem şifrələri.</li>
+          </ul>
+          <p>4.3. İstifadəçi bu tələbə zidd olaraq öz təşəbbüsü ilə qeyd olunan məlumatları sistemə daxil etdiyi təqdirdə, onların avtomatlaşdırılmış emala məruz qalması riskini və bundan doğan bütün məsuliyyəti şəxsən daşıyır.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>6. Məlumatların Saxlanması, İnfrastruktur və Təhlükəsizlik</h3>
-          <p>6.1. Məlumatların bütövlüyü və konfidensiallığı müasir bulud saxlanc infrastrukturları (Cloudflare R2), operativ keşləmə mexanizmləri (Redis) və gücləndirilmiş server mühiti vasitəsilə təmin edilir.</p>
-          <p>6.2. Məlumat bazalarına icazəsiz girişin, məlumat sızmasının və ya dəyişdirilməsinin qarşısını almaq üçün Azərbaycan Respublikasının «İnformasiya, informasiyalaşdırma və informasiyanın mühafizəsi haqqında» Qanununun tələblərinə uyğun təşkilati və proqram-texniki mühafizə tədbirləri tətbiq olunur.</p>
+          <h3>Maddə 5. Süni İntellekt İnfrastrukturu və Transsərhəd Ötürülmə</h3>
+          <p>5.1. Platforma analitik təhlil və strukturlaşdırılmış mətn generasiyası funksiyalarını icra etmək üçün beynəlxalq səviyyədə tanınmış süni intellekt model infrastrukturlarından və rəsmi API şəbəkələrindən istifadə edir.</p>
+          <p>5.2. Məlumat axını təhlükəsiz TLS/HTTPS şifrələmə standartları vasitəsilə həyata keçirilir və sorğular cari generasiya sessiyasının texniki icrası üçün zəruri olan həcmdə emal edilir.</p>
+          <p>5.3. İstifadəçilərin biznes sorğuları və fərdi göstəriciləri üçüncü tərəflərin ümumi kütləvi modellərinin açıq təlimi (public training) üçün istifadə edilmir.</p>
+          <p>5.4. Xidmətin hesablama qovşaqları Azərbaycan Respublikasının hüdudlarından kənarda yerləşə bilər. İstifadəçi Platformadan istifadə etməklə Xidmətin icrası üçün zəruri olan texniki məlumatların Azərbaycan Respublikasının “Fərdi məlumatlar haqqında” Qanununun tələblərinə və beynəlxalq şifrələmə protokollarına müvafiq olaraq xaricdə yerləşən serverlərdə tranzit emalına razılıq verir.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>7. İstifadəçinin Hüquqları və Məlumatların Silinməsi</h3>
-          <p>Azərbaycan Respublikasının «Fərdi məlumatlar haqqında» Qanununa əsasən, İstifadəçi aşağıdakı hüquqlara malikdir:</p>
-          <p>7.1. Öz fərdi məlumatlarının emal edilib-edilməməsi barədə məlumat almaq və onların tərkibi ilə tanış olmaq;</p>
-          <p>7.2. Saxlanılan marketinq strategiyalarını, söhbət tarixçəsini, planlaşdırılan tapşırıqları və fərdiləşdirmə yaddaşını platformanın daxili interfeysi vasitəsilə istənilən vaxt tamamilə və bərpa olunmaz şəkildə silmək;</p>
-          <p>7.3. «Fərdiləşdirilmiş təcrübə» funksiyasına verdiyi razılığı istədiyi an geri çağırmaq və sistemdəki profilinin tam ləğv edilməsini (unudulma hüququnu) tələb etmək.</p>
+          <h3>Maddə 6. Google API İstifadəçi Məlumatları Siyasətinə Uyğunluq (Limited Use Tələbi)</h3>
+          <p>6.1. <strong>Məhdud İstifadə Bəyannaməsi:</strong> Platformanın Google API-ləri vasitəsilə əldə edilmiş məlumatlardan istifadəsi və onları hər hansı digər tətbiqə ötürməsi, Məhdud İstifadə (Limited Use) tələbləri də daxil olmaqla, <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a> şərtlərinə tam şəkildə uyğundur.</p>
+          <p>6.2. <strong>Modellərin Təlimində İstifadə Qadağası:</strong> Google API-ləri vasitəsilə əldə edilən istifadəçi məlumatları (o cümlədən ad, e-poçt ünvanı və profil göstəriciləri) ümumiləşdirilmiş və ya üçüncü tərəf süni intellekt və maşın öyrənməsi modellərinin, o cümlədən böyük dil modellərinin (LLM) təlimi (training, fine-tuning) və ya inkişaf etdirilməsi üçün qəti şəkildə istifadə edilmir.</p>
+          <p>6.3. <strong>Satış və Reklam Qadağası:</strong> Google istifadəçi məlumatları heç bir halda reklam şəbəkələrinə, məlumat alverçilərinə satılmır, icarəyə verilmir və hədəfli reklam nümayişi məqsədilə emal olunmur.</p>
+          <p>6.4. <strong>İcazələrin Ləğvi:</strong> İstifadəçilər Platformaya verilmiş Google icazələrini istənilən vaxt birbaşa öz <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Hesabının təhlükəsizlik parametrləri</a> bölməsindən ləğv edə bilərlər.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>8. Siyasətin Dəyişdirilməsi</h3>
-          <p>8.1. Innova Group Azerbaijan qanunvericilikdəki dəyişikliklər və ya platformanın texniki təkamülü ilə əlaqədar bu Siyasətə birtərəfli qaydada dəyişikliklər etmək hüququnu özündə saxlayır.</p>
-          <p>8.2. Yenilənmiş Siyasət Platformada dərc edildiyi andan qüvvəyə minir.</p>
+          <h3>Maddə 7. Məlumatların Saxlanması, İnfrastruktur və İnformasiya Təhlükəsizliyi</h3>
+          <p>7.1. Məlumatların bütövlüyü və konfidensiallığı müasir bulud saxlanc infrastrukturları (Cloudflare R2), operativ keşləmə qovşaqları (Redis) və beynəlxalq sertifikatlaşdırılmış server mühiti vasitəsilə təmin olunur.</p>
+          <p>7.2. Məlumat bazalarına icazəsiz girişin, məlumat sızmasının və ya təhrif olunmasının qarşısını almaq üçün Azərbaycan Respublikasının “İnformasiya, informasiyalaşdırma və informasiyanın mühafizəsi haqqında” Qanununun tələblərinə uyğun təşkilati və proqram-texniki mühafizə tədbirləri tətbiq edilir.</p>
+          <p>7.3. Fərdi məlumatlar istifadəçinin aktiv hesabı mövcud olduğu müddətdə saxlanılır. Hesab ləğv edildikdə fərdi məlumatlar aktiv sistemlərdən kənarlaşdırılır. Texniki loglar şəbəkə təhlükəsizliyi məqsədilə rotasiya qaydalarına uyğun olaraq müəyyən müddətdən sonra avtomatik silinir.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>9. Əlaqə və Müraciətlər</h3>
-          <p>Fərdi məlumatların emalı, məxfilik hüquqlarının həyata keçirilməsi və ya bu Siyasətlə bağlı müraciətlər üçün İstifadəçilər Platformanın rəsmi əlaqə vasitələri (e-poçt: support@helmeros.com) və rəqəmsal dəstək interfeysi vasitəsilə əlaqə saxlaya bilərlər. Təşkilat: Innova Group Azerbaijan, Bakı, Azərbaycan. Veb-sayt: https://helmerworkspace.com</p>
+          <h3>Maddə 8. Yetkinlik Yaşına Çatmayan Şəxslərin Məlumatlarının Qorunması</h3>
+          <p>8.1. Azərbaycan Respublikasının Mülki Məcəlləsinin fəaliyyət qabiliyyətinə dair müddəalarına uyğun olaraq, Helmer Strategy OS yalnız 18 yaşına çatmış şəxslərin istifadəsi üçün nəzərdə tutulur və 18 yaşından aşağı şəxslərdən bilərəkdən fərdi məlumat toplamır.</p>
+          <p>8.2. 18 yaşına çatmamış şəxsə aid fərdi məlumatların Platformaya daxil edildiyi aşkar edildikdə və ya bu barədə müraciət daxil olduqda, həmin məlumatlar və əlaqəli profil aktiv sistemlərdən kənarlaşdırılır.</p>
+        </div>
+
+        <div class="legal-doc-section">
+          <h3>Maddə 9. İstifadəçinin Qanuni Hüquqları və Hesabın Silinməsi Qaydası</h3>
+          <p>Azərbaycan Respublikasının “Fərdi məlumatlar haqqında” Qanununa əsasən, istifadəçi aşağıdakı hüquqlara malikdir:</p>
+          <ul>
+            <li>Öz fərdi məlumatlarının emal edilib-edilməməsi barədə məlumat almaq və onların tərkibi ilə tanış olmaq;</li>
+            <li>Saxlanılan biznes təhlillərini, qarşılıqlı əlaqə tarixçəsini və fərdiləşdirmə yaddaşını Platformanın interfeysi vasitəsilə istənilən vaxt silmək;</li>
+            <li>Şəxsi parametrlər vasitəsilə fərdiləşdirilmiş rejim və modellərin təkmilləşdirilməsi seçimlərini idarə etmək və ya söndürmək;</li>
+            <li>Profilinin və fərdi məlumatlarının aktiv sistemlərdən tam silinməsini tələb etmək.</li>
+          </ul>
+          <p>Hesabın silinməsi və hüquqların həyata keçirilməsi üzrə rəsmi müraciətlər <a href="mailto:support@helmeros.com">support@helmeros.com</a> elektron poçt ünvanına göndərilir. Qanunvericiliklə nəzərdə tutulmuş digər saxlama tələbi olmadığı təqdirdə, sorğu 30 təqvim günü ərzində icra edilir.</p>
+        </div>
+
+        <div class="legal-doc-section">
+          <h3>Maddə 10. Siyasətin Dəyişdirilməsi və Əlaqə Rekvizitləri</h3>
+          <p>10.1. Innova Group Azerbaijan qanunvericilikdəki dəyişikliklər və ya Platformanın texniki arxitekturasındakı yeniliklərlə əlaqədar bu Siyasətə birtərəfli qaydada dəyişikliklər etmək hüququnu özündə saxlayır. Yenilənmiş Siyasət Platformada dərc edildiyi andan qüvvəyə minir.</p>
+          <p>10.2. Hüquqi və Texniki Əlaqə:</p>
+          <ul>
+            <li><strong>Xidmət operatoru:</strong> Innova Group Azerbaijan, Bakı, Azərbaycan</li>
+            <li><strong>Platforma:</strong> Helmer Strategy OS</li>
+            <li><strong>Rəsmi internet informasiya ehtiyatı:</strong> <a href="https://helmeros.com">helmeros.com</a></li>
+            <li><strong>Məxfilik və hüquqi məsələlər üzrə əlaqə:</strong> <a href="mailto:support@helmeros.com">support@helmeros.com</a></li>
+          </ul>
+          <p>© 2026 Innova Group Azerbaijan / Helmer Strategy OS. Bütün hüquqlar qorunur.</p>
         </div>
       `,
     },
@@ -2119,100 +2204,114 @@ export const LEGAL_DOCS_I18N = {
   en: {
     terms: {
       title: "Terms of Service",
-      subtitle: "Terms and conditions governing access to and use of Helmer Workspace",
+      subtitle: "Terms and conditions governing access to and use of Helmer Strategy OS",
       html: `
+        <table class="legal-table">
+          <thead>
+            <tr>
+              <th>Document Details</th>
+              <th>Specifics</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Effective Date</strong></td>
+              <td>October 3, 2026</td>
+            </tr>
+            <tr>
+              <td><strong>Service Operator</strong></td>
+              <td>Innova Group Azerbaijan</td>
+            </tr>
+            <tr>
+              <td><strong>Official Internet Information Resource</strong></td>
+              <td><a href="https://helmeros.com">helmeros.com</a></td>
+            </tr>
+            <tr>
+              <td><strong>Legal & Technical Contact Address</strong></td>
+              <td><a href="mailto:support@helmeros.com">support@helmeros.com</a></td>
+            </tr>
+          </tbody>
+        </table>
+
         <div class="legal-highlight-box">
-          <strong>✦ Artificial Intelligence & API Infrastructure</strong>
-          <p>Helmer Workspace may utilize artificial intelligence, large language models (LLMs), API infrastructures, and other third-party technologies to generate strategic analyses, marketing materials, and other outputs. The models, providers, and technical infrastructure employed may evolve and change in connection with ongoing service development.</p>
+          <strong>✦ Preamble and Artificial Intelligence Infrastructure</strong>
+          <p>Helmer Strategy OS platform utilizes artificial intelligence algorithms, large language models (LLMs), application programming interfaces (APIs), and third-party computing technologies for conducting analytical research, business strategy modeling, market research, and producing structured analytical intelligence. The system models, technical providers, and architectural solutions utilized may be unilaterally modified or updated by Innova Group Azerbaijan in accordance with the operational necessities of the platform.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>1. General Provisions & Purpose of Service</h3>
-          <p>Welcome to Helmer Workspace ("Helmer Workspace", "Platform", "Service"). These Terms of Service ("Terms") govern your access to and use of the Platform. By accessing or using the Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms. If you do not agree with these Terms, you must not access or use the Platform.</p>
-          <p>Helmer Workspace is a software platform that leverages artificial intelligence technologies to assist in creating content and analytical insights across marketing, business strategy, market research, ideation, execution planning, and related disciplines.</p>
-          <p>Outputs provided by the Platform are generated by automated artificial intelligence systems and do not constitute professional legal, financial, tax, investment, or other specialized advice.</p>
+          <h3>Article 1. General Provisions and Parties' Consent</h3>
+          <p>1.1. These Terms of Service (“Terms”) govern the access to and use of the Helmer Strategy OS platform (“Helmer Strategy OS”, “Helmer”, “Platform”, “Service”) operated by Innova Group Azerbaijan, as well as the rights and obligations of the parties.</p>
+          <p>1.2. Any form of use of the Platform, including account registration or submitting queries to the system, confirms that the user has fully reviewed these Terms, understands their legal binding force, and gives unconditional consent to their performance. Persons who do not agree with these Terms have no right to use the Platform.</p>
+          <p>1.3. Helmer Strategy OS is a digital software environment of an auxiliary nature designed for strategic and business analyses.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>2. AI Processing & Third-Party Services</h3>
-          <p>Queries, business briefs, text, files, and other materials you input into the Platform may be processed through AI models, APIs, hosting environments, databases, and related technical infrastructures to deliver the Service's functionality.</p>
-          <p>Helmer Workspace does not guarantee the continuous or uninterrupted availability of any specific AI model, API provider, or third-party service. Helmer Workspace reserves the right to modify or replace underlying models, providers, and technical infrastructure, except where prohibited by applicable law.</p>
+          <h3>Article 2. Age Limit and Legal Capacity</h3>
+          <p>2.1. In accordance with the relevant requirements of the Civil Code of the Republic of Azerbaijan, the Platform is intended for use solely by fully capable individuals who have reached 18 years of age.</p>
+          <p>2.2. Each individual using the Platform officially declares and confirms that they are at least 18 years of age and possess the necessary legal capacity and authority to enter into contracts and undertake obligations.</p>
+          <p>2.3. If it is determined that the Platform is being used by individuals under 18 years of age, Innova Group Azerbaijan reserves the right to immediately and unilaterally suspend or terminate service to the respective account without prior notice.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>3. Accuracy of AI Outputs</h3>
-          <p>Due to the inherent characteristics of artificial intelligence systems, outputs generated by the Platform may contain inaccurate, incomplete, misleading, or outdated information. In certain instances, the system may erroneously present non-existent facts, statistics, citations, or data.</p>
-          <p>Helmer Workspace makes no warranties or representations regarding the accuracy, completeness, timeliness, reliability, or fitness for a particular purpose of any generated output. Users are advised to independently verify critical information from trusted sources.</p>
+          <h3>Article 3. Non-Reliance and Exclusion of Professional Advice</h3>
+          <p>3.1. All analytical structures, business models, market analyses, budget allocations, and action plans provided through the Platform are purely auxiliary, conceptual, and informational in nature.</p>
+          <p>3.2. The Platform’s operations and provided outputs do not substitute for expert opinions in professional legal, financial, investment, tax, or other licensed domains. No fiduciary, consulting, or other professional agency relationship is established between the user and Innova Group Azerbaijan.</p>
+          <p>3.3. By the nature of artificial intelligence technologies, outputs generated by the system may contain inaccurate, incomplete, outdated, or distorted facts (algorithmic hallucination risk). The user personally bears the responsibility to independently verify the accuracy of such information through specialized professionals before making any commercial, operational, financial, or legal decisions based on the Platform’s data.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>4. Intellectual Property & User Content</h3>
-          <p><strong>User Content:</strong> You retain all existing rights and ownership over the business data, concepts, briefs, text, files, and other materials you input into the Platform.</p>
-          <p>By submitting materials to Helmer Workspace, you grant the Platform permission to process such data to the extent necessary to deliver the Service. You represent and warrant that you possess all necessary rights and authorizations to submit and permit processing of such information.</p>
-          <p><strong>Generated Content:</strong> To the maximum extent permitted by applicable law and third-party terms, you may utilize the strategies, action roadmaps, copy, and analytical outputs generated for you through Helmer Workspace for commercial and non-commercial purposes.</p>
-          <p>Due to the operational nature of AI systems, identical or similar outputs may be generated for other users. Helmer Workspace does not warrant that generated content is unique, exclusive, or protectable under copyright law.</p>
+          <h3>Article 4. Intellectual Property, Content, and Mutual Dependency Regime</h3>
+          <p>4.1. <strong>User Content:</strong> Rights to individual business descriptions, briefs, analysis documents, and other materials submitted by the user to the system (“User Content”) remain fully owned by the user. By submitting these materials to the system, the user grants Innova Group Azerbaijan a limited processing license solely to the extent necessary to ensure the technical execution and functions of the Service.</p>
+          <p>4.2. <strong>Model Improvement Functionality:</strong> The functionality of utilizing interaction data for optimizing system algorithms, improving analytical accuracy, and adapting internal models may initially be provided as enabled in the system configuration. The user has the right to freely opt out of (deactivate) this functionality at any time from their personal profile settings.</p>
+          <p>4.3. <strong>Mutual Dependency Condition:</strong> The model improvement functionality and the personalized service mode (memory context) operate in an inseparable and bilateral mutual dependency. As soon as the model improvement functionality is deactivated by the user, the personalized service mode is also automatically and immediately switched to an inactive state by the system; likewise, when the personalized service mode is deactivated, the model improvement functionality is also automatically discontinued. Personalized analytical support is provided solely under conditions where both functionalities are concurrently active.</p>
+          <p>4.4. <strong>Generated Outputs:</strong> Within the limits permitted by applicable law and partner providers, the user may freely use analytical outputs generated as a result of their queries for commercial and non-commercial purposes. In accordance with the general nature of algorithmic systems, similar results may be generated for other individuals submitting similar queries, and this circumstance does not grant the right to assert claims regarding the uniqueness of the outputs.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>5. Business Decisions & Advisory Nature</h3>
-          <p>Strategies, forecasts, market analyses, budget suggestions, action plans, and other outputs generated by Helmer Workspace are strictly informational and advisory in nature.</p>
-          <p>Helmer Workspace does not guarantee specific sales figures, revenue, profit margins, investment returns, campaign success, or any particular business outcome. Any decision made or implemented based on information provided by the Platform is the sole discretion and responsibility of the user.</p>
+          <h3>Article 5. Disclaimer of Warranties and Business Decisions</h3>
+          <p>5.1. The Service and all its functional capabilities are provided on an “as is” and “as available” basis.</p>
+          <p>5.2. Innova Group Azerbaijan provides no direct or implied warranty regarding any commercial success, increase in sales turnover or profitability, acquisition of market share, attracting investments, or the implementation of analytical proposals presented by the Platform. All risks and economic outcomes of activities conducted on the basis of the Platform’s data are the direct personal responsibility of the user.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>6. Prohibited Use</h3>
-          <p>You agree not to use the Platform for unlawful activities, fraud, deception, infringement of third-party rights, dissemination of malicious software, unauthorized system access, circumvention of security controls, or disruption of Platform operations.</p>
-          <p>Helmer Workspace reserves the right to restrict, suspend, or terminate access to the Platform if it reasonably determines that these Terms have been violated.</p>
+          <h3>Article 6. Prohibited Use</h3>
+          <p>6.1. Using the Platform for purposes that violate statutory requirements, interventions aimed at bypassing cybersecurity barriers (including prompt injection, model decompilation, reverse engineering of architecture), overloading system resources with mass queries, and infringing upon the lawful rights of third parties are strictly prohibited.</p>
+          <p>6.2. When a violation of usage rules is detected, Innova Group Azerbaijan has the right to suspend or permanently terminate the user’s access to the Platform without prior notice.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>7. Service Availability & Modifications</h3>
-          <p>Helmer Workspace does not warrant that the Platform will be uninterrupted, error-free, or continuously accessible. Scheduled maintenance, system updates, server issues, third-party API outages, and circumstances beyond Helmer Workspace’s reasonable control may result in temporary unavailability or degraded functionality.</p>
-          <p>Helmer Workspace reserves the right to alter, enhance, limit, or discontinue Platform features, interfaces, AI models, usage limits, and other technical capabilities.</p>
+          <h3>Article 7. Indemnification of Damages (Fault-Based Liability)</h3>
+          <p>In the event that the user intentionally or grossly violates these Terms, uses the Platform for unlawful purposes, or culpably infringes third-party rights (including intellectual property or privacy rights) with materials submitted to the system, the direct damages and official court expenses incurred by Innova Group Azerbaijan, its officers, and technology partners as a result of substantiated claims brought by third parties shall be compensated by the culpable user in accordance with applicable legislation.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>8. Disclaimer of Warranties</h3>
-          <p>To the maximum extent permitted by applicable law, the Platform and its features are provided on an "as is" and "as available" basis.</p>
-          <p>Helmer Workspace disclaims all warranties, express or implied, including warranties of fitness for a particular purpose, uninterrupted operation, absence of errors, or that generated outputs will achieve any specific commercial or business result.</p>
+          <h3>Article 8. Limitations of Liability and Statutory Exceptions</h3>
+          <p>8.1. <strong>Indirect Damages:</strong> To the extent permitted by law, Innova Group Azerbaijan bears no liability for indirect damages, lost profits, loss of anticipated revenue, loss of earnings, or losses resulting from business interruption arising out of the use or inability to use the Platform, or reliance upon system results.</p>
+          <p>8.2. <strong>Scope of Liability:</strong> Considering that the Service is provided free of charge, Innova Group Azerbaijan’s direct liability arising in connection with the Platform is limited to the reasonable and minimum threshold permitted by applicable law; in cases where paid services are provided, such liability shall not exceed the actual amount paid by the user for the respective service during the preceding 12 (twelve) months prior to the claim.</p>
+          <p>8.3. <strong>Non-Excludable Statutory Liabilities:</strong> No provision of these Terms shall apply to or eliminate liability for damages caused by the intent or gross negligence of Innova Group Azerbaijan, harm to life and health, or other liability cases whose limitation or exclusion is prohibited by the legislation of the Republic of Azerbaijan (including consumer protection and civil law norms).</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>9. Limitation of Liability</h3>
-          <p>To the maximum extent permitted by applicable law, Helmer Workspace shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, revenue, business opportunities, data, or reputation arising out of or in connection with your use of or inability to use the Platform or reliance on generated outputs.</p>
-          <p>Nothing in this section excludes or limits liability that cannot be excluded or limited under applicable law.</p>
+          <h3>Article 9. Service Operations and Technical Modifications</h3>
+          <p>9.1. Interruptions or delays may occur in the operation of the Platform due to technical maintenance, global infrastructure updates, or the operation of dependent external networks. Innova Group Azerbaijan does not guarantee uninterrupted operation of the system.</p>
+          <p>9.2. Innova Group Azerbaijan reserves the right to unilaterally modify the Platform’s functional capabilities, provided models, technical limits, and interface parameters whenever necessary.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>10. Accounts & Security</h3>
-          <p>Where account functionality is provided, you are responsible for maintaining the confidentiality and security of your access credentials. You must notify Helmer Workspace promptly upon suspecting unauthorized access or a security breach.</p>
+          <h3>Article 10. Account Security</h3>
+          <p>The user is personally responsible for maintaining the confidentiality of their account credentials and active session keys. The user must immediately notify the Platform’s support service upon suspecting unauthorized access to the account or a security breach.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>11. Privacy & Personal Data</h3>
-          <p>The collection, use, retention, and processing of personal data are conducted in accordance with Helmer Workspace’s active Privacy Policy and applicable data protection legislation.</p>
-          <p>Users must refrain from submitting sensitive personal data, classified information, or third-party confidential details not required for the provision of the Service.</p>
+          <h3>Article 11. Amendments to Terms and Severability</h3>
+          <p>11.1. Innova Group Azerbaijan may unilaterally update these Terms when necessary. Updated Terms take effect from the moment of their publication on the Platform.</p>
+          <p>11.2. If any provision of these Terms is deemed invalid or unenforceable by a court, this shall not affect the legal validity of the remaining provisions.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>12. Amendments to Terms</h3>
-          <p>Helmer Workspace may update these Terms periodically to reflect platform development, legal requirements, security standards, or service model updates. Where required by law, users will be notified of material changes through appropriate channels.</p>
-          <p>Updated Terms take effect as of the specified effective date.</p>
-        </div>
-
-        <div class="legal-doc-section">
-          <h3>13. Severability</h3>
-          <p>If any provision of these Terms is found to be invalid, illegal, or unenforceable, the validity and enforceability of the remaining provisions shall remain in full force and effect.</p>
-        </div>
-
-        <div class="legal-doc-section">
-          <h3>14. Governing Law & Jurisdiction</h3>
-          <p>These Terms are governed by and construed in accordance with the laws of the Republic of Azerbaijan. Statutory consumer protections and rights that cannot be waived under applicable law remain unaffected.</p>
-        </div>
-
-        <div class="legal-doc-note">
-          <strong>Important Notice</strong>
-          <p>Helmer Workspace may make mistakes. Verify important information and platform-generated outputs from independent and reliable sources.</p>
+          <h3>Article 12. Dispute Resolution and Applicable Law</h3>
+          <p>12.1. These Terms are governed by and construed in accordance with the substantive and procedural laws of the Republic of Azerbaijan.</p>
+          <p>12.2. All disagreements arising between the parties shall be resolved through mutual negotiations. If an agreement cannot be reached, disputes shall be adjudicated by the competent courts possessing jurisdiction in the Republic of Azerbaijan.</p>
         </div>
 
         <div class="legal-doc-precedence">
@@ -2222,74 +2321,145 @@ export const LEGAL_DOCS_I18N = {
     },
     privacy: {
       title: "Privacy Policy",
-      subtitle: "Rules and standards for the collection, processing, retention, and protection of personal and confidential data",
+      subtitle: "Rules and standards for the collection, processing, retention, and protection of personal data",
       html: `
-        <div class="legal-doc-section">
-          <p>This Privacy Policy (hereinafter "Policy") defines the rules for collecting, processing, storing, and protecting personal and confidential data on the Helmer Workspace platform (hereinafter "Platform", "Service", or "Data Controller"), operated by Innova Group Azerbaijan.</p>
-          <p>By using the Platform, the User provides full consent to the collection and processing of their personal data within the terms outlined in this Policy, in accordance with the Law of the Republic of Azerbaijan "On Personal Data".</p>
+        <table class="legal-table">
+          <thead>
+            <tr>
+              <th>Document Metrics</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Last Updated Date</strong></td>
+              <td>October 3, 2026</td>
+            </tr>
+            <tr>
+              <td><strong>Effective Date</strong></td>
+              <td>October 3, 2026</td>
+            </tr>
+            <tr>
+              <td><strong>Service Operator</strong></td>
+              <td>Innova Group Azerbaijan</td>
+            </tr>
+            <tr>
+              <td><strong>Official Internet Information Resource</strong></td>
+              <td><a href="https://helmeros.com">helmeros.com</a></td>
+            </tr>
+            <tr>
+              <td><strong>Privacy Matters Contact</strong></td>
+              <td><a href="mailto:support@helmeros.com">support@helmeros.com</a></td>
+            </tr>
+            <tr>
+              <td><strong>Legal Status</strong></td>
+              <td>Gratuitous, non-commercial digital service</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="legal-highlight-box">
+          <strong>✦ Google API User Data Policy Compliance (Limited Use Requirement)</strong>
+          <p>Helmer Strategy OS platform's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>1. Core Principles & Non-Commercial Nature</h3>
-          <p>1.1. The Platform operates on a non-commercial basis and does not directly or indirectly use collected data for advertising, commercial monetization, or profit generation.</p>
-          <p>1.2. Data processing is strictly governed by principles of legality, confidentiality, purpose limitation, and restriction to the technical and functional requirements of the Service.</p>
+          <p><strong>Preamble</strong></p>
+          <p>This Privacy Policy (“Policy”) governs the rules for the collection, processing, storage, protection, and cross-border transfer of personal and confidential data belonging to users within the Helmer Strategy OS platform (“Helmer Strategy OS”, “Platform”, “Service”, “Data Controller / Administrator”) operated by Innova Group Azerbaijan.</p>
+          <p>By using the Platform, the user expresses their consent to the collection and processing of their personal data within the conditions and limits established in this Policy, in accordance with the Law of the Republic of Azerbaijan “On Personal Data” and other applicable legislative acts.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>2. Categories of Collected Data</h3>
-          <p>To provide free services and maintain system security, the Platform processes data across the following categories:</p>
-          <p><strong>2.1. Identification & Authentication Data:</strong> User's first name, last name, username, email address, and securely hashed cryptographic authentication identifiers.</p>
-          <p><strong>2.2. Google User Data (Google OAuth 2.0):</strong> When a User signs in using Google («Sign in with Google» / Google OAuth 2.0), the Platform accesses only basic profile information provided by Google (User's full name, email address, and profile picture URL). The Platform never accesses, requests, or stores Google passwords, contacts, Google Drive files, or other private Google account services. This data is utilized solely to authenticate the User, manage active user sessions, and maintain the account profile.</p>
-          <p><strong>2.3. Business & Content Context:</strong> User-submitted marketing briefs, clarification responses, generated analytical outputs, conversation history, planner tasks, and archive records.</p>
-          <p><strong>2.4. Technical & Security Telemetry:</strong> Browser session tokens, IP addresses, system audit event logs (server logs), and timestamp records.</p>
+          <h3>Article 1. Core Principles and Non-Commercial Character</h3>
+          <p>1.1. The Platform operates as a non-commercial research and strategic governance initiative and is provided free of charge.</p>
+          <p>1.2. Users' personal data is not sold to third parties, advertising networks, or data brokers for the purpose of obtaining direct or indirect commercial profit.</p>
+          <p>1.3. Data processing is based on the principles of legality, confidentiality, purposefulness, and data minimization; only the minimum volume of data necessary for the technical and functional operation of the Service is involved in processing.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>3. Personalized Experience, Sensitive Data & User Discretion</h3>
-          <p><strong>3.1. Voluntary Consent & Personalization:</strong> The Platform includes a "Personalized Intelligence" feature to formulate more accurate, contextually relevant, and effective AI responses. This feature is enabled strictly with the User’s explicit, voluntary opt-in consent and may be deactivated at any time via system settings.</p>
-          <p><strong>3.2. Exclusion of Sensitive Personal Data:</strong> Under the personalization mechanism, sensitive and directly identifiable personal information—including mobile telephone numbers, precise residential addresses, government identification numbers (FIN codes, series and document numbers), and banking or payment details—is strictly prohibited from storage in personalization memory and excluded from profile context. Personalization encompasses only non-sensitive stylistic preferences and marketing context parameters.</p>
-          <p><strong>3.3. User Discretion & Non-Disclosure Obligation:</strong> Except for mandatory technical fields required by law or account registration (e.g., email address), the volume and nature of information submitted in queries is solely at the User's discretion. Users must not enter sensitive personal data, state registration numbers, banking credentials, or third-party confidential secrets into any input field, brief form, or interface. The Platform assumes no financial or legal liability for sensitive information submitted by the User contrary to this requirement.</p>
+          <h3>Article 2. Categories of Processed Data</h3>
+          <p>The Platform processes data under the following categories for the purpose of providing services and ensuring system security:</p>
+          <p><strong>2.1. Identification and Access Metrics:</strong> User's first name, last name, username, email address, and internal identification parameters securely hashed via cryptography (User ID).</p>
+          <p><strong>2.2. Google Sign-In Metrics (Google OAuth 2.0):</strong> When a user accesses the Platform via single sign-on technology, only permitted base profile data (user's first name, last name, email address, profile photo URL, and system security token) provided by the authentication provider is accepted. Under no circumstances are the user's external platform passwords, contacts list, cloud storage, or other personal documents accessed or stored.</p>
+          <p><strong>2.3. Business and Content Context:</strong> Strategic briefs, market analysis parameters, queries (Input Data) submitted to the system by the user, and analytical plans, generated reports (Output Data), interaction history, and project notes produced by the system.</p>
+          <p><strong>2.4. Technical and Network Security Metrics:</strong> Session keys, IP addresses, operating system metrics, browser type, and system event logs (server logs) for cybersecurity auditing and troubleshooting.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>4. AI API Integration & Cross-Border Processing</h3>
-          <p>4.1. The Platform utilizes official Application Programming Interfaces (APIs) of trusted global AI providers to perform strategic analysis and text generation.</p>
-          <p>4.2. Requests are transmitted via secure TLS/HTTPS encryption protocols and processed exclusively to fulfill the active generation session.</p>
-          <p>4.3. <strong>No Model Training:</strong> User-submitted business queries, personal data, and personalization parameters are never used to train public third-party AI foundation models.</p>
-          <p>4.4. <strong>Non-Sale Guarantee:</strong> Innova Group Azerbaijan never sells, rents, or transfers personal identification data, contact details, or business context to advertising agencies, marketing brokers, or commercial entities.</p>
+          <h3>Article 3. Personalized Mode, Model Improvement, and Mutual Dependency Mechanism</h3>
+          <p>The following interrelated and mutually dependent mechanisms governing how data is used are implemented on the Platform:</p>
+          <p><strong>3.1. Personalized Experience Mode:</strong> The Platform offers a configurable personalized memory mode to adapt responses to the user's individual business structure, style, and project context.</p>
+          <p><strong>3.2. Model Improvement Functionality:</strong> The functionality of utilizing interaction data for evaluating, adapting, and optimizing system algorithms, analytical routing mechanisms, and internal models may initially be offered as enabled in the user profile. The user has the right to freely opt out of (deactivate) this functionality at any time via personal profile settings.</p>
+          <p><strong>3.3. Mutual Dependency and Automatic Deactivation Rule:</strong> The model improvement functionality and the personalized experience mode form a unified, mutually dependent mechanism. When the user deactivates the model improvement functionality from profile settings, the personalized experience mode is also immediately and automatically switched to an inactive state by the system; likewise, when the personalized experience mode is deactivated, the model improvement functionality is also immediately stopped by the system. Personalized analytical support is provided solely when both functionalities are concurrently active; when functionalities are deactivated, submitted data is not utilized for adapting internal systems.</p>
+          <p><strong>3.4. Anonymization Measures:</strong> Automated filters are applied for sanitizing/de-identifying data transmitted to the model improvement process; direct identification details are removed and data is processed detached from the user profile. Nonetheless, due to the inherent nuances of free-form text input, absolute removal of all personal details cannot be unconditionally guaranteed, and users are strongly advised not to enter sensitive data into the system.</p>
+          <p><strong>3.5. Technical Boundary of Opt-Out:</strong> Upon deactivating the functionality, collection of newly submitted queries for model improvement purposes ceases immediately. The user acknowledges that anonymous parameters already integrated into generalized mathematical weights (model weights) or finalized evaluation cycles during the period when the functionality was active cannot technologically be subsequently isolated, recalled, or deleted from the system on an individual basis.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>5. Google API Services User Data Policy Compliance (Limited Use Requirements)</h3>
-          <p><strong>5.1. Limited Use Disclosure:</strong> Helmer Workspace's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
-          <p><strong>5.2. Prohibition on AI/ML Model Training:</strong> Google user data received via Google APIs (including profile information and email address) is never used to train, retrain, fine-tune, or improve generalized artificial intelligence (AI) or machine learning (ML) models, including large language models (LLMs).</p>
-          <p><strong>5.3. Prohibition on Data Sale & Advertising:</strong> Google user data is never sold, rented, leased, or transferred to third-party data brokers or advertising platforms, nor is it used for serving personalized, targeted, or retargeted advertisements.</p>
-          <p><strong>5.4. Access Revocation & Data Deletion:</strong> Users may revoke Helmer Workspace's access to their Google account at any time via their <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Security Settings (Third-party apps & services)</a>. Users can also delete their account and associated data directly through the platform interface or by contacting support@helmeros.com.</p>
+          <h3>Article 4. Sensitive Data and User's Personal Responsibility</h3>
+          <p>4.1. Helmer Strategy OS is a business and strategic analysis platform; there is no necessity for collecting special categories of or highly sensitive personal data for the system's operations.</p>
+          <p>4.2. It is strictly requested not to input the following data into the Platform:</p>
+          <ul>
+            <li>Bank card credentials, CVV/CVC codes, and financial account secrets;</li>
+            <li>Identity document series, numbers, and personal identification numbers (FIN);</li>
+            <li>Biometric, genetic, or health data;</li>
+            <li>Confidential access keys and system passwords.</li>
+          </ul>
+          <p>4.3. If the user, contrary to this recommendation, inputs such information into the system on their own initiative, they personally bear the risk of its exposure to automated processing and all liability arising therefrom.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>6. Data Storage, Infrastructure & Security</h3>
-          <p>5.1. Data integrity and confidentiality are safeguarded using modern cloud storage infrastructure (Cloudflare R2), high-speed caching mechanisms (Redis), and hardened server environments.</p>
-          <p>5.2. Organizational and technical security measures are deployed in compliance with the Law of the Republic of Azerbaijan "On Information, Informatization, and Information Protection" to prevent unauthorized database access, data leaks, or tampering.</p>
+          <h3>Article 5. Artificial Intelligence Infrastructure and Cross-Border Transfer</h3>
+          <p>5.1. The Platform utilizes internationally recognized artificial intelligence model infrastructures and official API networks to execute analytical research and structured text generation functions.</p>
+          <p>5.2. Data transfer is conducted via secure TLS/HTTPS encryption standards, and queries are processed solely to the extent necessary for the technical execution of the active generation session.</p>
+          <p>5.3. Users' business queries and personal metrics are not used for public training of third parties' general public foundation models.</p>
+          <p>5.4. The Service's computing nodes may be located outside the borders of the Republic of Azerbaijan. By using the Platform, the user consents to the transit processing on servers located abroad of technical data necessary for executing the Service, in accordance with the requirements of the Law of the Republic of Azerbaijan “On Personal Data” and international encryption protocols.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>7. User Rights & Data Deletion</h3>
-          <p>Under the Law of the Republic of Azerbaijan "On Personal Data", Users have the right to:</p>
-          <p>6.1. Obtain confirmation and information regarding whether their personal data is being processed, including its composition;</p>
-          <p>6.2. Permanently and irreversibly delete stored marketing strategies, chat histories, planner tasks, and personalization memory directly through the platform interface at any time;</p>
-          <p>6.3. Withdraw consent for the "Personalized Intelligence" feature at any moment and request complete account deactivation and erasure (right to be forgotten).</p>
+          <h3>Article 6. Google API User Data Policy Compliance (Limited Use Requirement)</h3>
+          <p>6.1. <strong>Limited Use Disclosure:</strong> The Platform's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+          <p>6.2. <strong>Prohibition on Model Training:</strong> User data received via Google APIs (including name, email address, and profile metrics) is strictly not used to train (training, fine-tuning) or develop generalized or third-party artificial intelligence and machine learning models, including large language models (LLMs).</p>
+          <p>6.3. <strong>Prohibition on Sale and Advertising:</strong> Google user data is under no circumstances sold or leased to advertising networks or data brokers, nor processed for serving targeted advertisements.</p>
+          <p>6.4. <strong>Revocation of Permissions:</strong> Users may revoke Google permissions granted to the Platform at any time directly from the security settings section of their <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Account</a>.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>8. Policy Modifications</h3>
-          <p>7.1. Innova Group Azerbaijan reserves the right to unilaterally update this Policy in response to statutory changes or technical evolutions of the Platform.</p>
-          <p>7.2. The updated Policy takes effect immediately upon publication on the Platform.</p>
+          <h3>Article 7. Data Storage, Infrastructure, and Information Security</h3>
+          <p>7.1. Data integrity and confidentiality are ensured through modern cloud storage infrastructures (Cloudflare R2), high-performance caching nodes (Redis), and an internationally certified server environment.</p>
+          <p>7.2. Organizational and software-technical protection measures are implemented in compliance with the Law of the Republic of Azerbaijan “On Information, Informatization, and Protection of Information” to prevent unauthorized access to databases, data leaks, or tampering.</p>
+          <p>7.3. Personal data is retained while the user's active account exists. Upon account termination, personal data is removed from active systems. Technical logs are automatically renewed or cleared after a specified period in accordance with cybersecurity rotation rules.</p>
         </div>
 
         <div class="legal-doc-section">
-          <h3>9. Contact & Inquiries</h3>
-          <p>For inquiries regarding personal data processing, privacy rights, or this Policy, Users may reach out through the Platform’s official contact channels (email: support@helmeros.com) and digital support interface. Organization: Innova Group Azerbaijan, Baku, Azerbaijan. Website: https://helmerworkspace.com</p>
+          <h3>Article 8. Protection of Minors' Data</h3>
+          <p>8.1. In accordance with the provisions on legal capacity under the Civil Code of the Republic of Azerbaijan, Helmer Strategy OS is intended for use solely by individuals who have reached 18 years of age and does not knowingly collect personal data from individuals under 18 years of age.</p>
+          <p>8.2. If personal data belonging to an individual under 18 years of age is detected to have been entered into the Platform or upon receipt of an inquiry regarding this, such data and the associated profile are removed from active systems.</p>
+        </div>
+
+        <div class="legal-doc-section">
+          <h3>Article 9. Statutory Rights of the User and Account Deletion Procedure</h3>
+          <p>Under the Law of the Republic of Azerbaijan “On Personal Data”, the user has the following rights:</p>
+          <ul>
+            <li>To receive information regarding whether their personal data is being processed and to inspect its composition;</li>
+            <li>To delete stored business analyses, interaction history, and personalization memory through the Platform’s interface at any time;</li>
+            <li>To manage or disable personalized mode and model improvement preferences via personal settings;</li>
+            <li>To request complete deletion of their profile and personal data from active systems.</li>
+          </ul>
+          <p>Official requests regarding account deletion and exercising statutory rights are sent to the email address <a href="mailto:support@helmeros.com">support@helmeros.com</a>. Unless there is another retention requirement provided by law, the request is executed within 30 calendar days.</p>
+        </div>
+
+        <div class="legal-doc-section">
+          <h3>Article 10. Amendments to Policy and Contact Details</h3>
+          <p>10.1. Innova Group Azerbaijan reserves the right to make unilateral changes to this Policy in connection with legislative changes or technical architecture updates of the Platform. The updated Policy enters into force from the moment it is published on the Platform.</p>
+          <p>10.2. Legal and Technical Contact:</p>
+          <ul>
+            <li><strong>Service Operator:</strong> Innova Group Azerbaijan, Baku, Azerbaijan</li>
+            <li><strong>Platform:</strong> Helmer Strategy OS</li>
+            <li><strong>Official Internet Information Resource:</strong> <a href="https://helmeros.com">helmeros.com</a></li>
+            <li><strong>Privacy and Legal Affairs Contact:</strong> <a href="mailto:support@helmeros.com">support@helmeros.com</a></li>
+          </ul>
+          <p>© 2026 Innova Group Azerbaijan / Helmer Strategy OS. All rights reserved.</p>
         </div>
 
         <div class="legal-doc-precedence">

@@ -116,10 +116,17 @@ test("response iterations preserve modification request and preferred output", a
 });
 
 test("admin authorization accepts configured identities and masks the API for non-admins", () => {
-  const middleware = createRequireAdmin(new Set(["admin@example.com"]));
+  const middleware = createRequireAdmin(new Set(["admin-id"]));
   let nextCalled = false;
-  middleware({ user: { email: "ADMIN@example.com" }, method: "GET", accepts: () => false }, {}, () => { nextCalled = true; });
+  middleware({ auth: { session: { mfaVerifiedAt: Date.now() } }, user: { id: "admin-id", email: "ADMIN@example.com", emailVerifiedAt: "2026-01-01T00:00:00.000Z" }, method: "GET", accepts: () => false }, {}, () => { nextCalled = true; });
   assert.equal(nextCalled, true);
+
+  let unverifiedStatus = null;
+  const unverifiedResponse = { status(code) { unverifiedStatus = code; return this; }, json() { return this; } };
+  let unverifiedNext = false;
+  middleware({ user: { email: "admin@example.com", emailVerifiedAt: null }, method: "GET", accepts: () => false }, unverifiedResponse, () => { unverifiedNext = true; });
+  assert.equal(unverifiedNext, false, "an unverified email must never grant admin access");
+  assert.equal(unverifiedStatus, 404);
 
   let statusCode = null;
   let payload = null;

@@ -4,6 +4,8 @@ function positiveInteger(value, fallback) {
 }
 
 export const aiConfig = Object.freeze({
+  upModel: "gpt-6-luna",
+  upMaxOutputTokens: 3000,
   strategyModel: "gemini-3.8-flash",
   strategyFallbackModel: "gpt-6-sol",
   strategyThinkingLevel: "HIGH",
@@ -29,6 +31,7 @@ export function hasOpenAIConfiguration() {
 
 export function hasGeminiConfiguration() {
   return Boolean(process.env.GEMINI_API_KEY?.trim()) ||
+    Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim()) ||
     (process.env.GEMINI_USE_VERTEX === "true" &&
       Boolean(process.env.GOOGLE_CLOUD_PROJECT?.trim() || process.env.GCP_PROJECT?.trim()));
 }

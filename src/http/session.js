@@ -4,15 +4,20 @@ export const GUEST_COOKIE = "helmer_guest";
 const COOKIE_NAME = GUEST_COOKIE;
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
+let warnedAboutFallbackSecret = false;
+
 export function resolveGuestSecret(env = process.env) {
   const secret = env.SESSION_SECRET || env.AUTH_SECRET;
   if (env.NODE_ENV === "production" && (!secret || !secret.trim())) {
     throw new Error("Fatal: SESSION_SECRET or AUTH_SECRET environment variable is required in production mode.");
   }
-  return (secret && secret.trim()) || "helmer_guest_hmac_secret_fallback_key";
+  if (secret && secret.trim()) return secret.trim();
+  if (!warnedAboutFallbackSecret) {
+    warnedAboutFallbackSecret = true;
+    console.warn("⚠️ SESSION_SECRET is not set; guest cookies are signed with a public development key.");
+  }
+  return "helmer_guest_hmac_secret_fallback_key";
 }
-
-const GUEST_SECRET = resolveGuestSecret();
 
 export function parseCookies(header = "") {
   return Object.fromEntries(
@@ -36,19 +41,19 @@ export function isValidGuestId(value) {
   return /^guest_[0-9a-f-]{36}$/i.test(value || "");
 }
 
-export function signGuestId(guestId) {
-  const signature = createHmac("sha256", GUEST_SECRET).update(guestId).digest("hex").slice(0, 32);
+export function signGuestId(guestId, secret = resolveGuestSecret()) {
+  const signature = createHmac("sha256", secret).update(guestId).digest("hex").slice(0, 32);
   return `${guestId}.${signature}`;
 }
 
-export function verifyGuestCookie(cookieValue) {
+export function verifyGuestCookie(cookieValue, secret = resolveGuestSecret()) {
   if (!cookieValue || typeof cookieValue !== "string") return null;
   const dotIndex = cookieValue.indexOf(".");
   if (dotIndex === -1) return null;
   const guestId = cookieValue.slice(0, dotIndex);
   const signature = cookieValue.slice(dotIndex + 1);
   if (!isValidGuestId(guestId)) return null;
-  const expected = createHmac("sha256", GUEST_SECRET).update(guestId).digest("hex").slice(0, 32);
+  const expected = createHmac("sha256", secret).update(guestId).digest("hex").slice(0, 32);
   if (signature.length !== expected.length) return null;
   try {
     if (timingSafeEqual(Buffer.from(signature, "utf8"), Buffer.from(expected, "utf8"))) {
@@ -68,7 +73,7 @@ export function guestSession(req, res, next) {
 
   if (!verifiedGuestId) {
     const forwardedProtocol = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
-    const secure = req.secure || forwardedProtocol === "https";
+    const secure = process.env.NODE_ENV === "production" || req.secure || forwardedProtocol === "https";
     const signedValue = signGuestId(ownerId);
     res.append(
       "Set-Cookie",

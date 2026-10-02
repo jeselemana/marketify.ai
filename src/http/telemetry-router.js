@@ -1,5 +1,6 @@
 import express from "express";
 import { z } from "zod";
+import { isModelImprovementEnabled } from "./auth-middleware.js";
 
 const ClientTelemetryEventSchema = z.object({
   eventType: z.enum(["export_requested", "summary_clicked", "ui_action"]),
@@ -57,6 +58,9 @@ export function createTelemetryAdminRouter(telemetryService) {
   router.get("/events/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      if (!/^[0-9a-f-]{36}$/i.test(id)) {
+        return res.status(400).json({ error: "Hadisə ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
+      }
       const event = await telemetryService.repository.getEventById(id);
       if (!event) {
         return res.status(404).json({ error: "Hadisə tapılmadı.", code: "NOT_FOUND" });
@@ -71,10 +75,49 @@ export function createTelemetryAdminRouter(telemetryService) {
   return router;
 }
 
-export function createTelemetryClientRouter(telemetryService) {
-  const router = express.Router();
+const telemetryRateWindows = new Map();
 
-  router.post("/event", async (req, res) => {
+function createTelemetryRateLimiter(limit = 120, windowMs = 60 * 1000) {
+  return (req, res, next) => {
+    const ip = req.ip || req.socket?.remoteAddress || "127.0.0.1";
+    const key = `telemetry:${ip}`;
+    const now = Date.now();
+    const timestamps = (telemetryRateWindows.get(key) || []).filter((t) => now - t < windowMs);
+
+    if (timestamps.length >= limit) {
+      const oldest = timestamps[0] || now;
+      const retryAfter = Math.max(1, Math.ceil((oldest + windowMs - now) / 1000));
+      res.set("Retry-After", String(retryAfter));
+      res.set("X-RateLimit-Remaining", "0");
+      return res.status(429).json({
+        error: "Hazırda çox sayda telemetriya hadisəsi göndərilib. Bir qədər sonra yenidən cəhd edin.",
+        code: "RATE_LIMITED",
+        retryAfter,
+      });
+    }
+
+    timestamps.push(now);
+    telemetryRateWindows.set(key, timestamps);
+    res.set("X-RateLimit-Remaining", String(limit - timestamps.length));
+    return next();
+  };
+}
+
+setInterval(() => {
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  for (const [key, timestamps] of telemetryRateWindows.entries()) {
+    const active = timestamps.filter((t) => now - t < windowMs);
+    if (active.length === 0) telemetryRateWindows.delete(key);
+    else telemetryRateWindows.set(key, active);
+  }
+}, 60 * 1000).unref();
+
+export function createTelemetryClientRouter(telemetryService, options = {}) {
+  const router = express.Router();
+  const rateLimitMiddleware = options.rateLimit || createTelemetryRateLimiter();
+
+  router.post("/event", rateLimitMiddleware, async (req, res) => {
     try {
       const parseResult = ClientTelemetryEventSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -90,12 +133,15 @@ export function createTelemetryClientRouter(telemetryService) {
       const sessionId = req.guestOwnerId || null;
 
       if (eventType === "export_requested") {
+        const modelImprovement = isModelImprovementEnabled(req);
         await telemetryService.trackExport({
           ownerId,
           sessionId,
           format: format || "pdf",
-          title: title || "",
+          title: modelImprovement ? (title || "") : "",
           status: "success",
+          onlyNecessaryData: !modelImprovement,
+          modelImprovement,
         });
       }
 

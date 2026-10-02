@@ -275,12 +275,12 @@ test("9. HTTP & Security: Admin routes require admin authorization, client route
   const app = express();
   app.use(express.json());
 
-  const requireAdmin = createRequireAdmin(new Set(["admin_user"]));
+  const requireAdmin = createRequireAdmin(new Set(["admin-1"]));
 
   // Mock auth middleware for testing
   const authMock = (role) => (req, res, next) => {
     if (role === "admin") {
-      req.user = { username: "admin_user", email: "admin@helmer.ai" };
+      req.user = { id: "admin-1", username: "admin_user", email: "admin@helmer.ai", emailVerifiedAt: new Date().toISOString() }; req.auth = { session: { mfaVerifiedAt: Date.now() } };
       req.ownerId = "admin-1";
     } else if (role === "user") {
       req.user = { username: "regular_user", email: "user@example.com" };

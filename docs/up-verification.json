@@ -1,0 +1,42 @@
+{
+  "model": "gpt-6-luna",
+  "verifiedAccount": true,
+  "auth": "passed",
+  "onboarding": "passed",
+  "generation": "passed",
+  "evaluation": "passed",
+  "points": 16,
+  "replay": "passed",
+  "logoutLoginPersistence": "passed",
+  "challengeId": "d8ae3da7-78f6-4064-9742-9e425214cab1",
+  "timestamp": "2026-09-30T20:53:10.379Z",
+  "browser": {
+    "desktopWidth": 1440,
+    "mobileWidth": 390,
+    "horizontalOverflow": false,
+    "nextChallenge": "passed",
+    "freeFormUiEvaluationPoints": 38,
+    "persistedTotalAfterBrowserEvaluation": 54,
+    "mobileNavigation": "passed"
+  },
+  "cloud": {
+    "cloud": "R2",
+    "model": "gpt-6-luna",
+    "conditionalConcurrency": "passed",
+    "generation": "passed",
+    "evaluation": "passed",
+    "ledgerTransactions": 1,
+    "points": 2,
+    "replay": "passed"
+  },
+  "automated": {
+    "tests": 329,
+    "passed": 329,
+    "failed": 0,
+    "check": "passed",
+    "build": "passed",
+    "separateTypeScriptOrESLintConfiguration": false
+  },
+  "verifiedDate": "2026-10-01",
+  "timezone": "Asia/Baku"
+}

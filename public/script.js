@@ -1,7 +1,9 @@
+import { createUpView } from "./up.js";
 import { createDocumentExport, createExcelExport, createSpreadsheetExport, exportStrategyToPDF } from "./exporters.js";
 import { readUploadedFileAsData as readFileAsData } from "./file-utils.js";
 import { authRequest, initializeAuthentication, logout } from "./auth.js?v=1.1";
 import { PRESET_PROMPTS, getPresetPrompts } from "./preset-prompts.js";
+import "/artifacts.js";
 import {
   t,
   getLanguage,
@@ -12,12 +14,14 @@ import {
 } from "./i18n.js?v=8.5";
 
 const workspace = document.querySelector("#workspace");
+const renderUpView = createUpView({ request: authRequest, getUser: () => state.currentUser, getLanguage, onLogin: () => window.dispatchEvent(new CustomEvent("helmer:auth-required")) });
 const sidebar = document.querySelector("#sidebar");
 const mobileOverlay = document.querySelector("#mobileOverlay");
 const mobileMenuButton = document.querySelector("#mobileMenuButton");
 const mobileNewButton = document.querySelector("#mobileNewButton");
 const railMenuButton = document.querySelector("#railMenuButton");
 const railHomeButton = document.querySelector("#railHomeButton");
+const railSearchButton = document.querySelector("#railSearchButton");
 const railStrategiesButton = document.querySelector("#railStrategiesButton");
 const railPlannerButton = document.querySelector("#railPlannerButton");
 const railModeToggleButton = document.querySelector("#railModeToggleButton");
@@ -37,10 +41,84 @@ const installAppNav = document.querySelector("#installAppNav");
 const whatsNewNav = document.querySelector("#whatsNewNav");
 const settingsNav = document.querySelector("#settingsNav");
 const railLimitsButton = document.querySelector("#railLimitsButton");
+const railSettingsButton = document.querySelector("#railSettingsButton");
 const railInstallAppButton = document.querySelector("#railInstallAppButton");
 const railLangToggleButton = document.querySelector("#railLangToggleButton");
 const railLangBadge = document.querySelector("#railLangBadge");
 const railAccountButton = document.querySelector("#railAccountButton");
+
+export const NAV_ITEMS = [
+  {
+    id: "home",
+    sidebarId: "homeNav",
+    railId: "railHomeButton",
+    labelKey: "nav.home",
+    defaultLabelAz: "Başlanğıc",
+    defaultLabelEn: "Home",
+    icon: "Home",
+    svg: `<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>`
+  },
+  {
+    id: "search",
+    sidebarId: "searchNav",
+    railId: "railSearchButton",
+    labelKey: "nav.searchChats",
+    defaultLabelAz: "Axtarış",
+    defaultLabelEn: "Search",
+    icon: "Search",
+    svg: `<circle cx="11" cy="11" r="7.5"/><path d="m16.5 16.5 4.5 4.5"/>`
+  },
+  {
+    id: "archive",
+    sidebarId: "strategiesNav",
+    railId: "railStrategiesButton",
+    labelKey: "nav.archive",
+    defaultLabelAz: "Arxiv",
+    defaultLabelEn: "Archive",
+    icon: "Archive",
+    svg: `<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>`
+  },
+  {
+    id: "planner",
+    sidebarId: "plannerNav",
+    railId: "railPlannerButton",
+    labelKey: "nav.planner",
+    defaultLabelAz: "Planlaşdırılanlar",
+    defaultLabelEn: "Planner",
+    icon: "CalendarDays",
+    svg: `<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/>`
+  },
+  {
+    id: "up",
+    sidebarId: "upNav",
+    railId: "railUpButton",
+    labelKey: "nav.up",
+    defaultLabelAz: "Helmer UP",
+    defaultLabelEn: "Helmer UP",
+    icon: "Brain",
+    svg: `<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/>`
+  },
+  {
+    id: "usage",
+    sidebarId: "limitsNav",
+    railId: "railLimitsButton",
+    labelKey: "nav.limits",
+    defaultLabelAz: "İstifadə",
+    defaultLabelEn: "Usage",
+    icon: "Activity",
+    svg: `<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>`
+  },
+  {
+    id: "settings",
+    sidebarId: "settingsNav",
+    railId: "railSettingsButton",
+    labelKey: "nav.settings",
+    defaultLabelAz: "Parametrlər",
+    defaultLabelEn: "Settings",
+    icon: "Settings",
+    svg: `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>`
+  }
+];
 const accountButton = document.querySelector("#accountButton");
 const workspaceAvatar = document.querySelector("#workspaceAvatar");
 const railWorkspaceAvatar = document.querySelector("#railWorkspaceAvatar");
@@ -1032,27 +1110,26 @@ async function toggleModelImprovement(enable) {
     localStorage.setItem("helmer_model_improvement", String(enable));
     setCookie("helmer_model_improvement", String(enable));
     if (!enable) {
-      localStorage.setItem("helmer_personal_intelligence", "false");
-      setCookie("helmer_personal_intelligence", "false");
+
+
     }
   } catch { }
   if (!enable) {
-    // When deactivating: Along with it, Personal Intelligence is ALSO deactivated!
+    // Contribution and personalization are independent preferences.
     if (state.currentUser) {
       if (!state.currentUser.settings) state.currentUser.settings = {};
       state.currentUser.settings.modelImprovement = false;
-      state.currentUser.settings.personalIntelligence = false;
       try {
         const data = await authRequest("/api/auth/settings", {
           method: "PATCH",
-          body: JSON.stringify({ modelImprovement: false, personalIntelligence: false }),
+          body: JSON.stringify({ modelImprovement: false }),
         });
         if (data?.user) updateWorkspaceIdentity(data.user);
       } catch (err) {
         console.error("Failed to update model improvement:", err);
       }
     }
-    showToast(t("settings.security.modelImprovementDeactivatedToast") || (isEn ? "Model improvement contribution and personalization deactivated." : "Modelin inkişafına töhfə və fərdiləşdirmə deaktivləşdirildi."));
+    showToast(t("settings.security.modelImprovementDeactivatedToast") || (isEn ? "New model improvement contributions are disabled. Existing records remain." : "Yeni model təkmilləşdirmə töhfələri söndürüldü. Əvvəlki qeydlər saxlanılır."));
   } else {
     // When activating
     if (state.currentUser) {
@@ -2240,12 +2317,23 @@ const state = {
   isPrioritizingPlanner: false,
   askMessages: [],
   askDraft: "",
+  askPluginIds: [],
+  askArtifactId: null,
+  askArtifactName: "",
+  askRetry: null,
   askLoading: false,
   askError: "",
   askPendingFile: null,
   askStrategyId: "",
   askTaskId: "",
   askPromptHintStrategyId: "",
+  askSubMode: (() => {
+    try {
+      const saved = localStorage.getItem("helmer_ask_submode");
+      if (saved === "research" || saved === "ask") return saved;
+    } catch { }
+    return "ask";
+  })(),
   askModel: (() => {
     try {
       const saved = localStorage.getItem("helmer_ask_model");
@@ -2488,13 +2576,25 @@ function abortAskMessage() {
     } catch { }
     activeAskTypewriter = null;
   }
+  if (typeof activeResearchStreams !== "undefined" && activeResearchStreams.size > 0) {
+    for (const [jobId, controller] of activeResearchStreams.entries()) {
+      try {
+        controller.abort();
+        fetch(`/api/ask/research/jobs/${jobId}/cancel`, { method: "POST" }).catch(() => { });
+      } catch { }
+    }
+    activeResearchStreams.clear();
+  }
   state.askLoading = false;
   state.askError = "";
-  const streamingMsg = state.askMessages.find((m) => m && m.isStreaming);
+  const streamingMsg = state.askMessages.find((m) => m && (m.isStreaming || (m.type === "research" && (m.status === "pending" || m.status === "running"))));
   if (streamingMsg) {
     clearAskWaitStages(streamingMsg);
     streamingMsg.isStreaming = false;
-    if (!streamingMsg.content) {
+    if (streamingMsg.type === "research") {
+      streamingMsg.status = "failed";
+      streamingMsg.error = getLanguage() === "en" ? "Research was canceled." : "Araşdırma dayandırıldı.";
+    } else if (!streamingMsg.content) {
       const idx = state.askMessages.indexOf(streamingMsg);
       if (idx !== -1) state.askMessages.splice(idx, 1);
     }
@@ -2647,19 +2747,23 @@ function syncLanguageControls() {
 function syncNav() {
   const isBuild = state.mode === "build";
   const isEn = getLanguage() === "en";
-  const nonHomeViews = ["list", "settings", "planner", "limits"];
+  const nonHomeViews = ["list", "settings", "planner", "limits", "up"];
   homeNav.classList.toggle("is-active", !nonHomeViews.includes(state.view));
   strategiesNav.classList.toggle("is-active", state.view === "list");
   plannerNav?.classList.toggle("is-active", state.view === "planner");
+  for (const id of ["upNav", "railUpButton"]) document.getElementById(id)?.classList.toggle("is-active", state.view === "up");
   limitsNav?.classList.toggle("is-active", state.view === "limits");
   settingsNav.classList.toggle("is-active", state.view === "settings");
   railHomeButton.classList.toggle("is-active", !nonHomeViews.includes(state.view));
   railStrategiesButton.classList.toggle("is-active", state.view === "list");
   railPlannerButton?.classList.toggle("is-active", state.view === "planner");
   railLimitsButton?.classList.toggle("is-active", state.view === "limits");
+  railSettingsButton?.classList.toggle("is-active", state.view === "settings");
 
   railHomeButton.setAttribute("data-tooltip", `${isBuild ? t("nav.home") : t("nav.askChat")}${shortcutSuffix("⌘ 1", "Ctrl 1")}`);
   railHomeButton.setAttribute("aria-label", isBuild ? t("nav.home") : t("nav.askChat"));
+  railSearchButton?.setAttribute("data-tooltip", `${isEn ? "Search" : "Axtarış"}${shortcutSuffix("⌘ K", "Ctrl K")}`);
+  railSearchButton?.setAttribute("aria-label", isEn ? "Search" : "Axtarış");
   railStrategiesButton.setAttribute("data-tooltip", `${t("nav.archive")}${shortcutSuffix("⌘ 2", "Ctrl 2")}`);
   railStrategiesButton.setAttribute("aria-label", t("nav.archive"));
   if (railPlannerButton) {
@@ -2669,6 +2773,10 @@ function syncNav() {
   if (railLimitsButton) {
     railLimitsButton.setAttribute("data-tooltip", t("nav.limits"));
     railLimitsButton.setAttribute("aria-label", t("nav.limits"));
+  }
+  if (railSettingsButton) {
+    railSettingsButton.setAttribute("data-tooltip", t("nav.settings"));
+    railSettingsButton.setAttribute("aria-label", t("nav.settings"));
   }
   if (railInstallAppButton) {
     railInstallAppButton.setAttribute("data-tooltip", t("nav.installApp"));
@@ -3016,10 +3124,15 @@ function startNewChat() {
   state.askMessages = [];
   state.askDraft = "";
   state.askPendingFile = null;
+  state.askPluginIds = [];
+  state.askArtifactId = null;
+  state.askArtifactName = "";
+  state.askRetry = null;
   state.askStrategyId = "";
   state.askTaskId = "";
   state.askPromptHintStrategyId = "";
   state.askError = "";
+  try { sessionStorage.removeItem("helmer_active_ask_chat"); } catch { }
   render();
   closeSidebar();
 }
@@ -3067,6 +3180,7 @@ function render() {
   workspace.className = "workspace";
 
   if (state.view === "settings") return renderSettings();
+  if (state.view === "up") return renderUpView(workspace);
   if (state.view === "planner") return renderPlannerView();
   if (state.view === "limits") return renderLimitsView();
   if (state.view === "list") return renderStrategyList();
@@ -3165,15 +3279,19 @@ function appendPresetPrompt(input, prompt, onChange) {
 function addPresetPromptPane(popover, mode, onSelect, onBack) {
   const isEn = getLanguage() === "en";
   const header = element("div", "ask-context-menu-subheader");
-  const back = button("‹", "ask-context-menu-back", onBack);
+  const back = button("", "ask-context-menu-back", onBack);
+  back.type = "button";
   back.setAttribute("aria-label", isEn ? "Back to context menu" : "Kontekst menyusuna qayıt");
+  back.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
   header.append(back, element("strong", "ask-context-menu-heading", isEn ? "Prompt Templates" : "Hazır sual"));
   popover.appendChild(header);
+  popover.appendChild(element("div", "ask-context-menu-divider"));
 
   const list = element("div", "preset-prompt-list");
   const prompts = getPresetPrompts ? getPresetPrompts(mode, getLanguage()) : PRESET_PROMPTS[mode];
   prompts.forEach((prompt) => {
     const item = button("", "preset-prompt-item", () => onSelect(prompt.text));
+    item.type = "button";
     item.append(element("strong", "", prompt.title), element("span", "", prompt.text));
     list.appendChild(item);
   });
@@ -3256,32 +3374,54 @@ function renderIntake() {
     }
     contextPopover.classList.remove("is-downwards");
     contextPopover.appendChild(element("strong", "ask-context-menu-heading", isEn ? "Add" : "Əlavə et"));
-    const option = button("", "ask-context-menu-option", () => {
+    contextPopover.appendChild(element("div", "ask-context-menu-divider"));
+
+    const option = button("", "ask-context-menu-option group", () => {
       contextPane = "prompts";
       drawBuildMenu();
     });
+    option.type = "button";
+
+    const main = element("div", "ask-context-menu-option-main");
+    const icon = element("span", "ask-context-menu-option-icon");
+    icon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M13 8H7"/><path d="M17 12H7"/></svg>';
     const copy = element("span", "ask-context-menu-option-copy");
     copy.append(
       element("strong", "", isEn ? "Prompt Templates" : "Hazır sual"),
       element("small", "", isEn ? "Choose a ready-made strategy brief template" : "Başlamaq üçün hazır prompt seç")
     );
-    option.append(copy, element("span", "ask-context-menu-chevron", "›"));
+    main.append(icon, copy);
+
+    const chevron = element("span", "ask-context-menu-chevron");
+    chevron.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
+
+    option.append(main, chevron);
     contextPopover.appendChild(option);
   };
   drawBuildMenu();
   contextMenu.append(contextTrigger, contextPopover);
-  const closeContextMenu = (event) => {
+  const closeBuildContextMenuOnPointer = (event) => {
     const path = event.composedPath ? event.composedPath() : [];
     if (path.includes(contextMenu) || contextMenu.contains(event.target)) return;
     contextMenu.open = false;
   };
+  const closeBuildContextMenuOnKeyDown = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      contextMenu.open = false;
+      contextTrigger.focus?.();
+    }
+  };
   contextMenu.addEventListener("toggle", () => {
     if (contextMenu.open) {
       setTimeout(() => {
-        document.addEventListener("pointerdown", closeContextMenu);
+        document.addEventListener("pointerdown", closeBuildContextMenuOnPointer);
+        document.addEventListener("keydown", closeBuildContextMenuOnKeyDown);
       }, 0);
     } else {
-      document.removeEventListener("pointerdown", closeContextMenu);
+      document.removeEventListener("pointerdown", closeBuildContextMenuOnPointer);
+      document.removeEventListener("keydown", closeBuildContextMenuOnKeyDown);
       contextPane = "main";
       contextPopover.classList.remove("is-downwards");
       drawBuildMenu();
@@ -3325,8 +3465,68 @@ function renderIntake() {
   if (window.innerWidth > 767) setTimeout(() => textarea.focus(), 0);
 }
 
+function cleanMarkdownFormatting(raw) {
+  let text = String(raw || "");
+
+  // Step A: Protect code blocks and inline code
+  const codePlaceholders = [];
+  text = text.replace(/(`[^`]+`)/g, (m) => {
+    codePlaceholders.push(m);
+    return `__MD_CODE_${codePlaceholders.length - 1}__`;
+  });
+
+  // Step B: Protect true valid bold pairs where opening ** is left-flanking
+  // (preceded by whitespace/start/bracket, not followed by space)
+  // and closing ** is right-flanking (not preceded by space, followed by space/punct/end)
+  const validPairs = [];
+  text = text.replace(/(^|[\s\n\r>(\[*_~])\*\*([^\s*](?:[^*]*?[^\s*])?)\*\*(?=[\s\n\r<)\]*_~:.,;!?]|$)/g, (m, prefix, content) => {
+    validPairs.push(`**${content}**`);
+    return `${prefix}__VALID_BOLD_${validPairs.length - 1}__`;
+  });
+
+  // Step C1: Fix broken closing "**:" or "**." at start of line, list item or after punctuation (e.g. "1. Why it matters**:")
+  text = text.replace(
+    /(^|[\n\r>(\[|]|\d+[.)]\s+|[-*]\s+|[:.!?]\s+)([\p{L}\p{N}_]+(?:\s+[\p{L}\p{N}_]+){0,5})\*\*([:.,;!?])/gu,
+    (_, prefix, words, punct) => {
+      validPairs.push(`**${words}**`);
+      return `${prefix}__VALID_BOLD_${validPairs.length - 1}__${punct}`;
+    }
+  );
+
+  // Step C2: Fix broken closing "**:" on a single word anywhere else (e.g. "matters**:")
+  text = text.replace(
+    /(^|[\s\n\r>(\[])([\p{L}\p{N}_]+)\*\*([:.,;!?])/gu,
+    (_, prefix, word, punct) => {
+      validPairs.push(`**${word}**`);
+      return `${prefix}__VALID_BOLD_${validPairs.length - 1}__${punct}`;
+    }
+  );
+
+  // Step C3: Fix broken opening without closing before punctuation (e.g. "**matters:")
+  text = text.replace(
+    /(^|[\s\n\r>(\[])\*\*([\p{L}\p{N}_]+(?:\s+[\p{L}\p{N}_]+){0,5})([:.,;!?])/gu,
+    (_, prefix, words, punct) => {
+      validPairs.push(`**${words}**`);
+      return `${prefix}__VALID_BOLD_${validPairs.length - 1}__${punct}`;
+    }
+  );
+
+  // Step D: If there is still an unmatched "**" (odd count), close it cleanly
+  const remainingStars = (text.match(/\*\*/g) || []).length;
+  if (remainingStars % 2 !== 0) {
+    text = text + "**";
+  }
+
+  // Step E: Restore valid bold pairs and code
+  text = text.replace(/__VALID_BOLD_(\d+)__/g, (_, idx) => validPairs[Number(idx)]);
+  text = text.replace(/__MD_CODE_(\d+)__/g, (_, idx) => codePlaceholders[Number(idx)]);
+
+  return text;
+}
+
 function appendAskInline(parent, value) {
-  const parts = String(value).split(/(\[[^\]]+\]\(https?:\/\/[^\s)]+\)|\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|`[^`]+`)/g).filter(Boolean);
+  const cleaned = cleanMarkdownFormatting(value);
+  const parts = String(cleaned).split(/(\[[^\]]+\]\(https?:\/\/[^\s)]+\)|\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|`[^`]+`)/g).filter(Boolean);
   parts.forEach((part) => {
     const linkMatch = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
     if (linkMatch) {
@@ -3425,23 +3625,99 @@ function renderAskRichText(value) {
 
     if (/^[-*]\s+/.test(line)) {
       const list = document.createElement("ul");
-      while (index < lines.length && /^[-*]\s+/.test(lines[index].trim())) {
-        const item = document.createElement("li");
-        appendAskInline(item, lines[index].trim().replace(/^[-*]\s+/, ""));
-        list.appendChild(item);
-        index += 1;
+      while (index < lines.length) {
+        const curLine = lines[index].trim();
+        if (/^[-*]\s+/.test(curLine)) {
+          const item = document.createElement("li");
+          appendAskInline(item, curLine.replace(/^[-*]\s+/, ""));
+          list.appendChild(item);
+          index += 1;
+          continue;
+        }
+
+        // Blank lines between bullet list items
+        if (!curLine) {
+          let nextIdx = index + 1;
+          while (nextIdx < lines.length && !lines[nextIdx].trim()) {
+            nextIdx++;
+          }
+          if (nextIdx < lines.length && /^[-*]\s+/.test(lines[nextIdx].trim())) {
+            index = nextIdx;
+            continue;
+          }
+          break;
+        }
+
+        // Continuation lines of the current li item
+        if (
+          !/^#{2,4}\s+|^[-*]\s+|^\d+[.)]\s+|^```|^[-*_]{3,}$/.test(curLine) &&
+          !curLine.includes("|")
+        ) {
+          const lastLi = list.lastElementChild;
+          if (lastLi) {
+            lastLi.appendChild(document.createTextNode(" "));
+            appendAskInline(lastLi, curLine);
+            index += 1;
+            continue;
+          }
+        }
+
+        break;
       }
       root.appendChild(list);
       continue;
     }
 
-    if (/^\d+[.)]\s+/.test(line)) {
+    const numMatch = line.match(/^(\d+)[.)]\s+(.*)$/);
+    if (numMatch) {
+      const startNum = parseInt(numMatch[1], 10) || 1;
       const list = document.createElement("ol");
-      while (index < lines.length && /^\d+[.)]\s+/.test(lines[index].trim())) {
-        const item = document.createElement("li");
-        appendAskInline(item, lines[index].trim().replace(/^\d+[.)]\s+/, ""));
-        list.appendChild(item);
-        index += 1;
+      if (startNum !== 1) {
+        list.setAttribute("start", String(startNum));
+      }
+      while (index < lines.length) {
+        const curLine = lines[index].trim();
+        const curMatch = curLine.match(/^(\d+)[.)]\s+(.*)$/);
+        if (curMatch) {
+          const itemNum = parseInt(curMatch[1], 10);
+          const item = document.createElement("li");
+          if (!isNaN(itemNum)) {
+            item.value = itemNum;
+          }
+          appendAskInline(item, curMatch[2]);
+          list.appendChild(item);
+          index += 1;
+          continue;
+        }
+
+        // Blank lines between list items in markdown
+        if (!curLine) {
+          let nextIdx = index + 1;
+          while (nextIdx < lines.length && !lines[nextIdx].trim()) {
+            nextIdx++;
+          }
+          if (nextIdx < lines.length && /^\d+[.)]\s+/.test(lines[nextIdx].trim())) {
+            index = nextIdx;
+            continue;
+          }
+          break;
+        }
+
+        // Continuation lines of the current li item
+        if (
+          !/^#{2,4}\s+|^[-*]\s+|^\d+[.)]\s+|^```|^[-*_]{3,}$/.test(curLine) &&
+          !curLine.includes("|")
+        ) {
+          const lastLi = list.lastElementChild;
+          if (lastLi) {
+            lastLi.appendChild(document.createTextNode(" "));
+            appendAskInline(lastLi, curLine);
+            index += 1;
+            continue;
+          }
+        }
+
+        break;
       }
       root.appendChild(list);
       continue;
@@ -3503,6 +3779,203 @@ async function shareAskResponse(content) {
   if (copied) trackEvent("ask_response_shared", { method: "clipboard" });
 }
 
+function selectAskArtifactForEdit(artifact) {
+  if (state.askLoading) return;
+  state.askArtifactId = artifact.id;
+  state.askArtifactName = artifact.filename;
+  state.askPluginIds = [artifact.pluginId];
+  state.mode = "ask";
+  state.view = "home";
+  syncMode(); syncNav();
+  render();
+  document.querySelector("#askInput")?.focus();
+}
+
+function retryAskRequest() {
+  const retry = state.askRetry;
+  if (!retry || state.askLoading) return;
+  state.askMessages = state.askMessages.slice(0, retry.messageIndex);
+  state.askPluginIds = retry.pluginIds;
+  state.askArtifactId = retry.artifactId;
+  submitAskMessage(retry.message, retry.file);
+}
+
+function formatArtifactSize(size) {
+  if (!size || isNaN(size)) return "24 KB";
+  if (size >= 1048576) return `${(size / 1048576).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function getArtifactFormatDisplayName(type) {
+  const ext = String(type || "").toLowerCase().replace(/^\./, "");
+  if (ext === "xlsx" || ext === "excel") return "Excel";
+  if (ext === "docx" || ext === "word") return "Word";
+  if (ext === "pptx" || ext === "powerpoint") return "PowerPoint";
+  if (ext === "pdf") return "PDF";
+  return ext.toUpperCase();
+}
+
+function getArtifactFormatIcon(type) {
+  const ext = String(type || "").toLowerCase().replace(/^\./, "");
+  if (ext === "xlsx" || ext === "excel") {
+    return `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ask-artifact-menu-icon is-excel"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>`;
+  }
+  if (ext === "docx" || ext === "word") {
+    return `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ask-artifact-menu-icon is-word"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`;
+  }
+  if (ext === "pptx" || ext === "powerpoint") {
+    return `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ask-artifact-menu-icon is-powerpoint"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M7 11l3-3 2 2 4-4"/></svg>`;
+  }
+  // pdf or fallback
+  return `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ask-artifact-menu-icon is-pdf"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M10 12h4"/><path d="M10 16h4"/></svg>`;
+}
+
+function appendArtifactCards(content, message) {
+  if (message.type === "research" || message.jobId) return;
+  for (const artifact of message.artifacts || []) {
+    const card = window.HelmerArtifacts?.artifactCard(artifact, selectAskArtifactForEdit);
+    if (card) content.appendChild(card);
+  }
+}
+
+function buildAskResponseMoreMenu(message, messageIndex, isEn) {
+  const moreMenu = document.createElement("details");
+  moreMenu.className = "ask-response-more-menu";
+  const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
+  moreTrigger.setAttribute("aria-label", isEn ? "More actions" : "Seçimlər");
+  moreTrigger.title = isEn ? "More actions" : "Daha çox";
+  moreTrigger.innerHTML = `
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+      <circle cx="5" cy="12" r="2"></circle>
+      <circle cx="12" cy="12" r="2"></circle>
+      <circle cx="19" cy="12" r="2"></circle>
+    </svg>
+  `;
+
+  const morePopover = element("div", "ask-response-more-popover");
+
+  const msgModelInfo = getAskMessageModelInfo(message.model);
+  const isResearch = message.type === "research" || Boolean(message.jobId);
+
+  const modelRow = element("div", "ask-response-model-row");
+  const modelLabel = element("span", "ask-response-model-label", isEn ? "Mode:" : "Rejim:");
+  const modelName = element(
+    "span",
+    "ask-response-model-name",
+    isResearch ? (isEn ? "Deep Research" : "Dərin Araşdırma") : msgModelInfo.displayName
+  );
+  modelRow.append(modelLabel, modelName);
+  morePopover.appendChild(modelRow);
+
+  const divider = element("div", "ask-response-popover-divider");
+  morePopover.appendChild(divider);
+
+  if (message.groundingMetadata) {
+    const sourcesBtn = button("", "ask-response-popover-item ask-sources-btn", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      moreMenu.open = false;
+      openGroundingSourcesModal(message.groundingMetadata);
+    });
+    sourcesBtn.type = "button";
+    sourcesBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="2" y1="12" x2="22" y2="12"></line>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+      </svg>
+      <span>${isEn ? "Grounding Sources" : "Mənbələr"}</span>
+    `;
+    morePopover.appendChild(sourcesBtn);
+  }
+
+  if (!isResearch && !msgModelInfo.isTerra && !msgModelInfo.isGemini && messageIndex !== undefined) {
+    const thinkDeeperBtn = button("", "ask-response-popover-item ask-think-deeper-btn", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      moreMenu.open = false;
+      thinkDeeperWithTerra(messageIndex);
+    });
+    thinkDeeperBtn.type = "button";
+    thinkDeeperBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+        <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
+      </svg>
+      <span>${isEn ? "Deep Strategic Reasoning" : "Daha dərindən düşün"}</span>
+    `;
+    morePopover.appendChild(thinkDeeperBtn);
+  }
+
+  // --- Download / Export Section ("{ad} kimi yüklə" / "Download as {name}") ---
+  const hasArtifacts = Array.isArray(message.artifacts) && message.artifacts.length > 0;
+  const isPreparing = isResearch && message.status === "completed" && message.generatingArtifacts;
+
+  if (hasArtifacts || isPreparing) {
+    const exportDivider = element("div", "ask-response-popover-divider");
+    morePopover.appendChild(exportDivider);
+
+    if (hasArtifacts) {
+      for (const artifact of message.artifacts) {
+        const ext = String(artifact.type || artifact.name?.split(".").pop() || "docx").toLowerCase().replace(/^\./, "");
+        const formatName = getArtifactFormatDisplayName(ext);
+        const labelText = isEn ? `Download as ${formatName}` : `${formatName} kimi yüklə`;
+        const sizeStr = formatArtifactSize(artifact.size);
+
+        const itemLink = document.createElement("a");
+        itemLink.className = "ask-response-popover-item ask-artifact-download-item";
+        itemLink.href = artifact.downloadUrl || `/api/artifacts/${artifact.id}/versions/${artifact.version || 1}/download`;
+        itemLink.setAttribute("download", artifact.name || `Helmer_Artifact.${ext}`);
+        itemLink.title = `${artifact.title || artifact.name || formatName} (${sizeStr})`;
+        itemLink.innerHTML = `${getArtifactFormatIcon(ext)}<span>${escapeHtml(labelText)}</span>`;
+        itemLink.addEventListener("click", () => {
+          moreMenu.open = false;
+        });
+        morePopover.appendChild(itemLink);
+      }
+    } else if (isPreparing) {
+      const preparingItem = element("div", "ask-response-popover-item ask-artifact-download-item is-preparing");
+      preparingItem.innerHTML = `<span class="ask-artifact-spinner"></span> <span>${isEn ? "Preparing documents..." : "Hazırlanır..."}</span>`;
+      morePopover.appendChild(preparingItem);
+    }
+  }
+
+  const reportBtn = button("", "ask-response-popover-item ask-report-issue-btn", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    moreMenu.open = false;
+    openLegalReportModal({ messageContent: message.content, model: isResearch ? "Deep Research" : msgModelInfo.displayName });
+  });
+  reportBtn.type = "button";
+  reportBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <span>${isEn ? "Report Issue" : "Hüquqi problem bildir"}</span>
+  `;
+  morePopover.appendChild(reportBtn);
+
+  moreMenu.append(moreTrigger, morePopover);
+
+  const closeMoreMenu = (event) => {
+    const path = event.composedPath ? event.composedPath() : [];
+    if (path.includes(moreMenu) || moreMenu.contains(event.target)) return;
+    moreMenu.open = false;
+  };
+  moreMenu.addEventListener("toggle", () => {
+    if (moreMenu.open) {
+      setTimeout(() => {
+        document.addEventListener("pointerdown", closeMoreMenu);
+      }, 0);
+    } else {
+      document.removeEventListener("pointerdown", closeMoreMenu);
+    }
+  });
+
+  return moreMenu;
+}
+
 function renderAsk() {
   const isEn = getLanguage() === "en";
   const isAuto = state.askModel === "auto" || !state.askModel;
@@ -3527,10 +4000,13 @@ function renderAsk() {
     state.askMessages.forEach((message, messageIndex) => {
       const isFreshResponse = message.role === "assistant" && freshAskResponses.has(message);
       const isStreamingMsg = Boolean(message.isStreaming);
-      const row = element("article", `ask-message ask-message-${message.role}${isFreshResponse ? " is-fresh" : ""}${isStreamingMsg ? " is-streaming" : ""}`);
+      const isResearch = message.type === "research";
+      const row = element("article", `ask-message ask-message-${message.role}${isFreshResponse ? " is-fresh" : ""}${isStreamingMsg ? " is-streaming" : ""}${isResearch ? " ask-message-research" : ""}`);
       const content = element("div", "ask-message-content");
       if (message.role === "assistant") {
-        if (isStreamingMsg && !message.content) {
+        if (isResearch) {
+          renderAskResearchMessageContent(content, message, messageIndex, isEn);
+        } else if (isStreamingMsg && !message.content) {
           const isSearching = message.status === "searching";
           const thinking = element("div", `ask-thinking${isSearching ? " is-searching" : ""}`);
           thinking.setAttribute("role", "status");
@@ -3552,6 +4028,7 @@ function renderAsk() {
           }
         }
 
+        if (!isStreamingMsg) appendArtifactCards(content, message);
         if (!isStreamingMsg && message.content) {
           const actions = element("div", "ask-message-actions");
           actions.setAttribute("aria-label", isEn ? "Response actions" : "Cavab əməliyyatları");
@@ -3604,103 +4081,7 @@ function renderAsk() {
           negative.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>';
           actions.append(positive, negative);
 
-          const moreMenu = document.createElement("details");
-          moreMenu.className = "ask-response-more-menu";
-          const moreTrigger = element("summary", "ask-response-action ask-response-more-btn");
-          moreTrigger.setAttribute("aria-label", isEn ? "More actions" : "Seçimlər");
-          moreTrigger.title = isEn ? "More actions" : "Daha çox";
-          moreTrigger.innerHTML = `
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <circle cx="5" cy="12" r="2"></circle>
-              <circle cx="12" cy="12" r="2"></circle>
-              <circle cx="19" cy="12" r="2"></circle>
-            </svg>
-          `;
-
-          const morePopover = element("div", "ask-response-more-popover");
-
-          const msgModelInfo = getAskMessageModelInfo(message.model);
-
-          const modelRow = element("div", "ask-response-model-row");
-          const modelLabel = element("span", "ask-response-model-label", isEn ? "Mode:" : "Rejim:");
-          const modelName = element("span", "ask-response-model-name", msgModelInfo.displayName);
-          modelRow.append(modelLabel, modelName);
-          morePopover.appendChild(modelRow);
-
-          const divider = element("div", "ask-response-popover-divider");
-          morePopover.appendChild(divider);
-
-          if (message.groundingMetadata) {
-            const sourcesBtn = button("", "ask-response-popover-item ask-sources-btn", (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              moreMenu.open = false;
-              openGroundingSourcesModal(message.groundingMetadata);
-            });
-            sourcesBtn.type = "button";
-            sourcesBtn.innerHTML = `
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-              </svg>
-              <span>${isEn ? "Grounding Sources" : "Mənbələr"}</span>
-            `;
-            morePopover.appendChild(sourcesBtn);
-          }
-
-          if (!msgModelInfo.isTerra && !msgModelInfo.isGemini) {
-            const thinkDeeperBtn = button("", "ask-response-popover-item ask-think-deeper-btn", (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              moreMenu.open = false;
-              thinkDeeperWithTerra(messageIndex);
-            });
-            thinkDeeperBtn.type = "button";
-            thinkDeeperBtn.innerHTML = `
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                <path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/>
-              </svg>
-              <span>${isEn ? "Deep Strategic Reasoning" : "Daha dərindən düşün"}</span>
-            `;
-            morePopover.appendChild(thinkDeeperBtn);
-          }
-
-          const reportBtn = button("", "ask-response-popover-item ask-report-issue-btn", (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            moreMenu.open = false;
-            openLegalReportModal({ messageContent: message.content, model: msgModelInfo.displayName });
-          });
-          reportBtn.type = "button";
-          reportBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-            <span>${isEn ? "Report Issue" : "Hüquqi problem bildir"}</span>
-          `;
-          morePopover.appendChild(reportBtn);
-
-          moreMenu.append(moreTrigger, morePopover);
-
-          const closeMoreMenu = (event) => {
-            const path = event.composedPath ? event.composedPath() : [];
-            if (path.includes(moreMenu) || moreMenu.contains(event.target)) return;
-            moreMenu.open = false;
-          };
-          moreMenu.addEventListener("toggle", () => {
-            if (moreMenu.open) {
-              setTimeout(() => {
-                document.addEventListener("pointerdown", closeMoreMenu);
-              }, 0);
-            } else {
-              document.removeEventListener("pointerdown", closeMoreMenu);
-            }
-          });
-
-          actions.appendChild(moreMenu);
+          actions.appendChild(buildAskResponseMoreMenu(message, messageIndex, isEn));
 
           content.appendChild(actions);
           if (isFreshResponse) {
@@ -3710,6 +4091,7 @@ function renderAsk() {
           }
         }
       } else {
+        if (message.pluginIds?.length) content.appendChild(element("span", "ask-message-context", message.pluginIds.map(id => `@${id}`).join(" · ")));
         if (message.file) {
           const fileBadge = element("div", "ask-message-attachment");
           const iconWrap = element("span", "ask-message-attachment-icon");
@@ -3753,6 +4135,10 @@ function renderAsk() {
     dismissBtn.title = isEn ? "Dismiss" : "Bağla";
     dismissBtn.setAttribute("aria-label", isEn ? "Dismiss" : "Bağla");
     dismissBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+    if (state.askRetry) {
+      const retry = button(isEn ? "Retry" : "Yenidən cəhd et", "ask-artifact-action", retryAskRequest);
+      retry.type = "button"; errorBody.append(retry);
+    }
     error.append(errorBody, dismissBtn);
     thread.appendChild(error);
   }
@@ -3835,15 +4221,24 @@ function renderAsk() {
           render();
         },
         onDeepResearch: () => {
+          if (!state.askPluginIds) state.askPluginIds = [];
+          if (!state.askPluginIds.includes("deep-research")) {
+            state.askPluginIds = [...state.askPluginIds.filter(id => !["word", "excel", "powerpoint", "pdf"].includes(id)), "deep-research"];
+          }
           const isEnLocale = getLanguage() === "en";
-          const prompt = isEnLocale
+          const defaultPrompt = isEnLocale
             ? "Prepare a comprehensive Deep Research report analyzing my market, target customer segments, and competitors. Identify key market shifts, competitor weaknesses, and highest-potential strategic opportunities."
             : "Biznesim üçün bazar və rəqib analizi üzrə ətraflı dərin araşdırma hesabatı hazırla. Əsas bazar tendensiyalarını, rəqiblərin boşluqlarını və ən yüksək təsirli inkişaf imkanlarını müəyyən et.";
-          if (input) {
-            input.value = prompt;
-            state.askDraft = prompt;
-            resizeInput();
-            input.focus();
+          const existingText = (input ? input.value : state.askDraft || "").trim();
+          const targetPrompt = existingText || defaultPrompt;
+          state.askDraft = targetPrompt;
+          render();
+          const activeInput = document.querySelector("#askInput");
+          if (activeInput) {
+            activeInput.value = targetPrompt;
+            activeInput.focus();
+            activeInput.setSelectionRange(targetPrompt.length, targetPrompt.length);
+            activeInput.dispatchEvent(new Event("input", { bubbles: true }));
           }
         },
       });
@@ -3858,46 +4253,104 @@ function renderAsk() {
     contextPopover.replaceChildren();
     if (contextPane === "main") {
       contextPopover.appendChild(element("strong", "ask-context-menu-heading", isEn ? "Add context" : "Kontekst əlavə et"));
-      const option = (title, description, pane) => {
-        const btn = button("", "ask-context-menu-option", (event) => {
-          event.preventDefault(); event.stopPropagation(); contextMenu.open = true;
-          contextPane = pane; drawContextMenu();
-        });
-        const text = element("span", "ask-context-menu-option-copy");
-        text.append(element("strong", "", title), element("small", "", description));
-        btn.append(text, element("span", "ask-context-menu-chevron", "›"));
-        contextPopover.appendChild(btn);
-      };
+      contextPopover.appendChild(element("div", "ask-context-menu-divider"));
 
-      const fileOption = button("", "ask-context-menu-option ask-context-menu-option-file", (event) => {
+      // 1. File Option (Fayl əlavə et) -> Direct action, no chevron
+      const fileOption = button("", "ask-context-menu-option group ask-context-menu-option-file", (event) => {
         event.preventDefault();
         event.stopPropagation();
         contextMenu.open = false;
         fileInput.click();
       });
-      const fileLeading = element("span", "ask-context-menu-option-icon");
-      fileLeading.innerHTML = `
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-        </svg>
-      `;
-      const fileCopy = element("span", "ask-context-menu-option-copy");
-      fileCopy.append(element("strong", "", isEn ? "Attach file" : "Fayl əlavə et"), element("small", "", isEn ? "Upload PDF, image or document" : "PDF, şəkil və ya sənəd yüklə"));
+      fileOption.type = "button";
       const fileMain = element("div", "ask-context-menu-option-main");
+      const fileLeading = element("span", "ask-context-menu-option-icon");
+      fileLeading.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+      const fileCopy = element("span", "ask-context-menu-option-copy");
+      fileCopy.append(
+        element("strong", "", isEn ? "Attach file" : "Fayl əlavə et"),
+        element("small", "", isEn ? "Upload PDF, image or document" : "PDF, şəkil və ya sənəd yüklə")
+      );
       fileMain.append(fileLeading, fileCopy);
-      fileOption.append(fileMain, element("span", "ask-context-menu-chevron", "›"));
+      fileOption.appendChild(fileMain);
       contextPopover.appendChild(fileOption);
-      contextPopover.appendChild(element("div", "ask-context-menu-divider"));
 
-      if (selectedStrategy) option(isEn ? "Preset prompts" : "Hazır sual seç", isEn ? "Select a prompt aligned with your goal" : "Strategiyaya uyğun hazır prompt seç", "prompts");
-      option(isEn ? "My Strategies" : "Strategiyalarım", isEn ? "Discuss a saved strategy" : "Yadda saxlanılan strategiyanı müzakirə et", "strategies");
-      option(isEn ? "Planner Tasks" : "Planlaşdırılanlar", isEn ? "Discuss an active task" : "Aktiv taskı kontekst kimi seç", "tasks");
-      if (!selectedStrategy) option(isEn ? "Preset Prompts" : "Hazır sual", isEn ? "Select a starter prompt" : "Başlamaq üçün hazır prompt seç", "prompts");
+      const addSubmenuOption = (title, description, pane, iconSvg) => {
+        const btn = button("", "ask-context-menu-option group", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          contextMenu.open = true;
+          contextPane = pane;
+          drawContextMenu();
+        });
+        btn.type = "button";
+        const main = element("div", "ask-context-menu-option-main");
+        const icon = element("span", "ask-context-menu-option-icon");
+        icon.innerHTML = iconSvg;
+        const copy = element("span", "ask-context-menu-option-copy");
+        copy.append(
+          element("strong", "", title),
+          element("small", "", description)
+        );
+        main.append(icon, copy);
+
+        const chevron = element("span", "ask-context-menu-chevron");
+        chevron.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
+
+        btn.append(main, chevron);
+        contextPopover.appendChild(btn);
+      };
+
+      // 2. Strategiyalarım (Compass)
+      addSubmenuOption(
+        isEn ? "My Strategies" : "Strategiyalarım",
+        isEn ? "Discuss a saved strategy" : "Yadda saxlanılan strategiyanı müzakirə et",
+        "strategies",
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>'
+      );
+
+      // 3. Planlaşdırılanlar (CheckSquare)
+      addSubmenuOption(
+        isEn ? "Planner Tasks" : "Planlaşdırılanlar",
+        isEn ? "Discuss an active task" : "Aktiv taskı kontekst kimi seç",
+        "tasks",
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
+      );
+
+      // 4. Hazır sual (MessageSquareText)
+      const promptTitle = selectedStrategy
+        ? (isEn ? "Preset prompts" : "Hazır sual seç")
+        : (isEn ? "Preset Prompts" : "Hazır sual");
+      const promptDesc = selectedStrategy
+        ? (isEn ? "Select a prompt aligned with your goal" : "Strategiyaya uyğun hazır prompt seç")
+        : (isEn ? "Select a starter prompt" : "Başlamaq üçün hazır prompt seç");
+      addSubmenuOption(
+        promptTitle,
+        promptDesc,
+        "prompts",
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M13 8H7"/><path d="M17 12H7"/></svg>'
+      );
+
+      // 5. Clear Context (if selected)
       if (selectedStrategy || selectedTask) {
         contextPopover.appendChild(element("div", "ask-context-menu-divider"));
-        contextPopover.appendChild(button(isEn ? "Delete context" : "Konteksti sil", "ask-context-clear", () => {
-          state.askStrategyId = ""; state.askTaskId = ""; state.askPromptHintStrategyId = ""; contextMenu.open = false; render();
-        }));
+        const clearBtn = button("", "ask-context-clear group", (event) => {
+          event.preventDefault();
+          state.askStrategyId = "";
+          state.askTaskId = "";
+          state.askPromptHintStrategyId = "";
+          contextMenu.open = false;
+          render();
+        });
+        clearBtn.type = "button";
+        const clearMain = element("div", "ask-context-menu-option-main");
+        const clearIcon = element("span", "ask-context-menu-option-icon ask-context-clear-icon");
+        clearIcon.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
+        const clearCopy = element("span", "ask-context-menu-option-copy");
+        clearCopy.append(element("strong", "", isEn ? "Delete context" : "Konteksti sil"));
+        clearMain.append(clearIcon, clearCopy);
+        clearBtn.appendChild(clearMain);
+        contextPopover.appendChild(clearBtn);
       }
       return;
     }
@@ -3905,18 +4358,27 @@ function renderAsk() {
       addPresetPromptPane(contextPopover, "ask", (prompt) => {
         contextMenu.open = false;
         appendPresetPrompt(input, prompt, resizeInput);
-      }, () => { contextPane = "main"; drawContextMenu(); });
+      }, () => {
+        contextPane = "main";
+        drawContextMenu();
+      });
       return;
     }
     const isStrategy = contextPane === "strategies";
-    const back = button("‹", "ask-context-menu-back", (event) => {
-      event.preventDefault(); event.stopPropagation(); contextMenu.open = true;
-      contextPane = "main"; drawContextMenu();
+    const back = button("", "ask-context-menu-back", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      contextMenu.open = true;
+      contextPane = "main";
+      drawContextMenu();
     });
+    back.type = "button";
     back.setAttribute("aria-label", isEn ? "Back to context menu" : "Kontekst menyusuna qayıt");
+    back.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
     const subHeader = element("div", "ask-context-menu-subheader");
     subHeader.append(back, element("strong", "ask-context-menu-heading", isStrategy ? (isEn ? "Strategies" : "Strategiyalar") : (isEn ? "Tasks" : "Planlaşdırılanlar")));
     contextPopover.appendChild(subHeader);
+    contextPopover.appendChild(element("div", "ask-context-menu-divider"));
     const list = element("div", "ask-context-list");
     const entries = isStrategy ? state.savedStrategies : activeTasks;
     if (!entries.length) {
@@ -3924,13 +4386,15 @@ function renderAsk() {
     } else entries.forEach((entry) => {
       const selected = isStrategy ? entry.id === state.askStrategyId : entry.id === state.askTaskId;
       const item = button("", `ask-context-item${selected ? " is-selected" : ""}`);
+      item.type = "button";
       item.append(element("span", "", isStrategy ? entry.title : entry.text), element("small", "", selected ? (isEn ? "Selected" : "Seçilib") : (isStrategy ? formatDate(entry.updatedAt) : entry.groupLabel || (isEn ? "General" : "Ümumi"))));
       item.addEventListener("click", () => {
         if (isStrategy) {
           state.askStrategyId = entry.id;
           state.askPromptHintStrategyId = entry.id;
         } else state.askTaskId = entry.id;
-        contextMenu.open = false; render();
+        contextMenu.open = false;
+        render();
       });
       list.appendChild(item);
     });
@@ -3959,18 +4423,28 @@ function renderAsk() {
     contextMenu.append(contextTrigger, contextPopover);
     contextSlot.appendChild(contextMenu);
   }
-  const closeContextMenu = (event) => {
+  const closeContextMenuOnPointer = (event) => {
     const path = event.composedPath ? event.composedPath() : [];
     if (path.includes(contextMenu) || contextMenu.contains(event.target)) return;
     contextMenu.open = false;
   };
+  const closeContextMenuOnKeyDown = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      contextMenu.open = false;
+      contextTrigger.focus?.();
+    }
+  };
   contextMenu.addEventListener("toggle", () => {
     if (contextMenu.open) {
       setTimeout(() => {
-        document.addEventListener("pointerdown", closeContextMenu);
+        document.addEventListener("pointerdown", closeContextMenuOnPointer);
+        document.addEventListener("keydown", closeContextMenuOnKeyDown);
       }, 0);
     } else {
-      document.removeEventListener("pointerdown", closeContextMenu);
+      document.removeEventListener("pointerdown", closeContextMenuOnPointer);
+      document.removeEventListener("keydown", closeContextMenuOnKeyDown);
       contextPane = "main";
       drawContextMenu();
     }
@@ -3984,11 +4458,15 @@ function renderAsk() {
   input.name = "message";
   input.rows = 1;
   input.maxLength = 8000;
-  input.placeholder = selectedStrategy?.title || selectedTask?.text || (state.askPendingFile ? (isEn ? "Ask a question about this file…" : "Fayl haqqında sualını yaz…") : (isEn ? "Ask Helmer anything" : "Helmer-dən soruş"));
   input.disabled = state.askLoading;
   if (state.askDraft) {
     input.value = state.askDraft;
   }
+
+  const updateAskPlaceholder = () => {
+    input.placeholder = selectedStrategy?.title || selectedTask?.text || (state.askPendingFile ? (isEn ? "Ask a question about this file…" : "Fayl haqqında sualını yaz…") : (isEn ? "Ask Helmer anything or @ to mention" : "Helmer-dən soruş və ya @ işarələ"));
+  };
+  updateAskPlaceholder();
 
   const submit = button("", "ask-submit");
   const isGenerating = Boolean(state.askLoading);
@@ -4009,101 +4487,6 @@ function renderAsk() {
     submit.appendChild(createAskSendIcon());
   }
 
-  const isFlashSelected = state.askModel === "gemini-3.8-flash";
-  const modelSelectorMenu = document.createElement("details");
-  modelSelectorMenu.className = "ask-model-selector-menu";
-  const modelTrigger = element("summary", "ask-model-selector-trigger");
-  modelTrigger.setAttribute("aria-label", isEn ? "Model mode" : "Model rejimi");
-  modelTrigger.title = isFlashSelected ? (isEn ? "Mode: Flash (Files & Search)" : "Rejim: Flash (Fayl və Axtarış)") : (isEn ? "Mode: Auto" : "Rejim: Auto");
-
-  modelTrigger.innerHTML = `
-    <span class="ask-model-name">${isFlashSelected ? "Flash" : "Auto"}</span>
-    <svg class="ask-model-chevron-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-  `;
-
-  const modelPopover = element("div", "ask-model-selector-popover");
-  modelPopover.setAttribute("role", "menu");
-  modelPopover.setAttribute("aria-label", isEn ? "Model selection" : "Model seçimi");
-
-  const autoOption = button("", `ask-model-option${!isFlashSelected ? " is-active" : ""}`, (e) => {
-    e.preventDefault();
-    state.askModel = "auto";
-    try { localStorage.setItem("helmer_ask_model", "auto"); } catch { }
-    modelSelectorMenu.open = false;
-    render();
-  });
-  autoOption.type = "button";
-  autoOption.setAttribute("role", "menuitemradio");
-  autoOption.setAttribute("aria-checked", String(!isFlashSelected));
-  autoOption.innerHTML = `
-    <div class="ask-model-option-leading">
-      <div class="ask-model-option-badge">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/>
-          <path d="M5 3v4"/>
-          <path d="M19 17v4"/>
-          <path d="M3 5h4"/>
-          <path d="M17 19h4"/>
-        </svg>
-      </div>
-      <div class="ask-model-option-info">
-        <strong>Auto</strong>
-        <small>${isEn ? "Automatic routing" : "Avtomatik rejim"}</small>
-      </div>
-    </div>
-    ${!isFlashSelected ? '<span class="ask-model-check" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>' : ''}
-  `;
-
-  const flashOption = button("", `ask-model-option${isFlashSelected ? " is-active" : ""}`, (e) => {
-    e.preventDefault();
-    state.askModel = "gemini-3.8-flash";
-    try { localStorage.setItem("helmer_ask_model", "gemini-3.8-flash"); } catch { }
-    modelSelectorMenu.open = false;
-    render();
-  });
-  flashOption.type = "button";
-  flashOption.setAttribute("role", "menuitemradio");
-  flashOption.setAttribute("aria-checked", String(isFlashSelected));
-  flashOption.innerHTML = `
-    <div class="ask-model-option-leading">
-      <div class="ask-model-option-badge">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-        </svg>
-      </div>
-      <div class="ask-model-option-info">
-        <strong>Flash</strong>
-        <small>${isEn ? "For daily workflows" : "Gündəlik işlər üçün"}</small>
-      </div>
-    </div>
-    ${isFlashSelected ? '<span class="ask-model-check" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>' : ''}
-  `;
-
-  if (isFlashSelected) {
-    const divider = element("div", "ask-model-popover-divider");
-    const thinkingControls = createAskThinkingControls(isEn);
-    modelPopover.append(autoOption, flashOption, divider, thinkingControls);
-  } else {
-    modelPopover.append(autoOption, flashOption);
-  }
-
-  modelSelectorMenu.append(modelTrigger, modelPopover);
-
-  const closeModelMenu = (event) => {
-    const path = event.composedPath ? event.composedPath() : [];
-    if (path.includes(modelSelectorMenu) || modelSelectorMenu.contains(event.target)) return;
-    modelSelectorMenu.open = false;
-  };
-  modelSelectorMenu.addEventListener("toggle", () => {
-    if (modelSelectorMenu.open) {
-      setTimeout(() => {
-        document.addEventListener("pointerdown", closeModelMenu);
-      }, 0);
-    } else {
-      document.removeEventListener("pointerdown", closeModelMenu);
-    }
-  });
-
   const composerLeading = element("div", "ask-composer-leading");
   composerLeading.append(contextSlot, fileInput, imageFileInput);
 
@@ -4115,7 +4498,7 @@ function renderAsk() {
     const chipMeta = element("div", "ask-pending-file-meta");
     chipMeta.append(
       element("span", "ask-pending-file-name", state.askPendingFile.name),
-      element("span", "ask-pending-file-size", `${formatFileSize(state.askPendingFile.size)} · Flash`)
+      element("span", "ask-pending-file-size", `${formatFileSize(state.askPendingFile.size)}`)
     );
     const chipRemove = button("", "ask-pending-file-remove", (e) => {
       e.preventDefault();
@@ -4164,9 +4547,16 @@ function renderAsk() {
     composerBody.appendChild(contextChip);
   }
   composerBody.append(label, input);
+  window.HelmerArtifacts?.attachComposer({ input, body: composerBody, getSelection: () => state.askPluginIds || [], setSelection: ids => { state.askPluginIds = ids; }, disabled: state.askLoading });
+  if (state.askArtifactId) {
+    const editContext = element("div", "ask-artifact-edit-context", `${isEn ? "Editing latest version" : "Son versiyanı redaktə et"}: ${state.askArtifactName}`);
+    const remove = button("×", "ask-plugin-token-remove", () => { state.askArtifactId = null; state.askArtifactName = ""; render(); });
+    remove.type = "button"; remove.setAttribute("aria-label", isEn ? "Remove artifact context" : "Artifact kontekstini sil");
+    editContext.append(remove); composerBody.prepend(editContext);
+  }
 
   const composerActions = element("div", "ask-composer-actions");
-  composerActions.append(modelSelectorMenu, submit);
+  composerActions.append(submit);
 
   form.append(composerLeading, composerBody, composerActions);
 
@@ -4221,6 +4611,8 @@ function renderAsk() {
       submit.disabled = (!hasText && !hasFile);
     }
     shell.classList.toggle("has-input", Boolean(input.value.trim()));
+    const hasAnyInput = Boolean(input.value && input.value.length > 0);
+    form.classList.toggle("has-input", hasAnyInput);
   };
   resizeInput();
   input.addEventListener("input", () => {
@@ -4475,12 +4867,439 @@ function renderAskSourceChips(groundingMetadata) {
   return container;
 }
 
+const activeResearchStreams = new Map();
+
+function renderResearchSourcesList(sources, isEn) {
+  if (!Array.isArray(sources) || !sources.length) return null;
+
+  const validSources = [];
+  const seenUrls = new Set();
+
+  for (const s of sources) {
+    const rawUrl = String(s?.url || "").trim();
+    if (!/^https?:\/\//i.test(rawUrl)) continue;
+    if (seenUrls.has(rawUrl)) continue;
+    seenUrls.add(rawUrl);
+
+    let hostname = s.domain || "";
+    if (!hostname) {
+      try {
+        hostname = new URL(rawUrl).hostname.replace(/^www\./, "");
+      } catch {
+        hostname = rawUrl;
+      }
+    }
+    const title = String(s?.title || hostname).trim();
+    validSources.push({ url: rawUrl, title, domain: hostname });
+  }
+
+  if (!validSources.length) return null;
+
+  const details = document.createElement("details");
+  details.className = "ask-research-sources-card ask-research-sources-accordion";
+
+  const summary = document.createElement("summary");
+  summary.className = "ask-research-sources-summary";
+
+  const summaryLeft = element("div", "ask-research-sources-summary-left");
+  const icon = element("span", "ask-research-sources-summary-icon");
+  icon.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+
+  const titleText = element(
+    "span",
+    "ask-research-sources-summary-title",
+    isEn ? "Verified Sources & Citations" : "İstifadə Edilən Mənbələr",
+  );
+
+  const countPill = element(
+    "span",
+    "ask-research-sources-count-pill",
+    `${validSources.length} ${isEn ? "sources" : "mənbə"}`,
+  );
+
+  summaryLeft.append(icon, titleText, countPill);
+
+  const chevron = element("span", "ask-research-sources-chevron");
+  chevron.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+  summary.append(summaryLeft, chevron);
+  details.appendChild(summary);
+
+  const body = element("div", "ask-research-sources-body");
+  const list = element("div", "ask-research-sources-grid");
+
+  validSources.forEach((src, idx) => {
+    const link = document.createElement("a");
+    link.className = "ask-research-source-link";
+    link.href = src.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+
+    const num = element("span", "ask-research-source-num", `[${idx + 1}]`);
+    const meta = element("div", "ask-research-source-meta");
+    const titleSpan = element("span", "ask-research-source-title", src.title);
+    const domainSpan = element("span", "ask-research-source-domain", src.domain);
+    meta.append(titleSpan, domainSpan);
+
+    const extIcon = element("span", "ask-research-source-ext");
+    extIcon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+
+    link.append(num, meta, extIcon);
+    list.appendChild(link);
+  });
+
+  body.appendChild(list);
+  details.appendChild(body);
+  return details;
+}
+
+function renderAskResearchMessageContent(content, message, messageIndex, isEn) {
+  const isRunning = message.status === "pending" || message.status === "running";
+  const isCompleted = message.status === "completed";
+  const isFailed = ["failed", "cancelled", "interrupted"].includes(message.status);
+
+  const card = element("div", `ask-research-card${isRunning ? " is-running" : isCompleted ? " is-completed" : " is-failed"}`);
+
+  // Header
+  const header = element("div", "ask-research-header");
+  const headerLeft = element("div", "ask-research-header-left");
+
+  if (isRunning) {
+    const pulseDot = element("span", "ask-research-pulsing-indicator");
+    pulseDot.setAttribute("aria-hidden", "true");
+    const title = element("strong", "ask-research-title", "Deep Research");
+    const statusPill = element("span", "ask-research-status-pill", isEn ? "In progress…" : "İcrada…");
+    headerLeft.append(pulseDot, title, statusPill);
+  } else if (isCompleted) {
+    const checkBadge = element("span", "ask-research-completed-icon");
+    checkBadge.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    const title = element("strong", "ask-research-title", "Deep Research");
+    const completedBadge = element("span", "ask-research-completed-badge", isEn ? "Complete" : "Tamamlandı");
+    headerLeft.append(checkBadge, title, completedBadge);
+  } else {
+    const errorBadge = element("span", "ask-research-error-icon");
+    errorBadge.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+    const title = element("strong", "ask-research-title", "Deep Research");
+    const failedBadge = element("span", "ask-research-status-pill is-error", isEn ? "Failed" : "Xəta");
+    headerLeft.append(errorBadge, title, failedBadge);
+  }
+
+  const headerRight = element("div", "ask-research-header-right");
+  if (isCompleted && message.sources?.length) {
+    const sourceSummary = element("span", "ask-research-source-count-badge", `${message.sources.length} ${isEn ? "sources analyzed" : "mənbə əsasında"}`);
+    headerRight.appendChild(sourceSummary);
+  }
+  header.append(headerLeft, headerRight);
+  card.appendChild(header);
+
+  // Body
+  if (isRunning) {
+    const stepsContainer = element("div", "ask-research-steps");
+    stepsContainer.setAttribute("role", "list");
+    stepsContainer.setAttribute("aria-label", isEn ? "Research execution steps" : "Araşdırma mərhələləri");
+
+    const steps = Array.isArray(message.steps) && message.steps.length ? message.steps : [
+      { key: "plan", label: isEn ? "Formulating research plan…" : "Mövzu üzrə araşdırma planı hazırlanır…", status: "running" },
+      { key: "search", label: isEn ? "Analyzing live web sources and competitors…" : "Veb mənbələr analiz edilir…", status: "pending" },
+      { key: "verify", label: isEn ? "Cross-verifying facts and statistics…" : "Faktlar çarpaz yoxlanılır…", status: "pending" },
+      { key: "synthesize", label: isEn ? "Synthesizing deep strategic findings…" : "Nəticə sintez olunur…", status: "pending" },
+    ];
+
+    steps.forEach((st) => {
+      const stepItem = element("div", `ask-research-step is-${st.status || "pending"}`);
+      stepItem.setAttribute("role", "listitem");
+      const icon = element("span", "ask-research-step-icon");
+
+      if (st.status === "completed") {
+        icon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      } else if (st.status === "running") {
+        icon.innerHTML = '<span class="ask-research-step-spinner" aria-hidden="true"></span>';
+      } else if (st.status === "failed") {
+        icon.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+      } else {
+        icon.innerHTML = '<span class="ask-research-step-dot" aria-hidden="true"></span>';
+      }
+
+      const textWrap = element("div", "ask-research-step-text");
+      const label = element("span", "ask-research-step-label", st.label || st.key);
+      textWrap.appendChild(label);
+      if (st.detail) {
+        const detail = element("span", "ask-research-step-detail", st.detail);
+        textWrap.appendChild(detail);
+      }
+      stepItem.append(icon, textWrap);
+      stepsContainer.appendChild(stepItem);
+    });
+
+    card.appendChild(stepsContainer);
+
+    if (message.sources?.length) {
+      const liveSources = element("div", "ask-research-live-sources");
+      const liveTitle = element("span", "ask-research-live-sources-label", `🌐 ${message.sources.length} ${isEn ? "sources found" : "mənbə aşkarlandı"}`);
+      liveSources.appendChild(liveTitle);
+
+      const chipsWrap = element("div", "ask-research-live-sources-chips");
+      message.sources.slice(0, 5).forEach((src) => {
+        const domainChip = element("span", "ask-research-live-chip", src.domain || src.title);
+        chipsWrap.appendChild(domainChip);
+      });
+      if (message.sources.length > 5) {
+        chipsWrap.appendChild(element("span", "ask-research-live-chip is-more", `+${message.sources.length - 5}`));
+      }
+      liveSources.appendChild(chipsWrap);
+      card.appendChild(liveSources);
+    }
+  } else if (isCompleted) {
+    const summaryBanner = element("div", "ask-research-completed-summary");
+    const summaryIcon = element("span", "ask-research-summary-icon");
+    summaryIcon.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    const stepCount = Array.isArray(message.steps) && message.steps.length ? message.steps.length : 4;
+    const summaryText = element("span", "ask-research-summary-text", isEn ? `Deep research complete across ${stepCount} execution phases` : `${stepCount} icra mərhələsi üzrə dərin araşdırma tamamlandı`);
+    summaryBanner.append(summaryIcon, summaryText);
+    card.appendChild(summaryBanner);
+
+    if (message.content) {
+      let displayContent = String(message.content || "");
+      if (Array.isArray(message.sources) && message.sources.length > 0) {
+        displayContent = displayContent.replace(
+          /(?:\r?\n)+##+\s*(?:\d+[\.\)]\s*)?(?:Mənbələr|İstinadlar|Mənbə|Sources|Citations|References)[\s\S]*$/i,
+          ""
+        ).trim();
+      }
+      const mdWrap = element("div", "ask-research-markdown");
+      mdWrap.appendChild(renderAskRichText(displayContent || message.content));
+      card.appendChild(mdWrap);
+    }
+
+    if (message.sources?.length) {
+      const sourcesCard = renderResearchSourcesList(message.sources, isEn);
+      if (sourcesCard) card.appendChild(sourcesCard);
+    }
+
+    if (message.groundingMetadata) {
+      const chips = renderAskSourceChips(message.groundingMetadata);
+      if (chips) card.appendChild(chips);
+    }
+  } else if (isFailed) {
+    const errorBody = element("div", "ask-research-error-body");
+    const errorMsg = element("span", "ask-research-error-text", message.error || (isEn ? "Research failed." : "Araşdırma zamanı xəta baş verdi."));
+    const retryBtn = button(isEn ? "Retry research" : "Yenidən araşdır", "ask-research-retry-btn", () => {
+      if (message.query) {
+        state.askDraft = message.query;
+        state.askPluginIds = ["deep-research"];
+        render();
+        submitAskMessage(message.query);
+      }
+    });
+    retryBtn.type = "button";
+    errorBody.append(errorMsg, retryBtn);
+    card.appendChild(errorBody);
+  }
+
+  content.appendChild(card);
+
+  if (isCompleted && message.content) {
+    const actions = element("div", "ask-message-actions");
+    actions.setAttribute("aria-label", isEn ? "Response actions" : "Cavab əməliyyatları");
+
+    const copy = button("", "ask-response-action ask-response-copy-btn", async () => {
+      const ok = await copyAskResponse(message.content);
+      if (ok) {
+        copy.classList.add("is-copied");
+        copy.title = isEn ? "Copied" : "Kopyalandı";
+        copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(() => {
+          copy.classList.remove("is-copied");
+          copy.title = isEn ? "Copy" : "Kopyala";
+          copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+        }, 1800);
+      }
+    });
+    copy.type = "button";
+    copy.setAttribute("aria-label", isEn ? "Copy response" : "Cavabı kopyala");
+    copy.title = isEn ? "Copy" : "Kopyala";
+    copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+    actions.appendChild(copy);
+
+    const positive = button("", `ask-response-action ask-response-positive-btn${message.feedback === "positive" ? " is-selected" : ""}`, () => {
+      const nextFeedback = message.feedback === "positive" ? null : "positive";
+      message.feedback = nextFeedback;
+      render();
+    });
+    positive.type = "button";
+    positive.title = isEn ? "Helpful" : "Bəyən";
+    positive.setAttribute("aria-label", isEn ? "Helpful" : "Bəyən");
+    positive.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+
+    const negative = button("", `ask-response-action ask-response-negative-btn${message.feedback === "negative" ? " is-selected" : ""}`, () => {
+      const nextFeedback = message.feedback === "negative" ? null : "negative";
+      message.feedback = nextFeedback;
+      render();
+    });
+    negative.type = "button";
+    negative.title = isEn ? "Unhelpful" : "Bəyənmə";
+    negative.setAttribute("aria-label", isEn ? "Unhelpful" : "Bəyənmə");
+    negative.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>';
+
+    actions.append(positive, negative, buildAskResponseMoreMenu(message, messageIndex, isEn));
+    content.appendChild(actions);
+  }
+}
+
+function connectToResearchJobStream(message) {
+  if (!message || !message.jobId) return;
+  if (activeResearchStreams.has(message.jobId)) return;
+
+  const controller = new AbortController();
+  activeResearchStreams.set(message.jobId, controller);
+
+  (async () => {
+    try {
+      const response = await fetch(`/api/ask/research/jobs/${message.jobId}/stream`, {
+        signal: controller.signal,
+        headers: { Accept: "text/event-stream" },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Stream request failed with status ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let rawBuffer = "";
+      let eventLines = [];
+
+      const dispatchResearchEvent = (lines) => {
+        if (!lines || !lines.length) return;
+        const jsonStr = lines.join("\n").trim();
+        if (!jsonStr || jsonStr.startsWith(":")) return;
+
+        try {
+          const data = JSON.parse(jsonStr);
+
+          if (data.type === "snapshot") {
+            message.status = data.status || message.status;
+            if (data.steps?.length) message.steps = data.steps;
+            if (data.sources?.length) message.sources = data.sources;
+            if (data.reply) message.content = data.reply;
+            if (data.error) message.error = data.error;
+            if (data.artifacts?.length) message.artifacts = data.artifacts;
+            if (data.generatingArtifacts !== undefined) message.generatingArtifacts = data.generatingArtifacts;
+            render();
+          } else if (data.type === "step") {
+            message.status = data.status || message.status;
+            if (data.steps?.length) message.steps = data.steps;
+            if (data.sources?.length) message.sources = data.sources;
+            if (data.artifacts?.length) message.artifacts = data.artifacts;
+            if (data.generatingArtifacts !== undefined) message.generatingArtifacts = data.generatingArtifacts;
+            render();
+          } else if (data.type === "sources") {
+            if (data.sources?.length) message.sources = data.sources;
+            render();
+          } else if (data.type === "done") {
+            message.status = "completed";
+            message.content = data.reply || message.content;
+            if (data.sources?.length) message.sources = data.sources;
+            if (data.groundingMetadata) message.groundingMetadata = data.groundingMetadata;
+            if (data.steps?.length) message.steps = data.steps;
+            if (data.artifacts?.length) message.artifacts = data.artifacts;
+            message.generatingArtifacts = false;
+            activeResearchStreams.delete(message.jobId);
+            render();
+          } else if (data.type === "failed") {
+            message.status = "failed";
+            message.error = data.error || "Araşdırma xətası";
+            if (data.steps?.length) message.steps = data.steps;
+            message.generatingArtifacts = false;
+            activeResearchStreams.delete(message.jobId);
+            render();
+          }
+        } catch {
+          // Ignore JSON parse errors on partial frames
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        rawBuffer += decoder.decode(value, { stream: true });
+        const lines = rawBuffer.split(/\r?\n/);
+        rawBuffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            eventLines.push(line.replace(/^data:\s*/, ""));
+          } else if (line.trim() === "" && eventLines.length > 0) {
+            dispatchResearchEvent(eventLines);
+            eventLines = [];
+          }
+        }
+      }
+
+      if (eventLines.length > 0) {
+        dispatchResearchEvent(eventLines);
+      }
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        console.warn("[Deep Research] Stream disconnected, checking job status via polling:", err?.message || err);
+        pollResearchJob(message);
+      }
+    } finally {
+      if (["completed", "failed", "cancelled", "interrupted"].includes(message.status)) {
+        activeResearchStreams.delete(message.jobId);
+      }
+    }
+  })();
+}
+
+async function pollResearchJob(message) {
+  if (!message || !message.jobId) return;
+  if (["completed", "failed", "cancelled", "interrupted"].includes(message.status)) return;
+
+  const maxAttempts = 60;
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    if (["completed", "failed", "cancelled", "interrupted"].includes(message.status)) return;
+
+    try {
+      const res = await fetch(`/api/ask/research/jobs/${message.jobId}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.job) {
+        message.status = data.job.status || message.status;
+        if (data.job.steps?.length) message.steps = data.job.steps;
+        if (data.job.sources?.length) message.sources = data.job.sources;
+        if (data.job.content) message.content = data.job.content;
+        if (data.job.error) message.error = data.job.error;
+        if (data.job.artifacts?.length) message.artifacts = data.job.artifacts;
+        render();
+
+        if (["completed", "failed", "cancelled", "interrupted"].includes(data.job.status)) {
+          activeResearchStreams.delete(message.jobId);
+          return;
+        }
+      }
+    } catch {
+      // Continue polling
+    }
+  }
+}
+
 function openGroundingSourcesModal(groundingMetadata) {
   if (!groundingMetadata || typeof groundingMetadata !== "object") return;
   const chunks = Array.isArray(groundingMetadata.groundingChunks) ? groundingMetadata.groundingChunks : [];
   const webChunks = chunks
     .map((c) => c && c.web)
-    .filter((w) => w && typeof w.uri === "string" && w.uri.startsWith("http"));
+    .filter((w) => {
+      if (!w || typeof w.uri !== "string") return false;
+      try {
+        const parsed = new URL(w.uri);
+        return ["http:", "https:"].includes(parsed.protocol);
+      } catch {
+        return false;
+      }
+    });
 
   const searchQueries = Array.isArray(groundingMetadata.webSearchQueries)
     ? groundingMetadata.webSearchQueries.filter((q) => typeof q === "string" && q.trim())
@@ -4649,6 +5468,7 @@ function updateActiveAskMessageContent(message, showCaret = true) {
 function rememberSavedAskChat(chat) {
   if (!chat?.id) return;
   state.askChatId = chat.id;
+  window.helmerSecurity?.rememberChat(chat);
   const messages = Array.isArray(chat.messages) ? chat.messages : [];
   const historyItem = {
     ...chat,
@@ -4838,16 +5658,107 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   const selectedTask = state.plannerTasks.find((task) => task.id === state.askTaskId) || null;
   const fileToAttach = attachedFile || state.askPendingFile || null;
   state.askPendingFile = null;
+  const pluginIds = [...(state.askPluginIds || [])];
+  const artifactId = state.askArtifactId || undefined;
+  const messageIndex = state.askMessages.length;
+  state.askPluginIds = [];
+  state.askArtifactId = null;
+  state.askArtifactName = "";
+  state.askRetry = null;
 
   const contentText = message ? (preserveWhitespace ? String(message) : String(message).trim()) : (fileToAttach ? `Bu faylı analiz et: ${fileToAttach.name}` : "");
+
+  const hasArtifactPlugin = pluginIds.some(id => ["word", "excel", "powerpoint", "pdf"].includes(id));
+  const isDeepResearch = !hasArtifactPlugin && (
+    pluginIds.includes("deep-research") ||
+    pluginIds.includes("research") ||
+    /(?:^|\s)@(deep-research|research)\b/i.test(contentText) ||
+    state.askSubMode === "research"
+  );
+
+  if (isDeepResearch && !pluginIds.includes("deep-research")) {
+    pluginIds.push("deep-research");
+  }
+
+  const cleanResearchPrompt = isDeepResearch
+    ? contentText.replace(/(?:^|\s)@(deep-research|research)\b/i, " ").trim() || contentText
+    : contentText;
 
   state.askMessages.push({
     role: "user",
     content: contentText,
+    pluginIds,
     file: fileToAttach ? { ...fileToAttach } : undefined,
     strategyTitle: selectedStrategy?.title || "",
     taskTitle: selectedTask?.text || "",
   });
+
+  if (isDeepResearch) {
+    const isEn = getLanguage() === "en";
+    const assistantMsg = {
+      role: "assistant",
+      type: "research",
+      status: "pending",
+      model: "gemini-3.8-flash",
+      query: cleanResearchPrompt,
+      steps: [
+        { key: "plan", label: isEn ? "Formulating research plan…" : "Mövzu üzrə araşdırma planı hazırlanır…", status: "running", timestamp: new Date().toISOString() },
+        { key: "search", label: isEn ? "Analyzing live web sources and competitors…" : "Veb mənbələr analiz edilir…", status: "pending", timestamp: new Date().toISOString() },
+        { key: "verify", label: isEn ? "Cross-verifying facts and statistics…" : "Faktlar çarpaz yoxlanılır…", status: "pending", timestamp: new Date().toISOString() },
+        { key: "synthesize", label: isEn ? "Synthesizing deep strategic findings…" : "Nəticə sintez olunur…", status: "pending", timestamp: new Date().toISOString() },
+      ],
+      sources: [],
+      content: "",
+      createdAt: new Date().toISOString(),
+    };
+    state.askMessages.push(assistantMsg);
+    state.askLoading = true;
+    state.askError = "";
+    trackEvent("ask_research_started", { promptLength: cleanResearchPrompt.length });
+    render();
+
+    try {
+      const response = await fetch("/api/ask/research", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: cleanResearchPrompt,
+          chatId: state.askChatId || undefined,
+          strategyId: state.askStrategyId || undefined,
+          taskId: state.askTaskId || undefined,
+          language: getLanguage(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || (isEn ? "Failed to start research." : "Araşdırmanı başlatmaq mümkün olmadı."));
+      }
+
+      const data = await response.json();
+      assistantMsg.jobId = data.jobId;
+      if (data.chatId) {
+        state.askChatId = data.chatId;
+        if (data.chatRevision) window.helmerSecurity?.revisions.set(data.chatId, data.chatRevision);
+        try { sessionStorage.setItem("helmer_active_ask_chat", data.chatId); } catch { }
+      }
+      if (data.message?.id) assistantMsg.id = data.message.id;
+      render();
+      connectToResearchJobStream(assistantMsg);
+    } catch (err) {
+      assistantMsg.status = "failed";
+      assistantMsg.error = err.message;
+      state.askError = err.message;
+      render();
+    } finally {
+      state.askLoading = false;
+      render();
+    }
+    return;
+  }
 
   const chosenModel = fileToAttach ? "gemini-3.8-flash" : (state.askModel || "auto");
   const initialPlaceholderModel = chosenModel === "gemini-3.8-flash" ? "gemini-3.8-flash" : (chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : "auto"));
@@ -4867,6 +5778,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
 
   let typewriter = null;
   let accumulatedFullText = "";
+  let finalEventReceived = false;
 
   currentAskAbortController?.abort();
   currentAskAbortController = new AbortController();
@@ -4889,6 +5801,8 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         strategyId: state.askStrategyId || undefined,
         taskId: state.askTaskId || undefined,
         chatId: state.askChatId || undefined,
+        pluginIds,
+        artifactId,
         stream: true,
       }),
     });
@@ -4931,10 +5845,16 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         try {
           const data = JSON.parse(jsonStr);
           if (data.error) throw new Error(data.error);
+          if (data.chatId) {
+            state.askChatId = data.chatId;
+        if (data.chatRevision) window.helmerSecurity?.revisions.set(data.chatId, data.chatRevision);
+            try { sessionStorage.setItem("helmer_active_ask_chat", data.chatId); } catch { }
+          }
 
           if (data.status) {
+            clearAskWaitStages(assistantMsg);
             assistantMsg.status = data.status;
-            assistantMsg.statusText = "";
+            assistantMsg.statusText = data.statusText || "";
             updateActiveAskThinkingStatus(assistantMsg);
           }
 
@@ -4949,6 +5869,9 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
           }
 
           if (data.done) {
+            finalEventReceived = true;
+            assistantMsg.artifacts = data.artifacts || [];
+            assistantMsg.execution = data.execution;
             clearAskWaitStages(assistantMsg);
             const finalReply = data.reply || accumulatedFullText;
             accumulatedFullText = finalReply;
@@ -4989,6 +5912,8 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         eventLines = [];
       }
 
+      if (!finalEventReceived) throw new Error(getLanguage() === "en" ? "The connection ended before the task completed. Please retry." : "Tapşırıq tamamlanmadan bağlantı kəsildi. Yenidən cəhd edin.");
+
       if (typewriter) {
         typewriter.finish(accumulatedFullText);
         await typewriter.waitForCompletion();
@@ -4998,6 +5923,8 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       }
     } else {
       const data = await response.json();
+      assistantMsg.artifacts = data.artifacts || [];
+      assistantMsg.execution = data.execution;
       assistantMsg.content = data.reply;
       assistantMsg.model = data.model || assistantMsg.model;
       assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
@@ -5011,6 +5938,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     const isAborted = error?.name === "AbortError" || currentAskAbortController?.signal?.aborted;
     if (!isAborted) {
       state.askError = error.message;
+      state.askRetry = { message: contentText, file: fileToAttach, pluginIds, artifactId, messageIndex };
     }
     if (!assistantMsg.content && !accumulatedFullText) {
       const idx = state.askMessages.indexOf(assistantMsg);
@@ -7681,6 +8609,7 @@ function buildStrategyAskMessage(message, messageIndex) {
     }
   }
 
+  if (!isStreaming) appendArtifactCards(content, message);
   if (!isStreaming && message.content) {
     const actions = element("div", "strategy-ask-message-actions");
     const copy = button("", "strategy-ask-action", async () => {
@@ -7799,12 +8728,18 @@ function buildStrategyAskAssistant() {
 
   if (state.askError) {
     const error = element("div", "strategy-ask-error", state.askError);
+    if (state.askRetry) {
+      const retry = button(isEn ? "Retry" : "Yenidən cəhd et", "ask-artifact-action", retryAskRequest);
+      retry.type = "button"; error.append(retry);
+    }
     body.appendChild(error);
   }
 
   const footer = element("footer", "strategy-ask-footer");
   const form = element("form", "strategy-ask-composer");
   const input = element("textarea", "strategy-ask-input");
+  input.id = "strategyAskInput";
+  input.value = state.askDraft || "";
   input.rows = 1;
   input.maxLength = 8000;
   input.placeholder = isEn ? "Ask a question about this strategy…" : "Strategiya haqqında soruş…";
@@ -7827,7 +8762,10 @@ function buildStrategyAskAssistant() {
     send.title = isEn ? "Send question" : "Sualı göndər";
     send.appendChild(createStrategyAskSendIcon());
   }
-  form.append(input, send);
+  const composerBody = element("div", "strategy-artifact-composer-body");
+  composerBody.append(input);
+  window.HelmerArtifacts?.attachComposer({ input, body: composerBody, getSelection: () => state.askPluginIds || [], setSelection: ids => { state.askPluginIds = ids; }, disabled: state.askLoading });
+  form.append(composerBody, send);
 
   const resize = () => {
     input.style.height = "auto";
@@ -7838,7 +8776,7 @@ function buildStrategyAskAssistant() {
       send.disabled = input.value.trim().length < 2;
     }
   };
-  input.addEventListener("input", resize);
+  input.addEventListener("input", () => { state.askDraft = input.value; resize(); });
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
@@ -7865,6 +8803,7 @@ function buildStrategyAskAssistant() {
     const message = input.value.trim();
     if (message.length < 2 || state.askLoading) return;
     input.value = "";
+    state.askDraft = "";
     send.disabled = true;
     const ready = await ensureStrategyAskContext();
     if (ready) submitAskMessage(message);
@@ -8776,13 +9715,25 @@ async function openSavedChat(chatId) {
     state.view = "home";
     state.askChatId = data.chat.id;
     state.askMessages = data.chat.messages || [];
+    state.askPluginIds = [];
+    state.askArtifactId = null;
+    state.askArtifactName = "";
+    state.askRetry = null;
     state.askStrategyId = data.chat.strategyId || "";
     state.askTaskId = data.chat.taskId || "";
     state.askError = "";
+    try { sessionStorage.setItem("helmer_active_ask_chat", data.chat.id); } catch { }
     syncMode();
     syncNav();
     render();
     closeSidebar();
+
+    // Reconnect to in-flight research background jobs if any
+    state.askMessages.forEach((msg) => {
+      if (msg && (msg.type === "research" || msg.jobId) && (msg.status === "pending" || msg.status === "running")) {
+        connectToResearchJobStream(msg);
+      }
+    });
   } catch (error) {
     showToast(isEn ? "Unable to load chat." : "Söhbəti yükləmək mümkün olmadı.", "error");
   }
@@ -13467,7 +14418,8 @@ function openDeleteAccountModal() {
     confirmBtn.disabled = true;
     confirmBtn.textContent = isEn ? "Requesting deletion…" : "Silinmə tələb edilir…";
     try {
-      await authRequest("/api/auth/account/delete-request", { method: "POST" });
+      const deletionProof = await window.helmerSecurity.reauthenticate();
+      await authRequest("/api/auth/account/delete-request", { method: "POST", body: deletionProof });
       closeLegalModal();
       state.currentUser = null;
       showToast(isEn ? "Your account has entered the 14-day deletion grace period." : "Hesabınız 14 günlük silinmə rejiminə keçirildi. 14 gün ərzində daxil olmasanız, hesabınız birdəfəlik silinəcək.", "info");
@@ -14649,6 +15601,12 @@ railStrategiesButton.addEventListener("click", () => {
   render();
   closeSidebar();
 });
+for (const id of ["upNav", "railUpButton"]) document.getElementById(id)?.addEventListener("click", () => {
+  state.view = "up";
+  render();
+  closeSidebar();
+  workspace.focus();
+});
 railPlannerButton?.addEventListener("click", () => {
   state.view = "planner";
   syncNav();
@@ -14657,6 +15615,15 @@ railPlannerButton?.addEventListener("click", () => {
 });
 railLimitsButton?.addEventListener("click", () => {
   state.view = "limits";
+  syncNav();
+  render();
+  closeSidebar();
+});
+railSearchButton?.addEventListener("click", () => {
+  openSearchModal();
+});
+railSettingsButton?.addEventListener("click", () => {
+  state.view = "settings";
   syncNav();
   render();
   closeSidebar();
@@ -15106,9 +16073,15 @@ initializeAuthentication(async (user) => {
   const params = new URLSearchParams(window.location.search);
   const requestedMode = params.get("mode");
   if (["ask", "build"].includes(requestedMode)) setMode(requestedMode);
-  if (params.get("view") === "limits") state.view = "limits";
+  if (["limits", "up"].includes(params.get("view"))) state.view = params.get("view");
   render();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks(), loadUsageStats()]);
+  const lastActiveChatId = (() => {
+    try { return sessionStorage.getItem("helmer_active_ask_chat"); } catch { return null; }
+  })();
+  if (lastActiveChatId && state.mode === "ask" && !state.askMessages.length) {
+    openSavedChat(lastActiveChatId).catch(() => { });
+  }
   resumeBackgroundJobs();
   checkAndShowPlannerVisitNotification();
   if (window.location.hash === "#terms" || window.location.pathname === "/terms") {

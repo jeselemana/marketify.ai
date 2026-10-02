@@ -9,9 +9,10 @@ function asText(value, limit) {
 }
 
 function usageFields(usage = {}) {
-  const inputTokens = Number(usage.input_tokens ?? usage.prompt_tokens);
-  const outputTokens = Number(usage.output_tokens ?? usage.completion_tokens);
-  const totalTokens = Number(usage.total_tokens);
+  const safeUsage = usage || {};
+  const inputTokens = Number(safeUsage.input_tokens ?? safeUsage.prompt_tokens);
+  const outputTokens = Number(safeUsage.output_tokens ?? safeUsage.completion_tokens);
+  const totalTokens = Number(safeUsage.total_tokens);
   return {
     inputTokens: Number.isFinite(inputTokens) ? inputTokens : null,
     outputTokens: Number.isFinite(outputTokens) ? outputTokens : null,
@@ -32,9 +33,10 @@ function ratio(numerator, denominator) {
 }
 
 export class LearningLoopService {
-  constructor(repository, config = learningConfig) {
+  constructor(repository, config = learningConfig, privacyPolicy = null) {
     this.repository = repository;
     this.config = config;
+    this.privacyPolicy = privacyPolicy;
   }
 
   createInteractionId() {
@@ -42,7 +44,7 @@ export class LearningLoopService {
   }
 
   async recordInteraction(input) {
-    const isRestricted = input.onlyNecessaryData === true || input.modelImprovement === false;
+    const isRestricted = input.onlyNecessaryData === true || input.modelImprovement === false || (this.privacyPolicy && !await this.privacyPolicy.allows(input.ownerId, input.privacySnapshot));
     const now = input.createdAt || new Date().toISOString();
     const tokens = usageFields(input.usage);
     const cost = estimateCost(input.modelName, tokens.inputTokens, tokens.outputTokens);
@@ -79,6 +81,7 @@ export class LearningLoopService {
   }
 
   async recordSignal(interactionId, ownerId, values) {
+    if (this.privacyPolicy && !await this.privacyPolicy.allows(ownerId)) return null;
     const allowed = Object.fromEntries(Object.entries({
       accepted: values.accepted === true ? true : undefined,
       regenerated: values.regenerated === true ? true : undefined,
@@ -99,9 +102,11 @@ export class LearningLoopService {
   }
 
   async recordIteration(input) {
+    if (this.privacyPolicy && !await this.privacyPolicy.allows(input.ownerId, input.privacySnapshot)) return null;
     return this.repository.update((store) => {
       const parent = store.interactions.find((item) => item.id === input.parentInteractionId);
-      if (!parent || (input.ownerId && parent.ownerId !== input.ownerId)) return null;
+      if (!parent || (input.ownerId && parent.ownerId !== input.ownerId)
+        || parent.onlyNecessaryData === true || parent.modelImprovement === false) return null;
       const siblings = store.iterations.filter((item) => item.parentInteractionId === parent.id);
       const iteration = {
         id: randomUUID(),
@@ -375,10 +380,21 @@ export class LearningLoopService {
   async exportApproved(format = "openai-chat-jsonl") {
     if (format !== "openai-chat-jsonl") throw new Error("Unsupported export format");
     const store = await this.repository.readStore();
-    return store.candidates.filter((item) => item.status === "approved").map((item) => JSON.stringify({
+    const approved = [];
+    for (const item of store.candidates) {
+      if (item.status !== "approved") continue;
+      const source = store.interactions.find((i) => i.id === item.sourceInteractionId);
+      if (source?.onlyNecessaryData === true || source?.modelImprovement === false) continue;
+      if (source?.ownerId && this.privacyPolicy) {
+        const allowed = await this.privacyPolicy.allows(source.ownerId);
+        if (!allowed) continue;
+      }
+      approved.push(item);
+    }
+    return approved.map((item) => JSON.stringify({
       messages: [{ role: "user", content: item.sanitizedInput }, { role: "assistant", content: item.preferredOutput }],
       metadata: { task_type: item.taskType, quality_score: item.qualityScore, source: "helmer", candidate_id: item.id },
-    })).join("\n") + (store.candidates.some((item) => item.status === "approved") ? "\n" : "");
+    })).join("\n") + (approved.length ? "\n" : "");
   }
 }
 

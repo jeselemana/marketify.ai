@@ -5,6 +5,7 @@
 .git
 .gitignore
 .github
+.agents
 
 # STRICT: Environment and sensitive credential files
 .env
@@ -14,6 +15,9 @@
 *.pem
 *.key
 *.cert
+gcp-key.json
+*-key.json
+gcp*.json
 
 # Local persistent data and user stores
 data/

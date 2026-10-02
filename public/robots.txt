@@ -1,5 +1,5 @@
-# https://helmerworkspace.com/robots.txt
-# Robots exclusion file for Helmer Workspace
+# https://helmeros.com/robots.txt
+# Robots exclusion file for Helmer
 
 User-agent: *
 Allow: /
@@ -14,7 +14,7 @@ Disallow: /dashboard/
 Disallow: /dashboard
 
 # Sitemap index
-Sitemap: https://helmerworkspace.com/sitemap.xml
+Sitemap: https://helmeros.com/sitemap.xml
 
 # Canonical Host
-Host: https://helmerworkspace.com
+Host: https://helmeros.com
