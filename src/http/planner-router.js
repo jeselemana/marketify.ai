@@ -68,6 +68,24 @@ export function createPlannerRouter(plannerRepository, options = {}) {
   const strategyRepository = options.strategyRepository || null;
   const telemetryService = options.telemetryService || null;
 
+  const guestMutationRate = new Map();
+  function checkGuestPlannerRate(ip) {
+    const now = Date.now();
+    const windowMs = 10 * 60 * 1000;
+    const limit = 60;
+    const record = guestMutationRate.get(ip) || { count: 0, resetAt: now + windowMs };
+    if (now > record.resetAt) {
+      record.count = 0;
+      record.resetAt = now + windowMs;
+    }
+    record.count += 1;
+    guestMutationRate.set(ip, record);
+    if (guestMutationRate.size > 10000) {
+      for (const [k, v] of guestMutationRate) if (v.resetAt < now) guestMutationRate.delete(k);
+    }
+    return record.count <= limit;
+  }
+
   router.get("/", async (req, res) => {
     try {
       const tasks = await plannerRepository.list(req.ownerId);
@@ -80,6 +98,12 @@ export function createPlannerRouter(plannerRepository, options = {}) {
 
   router.post("/batch", async (req, res) => {
     try {
+      if (!req.user) {
+        const ip = req.ip || req.socket?.remoteAddress || "127.0.0.1";
+        if (!checkGuestPlannerRate(ip)) {
+          return res.status(429).json({ error: "Çox sayda sorğu göndərildi. Bir qədər sonra yenidən cəhd edin.", code: "RATE_LIMITED" });
+        }
+      }
       const parsed = BatchCreateTasksSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({
@@ -125,6 +149,12 @@ export function createPlannerRouter(plannerRepository, options = {}) {
 
   router.post("/", async (req, res) => {
     try {
+      if (!req.user) {
+        const ip = req.ip || req.socket?.remoteAddress || "127.0.0.1";
+        if (!checkGuestPlannerRate(ip)) {
+          return res.status(429).json({ error: "Çox sayda sorğu göndərildi. Bir qədər sonra yenidən cəhd edin.", code: "RATE_LIMITED" });
+        }
+      }
       const parsed = TaskInputSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({

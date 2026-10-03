@@ -126,13 +126,13 @@ export async function getRelevantUserContext({
   if (!queryTokens.size) return "";
 
   const [allChats, allStrategies] = await Promise.all([
-    chatRepository?.readAll ? chatRepository.readAll().catch(() => []) : [],
-    strategyRepository?.readAll ? strategyRepository.readAll().catch(() => []) : [],
+    chatRepository?.readAll ? chatRepository.readAll(ownerId).catch(() => []) : [],
+    strategyRepository?.readAll ? strategyRepository.readAll(ownerId).catch(() => []) : [],
   ]);
   const candidates = [];
 
   for (const chat of allChats) {
-    if (chat.ownerId !== ownerId || chat.id === currentChatId || !Array.isArray(chat.messages)) continue;
+    if (chat.deleted || chat.ownerId !== ownerId || chat.id === currentChatId || !Array.isArray(chat.messages)) continue;
     for (const message of chat.messages) {
       if (message?.role !== "user" || typeof message.content !== "string") continue;
       const score = relevance(queryTokens, message.content);
@@ -148,7 +148,7 @@ export async function getRelevantUserContext({
   }
 
   for (const strategy of allStrategies) {
-    if (strategy.ownerId !== ownerId) continue;
+    if (strategy.deleted || strategy.ownerId !== ownerId) continue;
     const searchable = `${strategy.title || ""} ${strategy.brief || ""} ${strategy.context?.business || ""} ${strategy.context?.targetAudience || ""}`;
     const score = relevance(queryTokens, searchable);
     if (score > 0) {

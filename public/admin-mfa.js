@@ -25,7 +25,17 @@ async function init() {
       document.getElementById("confirm-form").onsubmit = async (ev) => {
         ev.preventDefault();
         const confRes = await fetch("/api/auth/admin-mfa/confirm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ setupToken: setupData.setupToken, code: document.getElementById("confirm-code").value.trim() }) });
-        if (confRes.ok) window.location.href = "/";
+        const confData = await confRes.json();
+        if (!confRes.ok) {
+          alert(confData.error || "Təsdiq xətası");
+          return;
+        }
+        if (Array.isArray(confData.recoveryCodes) && confData.recoveryCodes.length) {
+          app.innerHTML = `<div class="mfa-card"><h2>MFA Qeydiyyatı Tamamlandı</h2><p style="color:#ef4444;font-weight:600;">DİQQƏT: Aşağıdakı bərpa kodlarını təhlükəsiz yerdə saxlayın. Authenticator itirildikdə hesabınızı yalnız bu kodlarla bərpa edə bilərsiniz:</p><pre style="background:#1e293b;color:#f8fafc;padding:12px;border-radius:6px;user-select:all;font-family:monospace;margin:12px 0;">${confData.recoveryCodes.join("\n")}</pre><button id="mfa-done-btn" class="primary-button">Kodları Saxladım, Davam Et</button></div>`;
+          document.getElementById("mfa-done-btn").onclick = () => { window.location.href = "/"; };
+        } else {
+          window.location.href = "/";
+        }
       };
     };
   }

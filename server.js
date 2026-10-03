@@ -48,7 +48,7 @@ import { AiPolicy } from "./src/services/security/ai-policy.js";
 import { configureProviderPolicy } from "./src/services/security/provider-policy.js";
 import { CleanupQueue } from "./src/services/security/cleanup-queue.js";
 import { DurableStore } from "./src/services/security/durable-store.js";
-import { PrivacyPolicy } from "./src/services/security/privacy-policy.js";
+import { PrivacyPolicy, privacySnapshot } from "./src/services/security/privacy-policy.js";
 import { createRequireAdmin } from "./src/http/admin-authorization.js";
 import { createClient } from "redis";
 import { ArtifactRepository } from "./src/repositories/artifact-repository.js";
@@ -59,9 +59,12 @@ import { createAskExecutionGuard } from "./src/http/ask-execution-guard.js";
 import { createWebResearch } from "./src/services/plugins/research.js";
 import { DistributedResearchService as ResearchService } from "./src/services/ai/distributed-research.js";
 import { createResearchRouter } from "./src/http/research-router.js";
+import { GuestRetention } from "./src/services/security/guest-retention.js";
 
 dotenv.config();
 validateSecurityConfig();
+
+const isProduction = process.env.NODE_ENV === "production";
 
 // ES module üçün __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -121,17 +124,21 @@ function isTrustedRequestOrigin(req, origin) {
   const normalized = normalizeOrigin(origin);
   if (!normalized) return false;
   if (process.env.NODE_ENV === 'production' && !normalized.startsWith('https://')) return false;
+  if (process.env.NODE_ENV !== 'production' && /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(normalized)) {
+    return true;
+  }
   return trustedOrigins.has(normalized);
 }
 
 app.use((req, res, next) => {
   res.set({
-    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
     "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+    "Cross-Origin-Resource-Policy": "same-origin",
     "Content-Security-Policy": "default-src 'self'; script-src 'self' https://accounts.google.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*.googleusercontent.com https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://accounts.google.com https://challenges.cloudflare.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
   });
   next();
@@ -145,6 +152,10 @@ app.use(cors((req, callback) => {
 }));
 app.use((req, res, next) => {
   if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) return next();
+  const secFetchSite = req.get("sec-fetch-site");
+  if (secFetchSite && ["cross-site"].includes(secFetchSite.toLowerCase())) {
+    return res.status(403).json({ error: "Kənar domen sorğusu rədd edildi.", code: "CSRF_CROSS_SITE_REJECTED" });
+  }
   const source = req.get("Origin") || (() => {
     try { return new URL(req.get("Referer")).origin; } catch { return ""; }
   })();
@@ -197,25 +208,33 @@ app.get(["/favicon.ico", "/favicon.png", "/MarketifyAINewFavicon.png", "/Marketi
   return res.sendFile(path.join(__dirname, "public", "MarketifyAINewFavicon.png"));
 });
 
-// Protect direct static access to admin template
-app.get("/index_admin.html", (req, res) => res.redirect(301, "/admin"));
+// Protect direct static access to admin template and assets
+const PROTECTED_ADMIN_ASSETS = new Set(["/index_admin.html", "/admin.js", "/admin.css"]);
+const publicStaticHandler = express.static("public", {
+  index: false,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+    } else if (filePath.endsWith(".css") || filePath.endsWith(".js")) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+    }
+  },
+});
 
-app.use(
-  express.static("public", {
-    index: false,
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith(".html")) {
-        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
-      } else if (filePath.endsWith(".css") || filePath.endsWith(".js")) {
-        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
-      }
-    },
-  })
-);
+app.use((req, res, next) => {
+  let staticPath;
+  try { staticPath = path.posix.normalize(decodeURIComponent(req.path).replaceAll("\\", "/")).toLowerCase(); }
+  catch { return res.status(400).end(); }
+  if (PROTECTED_ADMIN_ASSETS.has(staticPath)) {
+    // Skip public static serving; guarded by requireAdmin routes downstream
+    return next();
+  }
+  return publicStaticHandler(req, res, next);
+});
 
 const openai = process.env.OPENAI_API_KEY ? getOpenAIClient() : null;
 
@@ -237,17 +256,13 @@ const cleanupQueue = new CleanupQueue(durableStore, artifactRepository, geminiFi
 chatRepository.cleanupQueue = cleanupQueue;
 const pluginRegistry = createPluginRegistry();
 const plannerRepository = new FilePlannerRepository(PLANNER_PATH, redis);
+const guestRetention = new GuestRetention([
+  { repo: strategyRepository, prefix: 'strategies-v1', directory: path.join(DATA_DIR, 'strategies') },
+  { repo: chatRepository, prefix: 'chats-v1', directory: path.join(DATA_DIR, 'chats'), chats: true },
+  { repo: plannerRepository, prefix: 'planner-v1', directory: path.join(DATA_DIR, 'planner') },
+]);
 const userRepository = new FileUserRepository(USERS_PATH, redis);
-const isProduction = process.env.NODE_ENV === "production";
-let authStore;
-if (isProduction) {
-  if (!redis?.isReady) {
-    throw new Error("Fatal: Production requires a secure shared atomic session store (Redis). Silent fallback to FileAuthStore is disabled.");
-  }
-  authStore = new RedisAuthStore(redis);
-} else {
-  authStore = redis?.isReady ? new RedisAuthStore(redis) : new FileAuthStore(AUTH_STORE_PATH);
-}
+const authStore = redis?.isReady ? new RedisAuthStore(redis) : new FileAuthStore(AUTH_STORE_PATH);
 const aiLearningRepository = new FileAiLearningRepository(AI_LEARNING_PATH, redis);
 const privacyPolicy = new PrivacyPolicy(userRepository);
 const learningLoop = new LearningLoopService(aiLearningRepository, undefined, privacyPolicy);
@@ -275,7 +290,9 @@ async function refreshAdminIdentities() {
       const uName = (u.username || '').toLowerCase().replace(/^@+/, '');
       const uEmail = (u.email || '').toLowerCase();
       if (candidateNames.has(uName) || candidateNames.has(uEmail)) {
-        adminUsernames.add(u.id);
+        if (u.emailVerifiedAt && u.status === 'active' && !u.scheduledDeletionAt) {
+          adminUsernames.add(u.id);
+        }
       }
     }
   } catch {}
@@ -306,11 +323,13 @@ async function syncAllStores() {
 
   await refreshAdminIdentities();
   userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
+  guestRetention.prune().catch(() => {});
 }
 
 // Periodic background check for expired account deletion (every 1 hour)
 setInterval(() => {
   userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
+  guestRetention.prune().catch(() => {});
 }, 60 * 60 * 1000).unref();
 
 const requireAdmin = createRequireAdmin(adminUsernames);
@@ -323,7 +342,9 @@ app.use(createIdentityMiddleware({ authStore, userRepository }));
 app.use(privacyPolicy.middleware());
 app.use(aiPolicy.middleware());
 app.use('/api/auth', express.json({ limit: '64kb' }));
-app.use('/api/ask', express.json({ limit: '25mb' }));
+const askGuestJsonParser = express.json({ limit: '512kb' });
+const askAuthJsonParser = express.json({ limit: '25mb' });
+app.use('/api/ask', (req, res, next) => (req.user ? askAuthJsonParser(req, res, next) : askGuestJsonParser(req, res, next)));
 app.use(express.json({ limit: '256kb' }));
 app.use(express.urlencoded({ limit: '64kb', extended: false }));
 app.get('/api/security/config', (req, res) => { res.set('Cache-Control', 'no-store'); res.json({ guest: !req.user, turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || null, guestAiDailyLimit: 2, guestRetentionDays: 7 }); });
@@ -340,7 +361,16 @@ app.use("/api/auth", createAuthRouter({
   telemetryService,
 }));
 
-app.use("/api/auth/admin-mfa", createAdminMfaRouter({ users: userRepository, store: authStore, adminIds: adminUsernames }));
+app.use("/api/auth/admin-mfa", createAdminMfaRouter({
+  users: userRepository,
+  store: authStore,
+  adminIds: adminUsernames,
+  audit: async (actorId, action, details) => {
+    try {
+      console.log(`[Admin MFA Audit] actor=${actorId} action=${action} time=${new Date().toISOString()}`);
+    } catch {}
+  },
+}));
 app.use("/api/strategy", createStrategyRouter(strategyRepository, learningLoop, { telemetryService }));
 app.use("/api/up", createUpRouter(upService));
 app.use("/api/planner", createPlannerRouter(plannerRepository, { strategyRepository, telemetryService }));
@@ -368,7 +398,19 @@ app.get("/admin/api/storage-status", requireAuth, requireAdmin, async (req, res)
 });
 
 const legalReportRateMap = new Map();
-function isLegalReportRateLimited(key) {
+async function isLegalReportRateLimited(key) {
+  if (redis?.isReady) {
+    try {
+      const redisKey = `helmer:rate:legal-report:${key}`;
+      const count = await redis.incr(redisKey);
+      if (count === 1) {
+        await redis.expire(redisKey, 600);
+      }
+      return count > 5;
+    } catch {
+      // Fallback to in-memory rate limiting on Redis error
+    }
+  }
   const now = Date.now();
   const windowMs = 10 * 60 * 1000;
   const maxAttempts = 5;
@@ -413,8 +455,8 @@ const LegalReportSchema = z.object({ issueType: z.string().trim().min(1).max(150
 app.post("/api/legal-report", async (req, res) => {
   try {
     const ip = req.ip || req.socket?.remoteAddress || "127.0.0.1";
-    const rateKey = `${ip}:${req.ownerId || "guest"}`;
-    if (isLegalReportRateLimited(rateKey)) {
+    const rateKey = `legal-report:${ip}`;
+    if (await isLegalReportRateLimited(rateKey)) {
       return res.status(429).json({
         error: "Çox sayda bildiriş göndərildi. Zəhmət olmasa bir az sonra yenidən cəhd edin.",
         code: "RATE_LIMITED",
@@ -526,11 +568,18 @@ function askSafetyIdentifier(ownerId) {
   return createHash("sha256").update(ownerId).digest("hex").slice(0, 32);
 }
 
-app.get("/api/usage/stats", async (req, res) => {
+app.get("/api/usage/stats", async (req, res, next) => {
+  try {
+    const result = await authStore.hitRateLimit(`usage:${aiPolicy.ipKey(req)}`, 60, 600);
+    if (!result.allowed) return res.status(429).json({ code: "RATE_LIMITED" });
+    res.set("Cache-Control", "no-store");
+    next();
+  } catch (error) { next(error); }
+}, async (req, res) => {
   try {
     const [strategies, chats, tasks] = await Promise.all([
-      strategyRepository.readAll().then((r) => (r || []).filter((s) => s.ownerId === req.ownerId)).catch(() => []),
-      chatRepository.readAll().then((r) => (r || []).filter((c) => c.ownerId === req.ownerId)).catch(() => []),
+      strategyRepository.readAll(req.ownerId).catch(() => []),
+      chatRepository.readAll(req.ownerId).catch(() => []),
       plannerRepository.list(req.ownerId).catch(() => []),
     ]);
 
@@ -1418,6 +1467,12 @@ app.use("/api/ask", createAskExecutionGuard({ redis, allowGuest: true }), create
 }));
 app.use("/api/artifacts", createArtifactRouter({ artifacts: artifactRepository, chats: chatRepository }));
 
+function getReqPrivacySnapshot(req) {
+  if (req?.securityContext?.privacySnapshot) return req.securityContext.privacySnapshot;
+  if (req?.user) return privacySnapshot(req.user);
+  return null;
+}
+
 app.post("/api/ask", askRateLimit(60), async (req, res) => {
   const learningStartedAt = Date.now();
   let learningInteractionId = null;
@@ -1734,6 +1789,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           usage: generated.usage, latencyMs: Date.now() - learningStartedAt, requestStatus: "success",
           onlyNecessaryData: isRestricted,
           modelImprovement: modelImprovementActive,
+          privacySnapshot: getReqPrivacySnapshot(req),
         }).then(() => hasPriorAssistant && !isRestricted ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
         logWithoutBlocking(logging, "Ask interaction logging");
 
@@ -1775,6 +1831,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           errorType: streamErr?.code || streamErr?.name || "ASK_STREAM_ERROR",
           onlyNecessaryData: isRestricted,
           modelImprovement: modelImprovementActive,
+          privacySnapshot: getReqPrivacySnapshot(req),
         }), "Ask stream failure logging");
 
         telemetryService.trackAskQuery({
@@ -1880,6 +1937,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       usage: generated.usage, latencyMs: Date.now() - learningStartedAt, requestStatus: "success",
       onlyNecessaryData: isRestricted,
       modelImprovement: modelImprovementActive,
+      privacySnapshot: getReqPrivacySnapshot(req),
     }).then(() => hasPriorAssistant && !isRestricted ? learningLoop.recordSignal(learningInteractionId, req.ownerId, { continuedConversation: true }) : null);
     logWithoutBlocking(logging, "Ask interaction logging");
 
@@ -1920,6 +1978,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         requestStatus: "error", errorType: error?.code || error?.name || "ASK_ERROR",
         onlyNecessaryData: isRestricted,
         modelImprovement: modelImprovementActive,
+        privacySnapshot: getReqPrivacySnapshot(req),
       }), "Ask failure logging");
     }
     telemetryService.trackAskQuery({
@@ -2011,8 +2070,11 @@ app.post("/admin/api/legal-reports/delete", requireAuth, requireAdmin, async (re
   }
 });
 
-// Admin UI
+// Admin UI & Protected Assets
 app.get("/admin-mfa", requireAuth, (req, res) => { res.set("Cache-Control", "no-store"); res.sendFile(path.join(__dirname, "public", "admin-mfa.html")); });
+app.get("/admin.js", requireAdmin, (req, res) => { res.set("Cache-Control", "private, no-store"); res.sendFile(path.join(__dirname, "public", "admin.js")); });
+app.get("/admin.css", requireAdmin, (req, res) => { res.set("Cache-Control", "private, no-store"); res.sendFile(path.join(__dirname, "public", "admin.css")); });
+app.get("/index_admin.html", requireAdmin, (req, res) => res.redirect(301, "/admin"));
 app.get(["/admin", "/admin/"], requireAdmin, (req, res) => {
   return res.sendFile(path.join(__dirname, "public", "index_admin.html"));
 });

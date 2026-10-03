@@ -179,13 +179,14 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       if (process.env.NODE_ENV === "production") {
         // Do not leave a usable code behind if delivery fails in production.
         await authStore.consumeEmailVerificationToken(tokenId);
+        console.error("Email verification delivery failed", {
+          userId: user.id,
+          emailDomain: user.email.split("@")[1] || "unknown",
+          message: error.message,
+        });
+        throw error;
       }
-      console.error("Email verification delivery failed", {
-        userId: user.id,
-        emailDomain: user.email.split("@")[1] || "unknown",
-        message: error.message,
-      });
-      throw error;
+      console.warn(`[DEV ONLY] Email delivery skipped (${error.message}). Code is ready in console: ${code}`);
     }
   }
 
@@ -594,6 +595,11 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       if (payload.personalIntelligence === false) {
         updateData.aiSummary = null;
       }
+      if (payload.modelImprovement === false) {
+        updateData.privacyEpoch = (req.user.privacyEpoch || 0) + 1;
+      }
+      const updated = await userRepository.update(req.user.id, updateData, { allowSystemFields: true });
+
       if (payload.modelImprovement === false && aiLearningRepository?.update) {
         await aiLearningRepository.update((store) => {
           const ownerInteractionIds = new Set(
@@ -602,6 +608,16 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
           store.candidates = store.candidates.filter(
             (c) => !ownerInteractionIds.has(c.sourceInteractionId)
           );
+          if (Array.isArray(store.iterations)) {
+            store.iterations = store.iterations.filter(
+              (it) => !ownerInteractionIds.has(it.parentInteractionId) && !ownerInteractionIds.has(it.interactionId)
+            );
+          }
+          if (Array.isArray(store.signals)) {
+            store.signals = store.signals.filter(
+              (sig) => !ownerInteractionIds.has(sig.interactionId)
+            );
+          }
           for (const item of store.interactions) {
             if (item.ownerId === req.user.id) {
               item.onlyNecessaryData = true;
@@ -611,9 +627,8 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
               item.relevantContext = null;
             }
           }
-        }).catch(() => {});
+        });
       }
-      const updated = await userRepository.update(req.user.id, updateData);
       return res.json({ user: publicUser(updated) });
     })
   );
@@ -637,7 +652,6 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       const updatedMemories = [newMemory, ...currentMemories];
       const updated = await userRepository.update(req.user.id, {
         settings: {
-          ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
           memories: updatedMemories,
         },
       });
@@ -657,7 +671,6 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       const filtered = currentMemories.filter((m) => m.id !== memoryId);
       const updated = await userRepository.update(req.user.id, {
         settings: {
-          ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
           memories: filtered,
         },
       });
@@ -670,7 +683,6 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
     const updated = await userRepository.update(req.user.id, {
       settings: {
-        ...(req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {}),
         memories: [],
       },
     });
@@ -704,7 +716,6 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     }
 
     const updatedSettings = {
-      ...currentSettings,
       personalIntelligence: payload.enablePersonalIntelligence !== false ? true : (currentSettings.personalIntelligence ?? true),
       brandName: payload.brandName !== undefined && payload.brandName !== "" ? payload.brandName : (currentSettings.brandName || ""),
       industry: payload.industry !== undefined && payload.industry !== "" ? payload.industry : (currentSettings.industry || ""),
@@ -736,7 +747,6 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     const payload = parseBody(OnboardingSchema, req.body);
     const currentSettings = req.user.settings && typeof req.user.settings === "object" ? req.user.settings : {};
     const updatedSettings = {
-      ...currentSettings,
     };
     if (payload.role) {
       updatedSettings.industry = payload.role;

@@ -17,11 +17,21 @@ export class GuestRetention {
     try {
       for (const { repo, prefix, directory, chats = false } of this.repositories) {
         const shards = [];
+        const dir = directory || repo.chatsDir || repo.strategiesDir || repo.plannerDir || repo.baseDir;
         if (isR2Configured()) {
-          for (const key of await listTenantObjects(`${prefix}/`)) shards.push((await readTenantObject(key)).record);
-        } else {
-          let names; try { names = await fs.readdir(directory); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
-          for (const name of names.filter(name => /^[a-f0-9]{64}\.json$/.test(name))) shards.push(JSON.parse(await fs.readFile(path.join(directory, name), 'utf8')));
+          const tenantKeys = await listTenantObjects(`${prefix}/`).catch(() => []);
+          for (const key of tenantKeys) {
+            const tenantKey = key.startsWith(`${prefix}/`) ? key.slice(`${prefix}/`.length) : key;
+            const res = await readTenantObject(prefix, tenantKey).catch(() => null);
+            if (res?.record) shards.push(res.record);
+          }
+        } else if (dir) {
+          let names; try { names = await fs.readdir(dir); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+          for (const name of names.filter(name => /^[a-f0-9]{64}\.json$/.test(name))) {
+            try {
+              shards.push(JSON.parse(await fs.readFile(path.join(dir, name), 'utf8')));
+            } catch {}
+          }
         }
         for (const shard of shards.filter(Array.isArray)) {
           const owners = new Set(shard.filter(record => record.ownerId?.startsWith('guest_') && !guestVisible(record, record.ownerId)).map(record => record.ownerId));

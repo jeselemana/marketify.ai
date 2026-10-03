@@ -2416,15 +2416,25 @@ function askThinkingLabel(message, isEn) {
 // Background Jobs — analysis processes that continue when user leaves loading page
 let backgroundJobs = loadBackgroundJobs();
 
+function currentOwnerId() {
+  return (typeof state !== "undefined" && state?.currentUser?.id) ? state.currentUser.id : "guest";
+}
+
 function loadBackgroundJobs() {
   try {
-    return JSON.parse(localStorage.getItem("helmer_bg_jobs") || "[]");
+    const owner = currentOwnerId();
+    const all = JSON.parse(localStorage.getItem("helmer_bg_jobs") || "[]");
+    return Array.isArray(all) ? all.filter((j) => j && j.ownerId === owner) : [];
   } catch { return []; }
 }
 
 function persistBackgroundJobs() {
   try {
-    localStorage.setItem("helmer_bg_jobs", JSON.stringify(backgroundJobs));
+    const owner = currentOwnerId();
+    const existingOther = JSON.parse(localStorage.getItem("helmer_bg_jobs") || "[]")
+      .filter((j) => j && j.ownerId && j.ownerId !== owner);
+    const combined = [...existingOther, ...backgroundJobs];
+    localStorage.setItem("helmer_bg_jobs", JSON.stringify(combined));
   } catch { }
 }
 
@@ -6225,6 +6235,7 @@ function minimizeToBackground() {
   const existingJob = backgroundJobs.find((j) => j.idempotencyKey === state.clientSaveId);
   const job = existingJob || {
     id: crypto.randomUUID(),
+    ownerId: currentOwnerId(),
     brief: state.brief,
     answers: [...state.answers],
     assumptions: [...state.assumptions],
@@ -6306,8 +6317,10 @@ async function autoSaveBackgroundJob(job) {
 }
 
 async function resumeBackgroundJobs() {
+  backgroundJobs = loadBackgroundJobs();
   if (!backgroundJobs.length) return;
   const isEn = getLanguage() === "en";
+  const activeOwner = currentOwnerId();
 
   // Ensure saved strategies are loaded
   if (!state.savedStrategies || !state.savedStrategies.length) {
@@ -6318,6 +6331,10 @@ async function resumeBackgroundJobs() {
 
   const jobsToProcess = [...backgroundJobs];
   for (const job of jobsToProcess) {
+    if (job.ownerId && job.ownerId !== activeOwner) {
+      removeBackgroundJob(job.id);
+      continue;
+    }
     // Check if the strategy was already saved on server by idempotencyKey or brief
     const alreadySaved = state.savedStrategies.find(
       (s) => (s.clientSaveId && s.clientSaveId === job.idempotencyKey) || (s.brief && s.brief === job.brief)
@@ -15872,9 +15889,7 @@ function handleKeyboardShortcut(event) {
 
   if (window.innerWidth <= 767) return;
 
-  const typing = isTypingTarget(event.target);
-  const primary = event.metaKey || event.ctrlKey;
-  const key = event.code === "KeyN" ? "n" : (event.code === "KeyK" ? "k" : event.key.toLowerCase());
+  const key = event.code === "KeyN" ? "n" : (event.code === "KeyK" ? "k" : (typeof event.key === "string" ? event.key.toLowerCase() : ""));
 
   if (primary && key === "k") {
     event.preventDefault();

@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { TenantLockManager } from "./tenant-lock.js";
 import { storageCorruption, writeJsonAtomically } from "./atomic-json-store.js";
 import { migrateAuthUserStore } from "./auth-store-migrations.js";
-import { normalizeEmail, normalizeUsername } from "../auth/validation.js";
+import { normalizeEmail, normalizeUsername, isReservedUsername } from "../auth/validation.js";
 import {
   isR2Configured,
   readUserObject,
@@ -249,6 +249,9 @@ export class FileUserRepository {
     return this.mutateUsers(async (store) => {
       const username = normalizeUsername(payload.username).replace(/^@+/, "");
       const email = normalizeEmail(payload.email);
+      if (isReservedUsername(username) && !payload.allowReservedUsername) {
+        throw new UserConflictError("username");
+      }
       if (store.users.some((user) => normalizeUsername(user.username).replace(/^@+/, "") === username)) {
         throw new UserConflictError("username");
       }

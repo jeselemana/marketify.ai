@@ -278,6 +278,7 @@ export class FilePlannerRepository {
           }
           return { records: [], etag: null, tombstone: false };
         }
+        throw storageCorruption("Invalid authoritative tenant shard structure.");
       } catch (err) {
         console.error(`R2 planner read error (${tenantKey}):`, err?.message || err);
         throw err;

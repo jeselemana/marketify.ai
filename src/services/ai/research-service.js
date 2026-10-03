@@ -1,4 +1,4 @@
-import { privacySnapshot } from "../security/privacy-policy.js";
+import { privacySnapshot, executionContext } from "../security/privacy-policy.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { aiConfig, hasGeminiConfiguration, hasOpenAIConfiguration } from "./config.js";
@@ -684,20 +684,12 @@ export class ResearchService {
       updatedAt: now,
     };
 
-    let existingMessages = [];
-    if (chatId) {
-      const existingChat = await this.chatRepository.getById(chatId, ownerId);
-      if (existingChat) {
-        existingMessages = existingChat.messages || [];
-      }
-    }
-
     const savedChat = await this.chatRepository.saveChat({
       mustExist: Boolean(chatId),
       id: chatId || undefined,
       ownerId,
-      title: existingMessages.length === 0 ? (researchPrompt.length > 50 ? `${researchPrompt.slice(0, 48)}…` : researchPrompt) : undefined,
-      messages: [...existingMessages, userMessage, assistantMessage],
+      title: !chatId ? (researchPrompt.length > 50 ? `${researchPrompt.slice(0, 48)}…` : researchPrompt) : undefined,
+      appendMessages: [userMessage, assistantMessage],
       strategyId: strategyId || null,
       taskId: taskId || null,
     });
@@ -733,10 +725,18 @@ export class ResearchService {
 
     if (this.prepareJob) await this.prepareJob(job);
 
-    // Run execution asynchronously in background worker
+    // Run execution asynchronously in background worker with dedicated execution context
     const execPromise = (async () => {
       try {
-        await this.executeJob(jobId);
+        const bgContext = {
+          ownerId: job.ownerId,
+          privacySnapshot: job.privacySnapshot,
+          providerStarted: false,
+          guest: typeof job.ownerId === 'string' && job.ownerId.startsWith('guest_'),
+          signal: job.abortController.signal,
+          isBackgroundJob: true,
+        };
+        await executionContext.run(bgContext, () => this.executeJob(jobId));
       } catch (err) {
         console.error(`[Deep Research] Unhandled worker error for job ${jobId}:`, err);
       }
@@ -758,10 +758,43 @@ export class ResearchService {
     const job = this.activeJobs.get(jobId);
     if (!job) return;
 
+    let leaseTimer = null;
+    let leaseToken = null;
+    const leaseKey = `helmer:research:lease:${jobId}`;
+
+    if (this.redis?.isReady) {
+      leaseToken = randomUUID();
+      const acquired = await this.redis.set(leaseKey, leaseToken, { NX: true, PX: 60000 });
+      if (!acquired) {
+        console.warn(`[Deep Research] Job ${jobId} already leased by another replica.`);
+        this.activeJobs.delete(jobId);
+        return;
+      }
+      leaseTimer = setInterval(async () => {
+        try {
+          const renewed = await this.redis.eval(
+            "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], 60000) else return 0 end",
+            { keys: [leaseKey], arguments: [leaseToken] }
+          );
+          if (!renewed) {
+            job.abortController?.abort(Object.assign(new Error("RESEARCH_LEASE_LOST"), { code: "EXECUTION_LOCK_LOST" }));
+          }
+        } catch {
+          job.abortController?.abort(Object.assign(new Error("RESEARCH_LEASE_LOST"), { code: "EXECUTION_LOCK_LOST" }));
+        }
+      }, 15000);
+      leaseTimer.unref();
+    }
+
     const isEn = job.language === "en";
     job.abortController.signal.throwIfAborted();
     job.status = "running";
     job.updatedAt = new Date().toISOString();
+
+    const maxTimeout = setTimeout(() => {
+      job.abortController?.abort(Object.assign(new Error("RESEARCH_TIMEOUT"), { code: "EXECUTION_TIMEOUT" }));
+    }, 10 * 60 * 1000);
+    maxTimeout.unref();
 
     const persistAndBroadcast = async (extraData = {}) => {
       job.updatedAt = new Date().toISOString();
@@ -1125,6 +1158,14 @@ export class ResearchService {
         steps: job.steps,
       });
     } finally {
+      clearTimeout(maxTimeout);
+      if (leaseTimer) clearInterval(leaseTimer);
+      if (this.redis?.isReady && leaseToken) {
+        await this.redis.eval(
+          "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+          { keys: [leaseKey], arguments: [leaseToken] }
+        ).catch(() => {});
+      }
       // Keep completed/failed job in memory for 1 hour to handle reconnects cleanly
       setTimeout(() => {
         this.activeJobs.delete(jobId);
@@ -1159,6 +1200,13 @@ export class ResearchService {
     const memoryJob = this.activeJobs.get(jobId);
     if (memoryJob) {
       if (memoryJob.ownerId !== ownerId) return null;
+      if (memoryJob.chatId && this.chatRepository) {
+        const chat = await this.chatRepository.getById(memoryJob.chatId, ownerId).catch(() => null);
+        if (!chat || chat.deleted) {
+          this.activeJobs.delete(jobId);
+          return null;
+        }
+      }
       return {
         id: memoryJob.id,
         chatId: memoryJob.chatId,
@@ -1333,6 +1381,12 @@ export class ResearchService {
         if (!chat.messages?.length) continue;
         for (const msg of chat.messages) {
           if (msg.type === "research" && (msg.status === "running" || msg.status === "pending") && msg.jobId) {
+            const msgAgeMs = Date.now() - new Date(msg.createdAt || 0).getTime();
+            if (msgAgeMs < 15 * 60 * 1000) continue;
+            if (this.redis?.isReady) {
+              const claimed = await this.redis.set(`helmer:research:claim:${msg.jobId}`, "1", { NX: true, PX: 600000 });
+              if (!claimed) continue;
+            }
             if (!this.activeJobs.has(msg.jobId)) {
               console.log(`[Deep Research] Resuming orphaned job ${msg.jobId} in chat ${chat.id}`);
               const job = {
@@ -1361,7 +1415,15 @@ export class ResearchService {
               this.activeJobs.set(msg.jobId, job);
               const resumeExecPromise = (async () => {
                 try {
-                  await this.executeJob(msg.jobId);
+                  const bgContext = {
+                    ownerId: job.ownerId,
+                    privacySnapshot: job.privacySnapshot,
+                    providerStarted: false,
+                    guest: typeof job.ownerId === "string" && job.ownerId.startsWith("guest_"),
+                    signal: job.abortController.signal,
+                    isBackgroundJob: true,
+                  };
+                  await executionContext.run(bgContext, () => this.executeJob(msg.jobId));
                 } catch (err) {
                   console.error(`[Deep Research] Error executing resumed job ${msg.jobId}:`, err);
                 }

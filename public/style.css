@@ -492,8 +492,8 @@ body.sidebar-open .rail-profile-button {
 }
 
 .rail-mode-toggle.is-default-saved .rail-toggle-track {
-  box-shadow: 0 0 0 3px var(--accent-light, rgba(37, 99, 235, 0.35));
-  border-color: var(--accent, #2563eb);
+  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.25);
+  border-color: #09090b;
 }
 
 @keyframes railDefaultSavedPulse {
@@ -533,8 +533,8 @@ body.sidebar-open .rail-profile-button {
 }
 
 body[data-mode="ask"] .rail-toggle-track {
-  background: var(--accent, #2563eb);
-  border-color: var(--accent, #2563eb);
+  background: #09090b;
+  border-color: #09090b;
 }
 
 body[data-mode="ask"] .rail-toggle-thumb {
@@ -8990,7 +8990,7 @@ html.dark .ask-stop-icon {
 }
 
 .ask-ios-toggle input:checked + .ask-ios-toggle-track {
-  background: var(--accent, #3b82f6);
+  background: #09090b;
 }
 
 .ask-ios-toggle input:checked + .ask-ios-toggle-track::before {
@@ -8998,7 +8998,7 @@ html.dark .ask-stop-icon {
 }
 
 .ask-ios-toggle input:focus-visible + .ask-ios-toggle-track {
-  box-shadow: 0 0 0 2px var(--bg-elevated, #fff), 0 0 0 4px var(--accent, #3b82f6);
+  box-shadow: 0 0 0 2px var(--bg-elevated, #fff), 0 0 0 4px rgba(9, 9, 11, 0.3);
 }
 
 /* ── Collapsible Level Pills ── */
@@ -12678,8 +12678,8 @@ html.dark .auth-footer-link:hover {
   transition: background 160ms ease;
 }
 
-.settings-toggle.is-active { background: var(--accent); }
-.settings-toggle:focus-visible { outline: 3px solid var(--theme-blue-border, rgba(79, 110, 232, 0.2)); outline-offset: 2px; }
+.settings-toggle.is-active { background: #09090b; }
+.settings-toggle:focus-visible { outline: 3px solid rgba(9, 9, 11, 0.2); outline-offset: 2px; }
 .settings-toggle:disabled { cursor: wait; opacity: 0.65; }
 
 .settings-toggle-thumb {
@@ -15031,7 +15031,7 @@ html.dark .model-info-popover-close:hover {
     gap: 8px;
   }
 
-  /* Circular dark pill buttons (Left Menu and Right New Chat) */
+  /* Circular pill buttons (Left Menu and Right New Chat) */
   .mobile-header .mobile-menu-pill-btn,
   .mobile-header #mobileChatMenuButton,
   .mobile-header .mobile-new-pill-btn,
@@ -15041,18 +15041,18 @@ html.dark .model-info-popover-close:hover {
     min-width: 42px;
     min-height: 42px;
     border-radius: 50%;
-    background: rgba(24, 24, 27, 0.78);
+    background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.12);
+    border: 1px solid var(--border-subtle, rgba(20, 27, 42, 0.08));
+    box-shadow: 0 1px 3px var(--theme-shadow-soft, rgba(31, 41, 55, 0.05)), 0 1px 2px var(--theme-shadow-soft, rgba(31, 41, 55, 0.03));
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #ffffff;
+    color: var(--text-primary, #0f172a);
     padding: 0;
     cursor: pointer;
-    transition: transform 140ms ease, background 140ms ease;
+    transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     flex-shrink: 0;
@@ -15063,14 +15063,14 @@ html.dark .model-info-popover-close:hover {
   .mobile-header .mobile-new-pill-btn:active,
   .mobile-header .mobile-header-chat #mobileNewButton:active {
     transform: scale(0.93);
-    background: rgba(39, 39, 42, 0.92);
+    background: rgba(244, 244, 245, 0.95);
   }
 
   .mobile-menu-icon {
     display: block;
     width: 20px;
     height: 20px;
-    color: #ffffff;
+    color: currentColor;
     stroke: currentColor;
     stroke-width: 2.2;
   }
@@ -15078,6 +15078,7 @@ html.dark .model-info-popover-close:hover {
   .mobile-header-chat #mobileNewButton svg {
     width: 19px;
     height: 19px;
+    color: currentColor;
     stroke: currentColor;
     stroke-width: 2;
     display: block;
@@ -15095,12 +15096,12 @@ html.dark .model-info-popover-close:hover {
     padding: 0 14px;
     max-width: 180px;
     border-radius: 999px;
-    background: rgba(24, 24, 27, 0.78);
+    background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.12);
-    color: #ffffff;
+    border: 1px solid var(--border-subtle, rgba(20, 27, 42, 0.08));
+    box-shadow: 0 1px 3px var(--theme-shadow-soft, rgba(31, 41, 55, 0.05)), 0 1px 2px var(--theme-shadow-soft, rgba(31, 41, 55, 0.03));
+    color: var(--text-primary, #0f172a);
     font-size: 13.5px;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -15116,7 +15117,7 @@ html.dark .model-info-popover-close:hover {
   .mobile-model-pill-btn:active,
   .mobile-header #mobileChatModelButton:active {
     transform: scale(0.96);
-    background: rgba(39, 39, 42, 0.92);
+    background: rgba(244, 244, 245, 0.95);
   }
 
   .mobile-active-model-name {
@@ -15150,7 +15151,7 @@ html.dark .model-info-popover-close:hover {
 
   /* Active Chat Isolation Rules */
   .mobile-header.is-chat-active {
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.42) 55%, rgba(0, 0, 0, 0) 100%);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.72) 55%, rgba(255, 255, 255, 0) 100%);
     pointer-events: none;
   }
 
@@ -15496,6 +15497,7 @@ html.dark .model-info-popover-close:hover {
     inset: 0;
     pointer-events: none;
     z-index: 0;
+    display: none;
     background:
       radial-gradient(ellipse 135% 80% at 50% 100%, rgba(var(--theme-blue-rgb, 186, 220, 255), 0.7) 0%, rgba(var(--theme-blue-rgb, 219, 234, 254), 0.44) 34%, rgba(var(--theme-blue-rgb, 239, 246, 255), 0.2) 58%, transparent 82%),
       radial-gradient(ellipse 80% 45% at 50% 100%, rgba(var(--theme-blue-rgb, 147, 197, 253), 0.42) 0%, transparent 64%);
@@ -22986,6 +22988,7 @@ html.dark .mobile-actions-pill {
   background: rgba(18, 18, 20, 0.88);
   border-color: rgba(255, 255, 255, 0.14);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  color: #ffffff;
 }
 
 [data-theme="dark"] .mobile-mode-switch:not([hidden]),
@@ -23224,6 +23227,7 @@ html.dark .status-ready {
   html.dark .workspace.is-empty:has(.ask-shell.is-empty)::before,
   html.dark .workspace:has(.ask-shell.is-empty)::before,
   html.dark .workspace-ask:has(.ask-shell.is-empty)::before {
+    display: block;
     background:
       radial-gradient(ellipse 135% 80% at 50% 100%, rgba(30, 58, 138, 0.46) 0%, rgba(23, 37, 84, 0.52) 34%, rgba(15, 23, 42, 0.32) 60%, transparent 82%),
       radial-gradient(ellipse 80% 45% at 50% 100%, rgba(49, 75, 175, 0.35) 0%, transparent 64%);

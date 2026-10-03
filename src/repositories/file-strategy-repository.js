@@ -279,6 +279,7 @@ export class FileStrategyRepository {
           }
           return { records: [], etag: null, tombstone: false };
         }
+        throw storageCorruption("Invalid authoritative tenant shard structure.");
       } catch (err) {
         console.error(`R2 strategy read error (${tenantKey}):`, err?.message || err);
         throw err;
@@ -629,6 +630,8 @@ export class FileStrategyRepository {
       const original = records.find((record) => record.id === id && record.ownerId === ownerId);
       if (!original) return { records, result: null };
 
+      if (original.deleted || !guestVisible(original, ownerId)) return { records, result: null };
+      guestQuota(records, ownerId, 10, 1);
       const now = new Date().toISOString();
       const newId = randomUUID();
       const newTitle = `${original.title} (Kopiya)`;

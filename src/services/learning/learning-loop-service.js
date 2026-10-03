@@ -39,6 +39,25 @@ export class LearningLoopService {
     this.privacyPolicy = privacyPolicy;
   }
 
+  async readVisibleStore() {
+    const store = structuredClone(await this.repository.readStore());
+    if (!this.privacyPolicy) return store;
+    const owners = new Map();
+    for (const item of store.interactions) {
+      if (!owners.has(item.ownerId)) owners.set(item.ownerId, await this.privacyPolicy.allows(item.ownerId));
+      if (!owners.get(item.ownerId) || item.onlyNecessaryData || item.modelImprovement === false) {
+        item.onlyNecessaryData = true; item.modelImprovement = false;
+        item.userPrompt = "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]";
+        item.modelResponse = "[Məzmun gizlədilib - Töhfə deaktivdir]"; item.relevantContext = null;
+      }
+    }
+    const restricted = new Set(store.interactions.filter(item => item.onlyNecessaryData).map(item => item.id));
+    store.candidates = store.candidates.filter(item => !restricted.has(item.sourceInteractionId));
+    store.iterations = store.iterations.filter(item => !restricted.has(item.parentInteractionId));
+    store.signals = store.signals.filter(item => !restricted.has(item.interactionId));
+    return store;
+  }
+
   createInteractionId() {
     return randomUUID();
   }
@@ -71,7 +90,14 @@ export class LearningLoopService {
       modelImprovement: !isRestricted,
       createdAt: now,
     };
-    await this.repository.update((store) => {
+    await this.repository.update(async (store) => {
+      // Recheck on every CAS attempt, after reading the authoritative learning revision.
+      if (this.privacyPolicy && !await this.privacyPolicy.allows(input.ownerId, input.privacySnapshot)) {
+        interaction.onlyNecessaryData = true; interaction.modelImprovement = false;
+        interaction.userPrompt = "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]";
+        interaction.modelResponse = "[Məzmun gizlədilib - Töhfə deaktivdir]";
+        interaction.relevantContext = null;
+      }
       const index = store.interactions.findIndex((item) => item.id === interaction.id);
       if (index === -1) store.interactions.push(interaction);
       else store.interactions[index] = { ...store.interactions[index], ...interaction };
@@ -91,7 +117,8 @@ export class LearningLoopService {
       explicitRating: ["positive", "negative"].includes(values.explicitRating) ? values.explicitRating : undefined,
       timeToNextAction: Number.isFinite(Number(values.timeToNextAction)) ? Math.max(0, Math.round(Number(values.timeToNextAction))) : undefined,
     }).filter(([, value]) => value !== undefined));
-    return this.repository.update((store) => {
+    return this.repository.update(async (store) => {
+      if (this.privacyPolicy && !await this.privacyPolicy.allows(ownerId)) return null;
       const interaction = store.interactions.find((item) => item.id === interactionId && item.ownerId === ownerId);
       if (!interaction) return null;
       const signal = { id: randomUUID(), interactionId, ...allowed, createdAt: new Date().toISOString() };
@@ -103,7 +130,8 @@ export class LearningLoopService {
 
   async recordIteration(input) {
     if (this.privacyPolicy && !await this.privacyPolicy.allows(input.ownerId, input.privacySnapshot)) return null;
-    return this.repository.update((store) => {
+    return this.repository.update(async (store) => {
+      if (this.privacyPolicy && !await this.privacyPolicy.allows(input.ownerId, input.privacySnapshot)) return null;
       const parent = store.interactions.find((item) => item.id === input.parentInteractionId);
       if (!parent || (input.ownerId && parent.ownerId !== input.ownerId)
         || parent.onlyNecessaryData === true || parent.modelImprovement === false) return null;
@@ -216,7 +244,7 @@ export class LearningLoopService {
   }
 
   async overview(filters = {}) {
-    const store = await this.repository.readStore();
+    const store = await this.readVisibleStore();
     const interactions = this.filterInteractions(store, filters);
     const ids = new Set(interactions.map((item) => item.id));
     const candidates = store.candidates.filter((item) => ids.has(item.sourceInteractionId));
@@ -241,7 +269,7 @@ export class LearningLoopService {
   }
 
   async growth(filters = {}) {
-    const store = await this.repository.readStore();
+    const store = await this.readVisibleStore();
     const interactions = this.filterInteractions(store, filters);
     const ids = new Set(interactions.map((item) => item.id));
     const candidates = store.candidates.filter((item) => ids.has(item.sourceInteractionId));
@@ -260,7 +288,7 @@ export class LearningLoopService {
   }
 
   async modelPerformance(filters = {}) {
-    const store = await this.repository.readStore();
+    const store = await this.readVisibleStore();
     const interactions = this.filterInteractions(store, filters);
     const groups = new Map();
     for (const item of interactions) {
@@ -296,7 +324,7 @@ export class LearningLoopService {
   }
 
   async taskIntelligence(filters = {}) {
-    const store = await this.repository.readStore();
+    const store = await this.readVisibleStore();
     const interactions = this.filterInteractions(store, filters);
     const groups = new Map();
     for (const item of interactions) {
@@ -318,7 +346,7 @@ export class LearningLoopService {
   }
 
   async listInteractions(filters = {}, page = 1, pageSize = 25) {
-    const store = await this.repository.readStore();
+    const store = await this.readVisibleStore();
     const items = this.filterInteractions(store, filters).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const safeSize = Math.min(100, Math.max(1, Number(pageSize) || 25));
     const safePage = Math.max(1, Number(page) || 1);
@@ -334,7 +362,7 @@ export class LearningLoopService {
   }
 
   async getInteraction(id) {
-    const store = await this.repository.readStore();
+    const store = await this.readVisibleStore();
     const interaction = store.interactions.find((item) => item.id === id);
     if (!interaction) return null;
     const iterations = store.iterations.filter((item) => item.parentInteractionId === id).sort((a, b) => a.iterationNumber - b.iterationNumber);
@@ -353,7 +381,7 @@ export class LearningLoopService {
   }
 
   async listCandidates(filters = {}, page = 1, pageSize = 25) {
-    const store = await this.repository.readStore();
+    const store = await this.readVisibleStore();
     const safeSize = Math.min(100, Math.max(1, Number(pageSize) || 25));
     const safePage = Math.max(1, Number(page) || 1);
     const minQuality = Number(filters.minQuality);
@@ -370,7 +398,7 @@ export class LearningLoopService {
   }
 
   async getCandidate(id) {
-    const store = await this.repository.readStore();
+    const store = await this.readVisibleStore();
     const candidate = store.candidates.find((item) => item.id === id);
     if (!candidate) return null;
     const source = store.interactions.find((item) => item.id === candidate.sourceInteractionId);
@@ -379,7 +407,7 @@ export class LearningLoopService {
 
   async exportApproved(format = "openai-chat-jsonl") {
     if (format !== "openai-chat-jsonl") throw new Error("Unsupported export format");
-    const store = await this.repository.readStore();
+    const store = await this.readVisibleStore();
     const approved = [];
     for (const item of store.candidates) {
       if (item.status !== "approved") continue;

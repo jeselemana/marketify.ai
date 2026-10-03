@@ -187,11 +187,13 @@ test("index.html and style.css: sidebar navigation icons use smooth rounded ~20p
     html.includes('d="M22 12h-4l-3 9L9 3l-3 9H2"'),
     "limitsNav uses unified Activity icon"
   );
-  // Settings uses smooth rounded gear
-  assert.ok(
-    html.includes('<circle cx="12" cy="12" r="3"/>'),
-    "settingsNav uses smooth rounded gear"
-  );
+  // Settings uses smooth rounded gear (both rail and sidebar match)
+  const railSettingsMatch = html.match(/<button[^>]*id="railSettingsButton"[^>]*>([\s\S]*?)<\/button>/);
+  const settingsNavMatch = html.match(/<button[^>]*id="settingsNav"[^>]*>([\s\S]*?)<\/button>/);
+  assert.ok(railSettingsMatch && settingsNavMatch, "Both railSettingsButton and settingsNav found");
+  const gearPath = 'd="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"';
+  assert.ok(railSettingsMatch[1].includes(gearPath), "railSettingsButton uses full gear SVG path");
+  assert.ok(settingsNavMatch[1].includes(gearPath), "settingsNav uses full gear SVG path");
   // Sidebar close uses minimalist PanelLeftClose
   assert.ok(
     html.includes('d="m16 15-3-3 3-3"'),

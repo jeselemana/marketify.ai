@@ -1,6 +1,5 @@
-import JSZip from "jszip";
-import ExcelJS from "exceljs";
-import { XMLParser, XMLValidator } from "fast-xml-parser";
+import { Worker } from 'node:worker_threads';
+import { executionContext } from '../security/privacy-policy.js';
 import { MIME_TYPE_MAP, TEXT_LIKE_EXTENSIONS } from "../../../public/file-utils.js";
 
 export function validUploadMetadata(file) {
@@ -19,35 +18,35 @@ export async function prepareUploadedContext(file) {
   if (buffer.length > 20 * 1024 * 1024) throw new Error("Upload size limit exceeded");
   const extension = file.name.split(".").at(-1).toLowerCase();
   if (extension === "pdf" && buffer.subarray(0, 5).toString() !== "%PDF-") throw new Error("Invalid PDF upload");
-  if (!["docx", "xlsx"].includes(extension) || file.textContent) return { ...file, data };
-  const zip = await JSZip.loadAsync(buffer);
-  const entries = Object.values(zip.files).filter(entry => !entry.dir);
-  if (entries.length > 1500 || entries.reduce((sum, entry) => sum + (entry._data?.uncompressedSize || 0), 0) > 30 * 1024 * 1024) throw new Error("Office upload decompression limit exceeded");
-  for (const entry of entries) if (/\.(?:xml|rels)$/.test(entry.name)) {
-    const content = await entry.async("string");
-    if (/<!DOCTYPE|<!ENTITY/i.test(content) || XMLValidator.validate(content) !== true) throw new Error("Unsafe Office upload");
-  }
-  let textContent = "";
-  if (extension === "docx") {
-    const entry = zip.file("word/document.xml"); if (!entry) throw new Error("Invalid Word upload");
-    const parsed = new XMLParser({ ignoreAttributes: false }).parse(await entry.async("string"));
-    const read = value => {
-      if (Array.isArray(value)) { value.forEach(read); return; }
-      if (!value || typeof value !== "object") return;
-      for (const [key, child] of Object.entries(value)) {
-        if (key === "w:t") textContent += `${typeof child === "object" ? child["#text"] || "" : child} `;
-        else read(child);
-        if (key === "w:p" || key === "w:tr") textContent += "\n";
-      }
-    };
-    read(parsed);
-  } else {
-    const workbook = new ExcelJS.Workbook(); await workbook.xlsx.load(buffer);
-    for (const sheet of workbook.worksheets) {
-      textContent += `\nSheet: ${sheet.name}\n`;
-      sheet.eachRow(row => { textContent += row.values.slice(1).map(value => value && typeof value === "object" ? value.formula ? `=${value.formula} (result: ${value.result ?? "unknown"})` : value.text || value.richText?.map(run => run.text).join("") || "" : value ?? "").join("\t") + "\n"; });
-    }
-  }
-  if (textContent.length > 200000) throw new Error("Office upload text limit exceeded");
+  if (!["docx", "xlsx"].includes(extension)) return { ...file, data };
+  const textContent = await extractOffice(buffer, extension, executionContext.getStore()?.signal);
   return { ...file, data, textContent };
+}
+
+let waiting = 0, queue = Promise.resolve();
+function extractOffice(buffer, extension, signal) {
+  if (waiting >= 4) return Promise.reject(Object.assign(new Error('Upload queue full'), { status: 429, code: 'EXECUTION_BUSY' }));
+  waiting++;
+  const deadline = Date.now() + 30000;
+  const operation = queue.then(() => new Promise((resolve, reject) => {
+    if (signal?.aborted || Date.now() >= deadline) return reject(new Error('Upload cancelled or timed out'));
+    const worker = new Worker(new URL('./upload-worker.js', import.meta.url), {
+      workerData: { extension, bytes: buffer }, resourceLimits: { maxOldGenerationSizeMb: 128, stackSizeMb: 4 },
+    });
+    let settled = false;
+    const finish = (error, value) => {
+      if (settled) return; settled = true;
+      clearTimeout(timer); signal?.removeEventListener('abort', abort);
+      void worker.terminate();
+      error ? reject(error) : resolve(value);
+    };
+    const abort = () => finish(new Error('Upload cancelled'));
+    const timer = setTimeout(() => finish(new Error('Upload processing timed out')), deadline - Date.now());
+    signal?.addEventListener('abort', abort, { once: true });
+    worker.once('message', result => finish(result.error ? new Error(result.error) : null, result.textContent));
+    worker.once('error', error => finish(error));
+    worker.once('exit', () => finish(new Error('Upload worker stopped')));
+  }));
+  queue = operation.catch(() => {});
+  return operation.finally(() => { waiting--; });
 }

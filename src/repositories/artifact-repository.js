@@ -94,22 +94,48 @@ export class ArtifactRepository {
       if (current?.versions.length >= 100) throw new Error("Artifact version limit reached");
       // Immutable execution-specific binaries prevent stale writers overwriting later output.
       const version = (current?.nextVersion || current?.versions.at(-1)?.version || 0) + 1;
-      const binaryName = execution ? `v${version}-${execution}.${plugin.extension}` : `v${version}.${plugin.extension}`;
-      const snapshot = { version, binaryName, filename: safeArtifactFilename(spec.title, plugin.extension), size: buffer.length, sha256: createHash("sha256").update(buffer).digest("hex"), createdAt: new Date().toISOString(), spec, execution };
+      const executionId = typeof execution === "string" && /^[a-f0-9-]{36}$/i.test(execution)
+        ? execution
+        : (execution && typeof execution === "object" && typeof execution.id === "string" && /^[a-f0-9-]{36}$/i.test(execution.id))
+          ? execution.id
+          : (execution ? randomUUID() : null);
+      const binaryName = executionId ? `v${version}-${executionId}.${plugin.extension}` : `v${version}.${plugin.extension}`;
+      const snapshot = {
+        version,
+        binaryName,
+        filename: safeArtifactFilename(spec.title, plugin.extension),
+        size: buffer.length,
+        sha256: createHash("sha256").update(buffer).digest("hex"),
+        createdAt: new Date().toISOString(),
+        spec,
+        execution: typeof execution === "object" && execution !== null ? { ...execution, id: executionId || execution.id } : execution,
+      };
       const record = current || { id, ownerId, chatId, pluginId: plugin.id, outputLabel: plugin.outputLabel || plugin.name, extension: plugin.extension, mimeType: plugin.mimeType, versions: [] };
       record.nextVersion = version; record.versions.push(snapshot);
       const binary = this.location(ownerId, id, binaryName);
       await assertLease();
       if (isR2Configured()) await putArtifactObject(binary.key, buffer, plugin.mimeType, { IfNoneMatch: "*" });
       else { await fs.mkdir(path.dirname(binary.local), { recursive: true, mode: 0o700 }); await fs.writeFile(binary.local, buffer, { flag: "wx", mode: 0o600 }); }
-      // A failed/uncertain manifest write never rolls back another writer's manifest.
+      // A failed/uncertain manifest write only rolls back if R2 still holds this exact snapshot
       try {
         await this.publish(id, ownerId, record, stored.etag, assertLease);
       } catch (err) {
         if (isR2Configured()) {
           await deleteArtifactObject(binary.key).catch(() => {});
-          if (stored.buffer) await putArtifactObject(this.location(ownerId, id).key, stored.buffer, "application/json").catch(() => {});
-          else await deleteArtifactObject(this.location(ownerId, id).key).catch(() => {});
+          try {
+            const manifestLocation = this.location(ownerId, id);
+            const currentR2 = await readArtifactObject(manifestLocation.key);
+            const currentRecord = this.decode(currentR2.buffer, id, ownerId);
+            const lastVersion = currentRecord?.versions?.at(-1);
+            if (lastVersion && lastVersion.version === snapshot.version && lastVersion.sha256 === snapshot.sha256) {
+              const condition = currentR2.etag ? { IfMatch: currentR2.etag } : {};
+              if (stored.buffer) {
+                await putArtifactObject(manifestLocation.key, stored.buffer, "application/json", condition).catch(() => {});
+              } else {
+                await deleteArtifactObject(manifestLocation.key).catch(() => {});
+              }
+            }
+          } catch {}
         } else {
           await fs.unlink(binary.local).catch(() => {});
         }

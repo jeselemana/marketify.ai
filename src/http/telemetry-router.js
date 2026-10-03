@@ -58,7 +58,7 @@ export function createTelemetryAdminRouter(telemetryService) {
   router.get("/events/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      if (!/^[a-z0-9_-]{1,80}$/i.test(id)) {
         return res.status(400).json({ error: "Hadisə ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
       }
       const event = await telemetryService.repository.getEventById(id);

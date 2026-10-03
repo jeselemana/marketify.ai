@@ -36,10 +36,9 @@ function artifactKey(key) {
   return key;
 }
 
-// Artifact persistence fails closed: never publish a card after an R2 write failure.
 export async function putArtifactObject(key, body, contentType, condition = {}) {
-  if (!isR2Configured()) return;
-  await getS3Client().send(new PutObjectCommand({ Bucket: getBucket(), Key: artifactKey(key), Body: body, ContentType: contentType, ...condition }));
+  if (!isR2Configured()) return null;
+  return await getS3Client().send(new PutObjectCommand({ Bucket: getBucket(), Key: artifactKey(key), Body: body, ContentType: contentType, ...condition }));
 }
 export async function readArtifactObject(key) {
   if (!isR2Configured()) return { buffer: null, etag: null };

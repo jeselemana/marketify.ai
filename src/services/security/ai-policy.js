@@ -11,15 +11,25 @@ export const DEFAULT_MODEL_PRICING = Object.freeze({
   'gpt-6-luna': { input: 0.25, output: 1.00, search: 0.030 },
   'gpt-5.6-terra': { input: 1.25, output: 5.00, search: 0.035 },
   'gpt-6-sol': { input: 2.00, output: 10.00, search: 0.050 },
-  'default': { input: 0.50, output: 2.00, search: 0.035 },
+  'gpt-4o': { input: 2.50, output: 10.00, search: 0.035 },
+  'default': { input: 2.50, output: 10.00, search: 0.035 },
 });
 
 export function isAiRequest(req) {
-  return req.method === 'POST' && (/^\/api\/ask(?:\/research)?\/?$/.test(req.path) || /^\/api\/strategy\/(?:assess|generate|generate-stream|refine|summary|summarize|[^/]+\/refine)\/?$/.test(req.path) || /^\/api\/planner\/(?:summarize|prioritize)\/?$/.test(req.path) || /^\/api\/up\/challenges(?:\/[^/]+\/(?:submit|retry))?\/?$/.test(req.path));
+  return req.method === 'POST' && (
+    /^\/api\/ask(?:\/research)?\/?$/i.test(req.path) ||
+    /^\/api\/strategy\/(?:assess|generate|generate-stream|refine|summary|summarize|[^/]+\/refine)\/?$/i.test(req.path) ||
+    /^\/api\/planner\/(?:summarize|prioritize)\/?$/i.test(req.path) ||
+    /^\/api\/up\/challenges(?:\/[^/]+\/(?:submit|retry))?\/?$/i.test(req.path) ||
+    /^\/api\/user\/ai-summary\/?$/i.test(req.path)
+  );
 }
 export class AiPolicy {
   constructor({ redis, env = process.env, fetcher = fetch }) { this.redis = redis; this.env = env; this.fetcher = fetcher; }
-  ready() { if (!this.redis?.isReady) throw fail('EXECUTION_UNAVAILABLE'); }
+  ready() {
+    if (this.env.NODE_ENV === 'production' && !this.redis?.isReady) throw fail('EXECUTION_UNAVAILABLE');
+    if (this.redis && !this.redis.isReady) throw fail('EXECUTION_UNAVAILABLE');
+  }
   async turnstile(req) {
     if (!this.env.TURNSTILE_SECRET_KEY) return;
     const token = req.get('X-Helmer-Turnstile-Token');
@@ -43,29 +53,43 @@ export class AiPolicy {
   }
   middleware() {
     return async (req, res, next) => {
-      if (!/^\/api\/(?:ask|strategy|planner|up|user|artifacts)(?:\/|$)/.test(req.path)) return next();
+      if (!/^\/api\/(?:ask|strategy|planner|up|user|artifacts)(?:\/|$)/i.test(req.path)) return next();
       if (req.user && !req.user.emailVerifiedAt) return res.status(403).json({ code: 'EMAIL_VERIFICATION_REQUIRED', error: 'E-poçtunu təsdiqlə.' });
       const guest = !req.user;
-      if (guest && (/^\/api\/(?:up|user|artifacts)(?:\/|$)/.test(req.path) || req.path.startsWith('/api/ask/research'))) return res.status(401).json({ code: 'AUTH_REQUIRED' });
+      if (guest && (/^\/api\/(?:up|user|artifacts)(?:\/|$)/i.test(req.path) || /^\/api\/ask\/research(?:\/|$)/i.test(req.path))) return res.status(401).json({ code: 'AUTH_REQUIRED' });
       if (!isAiRequest(req)) return next();
-      let quotaKeys = [], requestKey, lock, controller;
+      let controller;
+      if (!this.redis?.isReady) {
+        if (this.env.NODE_ENV === 'production') {
+          return res.status(503).json({ code: 'EXECUTION_UNAVAILABLE', error: 'Sorğu icra edilə bilmədi.' });
+        }
+        controller = new AbortController();
+        req.securityContext.route = req.path;
+        req.securityContext.controller = controller;
+        req.securityContext.signal = controller.signal;
+        return next();
+      }
+      let quotaKeys = [], requestKey, lock;
       const token = randomUUID();
       let finished = false;
       const finish = async () => {
         if (finished) return; finished = true;
-        clearTimeout(timer); controller?.abort();
+        clearTimeout(timer);
+        if (!req.securityContext?.isBackgroundJob) {
+          controller?.abort();
+        }
         if (lock) await this.redis.eval("if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end; return 0", { keys: [lock], arguments: [token] }).catch(() => {});
         if (!req.securityContext?.providerStarted && quotaKeys.length) await this.redis.eval("for _,k in ipairs(KEYS) do local n = tonumber(redis.call('get', k) or '0'); if n > 0 then redis.call('decr',k) end end; return 1", { keys: quotaKeys }).catch(() => {});
         if (requestKey) await this.redis.set(requestKey, JSON.stringify({ state: req.securityContext?.providerStarted ? 'started' : 'rejected' }), { EX: 900 }).catch(() => {});
       };
       let timer;
       try {
+        if (guest) await this.turnstile(req);
         this.ready();
         const id = req.get('Idempotency-Key');
         if (!id || !/^[A-Za-z0-9_-]{16,100}$/.test(id)) throw fail('IDEMPOTENCY_KEY_REQUIRED', 400);
         requestKey = `security:request:${createHash('sha256').update(`${req.ownerId}:${req.path}:${id}`).digest('hex')}`;
         if (!await this.redis.set(requestKey, JSON.stringify({ state: 'reserved' }), { NX: true, EX: 900 })) { requestKey = null; throw fail('REQUEST_ALREADY_SUBMITTED', 409); }
-        if (guest) await this.turnstile(req);
         const actor = req.ownerId, ip = this.ipKey(req), day = new Date().toISOString().slice(0, 10);
         const keys = [`security:rate:${actor}`, `security:rate-ip:${ip}`];
         const allowed = await this.redis.eval("for _,k in ipairs(KEYS) do if tonumber(redis.call('get',k) or '0') >= tonumber(ARGV[1]) then return 0 end end; for _,k in ipairs(KEYS) do local n = redis.call('incr',k); if n == 1 then redis.call('expire',k,600) end end; return 1", { keys, arguments: ['60'] });
@@ -97,6 +121,10 @@ export class AiPolicy {
     };
   }
   async reserveProvider(context, params) {
+    if (!this.redis?.isReady) {
+      if (this.env.NODE_ENV === 'production') throw fail('EXECUTION_UNAVAILABLE', 503);
+      return async () => {};
+    }
     this.ready();
     let prices = {};
     try {

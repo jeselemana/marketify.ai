@@ -14,6 +14,16 @@ export function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+export function isReservedUsername(value) {
+  const normalized = normalizeUsername(value).replace(/^@+/, "");
+  if (RESERVED_USERNAMES.has(normalized)) return true;
+  const envAdminNames = String(process.env.ADMIN_USERNAMES || "")
+    .split(",")
+    .map((v) => normalizeUsername(v).replace(/^@+/, ""))
+    .filter(Boolean);
+  return envAdminNames.includes(normalized);
+}
+
 const UsernameSchema = z
   .string()
   .trim()
@@ -23,7 +33,7 @@ const UsernameSchema = z
   .transform(normalizeUsername)
   .refine((value) => !value.startsWith(".") && !value.endsWith("."), "İstifadəçi adı nöqtə ilə başlaya və ya bitə bilməz.")
   .refine((value) => !value.includes(".."), "Ardıcıl iki nöqtədən istifadə etmək olmaz.")
-  .refine((value) => !RESERVED_USERNAMES.has(value), "Bu istifadəçi adı rezerv edilib.");
+  .refine((value) => !isReservedUsername(value), "Bu istifadəçi adı rezerv edilib.");
 
 const PasswordSchema = z
   .string()

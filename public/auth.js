@@ -1227,6 +1227,7 @@ export async function initializeAuthentication(onAuthenticated) {
 }
 
 export async function logout() {
+  try { localStorage.removeItem("helmer_bg_jobs"); } catch {}
   await request("/api/auth/logout", { method: "POST", body: "{}" }).catch(() => {});
   route("/login", true);
   renderRoute();

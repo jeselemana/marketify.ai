@@ -279,6 +279,7 @@ export class FileChatRepository {
           }
           return { records: [], etag: null, tombstone: false };
         }
+        throw storageCorruption("Invalid authoritative tenant shard structure.");
       } catch (err) {
         console.error(`R2 chat read error (${tenantKey}):`, err?.message || err);
         throw err;
@@ -505,7 +506,7 @@ export class FileChatRepository {
   /**
    * Save or update a chat for a tenant.
    */
-  async saveChat({ id, ownerId, title, messages, strategyId, taskId, mustExist = false, expectedRevision = null }) {
+  async saveChat({ id, ownerId, title, messages, appendMessages, strategyId, taskId, mustExist = false, expectedRevision = null }) {
     if (!ownerId) throw new Error("ownerId is required to save chat");
     await this.ensureMigrated();
 
@@ -521,11 +522,16 @@ export class FileChatRepository {
       }
 
       if (existingIndex >= 0) {
+        let finalMessages = messages;
+        if (Array.isArray(appendMessages)) {
+          const currentMsgs = records[existingIndex].messages || [];
+          finalMessages = [...currentMsgs, ...appendMessages];
+        }
         records[existingIndex] = {
           ...records[existingIndex],
           revision: (records[existingIndex].revision || 1) + 1,
           title: title || records[existingIndex].title,
-          messages,
+          messages: finalMessages !== undefined ? finalMessages : records[existingIndex].messages,
           strategyId: strategyId !== undefined ? strategyId : records[existingIndex].strategyId,
           taskId: taskId !== undefined ? taskId : records[existingIndex].taskId,
           updatedAt: now,
@@ -546,14 +552,15 @@ export class FileChatRepository {
         }
       }
       const chatId = validId && !isIdTaken ? validId : randomUUID();
-      const firstUserMsg = messages?.find((m) => m.role === "user")?.content || "";
+      const initialMessages = Array.isArray(appendMessages) ? appendMessages : (messages || []);
+      const firstUserMsg = initialMessages.find((m) => m.role === "user")?.content || "";
       const cleanTitle = title || (firstUserMsg.length > 50 ? `${firstUserMsg.slice(0, 48)}…` : firstUserMsg) || "Yeni söhbət";
       const newRecord = {
         id: chatId,
         ownerId,
         revision: 1,
         title: cleanTitle,
-        messages,
+        messages: initialMessages,
         strategyId: strategyId || null,
         taskId: taskId || null,
         createdAt: now,
@@ -589,8 +596,12 @@ export class FileChatRepository {
     return this.mutateTenant(ownerId, async (records) => {
       const chat = records.find((record) => record.id === id && record.ownerId === ownerId && !record.deleted);
       if (chat && this.artifactRepository) {
-        if (this.cleanupQueue) await this.cleanupQueue.enqueueChat(chat);
-        else await this.artifactRepository.deleteChatArtifacts(chat);
+        if (this.cleanupQueue) {
+          if (typeof this.cleanupQueue.enqueueChat === 'function') await this.cleanupQueue.enqueueChat(chat);
+          else if (typeof this.cleanupQueue.enqueue === 'function') await this.cleanupQueue.enqueue(chat.ownerId, chat.id, 'chat', { messages: chat.messages || [] });
+        } else {
+          await this.artifactRepository.deleteChatArtifacts(chat);
+        }
       }
       const filtered = records.filter((r) => !(r.id === id && r.ownerId === ownerId));
       if (chat) {
@@ -732,8 +743,12 @@ export class FileChatRepository {
 
       if (this.artifactRepository && count > 0) {
         for (const chat of records) {
-          if (this.cleanupQueue) await this.cleanupQueue.enqueueChat(chat);
-        else await this.artifactRepository.deleteChatArtifacts(chat);
+          if (this.cleanupQueue) {
+            if (typeof this.cleanupQueue.enqueueChat === 'function') await this.cleanupQueue.enqueueChat(chat);
+            else if (typeof this.cleanupQueue.enqueue === 'function') await this.cleanupQueue.enqueue(chat.ownerId, chat.id, 'chat', { messages: chat.messages || [] });
+          } else {
+            await this.artifactRepository.deleteChatArtifacts(chat);
+          }
         }
       }
 

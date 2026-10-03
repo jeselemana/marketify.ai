@@ -200,10 +200,10 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
     const userId = req.user.id;
     const [strategies, chats, tasks] = await Promise.all([
       strategyRepository?.readAll
-        ? strategyRepository.readAll().then((list) => (list || []).filter((s) => s.ownerId === userId)).catch(() => [])
+        ? strategyRepository.readAll(userId).catch(() => [])
         : Promise.resolve([]),
       chatRepository?.readAll
-        ? chatRepository.readAll().then((list) => (list || []).filter((c) => c.ownerId === userId)).catch(() => [])
+        ? chatRepository.readAll(userId).catch(() => [])
         : Promise.resolve([]),
       plannerRepository?.list
         ? plannerRepository.list(userId).catch(() => [])
@@ -282,8 +282,11 @@ export function createUserRouter({ userRepository, strategyRepository, chatRepos
 
       // Ensure direct name prefix
       let summaryText = parsed.summary.trim();
-      const namePrefixRegex = new RegExp(`^${firstName}\\b`, "i");
-      if (!namePrefixRegex.test(summaryText)) {
+      const lowerSummary = summaryText.toLowerCase();
+      const lowerFirst = firstName.toLowerCase();
+      const hasPrefix = lowerSummary.startsWith(lowerFirst) &&
+        (lowerSummary.length === lowerFirst.length || /[\s,.:!?]/.test(lowerSummary.charAt(lowerFirst.length)));
+      if (!hasPrefix) {
         summaryText = `${firstName}, ${summaryText.charAt(0).toLowerCase()}${summaryText.slice(1)}`;
       }
 

@@ -74,12 +74,35 @@ export class DistributedResearchService extends ResearchService {
     return result;
   }
 
+  broadcast(jobId, eventData) {
+    super.broadcast(jobId, eventData);
+    if (!jobId || !eventData) return;
+    const job = this.activeJobs.get(jobId);
+    if (eventData.type === 'step' || eventData.type === 'sources') {
+      void this.persistCheckpoint(jobId, { steps: job?.steps || eventData.steps, sources: job?.sources || eventData.sources });
+    } else if (eventData.type === 'done') {
+      void this.persistCheckpoint(jobId, { status: 'completed', content: job?.content || eventData.content, artifacts: job?.artifacts || eventData.artifacts });
+    } else if (eventData.type === 'failed') {
+      void this.persistCheckpoint(jobId, { status: 'failed', error: job?.error || eventData.error });
+    }
+    if (this.redis?.isReady) {
+      this.redis.publish(`helmer:research:${jobId}`, JSON.stringify(eventData)).catch(() => {});
+    }
+  }
+
   async getJob(jobId, ownerId) {
     const local = await super.getJob(jobId, ownerId);
     if (local) return local;
     if (!this.jobStore) return null;
     const remote = await this.jobStore.read(`research:${jobId}`);
     if (remote && (!ownerId || remote.ownerId === ownerId)) {
+      if (remote.chatId && this.chatRepository) {
+        const chat = await this.chatRepository.getById(remote.chatId, remote.ownerId || ownerId).catch(() => null);
+        if (chat && chat.deleted) {
+          await this.persistCheckpoint(jobId, { status: 'deleted', content: null, prompt: null });
+          return null;
+        }
+      }
       return remote;
     }
     return null;
@@ -109,12 +132,15 @@ export class DistributedResearchService extends ResearchService {
   }
 
   async cancelJob(jobId, ownerId) {
+    const job = await this.getJob(jobId, ownerId);
+    if (!job) return false;
+    if (ownerId && job.ownerId && job.ownerId !== ownerId) return false;
     const cancelledLocally = await super.cancelJob(jobId, ownerId);
     await this.persistCheckpoint(jobId, { status: 'cancelled' });
     if (this.redis?.isReady) {
-      await this.redis.publish('helmer:research:cancel', JSON.stringify({ jobId, ownerId })).catch(() => {});
+      await this.redis.publish('helmer:research:cancel', JSON.stringify({ jobId, ownerId: job.ownerId })).catch(() => {});
     }
-    return cancelledLocally || true;
+    return Boolean(cancelledLocally || true);
   }
 
   async resumeOrphanedJobs() {
@@ -122,10 +148,12 @@ export class DistributedResearchService extends ResearchService {
     if (!this.jobStore) return;
     try {
       const entries = await this.jobStore.entries();
+      const now = Date.now();
       for (const entry of entries) {
         if (!entry.key?.startsWith('research:')) continue;
         const job = entry.value;
-        if (job && (job.status === 'running' || job.status === 'pending') && !this.activeJobs.has(job.id)) {
+        const age = now - new Date(job?.updatedAt || job?.createdAt || 0).getTime();
+        if (job && (job.status === 'running' || job.status === 'pending') && !this.activeJobs.has(job.id) && age > 15 * 60 * 1000) {
           console.log(`[Distributed Research] Marking interrupted job ${job.id}`);
           await this.persistCheckpoint(job.id, { status: 'interrupted' });
         }

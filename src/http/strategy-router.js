@@ -152,6 +152,14 @@ function resolveLanguage(req, payloadLang) {
   return "az";
 }
 
+function getReqPrivacySnapshot(req) {
+  if (req?.securityContext?.privacySnapshot) return req.securityContext.privacySnapshot;
+  if (req?.user) {
+    return { enabled: req.user.settings?.modelImprovement === true, epoch: req.user.privacyEpoch || 0, ownerId: req.user.id };
+  }
+  return null;
+}
+
 async function runTrackedBuild({
   learningLoop,
   telemetryService,
@@ -162,6 +170,7 @@ async function runTrackedBuild({
   execute,
   onlyNecessaryData = false,
   modelImprovement = true,
+  privacySnapshot = null,
 }) {
   if (!learningLoop && !telemetryService) return { result: await execute(() => {}), interactionId: null };
   const interactionId = learningLoop ? learningLoop.createInteractionId() : null;
@@ -186,6 +195,7 @@ async function runTrackedBuild({
         requestStatus: "success",
         onlyNecessaryData: isRestricted,
         modelImprovement: !isRestricted,
+        privacySnapshot,
       }), `Build ${taskType} logging`);
     }
     if (telemetryService) {
@@ -221,6 +231,7 @@ async function runTrackedBuild({
         errorType: error?.code || error?.name || "BUILD_ERROR",
         onlyNecessaryData: isRestricted,
         modelImprovement: !isRestricted,
+        privacySnapshot,
       }), `Build ${taskType} failure logging`);
     }
     if (telemetryService) {
@@ -252,11 +263,14 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
     asyncRoute(async (req, res) => {
       const payload = parse(AssessRequestSchema, req.body);
       const abortController = new AbortController();
-      const onClose = () => {
+      const onReqClose = () => {
+        if (!req.complete && !res.writableEnded) abortController.abort();
+      };
+      const onResClose = () => {
         if (!res.writableEnded) abortController.abort();
       };
-      if (typeof req?.on === "function") req.on("close", onClose);
-      if (typeof res?.on === "function") res.on("close", onClose);
+      if (typeof req?.on === "function") req.on("close", onReqClose);
+      if (typeof res?.on === "function") res.on("close", onResClose);
 
       try {
         const language = resolveLanguage(req, payload.language);
@@ -271,14 +285,15 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           execute: (onUsage) => assessBrief({ ...payload, language, ownerId: req.ownerId, personalizationContext, signal: abortController.signal, onUsage }),
           onlyNecessaryData: !modelImprovement,
           modelImprovement,
+          privacySnapshot: getReqPrivacySnapshot(req),
         });
         const assessment = tracked.result;
         if (!res.writableEnded) {
           res.json({ assessment });
         }
       } finally {
-        if (typeof req?.off === "function") req.off("close", onClose);
-        if (typeof res?.off === "function") res.off("close", onClose);
+        if (typeof req?.off === "function") req.off("close", onReqClose);
+        if (typeof res?.off === "function") res.off("close", onResClose);
       }
     }),
   );
@@ -444,6 +459,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
             }),
           onlyNecessaryData: !modelImprovement,
           modelImprovement,
+          privacySnapshot: getReqPrivacySnapshot(req),
         });
 
         generationSignal.throwIfAborted();
@@ -554,6 +570,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
       let disconnected = false;
 
       const onClose = () => {
+        if (req.complete && !res.destroyed && !res.closed) return;
         disconnected = true;
         if (generationEntry) {
           generationEntry.subscribers?.delete(subscriberId);
@@ -640,11 +657,14 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
     asyncRoute(async (req, res) => {
       const payload = parse(RefineRequestSchema, req.body);
       const abortController = new AbortController();
-      const onClose = () => {
+      const onReqClose = () => {
+        if (!req.complete && !res.writableEnded) abortController.abort();
+      };
+      const onResClose = () => {
         if (!res.writableEnded) abortController.abort();
       };
-      if (typeof req?.on === "function") req.on("close", onClose);
-      if (typeof res?.on === "function") res.on("close", onClose);
+      if (typeof req?.on === "function") req.on("close", onReqClose);
+      if (typeof res?.on === "function") res.on("close", onResClose);
 
       const fingerprint = computePayloadFingerprint("refine", payload);
       const refineKey = payload.idempotencyKey ? `${req.ownerId}:${payload.idempotencyKey}` : null;
@@ -678,6 +698,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
             execute: (onUsage) => refineStrategy({ ...payload, language }, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
             onlyNecessaryData: !modelImprovement,
             modelImprovement,
+            privacySnapshot: getReqPrivacySnapshot(req),
           });
           return { strategy: tracked.result };
         };
@@ -696,8 +717,8 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           res.json(result);
         }
       } finally {
-        if (typeof req?.off === "function") req.off("close", onClose);
-        if (typeof res?.off === "function") res.off("close", onClose);
+        if (typeof req?.off === "function") req.off("close", onReqClose);
+        if (typeof res?.off === "function") res.off("close", onResClose);
       }
     }),
   );
@@ -705,11 +726,14 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
   const handleSummary = asyncRoute(async (req, res) => {
     const payload = parse(StrategySummaryRequestSchema, req.body);
     const abortController = new AbortController();
-    const onClose = () => {
+    const onReqClose = () => {
+      if (!req.complete && !res.writableEnded) abortController.abort();
+    };
+    const onResClose = () => {
       if (!res.writableEnded) abortController.abort();
     };
-    if (typeof req?.on === "function") req.on("close", onClose);
-    if (typeof res?.on === "function") res.on("close", onClose);
+    if (typeof req?.on === "function") req.on("close", onReqClose);
+    if (typeof res?.on === "function") res.on("close", onResClose);
 
     try {
       const language = resolveLanguage(req, payload.language);
@@ -775,8 +799,8 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
       }
       throw summaryErr;
     } finally {
-      if (typeof req?.off === "function") req.off("close", onClose);
-      if (typeof res?.off === "function") res.off("close", onClose);
+      if (typeof req?.off === "function") req.off("close", onReqClose);
+      if (typeof res?.off === "function") res.off("close", onResClose);
     }
   });
 
@@ -863,11 +887,14 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
       }
 
       const abortController = new AbortController();
-      const onClose = () => {
+      const onReqClose = () => {
+        if (!req.complete && !res.writableEnded) abortController.abort();
+      };
+      const onResClose = () => {
         if (!res.writableEnded) abortController.abort();
       };
-      if (typeof req?.on === "function") req.on("close", onClose);
-      if (typeof res?.on === "function") res.on("close", onClose);
+      if (typeof req?.on === "function") req.on("close", onReqClose);
+      if (typeof res?.on === "function") res.on("close", onResClose);
 
       try {
         const executeRefine = async () => {
@@ -882,6 +909,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
             execute: (onUsage) => refineStrategy({ ...payload, language }, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
             onlyNecessaryData: !modelImprovement,
             modelImprovement,
+            privacySnapshot: getReqPrivacySnapshot(req),
           });
           const strategy = tracked.result;
           const changeRequest = payload.action === "custom" ? payload.request : payload.action;
@@ -896,6 +924,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
             logWithoutBlocking(
               learningLoop.recordIteration({
                 parentInteractionId: existing.learningInteractionId, interactionId: tracked.interactionId, ownerId: req.ownerId,
+                privacySnapshot: getReqPrivacySnapshot(req),
                 modificationRequest: changeRequest, response: strategy, modelProvider: tracked.providerMeta.provider,
                 modelName: tracked.providerMeta.model, finalAccepted: false,
               }),
@@ -919,8 +948,8 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           res.json(result);
         }
       } finally {
-        if (typeof req?.off === "function") req.off("close", onClose);
-        if (typeof res?.off === "function") res.off("close", onClose);
+        if (typeof req?.off === "function") req.off("close", onReqClose);
+        if (typeof res?.off === "function") res.off("close", onResClose);
       }
     }),
   );
