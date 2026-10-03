@@ -346,7 +346,7 @@ test('UP challenge answer submission passes through production AI security middl
   await auth.createSession(hashOpaqueToken(token), user.id, 3600);
   const cookie = `helmer_session=${token}`;
 
-  const aiPolicy = new AiPolicy({ redis: null, env: { NODE_ENV: 'production' } });
+  const aiPolicy = new AiPolicy({ redis: null, env: { NODE_ENV: 'production', REDIS_URL: 'redis://127.0.0.1:6379' } });
   const app = express();
   app.use(createIdentityMiddleware({ userRepository: users, authStore: auth }));
   app.use(aiPolicy.middleware());

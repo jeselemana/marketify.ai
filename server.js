@@ -187,9 +187,9 @@ app.get("/manifest.json", (req, res) => {
 
 // 🩺 Health & Storage Diagnostics
 app.get("/api/health", (req, res) => {
-  if (process.env.NODE_ENV === "production" && !redis?.isReady) res.status(503);
+  if (process.env.NODE_ENV === "production" && process.env.REDIS_URL && !redis?.isReady) res.status(503);
   return res.json({
-    status: process.env.NODE_ENV !== "production" || redis?.isReady ? "ok" : "unavailable",
+    status: process.env.NODE_ENV !== "production" || !process.env.REDIS_URL || redis?.isReady ? "ok" : "unavailable",
     app: "Helmer",
     storage: {
       r2Configured: isR2Configured(),

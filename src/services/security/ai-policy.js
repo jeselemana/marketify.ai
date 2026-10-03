@@ -27,7 +27,7 @@ export function isAiRequest(req) {
 export class AiPolicy {
   constructor({ redis, env = process.env, fetcher = fetch }) { this.redis = redis; this.env = env; this.fetcher = fetcher; }
   ready() {
-    if (this.env.NODE_ENV === 'production' && !this.redis?.isReady) throw fail('EXECUTION_UNAVAILABLE');
+    if (this.env.NODE_ENV === 'production' && (this.env.REDIS_URL || this.env.REQUIRE_REDIS === 'true') && !this.redis?.isReady) throw fail('EXECUTION_UNAVAILABLE');
     if (this.redis && !this.redis.isReady) throw fail('EXECUTION_UNAVAILABLE');
   }
   async turnstile(req) {
@@ -60,7 +60,7 @@ export class AiPolicy {
       if (!isAiRequest(req)) return next();
       let controller;
       if (!this.redis?.isReady) {
-        if (this.env.NODE_ENV === 'production') {
+        if (this.env.NODE_ENV === 'production' && (this.env.REDIS_URL || this.env.REQUIRE_REDIS === 'true')) {
           return res.status(503).json({ code: 'EXECUTION_UNAVAILABLE', error: 'Sorğu icra edilə bilmədi.' });
         }
         controller = new AbortController();
@@ -122,7 +122,7 @@ export class AiPolicy {
   }
   async reserveProvider(context, params) {
     if (!this.redis?.isReady) {
-      if (this.env.NODE_ENV === 'production') throw fail('EXECUTION_UNAVAILABLE', 503);
+      if (this.env.NODE_ENV === 'production' && (this.env.REDIS_URL || this.env.REQUIRE_REDIS === 'true')) throw fail('EXECUTION_UNAVAILABLE', 503);
       return async () => {};
     }
     this.ready();
