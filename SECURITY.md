@@ -1,3 +1,11 @@
+# Security Policy & Operational Protocols
+
+## Reporting Security Issues
+
+If you discover a security vulnerability within Helmer / Marketify.ai, please send an email to the security team or repository administrator. Please do not disclose vulnerabilities publicly until they have been patched.
+
+---
+
 # Helmer Security, Architecture, and Code Integrity Rules
 
 These directives are MANDATORY and NON-NEGOTIABLE across all coding, refactoring, feature implementation, and deployment sessions in the Helmer project. Any deviation, simplification, or shortcut is strictly forbidden.

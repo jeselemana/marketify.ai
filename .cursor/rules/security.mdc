@@ -1,3 +1,9 @@
+---
+description: Helmer Security, Architecture, and Code Integrity Rules
+globs: *
+alwaysApply: true
+---
+
 # Helmer Security, Architecture, and Code Integrity Rules
 
 These directives are MANDATORY and NON-NEGOTIABLE across all coding, refactoring, feature implementation, and deployment sessions in the Helmer project. Any deviation, simplification, or shortcut is strictly forbidden.
