@@ -4,13 +4,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { t, TRANSLATIONS } from "../public/i18n.js";
 
-test("index.html: whatsNewNav exists in sidebar with sparkle icon, label, and v3.5 badge", async () => {
+test("index.html: whatsNewNav exists in sidebar with sparkle icon, label, and v4.0 badge", async () => {
   const html = await fs.readFile(path.join(process.cwd(), "public/index.html"), "utf8");
 
   // Navigation item
   assert.ok(html.includes('id="whatsNewNav"'), "whatsNewNav button element exists");
   assert.ok(html.includes('class="whats-new-label">Yeniliklər<'), "whats-new-label exists with default Azerbaijani text");
-  assert.ok(html.includes('class="whats-new-badge">v3.5<'), "v3.5 indicator pill exists");
+  assert.ok(html.includes('class="whats-new-badge">v4.0<'), "v4.0 indicator pill exists");
 
   // Sparkles icon
   assert.ok(
@@ -29,7 +29,7 @@ test("index.html: whatsNewNav exists in sidebar with sparkle icon, label, and v3
   assert.ok(settingsIndex < whatsNewIndex, "settingsNav precedes whatsNewNav in primary navigation");
 });
 
-test("i18n.js: changelog translations have 100% key parity and contain complete timeline v1.0 to v3.5", () => {
+test("i18n.js: changelog translations have 100% key parity and contain complete timeline v1.0 to v4.0", () => {
   // Navigation key parity
   assert.equal(t("nav.whatsNew", {}, "az"), "Yeniliklər");
   assert.equal(t("nav.whatsNew", {}, "en"), "What's new");
@@ -46,25 +46,46 @@ test("i18n.js: changelog translations have 100% key parity and contain complete 
   assert.equal(azChangelog.versions.length, 5, "AZ timeline contains 5 versions (v4.0, v3.5, v3.0, v2.0, v1.0)");
   assert.equal(enChangelog.versions.length, 5, "EN timeline contains 5 versions");
 
-  // v4.0 (Upcoming Ambitious Milestone)
+  // v4.0 (Current Major Leap)
   const azV40 = azChangelog.versions[0];
   const enV40 = enChangelog.versions[0];
   assert.equal(azV40.version, "v4.0");
-  assert.equal(azV40.status, "Tezliklə");
-  assert.equal(azV40.isUpcoming, true);
-  assert.ok(azV40.highlights.some((h) => h.includes("Helmer-in ən iddialı yeniliyi")));
-  assert.equal(enV40.version, "v4.0");
-  assert.equal(enV40.status, "Coming Soon");
-  assert.equal(enV40.isUpcoming, true);
-  assert.ok(enV40.highlights.some((h) => h.includes("Helmer's most ambitious milestone")));
+  assert.equal(azV40.status, "Cari versiya");
+  assert.equal(azV40.isCurrent, true);
+  assert.equal(azV40.isUpcoming, false);
+  assert.ok(azV40.subtitle.includes("Yüksək təhlükəsizlik standartlarına cavab verən yeni müasir təməl arxitektura"));
+  assert.ok(azV40.highlights.some((h) => h.includes("müasir təməl arxitektura")));
+  assert.ok(azV40.highlights.some((h) => h.includes("HelmerUp") && h.includes("məşqləri")));
+  assert.ok(azV40.highlights.some((h) => h.includes("Deep Research")));
+  assert.ok(azV40.highlights.some((h) => h.includes("Word") && h.includes("Excel") && h.includes("PDF") && h.includes("PowerPoint")));
+  assert.ok(azV40.highlights.some((h) => h.includes("Search Grounding") && h.includes("Build")));
+  assert.ok(azV40.highlights.some((h) => h.includes("çıxış keyfiyyəti") && h.includes("təlimatlar")));
+  assert.ok(azV40.highlights.some((h) => h.includes("Çoxmodeli") && h.includes("bir neçə")));
 
-  // v3.5 (Current)
+  assert.equal(enV40.version, "v4.0");
+  assert.equal(enV40.status, "Current Version");
+  assert.equal(enV40.isCurrent, true);
+  assert.equal(enV40.isUpcoming, false);
+  assert.ok(enV40.subtitle.includes("Modern foundational architecture"));
+  assert.ok(enV40.highlights.some((h) => h.includes("security standards")));
+  assert.ok(enV40.highlights.some((h) => h.includes("HelmerUp") && h.includes("workouts")));
+  assert.ok(enV40.highlights.some((h) => h.includes("Deep Research")));
+  assert.ok(enV40.highlights.some((h) => h.includes("Word") && h.includes("Excel") && h.includes("PDF") && h.includes("PowerPoint")));
+  assert.ok(enV40.highlights.some((h) => h.includes("Search Grounding") && h.includes("Build")));
+  assert.ok(enV40.highlights.some((h) => h.includes("output quality") && h.includes("instruction")));
+  assert.ok(enV40.highlights.some((h) => h.includes("Multi-model") && h.includes("multiple")));
+
+  // v3.5 (Previous Release)
   const azV35 = azChangelog.versions[1];
   const enV35 = enChangelog.versions[1];
   assert.equal(azV35.version, "v3.5");
-  assert.equal(azV35.isCurrent, true);
+  assert.equal(azV35.status, "Buraxılış");
+  assert.equal(azV35.isCurrent, false);
+  assert.equal(azV35.isUpcoming, false);
   assert.equal(enV35.version, "v3.5");
-  assert.equal(enV35.isCurrent, true);
+  assert.equal(enV35.status, "Release");
+  assert.equal(enV35.isCurrent, false);
+  assert.equal(enV35.isUpcoming, false);
   assert.ok(azV35.highlights.some((h) => h.includes("Epistemic humility") && h.includes("grounding")));
   assert.ok(azV35.highlights.some((h) => h.includes("Azerbaijan Market Engine") && h.includes("istehlakçı")));
   assert.ok(azV35.highlights.some((h) => h.includes("UI/UX") && h.includes("sabitliyi")));
@@ -78,7 +99,10 @@ test("i18n.js: changelog translations have 100% key parity and contain complete 
 
   // v2.0
   const azV20 = azChangelog.versions[3];
+  const enV20 = enChangelog.versions[3];
   assert.equal(azV20.version, "v2.0");
+  assert.equal(azV20.date, "Noyabr 2025", "v2.0 release date in AZ is Noyabr 2025");
+  assert.equal(enV20.date, "November 2025", "v2.0 release date in EN is November 2025");
   assert.ok(azV20.highlights.some((h) => h.includes("Avtonom")));
 
   // v1.0

@@ -194,10 +194,22 @@ test("index.html and style.css: sidebar navigation icons use smooth rounded ~20p
   const gearPath = 'd="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"';
   assert.ok(railSettingsMatch[1].includes(gearPath), "railSettingsButton uses full gear SVG path");
   assert.ok(settingsNavMatch[1].includes(gearPath), "settingsNav uses full gear SVG path");
-  // Sidebar close uses minimalist PanelLeftClose
+  // Sidebar close uses minimalist PanelLeftClose on desktop and clean X icon on mobile
   assert.ok(
     html.includes('d="m16 15-3-3 3-3"'),
-    "sidebarClose uses minimalist PanelLeftClose icon"
+    "sidebarClose uses minimalist PanelLeftClose icon for desktop"
+  );
+  assert.ok(
+    html.includes('d="m18 6-12 12M6 6l12 12"'),
+    "sidebarClose uses clean X icon for mobile navigation"
+  );
+  assert.ok(
+    css.includes(".sidebar-close .sidebar-close-desktop"),
+    "sidebar-close-desktop rule exists in CSS"
+  );
+  assert.ok(
+    css.includes(".sidebar-close .sidebar-close-mobile"),
+    "sidebar-close-mobile rule exists in CSS"
   );
 
   // CSS enforces 20px dimensions, 1.75 stroke-width, and smooth rounded caps

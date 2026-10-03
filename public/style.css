@@ -648,6 +648,14 @@ body.sidebar-open .navigation-rail {
   transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), color 150ms ease;
 }
 
+.sidebar-close .sidebar-close-desktop {
+  display: block;
+}
+
+.sidebar-close .sidebar-close-mobile {
+  display: none;
+}
+
 .sidebar-close:hover svg {
   transform: rotate(-10deg) scale(1.05);
   color: #18181b;
@@ -8023,10 +8031,23 @@ html.dark .ask-inline-link {
   transform-origin: bottom left;
 }
 
-.ask-context-popover.is-downwards {
-  top: calc(100% + 8px);
-  bottom: auto;
-  transform-origin: top left;
+@media (min-width: 768px) {
+  .ask-context-popover.is-downwards,
+  .workspace-intake .ask-context-popover,
+  .workspace-ask.is-empty .ask-context-popover,
+  .ask-shell.is-empty .ask-context-popover {
+    top: calc(100% + 8px);
+    bottom: auto;
+    transform-origin: top left;
+  }
+
+  .ask-plugin-selector.is-downwards,
+  .workspace-intake .ask-plugin-selector,
+  .workspace-ask.is-empty .ask-plugin-selector,
+  .ask-shell.is-empty .ask-plugin-selector {
+    top: calc(100% + 12px);
+    bottom: auto;
+  }
 }
 
 :root[data-theme="dark"] .ask-context-popover,
@@ -8197,23 +8218,27 @@ html.dark .ask-context-menu-option:hover .ask-context-menu-option-copy small {
   justify-content: center;
   width: 14px;
   height: 14px;
-  color: #d4d4d8;
+  color: #71717a;
+  opacity: 0.85;
   flex-shrink: 0;
-  transition: color 150ms ease;
+  transition: color 150ms ease, opacity 150ms ease;
 }
 
 .ask-context-menu-option:hover .ask-context-menu-chevron {
-  color: #71717a;
+  color: #18181b;
+  opacity: 1;
 }
 
 :root[data-theme="dark"] .ask-context-menu-chevron,
 html.dark .ask-context-menu-chevron {
-  color: #52525b;
+  color: #a1a1aa;
+  opacity: 0.85;
 }
 
 :root[data-theme="dark"] .ask-context-menu-option:hover .ask-context-menu-chevron,
 html.dark .ask-context-menu-option:hover .ask-context-menu-chevron {
-  color: #a1a1aa;
+  color: #ffffff;
+  opacity: 1;
 }
 
 .ask-context-menu-divider {
@@ -8715,8 +8740,8 @@ html.dark .ask-context-archive:hover {
 
 .ask-submit:disabled {
   background: var(--bg-soft);
-  color: var(--text-tertiary);
-  opacity: 0.7;
+  color: var(--text-secondary, #475467);
+  opacity: 0.92;
 }
 
 .ask-submit.is-stop,
@@ -9607,7 +9632,17 @@ html:not(.dark) .mobile-model-options .ask-thinking-card {
   }
 
   .sidebar-close {
-    display: grid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar-close .sidebar-close-desktop {
+    display: none !important;
+  }
+
+  .sidebar-close .sidebar-close-mobile {
+    display: block !important;
   }
 
   .mobile-overlay {
@@ -23427,7 +23462,18 @@ html.dark .planner-submit-btn:disabled svg {
 html.dark .composer-submit:disabled .button-arrow,
 html.dark .workspace-centered .composer-submit:disabled .button-arrow,
 html.dark .ask-submit:disabled span {
-  color: #64748b !important;
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .ask-submit:disabled,
+html.dark .ask-submit:disabled {
+  opacity: 0.9 !important;
+}
+
+[data-theme="dark"] .ask-submit:disabled svg,
+html.dark .ask-submit:disabled svg {
+  color: #94a3b8 !important;
+  stroke: #94a3b8 !important;
 }
 
 /* Mode switch & Toggle Controls in Dark Theme (High Contrast White) */

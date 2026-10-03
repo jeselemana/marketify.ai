@@ -9,8 +9,25 @@
     globe: ["M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z", "M2 12h20M12 2c5 5 5 15 0 20-5-5-5-15 0-20Z"],
     research: ["M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z", "m21 21-4.35-4.35", "M11 7v4l2.5 1.5"],
   };
-  function capabilityIcon(type) {
-    const wrap = node("span", "ask-plugin-icon"), svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const brandLogos = {
+    word: '<svg viewBox="0 0 48 48" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#41a5ee" d="M14 4c-1.1 0-2 .9-2 2v8l17 6 17-6V6c0-1.1-.9-2-2-2H14z"/><path fill="#2b7cd3" d="M12 14h34v10l-17 4-17-4V14z"/><path fill="#1650a7" d="M12 24h34v10l-17 4-17-4V24z"/><path fill="#103f91" d="M12 34v8c0 1.1.9 2 2 2h30c1.1 0 2-.9 2-2v-8H12z"/><rect x="2" y="13" width="22" height="22" rx="3" fill="#185abd"/><path fill="#ffffff" d="M18.53 31h-2.52l-2.94-9.66-3.08 9.66H7.47L4.67 17h2.52l1.96 9.8 2.94-9.8h2.1l2.8 9.8 1.96-9.8h2.38L18.53 31z"/></svg>',
+    excel: '<svg viewBox="0 0 48 48" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#185c37" d="M46 34v8c0 1.1-.9 2-2 2H14c-1.1 0-2-.9-2-2V23h16l1 1v10h17z"/><path fill="#21a366" d="M14 4h15l17 10v11H30l-1-1-17-10V6c0-1.1.9-2 2-2z"/><path fill="#33c481" d="M29 4h15c1.1 0 2 .9 2 2v8H29V4z"/><path fill="#107c41" d="M12 14h17v10H12zM29 24h17v10H29z"/><rect x="2" y="13" width="22" height="22" rx="3" fill="#0e6f3a"/><path fill="#ffffff" d="M6.75 31l4.53-7.02L7.13 17h3.34l2.69 5.41L16.08 17h3.07l-4.26 6.94L19.25 31h-3.26l-2.97-5.55L10.03 31H6.75z"/></svg>',
+    powerpoint: '<svg viewBox="0 0 48 48" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#ed6c47" d="M26 4A20 20 0 0 0 6 24l25.34 5.34L26 4z"/><path fill="#ff8f6b" d="M26 4a20 20 0 0 1 20 20l-10 6.8L26 24V4z"/><path fill="#d35230" d="M26 44a20 20 0 0 0 20-20H6a20 20 0 0 0 20 20z"/><rect x="2" y="13" width="22" height="22" rx="3" fill="#c43e1c"/><path fill="#ffffff" d="M8 17h5.02c1.28-.09 2.54.31 3.57 1.13.86.82 1.31 2.02 1.24 3.26.01.79-.2 1.77-.61 2.42-.42.72-1.03 1.3-1.74 1.66-.82.41-1.71.54-2.62.52H11v5H8V17zm3 3v3.98h1.83c.6 0 1.2-.14 1.62-.43.37-.28.55-.61.55-.98 0-1.06-.7-1.59-2.1-1.59H11z"/></svg>',
+    pdf: '<svg viewBox="0 0 32 32" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="32" height="32" rx="6" fill="#e5252a"/><path fill="#ffffff" d="M25.53 18.44c-1.5-1.6-5.59-.9-6.58-.8-1.4-1.4-2.39-2.99-2.79-3.59.5-1.5.9-3.19.9-4.79 0-1.5-.6-2.99-2.19-2.99-.6 0-1.1.3-1.4.8-.7 1.2-.4 3.59.7 6.08-.6 1.8-1.6 4.48-2.79 6.57-1.6.6-5.08 2.19-5.38 3.99-.1.5.1 1.1.5 1.4.4.4.9.5 1.4.5 2.09 0 4.19-2.89 5.69-5.49 1.2-.4 3.09-1 4.99-1.3 2.19 2 4.19 2.29 5.19 2.29 1.4 0 1.9-.6 2.09-1.1.26-.47.07-1.17-.33-1.57zM24.13 19.44c-.1.4-.6.8-1.5.6-1.1-.3-2.09-.8-2.89-1.5.7-.1 2.39-.3 3.59-.1.4.1.9.4.8 1zm-9.68-11.96c.1-.2.3-.3.5-.3.5 0 .6.6.6 1.1 0 1.2-.2 2.49-.6 3.59-.8-2.19-.7-3.79-.5-4.39zm-.1 11.26c.5-.9 1.1-2.59 1.3-3.19.5.9 1.4 1.9 1.8 2.39.1-.09-1.7.29-3.1.8zm-3.39 2.3c-1.39 2.19-2.69 3.59-3.49 3.59-.1 0-.3 0-.4-.1-.1-.2-.2-.4-.1-.6.1-.8 1.7-1.9 3.99-2.89z"/></svg>',
+  };
+  function capabilityIcon(type, id) {
+    const wrap = node("span", "ask-plugin-icon");
+    const key = String(id || type || "").toLowerCase();
+    const brandKey = key === "word" || (key === "document" && (!id || id === "word")) ? "word"
+      : key === "excel" || (key === "spreadsheet" && (!id || id === "excel")) ? "excel"
+      : key === "powerpoint" || (key === "presentation" && (!id || id === "powerpoint")) ? "powerpoint"
+      : key === "pdf" ? "pdf"
+      : null;
+    if (brandKey && brandLogos[brandKey]) {
+      wrap.innerHTML = brandLogos[brandKey];
+      return wrap;
+    }
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     for (const [name, value] of Object.entries({ viewBox: "0 0 24 24", width: "18", height: "18", fill: "none", stroke: "currentColor", "stroke-width": "1.6", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" })) svg.setAttribute(name, value);
     for (const data of iconPaths[type] || ["M12 3l9 9-9 9-9-9Z"]) { const path = document.createElementNS("http://www.w3.org/2000/svg", "path"); path.setAttribute("d", data); svg.append(path); }
     wrap.append(svg); return wrap;
@@ -29,13 +46,13 @@
     body.prepend(chips); body.append(popup);
     input.setAttribute("aria-controls", popup.id); input.setAttribute("aria-expanded", "false"); input.setAttribute("aria-autocomplete", "list");
     let plugins = [], matches = [], active = 0, queryRange = null;
-    const close = () => { popup.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); queryRange = null; };
+    const close = () => { popup.hidden = true; popup.classList.remove("is-downwards"); input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); queryRange = null; };
     const drawChips = () => {
       chips.replaceChildren();
       for (const id of getSelection()) {
         const plugin = plugins.find(item => item.id === id);
         const chip = node("span", "ask-plugin-token");
-        chip.append(capabilityIcon(plugin?.icon), node("span", "", `@${plugin?.name || id}`));
+        chip.append(capabilityIcon(plugin?.icon, plugin?.id || id), node("span", "", `@${plugin?.name || id}`));
         const remove = node("button", "ask-plugin-token-remove", "×"); remove.type = "button"; remove.disabled = disabled;
         remove.setAttribute("aria-label", `${isEn() ? "Remove" : "Sil"} @${plugin?.name || id}`);
         remove.addEventListener("click", () => { setSelection(getSelection().filter(value => value !== id)); drawChips(); input.focus(); }); chip.append(remove); chips.append(chip);
@@ -56,7 +73,7 @@
         option.id = `${popup.id}-${index}`; option.setAttribute("role", "option"); option.setAttribute("aria-selected", String(index === active));
         option.disabled = plugin.status !== "available";
         const copy = node("span", "ask-plugin-option-copy"); copy.append(node("strong", "", `@${plugin.name}`), node("small", "", plugin.status === "available" ? (isEn() ? plugin.descriptionEn || plugin.description : plugin.description) : (isEn() ? "Currently unavailable" : "Hazırda əlçatan deyil")));
-        option.append(capabilityIcon(plugin.icon), copy);
+        option.append(capabilityIcon(plugin.icon, plugin.id), copy);
         option.addEventListener("pointerdown", event => event.preventDefault()); option.addEventListener("click", () => choose(plugin)); popup.append(option);
       });
       if (matches[active]) input.setAttribute("aria-activedescendant", `${popup.id}-${active}`);
@@ -68,7 +85,11 @@
       if (!match) return close();
       queryRange = { start: cursor - match[1].length - 1, end: cursor };
       matches = plugins.filter(plugin => !getSelection().includes(plugin.id) && `${plugin.name} ${plugin.description} ${plugin.descriptionEn || ""}`.toLowerCase().includes(match[1].toLowerCase()));
-      active = 0; popup.hidden = false; input.setAttribute("aria-expanded", "true"); drawPopup();
+      active = 0; popup.hidden = false; input.setAttribute("aria-expanded", "true");
+      const isDesktop = typeof window !== "undefined" && window.innerWidth >= 768;
+      const isMainPage = Boolean(popup.closest && popup.closest(".workspace-intake, .workspace-ask.is-empty, .ask-shell.is-empty"));
+      popup.classList.toggle("is-downwards", Boolean(isDesktop && isMainPage));
+      drawPopup();
     };
     input.addEventListener("input", search); input.addEventListener("click", search);
     input.addEventListener("keydown", event => {

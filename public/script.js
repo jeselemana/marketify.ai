@@ -2708,6 +2708,8 @@ function openSidebar() {
   mobileMenuButton?.setAttribute("aria-expanded", "true");
   document.querySelector("#mobileChatMenuButton")?.setAttribute("aria-expanded", "true");
   railMenuButton.setAttribute("aria-expanded", "true");
+  const mobileMenuSpan = mobileMenuButton?.querySelector("span");
+  if (mobileMenuSpan) mobileMenuSpan.textContent = "✕";
 }
 
 function closeSidebar() {
@@ -2717,6 +2719,8 @@ function closeSidebar() {
   mobileMenuButton?.setAttribute("aria-expanded", "false");
   document.querySelector("#mobileChatMenuButton")?.setAttribute("aria-expanded", "false");
   railMenuButton.setAttribute("aria-expanded", "false");
+  const mobileMenuSpan = mobileMenuButton?.querySelector("span");
+  if (mobileMenuSpan) mobileMenuSpan.textContent = "☰";
 }
 
 function syncLanguageControls() {
@@ -2880,6 +2884,10 @@ function syncNav() {
   const whatsNewLabel = whatsNewNav?.querySelector(".whats-new-label");
   if (whatsNewLabel) {
     whatsNewLabel.textContent = t("nav.whatsNew");
+  }
+  const whatsNewBadge = whatsNewNav?.querySelector(".whats-new-badge");
+  if (whatsNewBadge) {
+    whatsNewBadge.textContent = "v4.0";
   }
   if (whatsNewNav) {
     whatsNewNav.setAttribute("aria-label", t("nav.whatsNew"));
@@ -3364,25 +3372,27 @@ function renderIntake() {
     }
   });
 
-  const contextPopover = element("div", "ask-context-popover");
+  const isDesktop = typeof window !== "undefined" && window.innerWidth >= 768;
+  const contextPopover = element("div", `ask-context-popover${isDesktop ? " is-downwards" : ""}`);
   let contextPane = "main";
   const drawBuildMenu = () => {
     contextPopover.replaceChildren();
-    if (contextPane === "prompts") {
+    if (typeof window !== "undefined" && window.innerWidth >= 768) {
       contextPopover.classList.add("is-downwards");
+    } else {
+      contextPopover.classList.remove("is-downwards");
+    }
+    if (contextPane === "prompts") {
       addPresetPromptPane(contextPopover, "build", (prompt) => {
         contextMenu.open = false;
         contextPane = "main";
-        contextPopover.classList.remove("is-downwards");
         appendPresetPrompt(textarea, prompt, resizeInput);
       }, () => {
         contextPane = "main";
-        contextPopover.classList.remove("is-downwards");
         drawBuildMenu();
       });
       return;
     }
-    contextPopover.classList.remove("is-downwards");
     contextPopover.appendChild(element("strong", "ask-context-menu-heading", isEn ? "Add" : "Əlavə et"));
     contextPopover.appendChild(element("div", "ask-context-menu-divider"));
 
@@ -3828,16 +3838,16 @@ function getArtifactFormatDisplayName(type) {
 function getArtifactFormatIcon(type) {
   const ext = String(type || "").toLowerCase().replace(/^\./, "");
   if (ext === "xlsx" || ext === "excel") {
-    return `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ask-artifact-menu-icon is-excel"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>`;
+    return `<svg viewBox="0 0 48 48" width="16" height="16" fill="none" class="ask-artifact-menu-icon is-excel"><path fill="#185c37" d="M46 34v8c0 1.1-.9 2-2 2H14c-1.1 0-2-.9-2-2V23h16l1 1v10h17z"/><path fill="#21a366" d="M14 4h15l17 10v11H30l-1-1-17-10V6c0-1.1.9-2 2-2z"/><path fill="#33c481" d="M29 4h15c1.1 0 2 .9 2 2v8H29V4z"/><path fill="#107c41" d="M12 14h17v10H12zM29 24h17v10H29z"/><rect x="2" y="13" width="22" height="22" rx="3" fill="#0e6f3a"/><path fill="#ffffff" d="M6.75 31l4.53-7.02L7.13 17h3.34l2.69 5.41L16.08 17h3.07l-4.26 6.94L19.25 31h-3.26l-2.97-5.55L10.03 31H6.75z"/></svg>`;
   }
   if (ext === "docx" || ext === "word") {
-    return `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ask-artifact-menu-icon is-word"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`;
+    return `<svg viewBox="0 0 48 48" width="16" height="16" fill="none" class="ask-artifact-menu-icon is-word"><path fill="#41a5ee" d="M14 4c-1.1 0-2 .9-2 2v8l17 6 17-6V6c0-1.1-.9-2-2-2H14z"/><path fill="#2b7cd3" d="M12 14h34v10l-17 4-17-4V14z"/><path fill="#1650a7" d="M12 24h34v10l-17 4-17-4V24z"/><path fill="#103f91" d="M12 34v8c0 1.1.9 2 2 2h30c1.1 0 2-.9 2-2v-8H12z"/><rect x="2" y="13" width="22" height="22" rx="3" fill="#185abd"/><path fill="#ffffff" d="M18.53 31h-2.52l-2.94-9.66-3.08 9.66H7.47L4.67 17h2.52l1.96 9.8 2.94-9.8h2.1l2.8 9.8 1.96-9.8h2.38L18.53 31z"/></svg>`;
   }
   if (ext === "pptx" || ext === "powerpoint") {
-    return `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ask-artifact-menu-icon is-powerpoint"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M7 11l3-3 2 2 4-4"/></svg>`;
+    return `<svg viewBox="0 0 48 48" width="16" height="16" fill="none" class="ask-artifact-menu-icon is-powerpoint"><path fill="#ed6c47" d="M26 4A20 20 0 0 0 6 24l25.34 5.34L26 4z"/><path fill="#ff8f6b" d="M26 4a20 20 0 0 1 20 20l-10 6.8L26 24V4z"/><path fill="#d35230" d="M26 44a20 20 0 0 0 20-20H6a20 20 0 0 0 20 20z"/><rect x="2" y="13" width="22" height="22" rx="3" fill="#c43e1c"/><path fill="#ffffff" d="M8 17h5.02c1.28-.09 2.54.31 3.57 1.13.86.82 1.31 2.02 1.24 3.26.01.79-.2 1.77-.61 2.42-.42.72-1.03 1.3-1.74 1.66-.82.41-1.71.54-2.62.52H11v5H8V17zm3 3v3.98h1.83c.6 0 1.2-.14 1.62-.43.37-.28.55-.61.55-.98 0-1.06-.7-1.59-2.1-1.59H11z"/></svg>`;
   }
   // pdf or fallback
-  return `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ask-artifact-menu-icon is-pdf"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M10 12h4"/><path d="M10 16h4"/></svg>`;
+  return `<svg viewBox="0 0 32 32" width="16" height="16" fill="none" class="ask-artifact-menu-icon is-pdf"><rect width="32" height="32" rx="6" fill="#e5252a"/><path fill="#ffffff" d="M25.53 18.44c-1.5-1.6-5.59-.9-6.58-.8-1.4-1.4-2.39-2.99-2.79-3.59.5-1.5.9-3.19.9-4.79 0-1.5-.6-2.99-2.19-2.99-.6 0-1.1.3-1.4.8-.7 1.2-.4 3.59.7 6.08-.6 1.8-1.6 4.48-2.79 6.57-1.6.6-5.08 2.19-5.38 3.99-.1.5.1 1.1.5 1.4.4.4.9.5 1.4.5 2.09 0 4.19-2.89 5.69-5.49 1.2-.4 3.09-1 4.99-1.3 2.19 2 4.19 2.29 5.19 2.29 1.4 0 1.9-.6 2.09-1.1.26-.47.07-1.17-.33-1.57zM24.13 19.44c-.1.4-.6.8-1.5.6-1.1-.3-2.09-.8-2.89-1.5.7-.1 2.39-.3 3.59-.1.4.1.9.4.8 1zm-9.68-11.96c.1-.2.3-.3.5-.3.5 0 .6.6.6 1.1 0 1.2-.2 2.49-.6 3.59-.8-2.19-.7-3.79-.5-4.39zm-.1 11.26c.5-.9 1.1-2.59 1.3-3.19.5.9 1.4 1.9 1.8 2.39.1-.09-1.7.29-3.1.8zm-3.39 2.3c-1.39 2.19-2.69 3.59-3.49 3.59-.1 0-.3 0-.4-.1-.1-.2-.2-.4-.1-.6.1-.8 1.7-1.9 3.99-2.89z"/></svg>`;
 }
 
 function appendArtifactCards(content, message) {
@@ -4254,13 +4264,19 @@ function renderAsk() {
       });
     }
   });
-  const contextPopover = element("div", "ask-context-popover");
+  const isDesktop = typeof window !== "undefined" && window.innerWidth >= 768;
+  const contextPopover = element("div", `ask-context-popover${!isChatActive && isDesktop ? " is-downwards" : ""}`);
   const activeTasks = state.plannerTasks.filter((task) => !task.completed);
   let contextPane = "main";
   let input;
   let resizeInput = () => { };
   const drawContextMenu = () => {
     contextPopover.replaceChildren();
+    if (!isChatActive && typeof window !== "undefined" && window.innerWidth >= 768) {
+      contextPopover.classList.add("is-downwards");
+    } else {
+      contextPopover.classList.remove("is-downwards");
+    }
     if (contextPane === "main") {
       contextPopover.appendChild(element("strong", "ask-context-menu-heading", isEn ? "Add context" : "Kontekst əlavə et"));
       contextPopover.appendChild(element("div", "ask-context-menu-divider"));
@@ -15608,7 +15624,7 @@ document.querySelector("#mobileNewButton")?.addEventListener("click", () => {
   if (state.mode === "ask") startNewChat();
   else resetStrategy();
 });
-mobileMenuButton.addEventListener("click", openSidebar);
+mobileMenuButton.addEventListener("click", () => (sidebar.classList.contains("is-open") ? closeSidebar() : openSidebar()));
 railMenuButton.addEventListener("click", () => (sidebar.classList.contains("is-open") ? closeSidebar() : openSidebar()));
 railHomeButton.addEventListener("click", navigateHome);
 railStrategiesButton.addEventListener("click", () => {

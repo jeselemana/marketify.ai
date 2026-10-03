@@ -5,8 +5,18 @@
 .ask-plugin-tokens:empty { display: none; }
 .ask-plugin-token, .ask-artifact-edit-context { display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px; margin-bottom: 7px; border: 1px solid var(--border, #dce2e8); border-radius: 8px; background: var(--surface, #f3f5f7); color: var(--text-primary, #172033); font-size: 12px; }
 .ask-plugin-token-remove { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 16px; }
-.ask-plugin-icon { width: 25px; text-align: center; font-size: 17px; font-weight: 600; }
+.ask-plugin-icon { width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; text-align: center; font-size: 17px; font-weight: 600; }
+.ask-plugin-icon svg { display: block; flex-shrink: 0; }
 .ask-plugin-selector { position: absolute; z-index: 50; bottom: calc(100% + 12px); left: 0; width: min(360px, 85vw); padding: 6px; border: 1px solid var(--border, #dce2e8); border-radius: 14px; background: var(--surface, #fff); box-shadow: 0 12px 36px #0002; max-height: 330px; overflow: auto; }
+@media (min-width: 768px) {
+  .ask-plugin-selector.is-downwards,
+  .workspace-intake .ask-plugin-selector,
+  .workspace-ask.is-empty .ask-plugin-selector,
+  .ask-shell.is-empty .ask-plugin-selector {
+    top: calc(100% + 12px);
+    bottom: auto;
+  }
+}
 .ask-plugin-selector[hidden] { display: none; }
 .ask-plugin-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; text-align: left; color: inherit; border: 0; background: transparent; border-radius: 9px; cursor: pointer; }
 .ask-plugin-option.is-active, .ask-plugin-option:hover { background: var(--bg-hover, #eef2f6); }
