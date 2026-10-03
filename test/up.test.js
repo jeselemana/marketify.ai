@@ -17,6 +17,7 @@ import { hashOpaqueToken, hashPassword } from '../src/auth/password.js';
 import { createAuthRouter, authErrorHandler } from '../src/http/auth-router.js';
 import { emptyState, calendar, scoreAnswer, maximumPoints, completeChallenge, dashboard, selectChallenge, duplicate, OnboardingSchema, validateChallenge } from '../src/services/up/domain.js';
 import { migrateUpState } from '../src/repositories/up-migrations.js';
+import { AiPolicy } from '../src/services/security/ai-policy.js';
 
 const prefs = { dailyGoal: 10, weeklyGoal: 20, interests: ['Finance'], timezone: 'Asia/Baku' };
 const answer = 'I would first segment retention cohorts and validate contribution margin before changing the acquisition budget.';
@@ -332,3 +333,61 @@ test('UP analytics cover milestones, never include the answer and survive delive
   assert.equal(JSON.stringify(events).includes(answer), false);
   assert.deepEqual((await f.repository.read(f.owner)).events, []);
 });
+
+test('UP challenge answer submission passes through production AI security middleware without 503 error when Redis is not ready', async t => {
+  const f = await fixture(t);
+  const users = new FileUserRepository(path.join(f.directory, 'users.json'));
+  const auth = new FileAuthStore(path.join(f.directory, 'auth.json'));
+  const passwordHash = await hashPassword('strongpass1');
+  const user = await users.create({ fullName: 'UP Tester', username: `uptest_${randomUUID().slice(0, 8)}`, email: `${randomUUID()}@example.com`, passwordHash, emailVerifiedAt: new Date().toISOString() });
+  await f.service.preferences(user.id, prefs, true);
+
+  const token = randomUUID();
+  await auth.createSession(hashOpaqueToken(token), user.id, 3600);
+  const cookie = `helmer_session=${token}`;
+
+  const aiPolicy = new AiPolicy({ redis: null, env: { NODE_ENV: 'production' } });
+  const app = express();
+  app.use(createIdentityMiddleware({ userRepository: users, authStore: auth }));
+  app.use(aiPolicy.middleware());
+  app.use(express.json());
+  app.use('/api/up', createUpRouter(f.service));
+  app.use(authErrorHandler);
+
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const genRes = await fetch(`${base}/api/up/challenges`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ language: 'en' }),
+  });
+  assert.equal(genRes.status, 503);
+  const genBody = await genRes.json();
+  assert.equal(genBody.code, 'EXECUTION_UNAVAILABLE');
+
+  const challenge = await f.service.start(user.id, 'en');
+  await f.repository.mutate(user.id, state => {
+    const ch = state.challenges.find(c => c.id === challenge.id);
+    ch.options = [
+      { id: 'A', text: 'Option A text', score: 40, is_optimal: true, trade_off: 'Trade-off A' },
+      { id: 'B', text: 'Option B text', score: 20, is_optimal: false, trade_off: 'Trade-off B' },
+      { id: 'C', text: 'Option C text', score: 25, is_optimal: false, trade_off: 'Trade-off C' },
+      { id: 'D', text: 'Option D text', score: 15, is_optimal: false, trade_off: 'Trade-off D' },
+    ];
+  });
+
+  const submitRes = await fetch(`${base}/api/up/challenges/${challenge.id}/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ selectedOption: 'A', language: 'en' }),
+  });
+  assert.equal(submitRes.status, 200);
+  const submitBody = await submitRes.json();
+  assert.equal(submitBody.status, 'completed');
+  assert.equal(submitBody.result.points, 40);
+  assert.equal(submitBody.result.isOptimal, true);
+});
+

@@ -170,7 +170,8 @@ export async function writeUpObject(ownerHash, record, etag) {
       Body: JSON.stringify(record), ContentType: 'application/json', ...(etag ? { IfMatch: etag } : { IfNoneMatch: '*' }) }));
     return true;
   } catch (error) {
-    if ([409, 412].includes(error.$metadata?.httpStatusCode)) return false;
+    const statusCode = error.$metadata?.httpStatusCode;
+    if (statusCode === 409 || statusCode === 412 || error.name === "PreconditionFailed") return false;
     throw error;
   }
 }

@@ -24,6 +24,10 @@ test("Fix 1: isAiRequest is case-insensitive and covers ai-summary", () => {
   assert.equal(isAiRequest({ method: "POST", path: "/API/ASK/RESEARCH" }), true);
   assert.equal(isAiRequest({ method: "POST", path: "/API/USER/AI-SUMMARY" }), true);
   assert.equal(isAiRequest({ method: "POST", path: "/api/user/ai-summary" }), true);
+  assert.equal(isAiRequest({ method: "POST", path: "/api/up/challenges" }), true);
+  assert.equal(isAiRequest({ method: "POST", path: "/API/UP/CHALLENGES" }), true);
+  assert.equal(isAiRequest({ method: "POST", path: "/api/up/challenges/4716143a-a2ba-479a-a17f-f0f1e444f162/submit" }), false);
+  assert.equal(isAiRequest({ method: "POST", path: "/api/up/challenges/4716143a-a2ba-479a-a17f-f0f1e444f162/retry" }), false);
   assert.equal(isAiRequest({ method: "GET", path: "/api/strategy/generate" }), false);
   assert.equal(isAiRequest({ method: "POST", path: "/api/unknown" }), false);
 });

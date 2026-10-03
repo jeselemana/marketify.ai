@@ -139,7 +139,7 @@ app.use((req, res, next) => {
     "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
     "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
     "Cross-Origin-Resource-Policy": "same-origin",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' https://accounts.google.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*.googleusercontent.com https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://accounts.google.com https://challenges.cloudflare.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' https://accounts.google.com https://challenges.cloudflare.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*.googleusercontent.com https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com https://cloudflareinsights.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://accounts.google.com https://challenges.cloudflare.com; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
   });
   next();
 });
