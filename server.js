@@ -31,7 +31,7 @@ import { aiConfig, hasOpenAIConfiguration, hasGeminiConfiguration } from "./src/
 import { getOpenAIClient, getGeminiClient } from "./src/services/ai/client.js";
 import { LLMProviderError } from "./src/services/ai/llm-router.js";
 import { httpStatusOf, publicErrorMessage } from "./src/http/error-response.js";
-import { resolveAskModelRoute } from "./src/services/ai/ask-routing.js";
+import { resolveAskModelRoute, isComplexAskQuery } from "./src/services/ai/ask-routing.js";
 import { geminiFileCache } from "./src/services/ai/gemini-file-cache.js";
 import { evaluateSearchRoute } from "./src/services/ai/search-router.js";
 import { buildPersonalizationContext } from "./src/services/ai/personal-context.js";
@@ -1598,7 +1598,11 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     const hasStrategyContext = Boolean(selectedStrategy || selectedTask);
     const hasAnyAttachment = messages.some((m) => Boolean(m.file && (m.file.data || m.file.textContent || m.file.name || m.file.fileId)));
     const lastUserMsg = messages.at(-1)?.content || "";
-    const route = resolveAskModelRoute({ requestedModel: !req.user ? "luna" : requestedModel, lastUserMsg, hasStrategyContext: Boolean(req.user) && hasStrategyContext, hasAttachment: hasAnyAttachment });
+    let route = resolveAskModelRoute({ requestedModel: !req.user ? "luna" : requestedModel, lastUserMsg, hasStrategyContext: Boolean(req.user) && hasStrategyContext, hasAttachment: hasAnyAttachment });
+    if (route === "gemini-3.8-flash" && !hasGeminiConfiguration() && hasOpenAIConfiguration() && !hasAnyAttachment) {
+      console.warn("⚠️ Gemini konfiqurasiya edilməyib, Ask rejimi OpenAI-yə yönləndirilir.");
+      route = isComplexAskQuery(lastUserMsg, Boolean(req.user) && hasStrategyContext) ? "terra" : "luna";
+    }
     const isGemini = route === "gemini-3.8-flash";
     isGeminiRoute = isGemini;
 
@@ -1728,8 +1732,10 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
 
       let accumulated = "";
       try {
-        const generated = isGemini
-          ? await generateGeminiAskStreamResponse({
+        let generated;
+        if (isGemini) {
+          try {
+            generated = await generateGeminiAskStreamResponse({
               model: selectedAskModel,
               instructions: fullInstructions,
               messages,
@@ -1741,19 +1747,43 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
                 res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
                 if (typeof res.flush === "function") res.flush();
               },
-            })
-          : await generateOpenAIAskStreamResponse({
-              openaiClient: openai,
-              model: selectedAskModel,
-              instructions: fullInstructions,
-              messages,
-              ownerId: req.ownerId,
-              signal: abortController.signal,
-              onChunk: (chunk) => {
-                res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
-                if (typeof res.flush === "function") res.flush();
-              },
             });
+          } catch (geminiStreamErr) {
+            if (abortController.signal.aborted) throw geminiStreamErr;
+            if (!accumulated && hasOpenAIConfiguration() && !hasAnyAttachment) {
+              console.warn("⚠️ [Ask Stream] Gemini xətası baş verdi, OpenAI fallback aktivləşdirilir:", geminiStreamErr?.message || geminiStreamErr);
+              const fallbackAskModel = isComplexAskQuery(lastUserMsg, Boolean(req.user) && hasStrategyContext) ? ASK_COMPLEX_MODEL : ASK_MODEL;
+              activeModel = fallbackAskModel === ASK_COMPLEX_MODEL ? "terra" : "luna";
+              generated = await generateOpenAIAskStreamResponse({
+                openaiClient: openai,
+                model: fallbackAskModel,
+                instructions: fullInstructions,
+                messages,
+                ownerId: req.ownerId,
+                signal: abortController.signal,
+                onChunk: (chunk) => {
+                  res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
+                  if (typeof res.flush === "function") res.flush();
+                },
+              });
+            } else {
+              throw geminiStreamErr;
+            }
+          }
+        } else {
+          generated = await generateOpenAIAskStreamResponse({
+            openaiClient: openai,
+            model: selectedAskModel,
+            instructions: fullInstructions,
+            messages,
+            ownerId: req.ownerId,
+            signal: abortController.signal,
+            onChunk: (chunk) => {
+              res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
+              if (typeof res.flush === "function") res.flush();
+            },
+          });
+        }
         accumulated = generated.text;
 
         const updatedMessages = [
@@ -1875,8 +1905,9 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
 
     let generated;
     try {
-      generated = isGemini
-        ? await generateGeminiAskResponse({
+      if (isGemini) {
+        try {
+          generated = await generateGeminiAskResponse({
             model: selectedAskModel,
             instructions: fullInstructions,
             messages,
@@ -1884,15 +1915,35 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
             enableSearch,
             ownerId: req.ownerId,
             signal: abortController.signal,
-          })
-        : await generateOpenAIAskResponse({
-            openaiClient: openai,
-            model: selectedAskModel,
-            instructions: fullInstructions,
-            messages,
-            ownerId: req.ownerId,
-            signal: abortController.signal,
           });
+        } catch (geminiErr) {
+          if (abortController.signal.aborted) throw geminiErr;
+          if (hasOpenAIConfiguration() && !hasAnyAttachment) {
+            console.warn("⚠️ [Ask] Gemini xətası baş verdi, OpenAI fallback aktivləşdirilir:", geminiErr?.message || geminiErr);
+            const fallbackAskModel = isComplexAskQuery(lastUserMsg, Boolean(req.user) && hasStrategyContext) ? ASK_COMPLEX_MODEL : ASK_MODEL;
+            activeModel = fallbackAskModel === ASK_COMPLEX_MODEL ? "terra" : "luna";
+            generated = await generateOpenAIAskResponse({
+              openaiClient: openai,
+              model: fallbackAskModel,
+              instructions: fullInstructions,
+              messages,
+              ownerId: req.ownerId,
+              signal: abortController.signal,
+            });
+          } else {
+            throw geminiErr;
+          }
+        }
+      } else {
+        generated = await generateOpenAIAskResponse({
+          openaiClient: openai,
+          model: selectedAskModel,
+          instructions: fullInstructions,
+          messages,
+          ownerId: req.ownerId,
+          signal: abortController.signal,
+        });
+      }
       reply = generated.text;
 
       if (!reply) throw new Error("Ask mode returned an empty response.");

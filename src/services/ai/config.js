@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 function positiveInteger(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -30,8 +32,10 @@ export function hasOpenAIConfiguration() {
 }
 
 export function hasGeminiConfiguration() {
+  const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim();
+  const hasValidCredFile = Boolean(credPath && fs.existsSync(credPath));
   return Boolean(process.env.GEMINI_API_KEY?.trim()) ||
-    Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim()) ||
+    hasValidCredFile ||
     (process.env.GEMINI_USE_VERTEX === "true" &&
       Boolean(process.env.GOOGLE_CLOUD_PROJECT?.trim() || process.env.GCP_PROJECT?.trim()));
 }

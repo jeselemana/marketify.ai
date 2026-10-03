@@ -15905,6 +15905,8 @@ function handleKeyboardShortcut(event) {
 
   if (window.innerWidth <= 767) return;
 
+  const typing = isTypingTarget(event.target);
+  const primary = event.metaKey || event.ctrlKey;
   const key = event.code === "KeyN" ? "n" : (event.code === "KeyK" ? "k" : (typeof event.key === "string" ? event.key.toLowerCase() : ""));
 
   if (primary && key === "k") {

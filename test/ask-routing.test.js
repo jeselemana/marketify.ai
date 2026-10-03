@@ -159,4 +159,33 @@ test("Ask Mode: style.css defines .is-stop, hover transitions, and dark mode hig
   assert.ok(cssContent.includes("[data-theme=\"dark\"] .ask-stop-icon"), "defines dark mode .ask-stop-icon contrast");
 });
 
+test("handleKeyboardShortcut in script.js defines typing and primary variables", async () => {
+  const scriptContent = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
+  assert.ok(scriptContent.includes("const typing = isTypingTarget(event.target);"), "defines typing using isTypingTarget");
+  assert.ok(scriptContent.includes("const primary = event.metaKey || event.ctrlKey;"), "defines primary using metaKey or ctrlKey");
+});
+
+test("hasGeminiConfiguration rejects non-existent GOOGLE_APPLICATION_CREDENTIALS file path", async () => {
+  const { hasGeminiConfiguration } = await import("../src/services/ai/config.js");
+  const origKey = process.env.GEMINI_API_KEY;
+  const origProj = process.env.GOOGLE_CLOUD_PROJECT;
+  const origGcp = process.env.GCP_PROJECT;
+  const origVertex = process.env.GEMINI_USE_VERTEX;
+  const origCred = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  try {
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.GOOGLE_CLOUD_PROJECT;
+    delete process.env.GCP_PROJECT;
+    delete process.env.GEMINI_USE_VERTEX;
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = "/non/existent/path/to/key.json";
+    assert.equal(hasGeminiConfiguration(), false, "must be false when credential file does not exist");
+  } finally {
+    if (origKey !== undefined) process.env.GEMINI_API_KEY = origKey; else delete process.env.GEMINI_API_KEY;
+    if (origProj !== undefined) process.env.GOOGLE_CLOUD_PROJECT = origProj; else delete process.env.GOOGLE_CLOUD_PROJECT;
+    if (origGcp !== undefined) process.env.GCP_PROJECT = origGcp; else delete process.env.GCP_PROJECT;
+    if (origVertex !== undefined) process.env.GEMINI_USE_VERTEX = origVertex; else delete process.env.GEMINI_USE_VERTEX;
+    if (origCred !== undefined) process.env.GOOGLE_APPLICATION_CREDENTIALS = origCred; else delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  }
+});
+
 
