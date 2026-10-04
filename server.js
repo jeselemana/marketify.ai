@@ -987,7 +987,7 @@ async function generateGeminiAskStreamResponse({
   model = ASK_GEMINI_MODEL,
   instructions = "",
   messages = [],
-  thinkingLevel = "medium",
+  thinkingLevel = "low",
   enableSearch = false,
   onChunk = () => {},
   signal,
@@ -1000,7 +1000,7 @@ async function generateGeminiAskStreamResponse({
     ? "\n\nThe user has provided an uploaded file or document as analysis context. Carefully read, understand, and analyze all attached file content, documents, images, tables, code, or data. Answer the user's specific questions based on the file content with high accuracy, clarity, and depth. Provide actionable insights and strategic recommendations based on the provided material."
     : "";
 
-  const hasSearchCapability = Boolean(enableSearch || model === ASK_GEMINI_MODEL || (typeof model === "string" && model.includes("gemini")));
+  const hasSearchCapability = Boolean(enableSearch);
 
   const searchGuidance = hasSearchCapability
     ? `\n\n[MANDATORY REAL-TIME SEARCH & TOOL GROUNDING DIRECTIVE]:
@@ -1108,7 +1108,9 @@ Google Search Grounding tool is actively configured and available for this conve
     safetySettings: GEMINI_SAFETY_SETTINGS,
   };
 
-  config.thinkingConfig = { thinkingLevel: thinkingLevel.toUpperCase() };
+  const normThinking = String(thinkingLevel || "low").toLowerCase();
+  const validThinkingLevel = normThinking === "high" ? "HIGH" : (normThinking === "medium" ? "MEDIUM" : "LOW");
+  config.thinkingConfig = { thinkingLevel: validThinkingLevel };
 
   if (hasSearchCapability) {
     config.tools = [{ googleSearch: {} }];
@@ -1227,7 +1229,7 @@ async function generateGeminiAskResponse({
   model = ASK_GEMINI_MODEL,
   instructions = "",
   messages = [],
-  thinkingLevel = "medium",
+  thinkingLevel = "low",
   enableSearch = false,
   requireGrounding = false,
   signal,
@@ -1240,7 +1242,7 @@ async function generateGeminiAskResponse({
     ? "\n\nThe user has provided an uploaded file or document as analysis context. Carefully read, understand, and analyze all attached file content, documents, images, tables, code, or data. Answer the user's specific questions based on the file content with high accuracy, clarity, and depth. Provide actionable insights and strategic recommendations based on the provided material."
     : "";
 
-  const hasSearchCapability = Boolean(enableSearch || model === ASK_GEMINI_MODEL || (typeof model === "string" && model.includes("gemini")));
+  const hasSearchCapability = Boolean(enableSearch);
 
   const searchGuidance = hasSearchCapability
     ? `\n\n[MANDATORY REAL-TIME SEARCH & TOOL GROUNDING DIRECTIVE]:
@@ -1348,7 +1350,9 @@ Google Search Grounding tool is actively configured and available for this conve
     safetySettings: GEMINI_SAFETY_SETTINGS,
   };
 
-  config.thinkingConfig = { thinkingLevel: thinkingLevel.toUpperCase() };
+  const normThinking = String(thinkingLevel || "low").toLowerCase();
+  const validThinkingLevel = normThinking === "high" ? "HIGH" : (normThinking === "medium" ? "MEDIUM" : "LOW");
+  config.thinkingConfig = { thinkingLevel: validThinkingLevel };
 
   if (hasSearchCapability) {
     config.tools = [{ googleSearch: {} }];
@@ -1556,7 +1560,11 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       if (!existingChat) {
         return res.status(404).json({ error: "Söhbət tapılmadı və ya sizə aid deyil.", code: "NOT_FOUND" });
       }
-      if (req.body.chatRevision !== (existingChat.revision || 1)) return res.status(409).json({ code: 'REVISION_CONFLICT', revision: existingChat.revision || 1 });
+      const expectedRevision = existingChat.revision || 1;
+      const clientRevision = req.body.chatRevision !== undefined && req.body.chatRevision !== null
+        ? Number(req.body.chatRevision)
+        : expectedRevision;
+      if (clientRevision !== expectedRevision) return res.status(409).json({ code: 'REVISION_CONFLICT', revision: expectedRevision });
       const incoming = messages.at(-1);
       messages.splice(0, messages.length, ...existingChat.messages, incoming);
       messages.forEach((message, index) => {
@@ -1599,6 +1607,9 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     const hasAnyAttachment = messages.some((m) => Boolean(m.file && (m.file.data || m.file.textContent || m.file.name || m.file.fileId)));
     const lastUserMsg = messages.at(-1)?.content || "";
     let route = resolveAskModelRoute({ requestedModel: !req.user ? "luna" : requestedModel, lastUserMsg, hasStrategyContext: Boolean(req.user) && hasStrategyContext, hasAttachment: hasAnyAttachment });
+    if ((requestedModel === "auto" || !requestedModel || requestedModel === "gemini-3.8-flash" || requestedModel === "flash") && hasGeminiConfiguration()) {
+      route = "gemini-3.8-flash";
+    }
     if (route === "gemini-3.8-flash" && !hasGeminiConfiguration() && hasOpenAIConfiguration() && !hasAnyAttachment) {
       console.warn("⚠️ Gemini konfiqurasiya edilməyib, Ask rejimi OpenAI-yə yönləndirilir.");
       route = isComplexAskQuery(lastUserMsg, Boolean(req.user) && hasStrategyContext) ? "terra" : "luna";
@@ -1676,7 +1687,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     };
     activeModel = route;
 
-    const requestedThinkingLevel = String(req.body.thinkingLevel || "medium").toLowerCase();
+    const requestedThinkingLevel = String(req.body.thinkingLevel || "low").toLowerCase();
     if (!["low", "medium", "high"].includes(requestedThinkingLevel)) {
       return res.status(400).json({ code: "VALIDATION_ERROR", error: "Düşünmə səviyyəsi düzgün deyil." });
     }
@@ -1842,6 +1853,8 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           model: activeModel,
           interactionId: learningInteractionId,
           chat: savedChat,
+          chatId: savedChat?.id,
+          chatRevision: savedChat?.revision || 1,
           groundingMetadata: sanitizeGroundingMetadata(generated.groundingMetadata) || undefined,
         })}\n\n`);
         if (typeof res.flush === "function") res.flush();
@@ -2010,6 +2023,8 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       model: activeModel,
       interactionId: learningInteractionId,
       chat: savedChat,
+      chatId: savedChat?.id,
+      chatRevision: savedChat?.revision || 1,
       groundingMetadata: sanitizeGroundingMetadata(generated.groundingMetadata) || undefined,
     });
   } catch (error) {

@@ -1571,7 +1571,9 @@ function closeMobileModelSheet() {
   setTimeout(finishClose, 250);
 }
 
-function createAskThinkingControls(isEn) {
+let currentAskThinking = "low";
+
+function createAskThinkingControls(isEn, onToggle = null) {
   const card = element("div", `ask-thinking-card${state.askThinkingEnabled ? " is-active" : ""}`);
 
   const mainRow = element("div", "ask-thinking-main-row");
@@ -1602,6 +1604,7 @@ function createAskThinkingControls(isEn) {
 
   const setLevel = (level) => {
     state.askThinkingLevel = level;
+    currentAskThinking = level;
     try { localStorage.setItem("helmer_ask_thinking_level", level); } catch { }
     for (const [lvl, btn] of pillButtons.entries()) {
       const active = lvl === level;
@@ -1637,19 +1640,106 @@ function createAskThinkingControls(isEn) {
     try { localStorage.setItem("helmer_ask_thinking_enabled", String(isChecked)); } catch { }
 
     if (isChecked) {
-      if (!state.askThinkingLevel || state.askThinkingLevel === "off") {
+      if (!state.askThinkingLevel || state.askThinkingLevel === "off" || state.askThinkingLevel === "low") {
         setLevel("medium");
+      } else {
+        setLevel(state.askThinkingLevel);
       }
       card.classList.add("is-active");
       pillsContainer.classList.add("is-open");
     } else {
+      currentAskThinking = "low";
       card.classList.remove("is-active");
       pillsContainer.classList.remove("is-open");
+    }
+    if (typeof onToggle === "function") {
+      onToggle(isChecked);
     }
   });
 
   card.append(mainRow, pillsContainer);
   return card;
+}
+
+function createAskModelSelector(isEn) {
+  const menu = document.createElement("details");
+  menu.className = "ask-model-selector-menu";
+
+  const trigger = document.createElement("summary");
+  trigger.className = "ask-model-selector-trigger";
+  trigger.setAttribute("aria-label", isEn ? "Model and thinking selection" : "Model və düşünmə seçimi");
+  trigger.setAttribute("role", "button");
+
+  const nameSpan = element("span", "ask-model-name", "Auto");
+  const chevron = element("span", "ask-model-chevron-icon");
+  chevron.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+  trigger.append(nameSpan, chevron);
+
+  trigger.addEventListener("click", (event) => {
+    if (window.innerWidth <= 767) {
+      event.preventDefault();
+      event.stopPropagation();
+      openMobileModelSheet();
+    }
+  });
+
+  const popover = element("div", "ask-model-selector-popover");
+
+  const isAutoDefault = !state.askThinkingEnabled;
+
+  // Auto Option
+  const autoOption = button("", `ask-model-option${isAutoDefault ? " is-active" : ""}`, (e) => {
+    e.preventDefault();
+    state.askModel = "auto";
+    try { localStorage.setItem("helmer_ask_model", "auto"); } catch { }
+    state.askThinkingEnabled = false;
+    currentAskThinking = "low";
+    try { localStorage.setItem("helmer_ask_thinking_enabled", "false"); } catch { }
+    try { localStorage.setItem("helmer_ask_thinking_level", "low"); } catch { }
+    menu.removeAttribute("open");
+    render();
+  });
+  autoOption.type = "button";
+  const autoLeading = element("div", "ask-model-option-leading");
+  const autoBadge = element("div", "ask-model-option-badge");
+  autoBadge.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>';
+  const autoInfo = element("div", "ask-model-option-info");
+  autoInfo.append(
+    element("strong", "", "Auto"),
+    element("small", "", isEn ? "Automatic smart mode" : "Avtomatik rejim")
+  );
+  autoLeading.append(autoBadge, autoInfo);
+  autoOption.append(autoLeading);
+  if (isAutoDefault) {
+    const check = element("span", "ask-model-check");
+    check.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    autoOption.append(check);
+  }
+
+  const divider = element("div", "ask-model-popover-divider");
+  const thinkingControls = createAskThinkingControls(isEn, (enabled) => {
+    autoOption.classList.toggle("is-active", !enabled);
+    const existingCheck = autoOption.querySelector(".ask-model-check");
+    if (!enabled && !existingCheck) {
+      const check = element("span", "ask-model-check");
+      check.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      autoOption.append(check);
+    } else if (enabled && existingCheck) {
+      existingCheck.remove();
+    }
+  });
+
+  popover.append(autoOption, divider, thinkingControls);
+  menu.append(trigger, popover);
+
+  const onDocClick = (e) => {
+    if (menu.hasAttribute("open") && !menu.contains(e.target)) {
+      menu.removeAttribute("open");
+    }
+  };
+  document.addEventListener("pointerdown", onDocClick);
+
+  return menu;
 }
 
 function openMobileModelSheet() {
@@ -1696,38 +1786,16 @@ function openMobileModelSheet() {
   const body = element("div", "mobile-sheet-body");
   const options = element("div", "mobile-model-options");
 
-  const isFlashSelected = state.askModel === "gemini-3.8-flash";
-
-  // Flash Card
-  const flashCard = button("", `mobile-model-option-card${isFlashSelected ? " is-active" : ""}`, () => {
-    state.askModel = "gemini-3.8-flash";
-    try { localStorage.setItem("helmer_ask_model", "gemini-3.8-flash"); } catch { }
-    closeMobileModelSheet();
-    syncMode();
-    if (state.mode === "ask") render();
-  });
-  flashCard.type = "button";
-  const flashLeading = element("div", "mobile-model-card-leading");
-  const flashIcon = element("div", "mobile-model-card-icon");
-  flashIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
-  const flashCopy = element("div", "mobile-model-card-copy");
-  flashCopy.append(
-    element("strong", "", t("ask.modelSheet.flashTitle")),
-    element("small", "", t("ask.modelSheet.flashDesc"))
-  );
-  flashLeading.append(flashIcon, flashCopy);
-  flashCard.append(flashLeading);
-  if (isFlashSelected) {
-    const check = element("span", "mobile-model-card-check");
-    check.setAttribute("aria-hidden", "true");
-    check.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-    flashCard.appendChild(check);
-  }
+  const isAutoDefault = !state.askThinkingEnabled;
 
   // Auto Card
-  const autoCard = button("", `mobile-model-option-card${!isFlashSelected ? " is-active" : ""}`, () => {
+  const autoCard = button("", `mobile-model-option-card${isAutoDefault ? " is-active" : ""}`, () => {
     state.askModel = "auto";
     try { localStorage.setItem("helmer_ask_model", "auto"); } catch { }
+    state.askThinkingEnabled = false;
+    currentAskThinking = "low";
+    try { localStorage.setItem("helmer_ask_thinking_enabled", "false"); } catch { }
+    try { localStorage.setItem("helmer_ask_thinking_level", "low"); } catch { }
     closeMobileModelSheet();
     syncMode();
     if (state.mode === "ask") render();
@@ -1743,19 +1811,29 @@ function openMobileModelSheet() {
   );
   autoLeading.append(autoIcon, autoCopy);
   autoCard.append(autoLeading);
-  if (!isFlashSelected) {
+  if (isAutoDefault) {
     const check = element("span", "mobile-model-card-check");
     check.setAttribute("aria-hidden", "true");
     check.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
     autoCard.appendChild(check);
   }
 
-  options.append(flashCard, autoCard);
+  options.append(autoCard);
 
-  if (isFlashSelected) {
-    const divider = element("div", "ask-model-popover-divider");
-    options.append(divider, createAskThinkingControls(isEn));
-  }
+  const divider = element("div", "ask-model-popover-divider");
+  const thinkingControls = createAskThinkingControls(isEn, (enabled) => {
+    autoCard.classList.toggle("is-active", !enabled);
+    const existingCheck = autoCard.querySelector(".mobile-model-card-check");
+    if (!enabled && !existingCheck) {
+      const check = element("span", "mobile-model-card-check");
+      check.setAttribute("aria-hidden", "true");
+      check.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      autoCard.appendChild(check);
+    } else if (enabled && existingCheck) {
+      existingCheck.remove();
+    }
+  });
+  options.append(divider, thinkingControls);
 
   body.appendChild(options);
   sheet.append(dragArea, header, body);
@@ -2112,7 +2190,7 @@ function getAskMessageModelInfo(model) {
     return {
       isGemini: true,
       isTerra: false,
-      displayName: "Flash",
+      displayName: "Auto",
     };
   }
   // Support existing saved messages while only rendering product-friendly labels.
@@ -2334,19 +2412,13 @@ const state = {
     } catch { }
     return "ask";
   })(),
-  askModel: (() => {
-    try {
-      const saved = localStorage.getItem("helmer_ask_model");
-      if (saved === "gemini-3.8-flash" || saved === "auto") return saved;
-    } catch { }
-    return "auto";
-  })(),
+  askModel: "auto",
   askThinkingLevel: (() => {
     try {
       const saved = localStorage.getItem("helmer_ask_thinking_level");
       if (["low", "medium", "high"].includes(saved)) return saved;
     } catch { }
-    return "medium";
+    return "low";
   })(),
   askThinkingEnabled: (() => {
     try { return localStorage.getItem("helmer_ask_thinking_enabled") === "true"; }
@@ -2369,6 +2441,8 @@ const state = {
   limitsStatsExpanded: false,
   limitsFeaturesExpanded: false,
 };
+
+currentAskThinking = state.askThinkingEnabled ? (state.askThinkingLevel || "medium") : "low";
 
 let progressTimer;
 const freshAskResponses = new WeakSet();
@@ -3545,7 +3619,12 @@ function cleanMarkdownFormatting(raw) {
 }
 
 function appendAskInline(parent, value) {
-  const cleaned = cleanMarkdownFormatting(value);
+  const str = String(value || "");
+  if (!str.includes("*") && !str.includes("_") && !str.includes("`") && !str.includes("[")) {
+    parent.appendChild(document.createTextNode(str));
+    return;
+  }
+  const cleaned = cleanMarkdownFormatting(str);
   const parts = String(cleaned).split(/(\[[^\]]+\]\(https?:\/\/[^\s)]+\)|\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|`[^`]+`)/g).filter(Boolean);
   parts.forEach((part) => {
     const linkMatch = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
@@ -4179,8 +4258,7 @@ function renderAsk() {
     try {
       const fileData = await readUploadedFileAsData(file);
       state.askPendingFile = fileData;
-      state.askModel = "gemini-3.8-flash";
-      try { localStorage.setItem("helmer_ask_model", "gemini-3.8-flash"); } catch { }
+      state.askModel = "auto";
       state.askError = "";
     } catch (err) {
       console.error("Failed to read attached file:", err);
@@ -4582,7 +4660,8 @@ function renderAsk() {
   }
 
   const composerActions = element("div", "ask-composer-actions");
-  composerActions.append(submit);
+  const modelSelector = createAskModelSelector(isEn);
+  composerActions.append(modelSelector, submit);
 
   form.append(composerLeading, composerBody, composerActions);
 
@@ -4692,6 +4771,7 @@ class LiveTypewriter {
     this.onComplete = onComplete;
     this.rafId = null;
     this.isDone = false;
+    this.hasCompleted = false;
     this.completionPromise = new Promise((resolve) => { this.resolveCompletion = resolve; });
   }
 
@@ -4699,7 +4779,7 @@ class LiveTypewriter {
     if (!chunk) return;
     this.targetText += chunk;
     if (!this.rafId) {
-      this.tick();
+      this.rafId = requestAnimationFrame(() => this.tick());
     }
   }
 
@@ -4710,14 +4790,20 @@ class LiveTypewriter {
         this.targetText = finalText;
       }
     }
-    this.flush();
+    this.isDone = true;
+    const remaining = this.targetText.length - this.currentText.length;
+    if (remaining <= 0) {
+      this.flush();
+    } else if (!this.rafId) {
+      this.rafId = requestAnimationFrame(() => this.tick());
+    }
   }
 
   flush() {
     if (this.hasCompleted) return;
     this.hasCompleted = true;
     if (this.rafId) {
-      clearTimeout(this.rafId);
+      cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
     this.isDone = true;
@@ -4739,28 +4825,33 @@ class LiveTypewriter {
     this.rafId = null;
     const remaining = this.targetText.length - this.currentText.length;
 
-    if (remaining > 0) {
-      const isFinishing = this.isDone;
-      const charsToType = Math.min(
-        remaining,
-        isFinishing && remaining > 500 ? 120 :
-          remaining > 2000 ? 50 :
-            remaining > 800 ? 25 :
-              remaining > 260 ? 10 :
-                remaining > 90 ? 4 :
-                  remaining > 24 ? 2 : 1
-      );
-      this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
-      this.onUpdate(this.currentText, false);
-      const typedTail = this.currentText.slice(-charsToType);
-      const hasNaturalPause = /[.!?,;:\n]$/.test(typedTail);
-      const delay = (isFinishing ? 12 : remaining > 260 ? 20 : remaining > 90 ? 28 : remaining > 24 ? 34 : 42) + (hasNaturalPause && !isFinishing ? 24 : 0);
-      this.rafId = setTimeout(() => this.tick(), delay);
+    if (remaining <= 0) {
+      if (this.isDone) this.flush();
+      return;
+    }
+
+    let charsToType;
+    if (this.isDone) {
+      charsToType = remaining <= 8 ? remaining : Math.max(4, Math.ceil(remaining / 3));
+    } else if (remaining > 160) {
+      charsToType = Math.ceil(remaining / 8);
+    } else if (remaining > 80) {
+      charsToType = Math.ceil(remaining / 7);
+    } else if (remaining > 35) {
+      charsToType = Math.min(remaining, Math.max(3, Math.ceil(remaining / 8)));
+    } else if (remaining > 12) {
+      charsToType = Math.min(remaining, 2);
+    } else {
+      charsToType = 1;
+    }
+
+    this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
+    this.onUpdate(this.currentText, false);
+
+    if (this.currentText.length < this.targetText.length) {
+      this.rafId = requestAnimationFrame(() => this.tick());
     } else if (this.isDone) {
-      this.currentText = this.targetText;
-      this.onUpdate(this.currentText, true);
-      if (this.onComplete) this.onComplete();
-      this.resolveCompletion?.();
+      this.flush();
     }
   }
 }
@@ -5469,14 +5560,41 @@ function updateActiveAskThinkingStatus(message) {
   }
 }
 
+let askScrollRafId = null;
+function scheduleAskScroll() {
+  if (askScrollRafId) return;
+  askScrollRafId = requestAnimationFrame(() => {
+    askScrollRafId = null;
+    const strategyAskBody = document.querySelector(".strategy-ask-body");
+    if (strategyAskBody) {
+      const isNearBottom = strategyAskBody.scrollHeight - strategyAskBody.scrollTop - strategyAskBody.clientHeight < 180;
+      if (isNearBottom) {
+        strategyAskBody.scrollTop = strategyAskBody.scrollHeight;
+      }
+    }
+  });
+}
+
 function updateActiveAskMessageContent(message, showCaret = true) {
   const activeBubble = document.querySelector(".ask-message.is-streaming .ask-message-content");
   if (activeBubble) {
     activeBubble.innerHTML = "";
     if (message.content) {
-      activeBubble.appendChild(renderAskRichText(message.content));
-    }
-    if (showCaret) {
+      const richContent = renderAskRichText(message.content);
+      if (showCaret) {
+        const caret = element("span", "ask-answer-caret is-streaming");
+        let target = richContent;
+        while (
+          target.lastElementChild &&
+          !target.lastElementChild.classList?.contains("ask-table-wrap") &&
+          !target.lastElementChild.classList?.contains("ask-code-block")
+        ) {
+          target = target.lastElementChild;
+        }
+        target.appendChild(caret);
+      }
+      activeBubble.appendChild(richContent);
+    } else if (showCaret) {
       const caret = element("span", "ask-answer-caret is-streaming");
       activeBubble.appendChild(caret);
     }
@@ -5484,10 +5602,14 @@ function updateActiveAskMessageContent(message, showCaret = true) {
       const chips = renderAskSourceChips(message.groundingMetadata);
       if (chips) activeBubble.appendChild(chips);
     }
-    const composerArea = document.querySelector(".ask-composer-area");
-    if (composerArea) composerArea.scrollIntoView({ behavior: "instant", block: "end" });
-    const strategyAskBody = document.querySelector(".strategy-ask-body");
-    if (strategyAskBody) strategyAskBody.scrollTop = strategyAskBody.scrollHeight;
+    scheduleAskScroll();
+    if (!showCaret) {
+      const composerArea = document.querySelector(".ask-composer-area");
+      if (composerArea) {
+        const isNearBottom = (window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 250;
+        if (isNearBottom) composerArea.scrollIntoView({ behavior: "smooth", block: "end" });
+      }
+    }
   }
 }
 
@@ -5548,12 +5670,16 @@ async function thinkDeeperWithTerra(messageIndex) {
         strategyId: state.askStrategyId || undefined,
         taskId: state.askTaskId || undefined,
         chatId: state.askChatId || undefined,
+        chatRevision: state.askChatId ? (window.helmerSecurity?.getRevision(state.askChatId) || 1) : undefined,
         stream: true,
       }),
     });
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
+      if (response.status === 409 && errData.code === "REVISION_CONFLICT" && state.askChatId && errData.revision) {
+        window.helmerSecurity?.revisions.set(state.askChatId, errData.revision);
+      }
       throw new Error(errData.error || "Terra ilə yenidən generasiya etmək mümkün olmadı.");
     }
 
@@ -5823,10 +5949,11 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       body: JSON.stringify({
         messages: state.askMessages.slice(0, -1),
         model: chosenModel,
-        thinkingLevel: chosenModel === "gemini-3.8-flash" ? (state.askThinkingEnabled ? state.askThinkingLevel : "low") : undefined,
+        thinkingLevel: currentAskThinking || "low",
         strategyId: state.askStrategyId || undefined,
         taskId: state.askTaskId || undefined,
         chatId: state.askChatId || undefined,
+        chatRevision: state.askChatId ? (window.helmerSecurity?.getRevision(state.askChatId) || 1) : undefined,
         pluginIds,
         artifactId,
         stream: true,
@@ -5838,6 +5965,9 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         window.dispatchEvent(new CustomEvent("helmer:auth-required"));
       }
       const errData = await response.json().catch(() => ({}));
+      if (response.status === 409 && errData.code === "REVISION_CONFLICT" && state.askChatId && errData.revision) {
+        window.helmerSecurity?.revisions.set(state.askChatId, errData.revision);
+      }
       throw new Error(errData.error || "Cavabı hazırlamaq mümkün olmadı.");
     }
 
@@ -6756,14 +6886,19 @@ function showLoadingAskModal(initialQuery) {
         body: JSON.stringify({
           messages: thread,
           model: state.askModel || "auto",
+          thinkingLevel: currentAskThinking || "low",
           strategyId: state.askStrategyId || undefined,
           taskId: state.askTaskId || undefined,
           chatId: state.askChatId || undefined,
+          chatRevision: state.askChatId ? (window.helmerSecurity?.getRevision(state.askChatId) || 1) : undefined,
           stream: true,
         }),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (response.status === 409 && errorData.code === "REVISION_CONFLICT" && state.askChatId && errorData.revision) {
+          window.helmerSecurity?.revisions.set(state.askChatId, errorData.revision);
+        }
         throw new Error(errorData.error || (isEn ? "Unable to generate response." : "Cavab almaq mümkün olmadı."));
       }
 
@@ -9733,6 +9868,9 @@ async function loadSavedChats() {
   try {
     const data = await api("/api/ask/chats");
     state.savedChats = data.chats || [];
+    state.savedChats.forEach((chat) => {
+      if (chat?.id) window.helmerSecurity?.rememberChat(chat);
+    });
     renderRecentList();
   } catch (error) {
     console.error("Failed to load chats:", error);
@@ -9744,6 +9882,7 @@ async function openSavedChat(chatId) {
   try {
     const data = await api(`/api/ask/chats/${chatId}`);
     if (!data.chat) return;
+    rememberSavedAskChat(data.chat);
     state.mode = "ask";
     state.view = "home";
     state.askChatId = data.chat.id;
