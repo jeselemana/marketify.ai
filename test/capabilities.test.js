@@ -59,8 +59,9 @@ async function harness(t, options = {}) {
   const post = async (payload, owner = ownerId, accept = "application/json") => {
     if (payload.chatId && payload.chatRevision === undefined) payload = { ...payload, chatRevision: (await chats.getById(payload.chatId, owner))?.revision };
     return fetch(`${base}/api/ask`, { method: "POST", headers: { "Content-Type": "application/json", "x-test-owner": owner, Accept: accept }, body: JSON.stringify(payload) }); };
+  const rawPost = (payload, owner = ownerId, accept = "application/json") => fetch(`${base}/api/ask`, { method: "POST", headers: { "Content-Type": "application/json", "x-test-owner": owner, Accept: accept }, body: JSON.stringify(payload) });
   const get = (url, owner = ownerId) => fetch(`${base}${url}`, { headers: { "x-test-owner": owner } });
-  return { artifacts, chats, workflow, post, get, calls, strategyId, fail: value => { fail = value; } };
+  return { artifacts, chats, workflow, post, rawPost, get, calls, strategyId, fail: value => { fail = value; } };
 }
 
 test("registry routes explicit selections before implicit intent and supports future plugins", () => {
@@ -340,3 +341,64 @@ test("private R2 object protocol preserves prior manifests after local commit fa
   await repository.deleteChatArtifacts({ id: chatId, ownerId, messages: [{ artifacts: [saved.artifact] }] });
   assert.equal(objects.size, 0);
 });
+
+test("OCC revision guard: omitted chatRevision defaults safely, stale revision yields 409 REVISION_CONFLICT, and OCC retry succeeds", async t => {
+  const h = await harness(t, { pluginId: "word" });
+  const created = await h.chats.saveChat({
+    id: randomUUID(),
+    ownerId,
+    messages: [
+      { role: "user", content: "İlk mesaj" },
+      { role: "assistant", content: "İlk cavab" },
+    ],
+  });
+  assert.equal(created.revision, 1);
+
+  // 1. Omitted chatRevision does not trigger false 409 conflict
+  const resOmitted = await h.rawPost({
+    messages: [
+      { role: "user", content: "İlk mesaj" },
+      { role: "assistant", content: "İlk cavab" },
+      { role: "user", content: "Word faylı yarat", pluginIds: ["word"] },
+    ],
+    chatId: created.id,
+    pluginIds: ["word"],
+  });
+  assert.equal(resOmitted.status, 200);
+  const dataOmitted = await resOmitted.json();
+  assert.equal(dataOmitted.done, true);
+  assert.equal(dataOmitted.chatRevision, 3);
+
+  // 2. Stale chatRevision triggers 409 REVISION_CONFLICT with authoritative revision
+  const resStale = await h.rawPost({
+    messages: [
+      { role: "user", content: "İlk mesaj" },
+      { role: "assistant", content: "İlk cavab" },
+      { role: "user", content: "Word faylı yarat", pluginIds: ["word"] },
+    ],
+    chatId: created.id,
+    chatRevision: 1,
+    pluginIds: ["word"],
+  });
+  assert.equal(resStale.status, 409);
+  const dataStale = await resStale.json();
+  assert.equal(dataStale.code, "REVISION_CONFLICT");
+  assert.equal(dataStale.revision, 3);
+
+  // 3. Retry with authoritative revision succeeds
+  const resRetry = await h.rawPost({
+    messages: [
+      { role: "user", content: "İlk mesaj" },
+      { role: "assistant", content: "İlk cavab" },
+      { role: "user", content: "Word faylı yarat", pluginIds: ["word"] },
+    ],
+    chatId: created.id,
+    chatRevision: dataStale.revision,
+    pluginIds: ["word"],
+  });
+  assert.equal(resRetry.status, 200);
+  const dataRetry = await resRetry.json();
+  assert.equal(dataRetry.done, true);
+  assert.equal(dataRetry.chatRevision, 5);
+});
+

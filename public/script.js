@@ -5656,7 +5656,7 @@ async function thinkDeeperWithTerra(messageIndex) {
   activeAskTypewriter = null;
 
   try {
-    const response = await fetch("/api/ask", {
+    let response = await fetch("/api/ask", {
       method: "POST",
       signal: currentAskAbortController.signal,
       headers: {
@@ -5674,6 +5674,31 @@ async function thinkDeeperWithTerra(messageIndex) {
         stream: true,
       }),
     });
+
+    if (!response.ok && response.status === 409) {
+      const errData = await response.clone().json().catch(() => ({}));
+      if (errData.code === "REVISION_CONFLICT" && state.askChatId && errData.revision) {
+        window.helmerSecurity?.revisions.set(state.askChatId, errData.revision);
+        response = await fetch("/api/ask", {
+          method: "POST",
+          signal: currentAskAbortController.signal,
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
+          },
+          body: JSON.stringify({
+            messages: historyMessages,
+            model: "terra",
+            strategyId: state.askStrategyId || undefined,
+            taskId: state.askTaskId || undefined,
+            chatId: state.askChatId || undefined,
+            chatRevision: errData.revision,
+            stream: true,
+          }),
+        });
+      }
+    }
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
@@ -5938,7 +5963,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   activeAskTypewriter = null;
 
   try {
-    const response = await fetch("/api/ask", {
+    let response = await fetch("/api/ask", {
       method: "POST",
       signal: currentAskAbortController.signal,
       headers: {
@@ -5959,6 +5984,34 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         stream: true,
       }),
     });
+
+    if (!response.ok && response.status === 409) {
+      const errData = await response.clone().json().catch(() => ({}));
+      if (errData.code === "REVISION_CONFLICT" && state.askChatId && errData.revision) {
+        window.helmerSecurity?.revisions.set(state.askChatId, errData.revision);
+        response = await fetch("/api/ask", {
+          method: "POST",
+          signal: currentAskAbortController.signal,
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
+          },
+          body: JSON.stringify({
+            messages: state.askMessages.slice(0, -1),
+            model: chosenModel,
+            thinkingLevel: currentAskThinking || "low",
+            strategyId: state.askStrategyId || undefined,
+            taskId: state.askTaskId || undefined,
+            chatId: state.askChatId || undefined,
+            chatRevision: errData.revision,
+            pluginIds,
+            artifactId,
+            stream: true,
+          }),
+        });
+      }
+    }
 
     if (!response.ok) {
       if (response.status === 401 && activeHomepageIntent) {
@@ -6876,7 +6929,7 @@ function showLoadingAskModal(initialQuery) {
     messagesBody.scrollTop = messagesBody.scrollHeight;
 
     try {
-      const response = await fetch("/api/ask", {
+      let response = await fetch("/api/ask", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -6894,6 +6947,32 @@ function showLoadingAskModal(initialQuery) {
           stream: true,
         }),
       });
+
+      if (!response.ok && response.status === 409) {
+        const errorData = await response.clone().json().catch(() => ({}));
+        if (errorData.code === "REVISION_CONFLICT" && state.askChatId && errorData.revision) {
+          window.helmerSecurity?.revisions.set(state.askChatId, errorData.revision);
+          response = await fetch("/api/ask", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "text/event-stream",
+              "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
+            },
+            body: JSON.stringify({
+              messages: thread,
+              model: state.askModel || "auto",
+              thinkingLevel: currentAskThinking || "low",
+              strategyId: state.askStrategyId || undefined,
+              taskId: state.askTaskId || undefined,
+              chatId: state.askChatId || undefined,
+              chatRevision: errorData.revision,
+              stream: true,
+            }),
+          });
+        }
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         if (response.status === 409 && errorData.code === "REVISION_CONFLICT" && state.askChatId && errorData.revision) {

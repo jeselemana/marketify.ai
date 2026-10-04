@@ -41,7 +41,7 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
   const router = express.Router();
   router.get("/plugins", requireAuth, (_req, res) => res.json({ plugins: registry.list() }));
   router.post("/", (req, res, next) => allowGuestChat && !req.user && req.ownerId?.startsWith("guest_") ? next() : requireAuth(req, res, next), async (req, res, next) => {
-    let streaming = false, controller, heartbeat, completedResult, committed = false;
+    let streaming = false, controller, heartbeat, completedResult, committed = false, allocatedChatId, initialChat;
     const emit = data => { if (!res.destroyed && !res.writableEnded) res.write(`data: ${JSON.stringify(data)}\n\n`); };
     try {
       const parsed = askRequestSchema.safeParse(req.body);
@@ -52,7 +52,11 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
       if (payload.messages.at(-1)?.role !== "user" || (!prompt.trim() && !payload.messages.at(-1)?.file)) return res.status(400).json({ error: "Mesaj daxil edilməyib.", code: "VALIDATION_ERROR" });
       const chat = payload.chatId ? await chats.getById(payload.chatId, req.ownerId) : null;
       if (payload.chatId && !chat) return res.status(404).json({ error: "Söhbət tapılmadı.", code: "NOT_FOUND" });
-      if (chat && payload.chatRevision !== (chat.revision || 1)) return res.status(409).json({ code: 'REVISION_CONFLICT', revision: chat.revision || 1 });
+      const expectedRevision = chat ? (chat.revision || 1) : 1;
+      const clientRevision = payload.chatRevision !== undefined && payload.chatRevision !== null
+        ? Number(payload.chatRevision)
+        : expectedRevision;
+      if (chat && clientRevision !== expectedRevision) return res.status(409).json({ code: 'REVISION_CONFLICT', revision: expectedRevision });
       const references = chat?.messages.flatMap(message => message.artifacts || []) || [];
       const selectedArtifacts = (payload.pluginIds || []).map(id => registry.get(id)).filter(plugin => plugin?.capabilities.includes("artifact_generation"));
       const inferredReference = selectedArtifacts.length === 1 ? selectedArtifacts[0] : registry.reference(prompt);
@@ -84,10 +88,10 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
         message.file = await prepareUploadedContext(hydrateFile ? await hydrateFile(message.file, req.ownerId) : message.file);
         if (!message.file.data && !message.file.textContent) throw new Error("Uploaded context expired; attach the file again");
       }
-      const allocatedChatId = chat?.id || randomUUID();
+      allocatedChatId = chat?.id || randomUUID();
       // Establish an owner-scoped chat before artifact persistence; failed runs stay retryable.
       const safeHistory = history.map((message, index) => chat && index < chat.messages.length ? chat.messages[index] : { ...storedMessage(message), pluginIds: message.pluginIds });
-      const initialChat = await chats.saveChat({ id: allocatedChatId, ownerId: req.ownerId, messages: safeHistory, strategyId, taskId, mustExist: Boolean(chat), expectedRevision: chat ? chat.revision || 1 : null });
+      initialChat = await chats.saveChat({ id: allocatedChatId, ownerId: req.ownerId, messages: safeHistory, strategyId, taskId, mustExist: Boolean(chat), expectedRevision: chat ? expectedRevision : null });
       streaming = payload.stream === true || req.headers.accept?.includes("text/event-stream");
       controller = new AbortController();
       res.on("close", () => { if (!res.writableEnded) controller.abort(); });
@@ -95,7 +99,7 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
         res.set({ "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", "Connection": "keep-alive", "X-Accel-Buffering": "no", "Content-Encoding": "identity" });
         res.flushHeaders();
         heartbeat = setInterval(() => { if (!res.destroyed) res.write(": keepalive\n\n"); }, 15000);
-        emit({ status: "analyzing", statusText: "Məlumatları analiz edirəm...", chatId: allocatedChatId });
+        emit({ status: "analyzing", statusText: "Məlumatları analiz edirəm...", chatId: allocatedChatId, chatRevision: initialChat.revision });
       }
       const result = completedResult = await workflow.execute({ plugins: selection.plugins, ownerId: req.ownerId, chatId: allocatedChatId, prompt, messages: history, sourceContext, previous,
         preferEdit: Boolean(payload.artifactId),
@@ -111,7 +115,7 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
     } catch (error) {
       if (completedResult && !committed) for (const artifact of completedResult.artifacts.reverse()) await artifacts.rollback(artifact, req.ownerId).catch(() => {});
       // Provider/renderer internals and raw model output never appear in the conversation.
-      const response = { error: "Tapşırığı tamamlamaq mümkün olmadı. Yenidən cəhd edin.", code: "CAPABILITY_EXECUTION_FAILED", retryable: true, execution: error.execution };
+      const response = { error: "Tapşırığı tamamlamaq mümkün olmadı. Yenidən cəhd edin.", code: "CAPABILITY_EXECUTION_FAILED", retryable: true, execution: error.execution, chatId: allocatedChatId, chatRevision: initialChat?.revision };
       console.error("Capability execution failed:", error.code || error.name);
       if (streaming && !res.destroyed) { emit(response); return res.end(); }
       if (!res.headersSent) return res.status(502).json(response);
