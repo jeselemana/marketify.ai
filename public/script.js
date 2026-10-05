@@ -2447,11 +2447,82 @@ currentAskThinking = state.askThinkingEnabled ? (state.askThinkingLevel || "medi
 let progressTimer;
 const freshAskResponses = new WeakSet();
 const askWaitTimers = new WeakMap();
-const askWaitStages = [
-  [4500, "Cavabı hazırlayıram...", "Preparing your response..."],
-  [10000, "Məlumatları yoxlayıram...", "Checking the information..."],
-  [18000, "Detalları dəqiqləşdirirəm...", "Refining the details..."],
-  [30000, "Demək olar hazırdır...", "Almost ready..."],
+const askMessageUiMeta = new WeakMap();
+
+function setAskMessageMeta(message, meta) {
+  if (message && typeof message === "object") {
+    askMessageUiMeta.set(message, { ...(askMessageUiMeta.get(message) || {}), ...meta });
+  }
+}
+
+function getAskMessageMeta(message) {
+  return (message && typeof message === "object" && askMessageUiMeta.get(message)) || {};
+}
+
+function sanitizeAskMessageForApi(message) {
+  if (!message || typeof message !== "object") return message;
+  const clean = {
+    role: message.role,
+    content: typeof message.content === "string" ? message.content : "",
+  };
+  if (message.file) clean.file = message.file;
+  if (message.strategyTitle) clean.strategyTitle = message.strategyTitle;
+  if (message.taskTitle) clean.taskTitle = message.taskTitle;
+  if (message.model) clean.model = message.model;
+  if (message.interactionId) clean.interactionId = message.interactionId;
+  if (message.createdAt) clean.createdAt = message.createdAt;
+  if (message.feedback) clean.feedback = message.feedback;
+  if (message.status) clean.status = message.status;
+  if (message.statusText) clean.statusText = message.statusText;
+  if (message.groundingMetadata) clean.groundingMetadata = message.groundingMetadata;
+  if (Array.isArray(message.artifacts)) clean.artifacts = message.artifacts;
+  if (message.execution) clean.execution = message.execution;
+  if (Array.isArray(message.pluginIds)) clean.pluginIds = message.pluginIds;
+  if (message.type) clean.type = message.type;
+  if (message.jobId) clean.jobId = message.jobId;
+  if (message.id) clean.id = message.id;
+  return clean;
+}
+
+function isAskThinkingActive(message) {
+  if (message?.status === "searching") return true;
+  const meta = getAskMessageMeta(message);
+  const level = meta.thinkingLevel || message?.thinkingLevel;
+  if (level) {
+    return level === "medium" || level === "high";
+  }
+  if (message?.model === "terra") return true;
+  return Boolean(state.askThinkingEnabled && state.askThinkingLevel && state.askThinkingLevel !== "low" && state.askThinkingLevel !== "off");
+}
+
+function getActiveThinkingInitialLabel(message, isEn) {
+  const meta = getAskMessageMeta(message);
+  let promptText = meta.userPrompt || message?.userPrompt || "";
+  if (!promptText && Array.isArray(state.askMessages)) {
+    promptText = state.askMessages.slice().reverse().find((m) => m && m.role === "user")?.content || "";
+  }
+  const lower = promptText.toLowerCase();
+  const isConfusion = /fərq|qarışıq|səhv|başa düşmədim|niyə|differ|confus|why|understand|wrong|clarif|sual|problem/i.test(lower);
+  const isStrategy = /strateg|plan|biznes|market|growth|bazar|rəqib/i.test(lower);
+  const isTechnical = /kod|code|bug|xəta|error|api|db|data|database|funksiya|function/i.test(lower);
+
+  if (isConfusion) {
+    return isEn ? "Understanding the Confusion" : "Konteksti və sualı analiz edirəm...";
+  }
+  if (isStrategy) {
+    return isEn ? "Analyzing Strategic Dimensions…" : "Strateji konteksti analiz edirəm…";
+  }
+  if (isTechnical) {
+    return isEn ? "Evaluating Architecture & Logic…" : "Məntiqi və texniki detalları dəyərləndirirəm…";
+  }
+  return isEn ? "Understanding the context…" : "Düşünürəm…";
+}
+
+const askActiveThinkingStages = [
+  [3500, "Əsas amilləri və faktorları araşdırıram...", "Evaluating key factors & nuances..."],
+  [8000, "Strateji yanaşmanı və variantları dəyərləndirirəm...", "Analyzing trade-offs & approaches..."],
+  [14000, "Dərin və strukturlaşdırılmış həlli qururam...", "Structuring the strategic response..."],
+  [22000, "Yekun cavabı formalaşdırıram...", "Synthesizing final insights..."],
 ];
 
 function clearAskWaitStages(message) {
@@ -2461,7 +2532,11 @@ function clearAskWaitStages(message) {
 
 function startAskWaitStages(message) {
   clearAskWaitStages(message);
-  askWaitTimers.set(message, askWaitStages.map(([delay, az, en]) => setTimeout(() => {
+  if (!isAskThinkingActive(message)) {
+    // In default thinking (low), only the animated three-dots icon is shown.
+    return;
+  }
+  askWaitTimers.set(message, askActiveThinkingStages.map(([delay, az, en]) => setTimeout(() => {
     if (!message.isStreaming || message.content || message.status === "searching") return;
     message.statusText = getLanguage() === "en" ? en : az;
     updateActiveAskThinkingStatus(message);
@@ -2470,19 +2545,15 @@ function startAskWaitStages(message) {
 
 function askThinkingIcon(isSearching) {
   return isSearching
-    ? '<svg class="ask-searching-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>'
-    : '<svg class="ask-thinking-sparkle" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2L14.4 8.6L21 11L14.4 13.4L12 20L9.6 13.4L3 11L9.6 8.6L12 2Z"/></svg>';
+    ? '<svg class="ask-searching-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/></svg>'
+    : '<span class="ask-thinking-dots" aria-hidden="true"><span class="ask-thinking-dot dot-1"></span><span class="ask-thinking-dot dot-2"></span><span class="ask-thinking-dot dot-3"></span></span>';
 }
 
 function askThinkingLabel(message, isEn) {
   if (message.status === "searching") return isEn ? "Searching the web..." : "Vebdə axtarıram...";
   if (message.statusText) return message.statusText;
-  const modelInfo = getAskMessageModelInfo(message.model);
-  const isThinkingActive = modelInfo.isGemini || modelInfo.isTerra;
-  if (isThinkingActive) {
-    return modelInfo.isGemini
-      ? (isEn ? "Helmer is reasoning…" : "Helmer düşünür")
-      : (isEn ? "Deep Strategic Analysis…" : "Dərin analiz");
+  if (isAskThinkingActive(message)) {
+    return getActiveThinkingInitialLabel(message, isEn);
   }
   return isEn ? "Preparing your response" : "Cavab hazırlanır";
 }
@@ -4107,13 +4178,17 @@ function renderAsk() {
           renderAskResearchMessageContent(content, message, messageIndex, isEn);
         } else if (isStreamingMsg && !message.content) {
           const isSearching = message.status === "searching";
-          const thinking = element("div", `ask-thinking${isSearching ? " is-searching" : ""}`);
+          const showLabel = isSearching || isAskThinkingActive(message);
+          const thinking = element("div", `ask-thinking${isSearching ? " is-searching" : ""}${showLabel ? " has-label" : " is-default"}`);
           thinking.setAttribute("role", "status");
           thinking.setAttribute("aria-live", "polite");
           const iconWrap = element("span", "ask-thinking-icon");
           iconWrap.innerHTML = askThinkingIcon(isSearching);
-          const thinkingLabel = element("span", "ask-thinking-label", askThinkingLabel(message, isEn));
-          thinking.append(iconWrap, thinkingLabel);
+          thinking.appendChild(iconWrap);
+          if (showLabel) {
+            const thinkingLabel = element("span", "ask-thinking-label", askThinkingLabel(message, isEn));
+            thinking.appendChild(thinkingLabel);
+          }
           content.appendChild(thinking);
         } else {
           content.appendChild(renderAskRichText(message.content));
@@ -4791,12 +4866,7 @@ class LiveTypewriter {
       }
     }
     this.isDone = true;
-    const remaining = this.targetText.length - this.currentText.length;
-    if (remaining <= 0) {
-      this.flush();
-    } else if (!this.rafId) {
-      this.rafId = requestAnimationFrame(() => this.tick());
-    }
+    this.flush();
   }
 
   flush() {
@@ -4823,26 +4893,25 @@ class LiveTypewriter {
 
   tick() {
     this.rafId = null;
-    const remaining = this.targetText.length - this.currentText.length;
+    if (this.isDone) {
+      this.flush();
+      return;
+    }
 
+    const remaining = this.targetText.length - this.currentText.length;
     if (remaining <= 0) {
-      if (this.isDone) this.flush();
       return;
     }
 
     let charsToType;
-    if (this.isDone) {
-      charsToType = remaining <= 8 ? remaining : Math.max(4, Math.ceil(remaining / 3));
-    } else if (remaining > 160) {
-      charsToType = Math.ceil(remaining / 8);
-    } else if (remaining > 80) {
-      charsToType = Math.ceil(remaining / 7);
-    } else if (remaining > 35) {
-      charsToType = Math.min(remaining, Math.max(3, Math.ceil(remaining / 8)));
-    } else if (remaining > 12) {
-      charsToType = Math.min(remaining, 2);
+    if (remaining > 120) {
+      charsToType = Math.ceil(remaining / 4);
+    } else if (remaining > 40) {
+      charsToType = Math.ceil(remaining / 3);
+    } else if (remaining > 16) {
+      charsToType = Math.max(6, Math.ceil(remaining / 2));
     } else {
-      charsToType = 1;
+      charsToType = remaining;
     }
 
     this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
@@ -5542,22 +5611,40 @@ function openGroundingSourcesModal(groundingMetadata) {
 }
 
 function updateActiveAskThinkingStatus(message) {
-  const activeBubble = document.querySelector(".ask-message.is-streaming .ask-thinking");
-  if (!activeBubble || message.content || !message.isStreaming) return;
+  const activeBubbles = document.querySelectorAll(".ask-message.is-streaming .ask-thinking");
+  if (!activeBubbles.length || message.content || !message.isStreaming) return;
   const isSearching = message.status === "searching";
-  activeBubble.classList.toggle("is-searching", isSearching);
-  const labelEl = activeBubble.querySelector(".ask-thinking-label");
-  const nextLabel = askThinkingLabel(message, getLanguage() === "en");
-  if (labelEl && labelEl.textContent !== nextLabel) {
-    labelEl.textContent = nextLabel;
-    labelEl.classList.remove("is-changing");
-    void labelEl.offsetWidth;
-    labelEl.classList.add("is-changing");
-  }
-  const iconEl = activeBubble.querySelector(".ask-thinking-icon");
-  if (iconEl && Boolean(iconEl.querySelector(".ask-searching-icon")) !== isSearching) {
-    iconEl.innerHTML = askThinkingIcon(isSearching);
-  }
+  const showLabel = isSearching || isAskThinkingActive(message);
+  const nextLabel = showLabel ? askThinkingLabel(message, getLanguage() === "en") : "";
+
+  activeBubbles.forEach((activeBubble) => {
+    activeBubble.classList.toggle("is-searching", isSearching);
+    activeBubble.classList.toggle("has-label", showLabel);
+    activeBubble.classList.toggle("is-default", !showLabel);
+
+    let labelEl = activeBubble.querySelector(".ask-thinking-label");
+    if (showLabel) {
+      if (!labelEl) {
+        labelEl = element("span", "ask-thinking-label", nextLabel);
+        activeBubble.appendChild(labelEl);
+      } else if (labelEl.textContent !== nextLabel) {
+        labelEl.textContent = nextLabel;
+        labelEl.classList.remove("is-changing");
+        void labelEl.offsetWidth;
+        labelEl.classList.add("is-changing");
+      }
+    } else if (labelEl) {
+      labelEl.remove();
+    }
+
+    const iconEl = activeBubble.querySelector(".ask-thinking-icon");
+    if (iconEl) {
+      const hasSearchSvg = Boolean(iconEl.querySelector(".ask-searching-icon"));
+      if (hasSearchSvg !== isSearching) {
+        iconEl.innerHTML = askThinkingIcon(isSearching);
+      }
+    }
+  });
 }
 
 let askScrollRafId = null;
@@ -5641,6 +5728,11 @@ async function thinkDeeperWithTerra(messageIndex) {
   assistantMsg.content = "";
   assistantMsg.model = "terra";
   assistantMsg.isStreaming = true;
+  setAskMessageMeta(assistantMsg, {
+    thinkingLevel: "high",
+    thinkingEnabled: true,
+    userPrompt: historyMessages.filter((m) => m && m.role === "user").at(-1)?.content || "",
+  });
   state.askLoading = true;
   state.askError = "";
   freshAskResponses.add(assistantMsg);
@@ -5665,8 +5757,9 @@ async function thinkDeeperWithTerra(messageIndex) {
         "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
       },
       body: JSON.stringify({
-        messages: historyMessages,
+        messages: historyMessages.map(sanitizeAskMessageForApi),
         model: "terra",
+        thinkingLevel: "high",
         strategyId: state.askStrategyId || undefined,
         taskId: state.askTaskId || undefined,
         chatId: state.askChatId || undefined,
@@ -5688,8 +5781,9 @@ async function thinkDeeperWithTerra(messageIndex) {
             "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
           },
           body: JSON.stringify({
-            messages: historyMessages,
+            messages: historyMessages.map(sanitizeAskMessageForApi),
             model: "terra",
+            thinkingLevel: "high",
             strategyId: state.askStrategyId || undefined,
             taskId: state.askTaskId || undefined,
             chatId: state.askChatId || undefined,
@@ -5945,6 +6039,11 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     model: initialPlaceholderModel,
     isStreaming: true,
   };
+  setAskMessageMeta(assistantMsg, {
+    thinkingLevel: currentAskThinking || "low",
+    thinkingEnabled: Boolean(state.askThinkingEnabled),
+    userPrompt: contentText,
+  });
   state.askMessages.push(assistantMsg);
   state.askLoading = true;
   state.askError = "";
@@ -5962,6 +6061,8 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   activeAskReader = null;
   activeAskTypewriter = null;
 
+  const apiThinkingLevel = ["low", "medium", "high", "off"].includes(currentAskThinking) ? currentAskThinking : "low";
+
   try {
     let response = await fetch("/api/ask", {
       method: "POST",
@@ -5972,9 +6073,9 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
       },
       body: JSON.stringify({
-        messages: state.askMessages.slice(0, -1),
+        messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi),
         model: chosenModel,
-        thinkingLevel: currentAskThinking || "low",
+        thinkingLevel: apiThinkingLevel,
         strategyId: state.askStrategyId || undefined,
         taskId: state.askTaskId || undefined,
         chatId: state.askChatId || undefined,
@@ -5998,9 +6099,9 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
             "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
           },
           body: JSON.stringify({
-            messages: state.askMessages.slice(0, -1),
+            messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi),
             model: chosenModel,
-            thinkingLevel: currentAskThinking || "low",
+            thinkingLevel: apiThinkingLevel,
             strategyId: state.askStrategyId || undefined,
             taskId: state.askTaskId || undefined,
             chatId: state.askChatId || undefined,
@@ -6937,9 +7038,9 @@ function showLoadingAskModal(initialQuery) {
           "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
         },
         body: JSON.stringify({
-          messages: thread,
+          messages: thread.map(sanitizeAskMessageForApi),
           model: state.askModel || "auto",
-          thinkingLevel: currentAskThinking || "low",
+          thinkingLevel: ["low", "medium", "high", "off"].includes(currentAskThinking) ? currentAskThinking : "low",
           strategyId: state.askStrategyId || undefined,
           taskId: state.askTaskId || undefined,
           chatId: state.askChatId || undefined,
@@ -6960,9 +7061,9 @@ function showLoadingAskModal(initialQuery) {
               "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
             },
             body: JSON.stringify({
-              messages: thread,
+              messages: thread.map(sanitizeAskMessageForApi),
               model: state.askModel || "auto",
-              thinkingLevel: currentAskThinking || "low",
+              thinkingLevel: ["low", "medium", "high", "off"].includes(currentAskThinking) ? currentAskThinking : "low",
               strategyId: state.askStrategyId || undefined,
               taskId: state.askTaskId || undefined,
               chatId: state.askChatId || undefined,
@@ -8839,13 +8940,17 @@ function buildStrategyAskMessage(message, messageIndex) {
 
   if (isStreaming && !message.content) {
     const isSearching = message.status === "searching";
-    const thinking = element("div", `ask-thinking strategy-ask-thinking${isSearching ? " is-searching" : ""}`);
+    const showLabel = isSearching || isAskThinkingActive(message);
+    const thinking = element("div", `ask-thinking strategy-ask-thinking${isSearching ? " is-searching" : ""}${showLabel ? " has-label" : " is-default"}`);
     thinking.setAttribute("role", "status");
     thinking.setAttribute("aria-live", "polite");
-    const sparkle = element("span", "ask-thinking-icon");
-    sparkle.innerHTML = askThinkingIcon(isSearching);
-    const label = element("span", "ask-thinking-label", askThinkingLabel(message, isEn));
-    thinking.append(sparkle, label);
+    const iconWrap = element("span", "ask-thinking-icon");
+    iconWrap.innerHTML = askThinkingIcon(isSearching);
+    thinking.appendChild(iconWrap);
+    if (showLabel) {
+      const label = element("span", "ask-thinking-label", askThinkingLabel(message, isEn));
+      thinking.appendChild(label);
+    }
     content.appendChild(thinking);
   } else {
     content.appendChild(renderAskRichText(message.content));

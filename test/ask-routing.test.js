@@ -188,4 +188,23 @@ test("hasGeminiConfiguration rejects non-existent GOOGLE_APPLICATION_CREDENTIALS
   }
 });
 
+test("askRequestSchema strictly accepts follow-up messages containing assistant history and thinking metadata", async () => {
+  const { askRequestSchema } = await import("../src/http/capability-router.js");
+  const followUpPayload = {
+    messages: [
+      { role: "user", content: "Birinci sual" },
+      { role: "assistant", content: "Birinci cavab", thinkingLevel: "low", thinkingEnabled: false, userPrompt: "Birinci sual" },
+      { role: "user", content: "İkinci sual" },
+    ],
+    model: "auto",
+    thinkingLevel: "low",
+    stream: true,
+  };
+  const parseResult = askRequestSchema.safeParse(followUpPayload);
+  assert.ok(parseResult.success, "askRequestSchema must accept follow-up payload without 400 Bad Request: " + JSON.stringify(parseResult.error?.errors));
+
+  const scriptContent = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
+  assert.ok(scriptContent.includes("sanitizeAskMessageForApi"), "script.js must define sanitizeAskMessageForApi");
+  assert.ok(scriptContent.includes("messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi)"), "script.js must map outgoing messages through sanitizeAskMessageForApi");
+});
 

@@ -1109,8 +1109,9 @@ Google Search Grounding tool is actively configured and available for this conve
   };
 
   const normThinking = String(thinkingLevel || "low").toLowerCase();
-  const validThinkingLevel = normThinking === "high" ? "HIGH" : (normThinking === "medium" ? "MEDIUM" : "LOW");
-  config.thinkingConfig = { thinkingLevel: validThinkingLevel };
+  config.thinkingConfig = (normThinking === "high" || normThinking === "medium")
+    ? { thinkingLevel: normThinking.toUpperCase() }
+    : { thinkingBudget: 0 };
 
   if (hasSearchCapability) {
     config.tools = [{ googleSearch: {} }];
@@ -1351,8 +1352,9 @@ Google Search Grounding tool is actively configured and available for this conve
   };
 
   const normThinking = String(thinkingLevel || "low").toLowerCase();
-  const validThinkingLevel = normThinking === "high" ? "HIGH" : (normThinking === "medium" ? "MEDIUM" : "LOW");
-  config.thinkingConfig = { thinkingLevel: validThinkingLevel };
+  config.thinkingConfig = (normThinking === "high" || normThinking === "medium")
+    ? { thinkingLevel: normThinking.toUpperCase() }
+    : { thinkingBudget: 0 };
 
   if (hasSearchCapability) {
     config.tools = [{ googleSearch: {} }];
@@ -1688,7 +1690,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     activeModel = route;
 
     const requestedThinkingLevel = String(req.body.thinkingLevel || "low").toLowerCase();
-    if (!["low", "medium", "high"].includes(requestedThinkingLevel)) {
+    if (!["low", "medium", "high", "off"].includes(requestedThinkingLevel)) {
       return res.status(400).json({ code: "VALIDATION_ERROR", error: "Düşünmə səviyyəsi düzgün deyil." });
     }
 

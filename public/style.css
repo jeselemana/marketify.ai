@@ -7255,62 +7255,145 @@ html.dark .ask-artifact-menu-icon.is-pdf {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 22px;
-  padding: 0;
+  min-height: 24px;
+  padding: 3px 0;
   background: transparent;
   border: 0;
   border-radius: 0;
-  color: var(--text-secondary, rgba(29, 36, 50, 0.7));
+  color: var(--text-secondary, #64748b);
   user-select: none;
   animation: ask-thinking-fade 180ms ease-out both;
 }
 
 .ask-thinking-icon {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
+  min-width: 18px;
   height: 18px;
-  border-radius: 50%;
-  background: var(--accent-soft, rgba(79, 110, 232, 0.1));
-  color: var(--theme-blue-ink, var(--accent, #4f6ee8));
+  background: transparent;
+  color: var(--text-primary, #1e293b);
   flex-shrink: 0;
 }
 
-.ask-thinking-sparkle {
+.ask-thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 18px;
+  padding: 0;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.ask-thinking-dots-icon {
   display: block;
-  width: 10px;
-  height: 10px;
-  animation: ask-sparkle-pulse 2.4s ease-in-out infinite;
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.ask-thinking-dot {
+  will-change: opacity, transform;
+}
+
+span.ask-thinking-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.52;
+  transform: translateY(0);
+  flex-shrink: 0;
+}
+
+.ask-thinking-dot.dot-1 {
+  animation: ask-dot-wave 1.25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: 0s;
+}
+
+.ask-thinking-dot.dot-2 {
+  animation: ask-dot-wave 1.25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: 0.18s;
+}
+
+.ask-thinking-dot.dot-3 {
+  animation: ask-dot-wave 1.25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: 0.36s;
+}
+
+circle.ask-thinking-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0.52;
+  transform: translateY(0);
+}
+
+circle.ask-thinking-dot.dot-1 {
+  animation: ask-dot-wave 1.25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: 0s;
+}
+
+circle.ask-thinking-dot.dot-2 {
+  animation: ask-dot-wave 1.25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: 0.18s;
+}
+
+circle.ask-thinking-dot.dot-3 {
+  animation: ask-dot-wave 1.25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: 0.36s;
+}
+
+@keyframes ask-dot-wave {
+  0%, 100% {
+    opacity: 0.52;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2.5px);
+  }
+  60% {
+    opacity: 0.52;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-thinking-dot {
+    animation: none !important;
+    opacity: 0.8;
+    transform: none !important;
+  }
 }
 
 .ask-thinking-label {
-  color: var(--text-secondary, rgba(29, 36, 50, 0.7));
-  font-size: 12px;
-  font-weight: 500;
+  color: var(--text-secondary, #64748b);
+  font-size: 13.5px;
+  font-weight: 450;
   letter-spacing: -0.005em;
   white-space: nowrap;
-  width: 180px;
-  line-height: 16px;
+  max-width: min(580px, 80vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 20px;
 }
 
 .ask-thinking-label.is-changing {
-  animation: ask-status-change 220ms ease-out both;
+  animation: ask-status-change 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes ask-status-change {
-  from { opacity: 0.55; transform: translateY(2px); }
+  from { opacity: 0.45; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes ask-thinking-fade {
   from { opacity: 0; transform: translateY(2px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes ask-sparkle-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.85; }
-  50% { transform: scale(1.15); opacity: 1; }
 }
 
 .ask-message-assistant {
@@ -7335,15 +7418,33 @@ html.dark .ask-artifact-menu-icon.is-pdf {
 }
 
 .ask-thinking.is-searching .ask-thinking-icon {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
   background: transparent;
   color: var(--theme-blue-ink, var(--accent, #4f6ee8));
 }
 
 .ask-thinking.is-searching .ask-searching-icon {
-  width: 13px;
-  height: 13px;
+  width: 16px;
+  height: 16px;
   display: block;
   animation: ask-search-scan 2s ease-in-out infinite;
+}
+
+:root[data-theme="dark"] .ask-thinking,
+html.dark .ask-thinking {
+  color: var(--text-secondary, #94a3b8);
+}
+
+:root[data-theme="dark"] .ask-thinking-icon,
+html.dark .ask-thinking-icon {
+  color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .ask-thinking-label,
+html.dark .ask-thinking-label {
+  color: var(--text-secondary, #94a3b8);
 }
 
 @keyframes ask-search-scan {
