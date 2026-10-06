@@ -3,17 +3,40 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { isComplexAskQuery, resolveAskModelRoute } from "../src/services/ai/ask-routing.js";
+import { isComplexAskQuery, resolveAskModelRoute, resolveAskThinkingLevel } from "../src/services/ai/ask-routing.js";
 import { FileChatRepository } from "../src/repositories/file-chat-repository.js";
 
-test("small Ask queries route to GPT-5.6 Luna", () => {
-  assert.equal(resolveAskModelRoute({ lastUserMsg: "Instagram üçün 3 qısa başlıq yaz" }), "luna");
+test("all Ask queries route exclusively to Gemini 3.8 Flash (GPT models eliminated from Ask)", () => {
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "Instagram üçün 3 qısa başlıq yaz" }), "gemini-3.8-flash");
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "Hərtərəfli dərin analiz və SWOT matrisi qur" }), "gemini-3.8-flash");
+  assert.equal(resolveAskModelRoute({ lastUserMsg: "Bunu necə tətbiq edim?", hasStrategyContext: true }), "gemini-3.8-flash");
+  assert.equal(resolveAskModelRoute({ requestedModel: "terra", lastUserMsg: "qısa sual" }), "gemini-3.8-flash");
+  assert.equal(resolveAskModelRoute({ requestedModel: "luna", lastUserMsg: "dərin analiz" }), "gemini-3.8-flash");
+  assert.equal(resolveAskModelRoute({ requestedModel: "auto", lastUserMsg: "sual" }), "gemini-3.8-flash");
 });
 
-test("complex Ask queries without search intent route to GPT-5.6 Terra", () => {
+test("isComplexAskQuery accurately identifies complex queries and strategy context", () => {
   assert.equal(isComplexAskQuery("Hərtərəfli dərin analiz və SWOT matrisi qur"), true);
-  assert.equal(resolveAskModelRoute({ lastUserMsg: "Hərtərəfli dərin analiz və SWOT matrisi qur" }), "terra");
-  assert.equal(resolveAskModelRoute({ lastUserMsg: "Bunu necə tətbiq edim?", hasStrategyContext: true }), "terra");
+  assert.equal(isComplexAskQuery("Bunu necə tətbiq edim?", true), true);
+  assert.equal(isComplexAskQuery("Sadə sual", false), false);
+});
+
+test("resolveAskThinkingLevel routes auto thinking levels (low, medium, high) and preserves explicit levels", () => {
+  // Complex queries route to high
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "Hərtərəfli dərin analiz və SWOT matrisi qur" }), "high");
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "Hərtərəfli rəqib analizi apar", hasStrategyContext: true }), "high");
+  // Strategic / moderate queries in strategy context route to medium
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "İlk 30 gündə icra planı və prioritetlər nə olmalıdır?", hasStrategyContext: true }), "medium");
+  // Simple / short queries in strategy context route to low
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "Salam, bu kimdir?", hasStrategyContext: true }), "low");
+  // General queries route to low by default, medium if long (>150 chars)
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "Qısa sual", hasStrategyContext: false }), "low");
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "Bu çox uzun bir mətndir ki, ümumi Ask rejimində istifadəçinin daxil etdiyi sualın ölçüsü 150 simvoldan çox olduqda avtomatik olaraq medium düşünmə səviyyəsinə keçid təmin edilsin və dərin cavab alınsın." }), "medium");
+  // Explicit levels are strictly preserved
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "high" }), "high");
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "medium" }), "medium");
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "low" }), "low");
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "off" }), "off");
 });
 
 test("real-time search, pricing, and AI model queries in auto mode route to Gemini 3.8 Flash", () => {
@@ -21,17 +44,6 @@ test("real-time search, pricing, and AI model queries in auto mode route to Gemi
   assert.equal(resolveAskModelRoute({ lastUserMsg: "Rəqib analizi və 2026 trendləri" }), "gemini-3.8-flash");
   assert.equal(resolveAskModelRoute({ lastUserMsg: "Gemini 3.8 Flash haqqında nə bilirsən?" }), "gemini-3.8-flash");
   assert.equal(resolveAskModelRoute({ lastUserMsg: "GPT-6 Astra nə vaxt çıxacaq?" }), "gemini-3.8-flash");
-});
-
-test("only Terra, Luna, and Gemini 3.8 Flash can be selected explicitly", () => {
-  assert.equal(resolveAskModelRoute({ requestedModel: "terra", lastUserMsg: "qısa sual" }), "terra");
-  assert.equal(resolveAskModelRoute({ requestedModel: "luna", lastUserMsg: "dərin analiz" }), "luna");
-  assert.equal(resolveAskModelRoute({ requestedModel: "flash", lastUserMsg: "marketinq büdcəsi" }), "gemini-3.8-flash");
-  assert.equal(resolveAskModelRoute({ requestedModel: "gemini-3.8-flash", lastUserMsg: "marketinq büdcəsi" }), "gemini-3.8-flash");
-  assert.equal(resolveAskModelRoute({ requestedModel: "gemini-3.7-flash", lastUserMsg: "qısa sual" }), "luna");
-  assert.equal(resolveAskModelRoute({ requestedModel: "gemini", lastUserMsg: "qısa sual" }), "gemini-3.8-flash");
-  assert.equal(resolveAskModelRoute({ requestedModel: "unsupported-model", lastUserMsg: "qısa sual" }), "luna");
-  assert.equal(resolveAskModelRoute({ requestedModel: "gemini-1.5-pro", lastUserMsg: "qısa sual" }), "luna");
 });
 
 test("Gemini configuration exposes default 3.8 flash", async () => {
@@ -202,6 +214,15 @@ test("askRequestSchema strictly accepts follow-up messages containing assistant 
   };
   const parseResult = askRequestSchema.safeParse(followUpPayload);
   assert.ok(parseResult.success, "askRequestSchema must accept follow-up payload without 400 Bad Request: " + JSON.stringify(parseResult.error?.errors));
+
+  const autoThinkingPayload = {
+    messages: [{ role: "user", content: "Salam" }],
+    model: "gemini-3.8-flash",
+    thinkingLevel: "auto",
+    stream: true,
+  };
+  const autoResult = askRequestSchema.safeParse(autoThinkingPayload);
+  assert.ok(autoResult.success, "askRequestSchema must accept thinkingLevel auto without 400 Bad Request: " + JSON.stringify(autoResult.error?.errors));
 
   const scriptContent = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
   assert.ok(scriptContent.includes("sanitizeAskMessageForApi"), "script.js must define sanitizeAskMessageForApi");

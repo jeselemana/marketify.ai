@@ -11,6 +11,7 @@ export const DEFAULT_MODEL_PRICING = Object.freeze({
   'gpt-6-luna': { input: 0.25, output: 1.00, search: 0.030 },
   'gpt-5.6-terra': { input: 1.25, output: 5.00, search: 0.035 },
   'gpt-6-sol': { input: 2.00, output: 10.00, search: 0.050 },
+  'gpt-6.1-sol': { input: 2.00, output: 10.00, search: 0.050 },
   'gpt-4o': { input: 2.50, output: 10.00, search: 0.035 },
   'default': { input: 2.50, output: 10.00, search: 0.035 },
 });
@@ -18,7 +19,7 @@ export const DEFAULT_MODEL_PRICING = Object.freeze({
 export function isAiRequest(req) {
   return req.method === 'POST' && (
     /^\/api\/ask(?:\/research)?\/?$/i.test(req.path) ||
-    /^\/api\/strategy\/(?:assess|generate|generate-stream|refine|summary|summarize|[^/]+\/refine)\/?$/i.test(req.path) ||
+    /^\/api\/strategy\/(?:assess|generate|generate-stream|refine|[^/]+\/refine)\/?$/i.test(req.path) ||
     /^\/api\/planner\/(?:summarize|prioritize)\/?$/i.test(req.path) ||
     /^\/api\/up\/challenges\/?$/i.test(req.path) ||
     /^\/api\/user\/ai-summary\/?$/i.test(req.path)

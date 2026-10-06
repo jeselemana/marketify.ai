@@ -357,9 +357,23 @@ export async function streamOpenAIContent({ model = aiConfig.strategyFallbackMod
 
 export async function routeStructuredGeneration({ schema, name, instructions, input, maxOutputTokens, reasoning = "medium", ownerId, signal, onChunk, onUsage, askRoute = null, attachments = [] }) {
   const primaryModel = askRoute ? aiConfig.askGeminiModel : aiConfig.strategyModel;
-  const fallbackModel = askRoute ? (askRoute === "terra" ? aiConfig.askComplexModel : aiConfig.askModel) : aiConfig.strategyFallbackModel;
+  const fallbackModel = askRoute ? null : aiConfig.strategyFallbackModel;
+  if (attachments.length && !hasGeminiConfiguration()) {
+    throw new LLMProviderError("Binary attachment processing requires the configured Gemini multimodal route.", {
+      code: "AI_ATTACHMENT_UNAVAILABLE", status: 503, model: primaryModel, provider: "gemini",
+    });
+  }
 
-  // 1. Primary: Try Gemini 3.8 Flash via Vertex AI
+  if (askRoute && !hasGeminiConfiguration()) {
+    throw new LLMProviderError("Gemini xidməti konfiqurasiya edilməyib. Zəhmət olmasa .env faylında GEMINI_API_KEY əlavə edin.", {
+      code: "GEMINI_NOT_CONFIGURED",
+      status: 503,
+      model: primaryModel,
+      provider: "google",
+    });
+  }
+
+  // 1. Primary: Try Gemini 3.8 Flash via Vertex AI / Google GenAI
   if (hasGeminiConfiguration() && (!askRoute || askRoute === "gemini-3.8-flash")) {
     try {
       const gemini = getGeminiClient();
@@ -432,12 +446,24 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
       };
     } catch (geminiError) {
       if (geminiError.name === "AbortError" || signal?.aborted) throw geminiError;
+      if (askRoute) {
+        // Ask mode must never fall back to GPT models.
+        throw geminiError;
+      }
       console.warn(`[Build Route] ${primaryModel} xətası baş verdi, fallback modelinə (${fallbackModel}) yönləndirilir:`, geminiError.message || geminiError);
       if (attachments.length) throw geminiError;
     }
   }
 
-  // 2. Fallback: GPT-6 Sol via the Responses API.
+  // 2. Fallback for Build: GPT-6.1 Sol (medium reasoning) via the Responses API.
+  if (askRoute) {
+    throw new LLMProviderError("Ask rejimində GPT fallback icazə verilmir.", {
+      code: "AI_PROVIDER_ERROR",
+      status: 503,
+      model: primaryModel,
+      provider: "google",
+    });
+  }
   if (attachments.length) throw new LLMProviderError("Binary attachment processing requires the configured Gemini multimodal route.", {
     code: "AI_ATTACHMENT_UNAVAILABLE", status: 503, model: primaryModel, provider: "gemini",
   });
@@ -457,7 +483,7 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
         instructions,
         input,
         text: { format: zodTextFormat(schema, name) },
-        reasoning: { effort: reasoning },
+        reasoning: { effort: reasoning || "medium" },
         max_output_tokens: maxOutputTokens || aiConfig.strategyMaxOutputTokens,
         safety_identifier: privacySafeIdentifier(ownerId),
       },
@@ -495,7 +521,7 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
 
     const httpStatus = error.status || 500;
     if (httpStatus === 429 || error.code === "rate_limit_exceeded") {
-      throw new LLMProviderError("GPT-6 Sol xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
+      throw new LLMProviderError("GPT-6.1 Sol xidmətində sorğu limiti aşılıb (429). Zəhmət olmasa bir az sonra yenidən cəhd edin.", {
         code: "AI_RATE_LIMITED",
         status: 429,
         model: fallbackModel,

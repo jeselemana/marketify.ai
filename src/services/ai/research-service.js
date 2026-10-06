@@ -402,9 +402,10 @@ YALNIZ bu formatda JSON array qaytar:
       const openai = getOpenAIClient();
       const res = await openai.chat.completions.create(
         {
-          model: "gpt-4o-mini",
+          model: "gpt-6.1-sol",
+          reasoning_effort: "medium",
           messages: [{ role: "user", content: decompositionPrompt }],
-          max_tokens: 1024,
+          max_completion_tokens: 1024,
         },
         abortSignal ? { signal: abortSignal } : undefined,
       );
@@ -474,7 +475,8 @@ export async function executeTargetedSearch({
       const openai = getOpenAIClient();
       const res = await openai.responses.create(
         {
-          model: "gpt-4o",
+          model: "gpt-6.1-sol",
+          reasoning: { effort: "medium" },
           instructions: "Search the web for verified facts, numbers, and authoritative sources. Exclude low-credibility domains like teamazing.com, random blogs, or SEO content farms.",
           input: query,
           tools: [{ type: "web_search" }],
@@ -552,9 +554,10 @@ Return ONLY a JSON object:
       const openai = getOpenAIClient();
       const res = await openai.chat.completions.create(
         {
-          model: "gpt-4o-mini",
+          model: "gpt-6.1-sol",
+          reasoning_effort: "medium",
           messages: [{ role: "user", content: gapPrompt }],
-          max_tokens: 512,
+          max_completion_tokens: 512,
         },
         abortSignal ? { signal: abortSignal } : undefined,
       );
@@ -1044,7 +1047,8 @@ export class ResearchService {
         }
         const openai = getOpenAIClient();
         response = await openai.responses.create({
-          model: "gpt-4o",
+          model: "gpt-6.1-sol",
+          reasoning: { effort: "medium" },
           instructions: systemInstruction,
           input: userContent,
           tools: [{ type: "web_search" }],

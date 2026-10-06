@@ -52,7 +52,7 @@ test("GeminiFileCache getOrCreateGeminiCachedContent safely returns null for sma
   const mockGemini = { caches: { create: async () => { throw new Error("Should not be called"); } } };
   const result = await cache.getOrCreateGeminiCachedContent({
     geminiClient: mockGemini,
-    model: "gemini-3.7-flash",
+    model: "gemini-3.8-flash",
     file,
   });
   assert.equal(result, null);

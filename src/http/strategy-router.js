@@ -8,14 +8,12 @@ import {
   GenerateRequestSchema,
   RefineRequestSchema,
   SaveStrategyRequestSchema,
-  StrategySummaryRequestSchema,
   formatValidationError,
 } from "../domain/strategy.js";
 import {
   assessBrief,
   generateStrategy,
   refineStrategy,
-  summarizeStrategyWithLuna,
 } from "../services/ai/strategy-service.js";
 import { buildStrategyPersonalizationContext } from "../services/ai/personal-context.js";
 import { detectTargetMarket } from "../services/ai/prompts.js";
@@ -722,90 +720,6 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
       }
     }),
   );
-
-  const handleSummary = asyncRoute(async (req, res) => {
-    const payload = parse(StrategySummaryRequestSchema, req.body);
-    const abortController = new AbortController();
-    const onReqClose = () => {
-      if (!req.complete && !res.writableEnded) abortController.abort();
-    };
-    const onResClose = () => {
-      if (!res.writableEnded) abortController.abort();
-    };
-    if (typeof req?.on === "function") req.on("close", onReqClose);
-    if (typeof res?.on === "function") res.on("close", onResClose);
-
-    try {
-      const language = resolveLanguage(req, payload.language);
-      let strategy = payload.strategy;
-
-      // Tenant isolation & IDOR check: If strategyId is provided, enforce ownerId match (Rule 3)
-      if (payload.strategyId) {
-        const existing = await repository.getById(payload.strategyId, req.ownerId);
-        if (!existing) {
-          return res.status(404).json({ error: "Strategiya tapılmadı.", code: "NOT_FOUND" });
-        }
-        if (!strategy) {
-          strategy = existing.strategy;
-        }
-      }
-
-      if (!strategy) {
-        return res.status(400).json({ error: "Strategiya məlumatı tələb olunur.", code: "VALIDATION_ERROR" });
-      }
-
-      const client = options.openAiClient || options.client || null;
-      const summaryStartedAt = Date.now();
-      let summaryUsage = null;
-
-      const summary = await summarizeStrategyWithLuna({
-        strategy,
-        language,
-        client,
-        signal: abortController.signal,
-        onUsage: (u) => { summaryUsage = u; },
-      });
-
-      const modelImprovement = isModelImprovementEnabled(req);
-      if (telemetryService) {
-        telemetryService.trackSummary({
-          ownerId: req.ownerId,
-          sessionId: req.guestOwnerId,
-          model: aiConfig.strategySummaryModel || "gpt-5.6-luna",
-          latencyMs: Date.now() - summaryStartedAt,
-          usage: summaryUsage,
-          status: "success",
-          onlyNecessaryData: !modelImprovement,
-          modelImprovement,
-        }).catch(() => {});
-      }
-
-      if (!res.writableEnded) {
-        res.json({ summary });
-      }
-    } catch (summaryErr) {
-      const modelImprovement = isModelImprovementEnabled(req);
-      if (telemetryService) {
-        telemetryService.trackSummary({
-          ownerId: req.ownerId,
-          sessionId: req.guestOwnerId,
-          model: aiConfig.strategySummaryModel || "gpt-5.6-luna",
-          latencyMs: Date.now() - summaryStartedAt,
-          status: "error",
-          error: summaryErr,
-          onlyNecessaryData: !modelImprovement,
-          modelImprovement,
-        }).catch(() => {});
-      }
-      throw summaryErr;
-    } finally {
-      if (typeof req?.off === "function") req.off("close", onReqClose);
-      if (typeof res?.off === "function") res.off("close", onResClose);
-    }
-  });
-
-  router.post("/summary", handleSummary);
-  router.post("/summarize", handleSummary);
 
   router.post(
     "/save",

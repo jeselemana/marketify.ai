@@ -7349,16 +7349,10 @@ circle.ask-thinking-dot.dot-3 {
 
 @keyframes ask-dot-wave {
   0%, 100% {
-    opacity: 0.52;
-    transform: translateY(0);
+    opacity: 0.42;
   }
-  30% {
-    opacity: 1;
-    transform: translateY(-2.5px);
-  }
-  60% {
-    opacity: 0.52;
-    transform: translateY(0);
+  50% {
+    opacity: 0.95;
   }
 }
 
@@ -7392,8 +7386,8 @@ circle.ask-thinking-dot.dot-3 {
 }
 
 @keyframes ask-thinking-fade {
-  from { opacity: 0; transform: translateY(2px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .ask-message-assistant {
@@ -7413,8 +7407,17 @@ circle.ask-thinking-dot.dot-3 {
   opacity: 1;
 }
 
-.ask-message-assistant.is-fresh:not(.is-streaming) .ask-rich-text {
-  animation: ask-answer-in 180ms ease-out both;
+.ask-stream-wrap {
+  display: block;
+  width: 100%;
+}
+
+.ask-stream-wrap.ask-text-glide-in,
+.ask-message-assistant.is-fresh:not(.is-streaming) .ask-rich-text,
+.ask-rich-text.ask-text-glide-in,
+.ask-thread-msg-content.ask-text-glide-in {
+  animation: ask-answer-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
 }
 
 .ask-thinking.is-searching .ask-thinking-icon {
@@ -7940,24 +7943,7 @@ html.dark .ask-inline-link {
 }
 
 .ask-answer-caret {
-  display: inline-block;
-  width: 2px;
-  height: 1.15em;
-  margin: 0 0 0 2px;
-  border-radius: 1px;
-  background: var(--accent, #3176cb);
-  vertical-align: -0.16em;
-  opacity: 0.85;
-  pointer-events: none;
-}
-
-.ask-answer-caret.is-streaming {
-  animation: ask-caret 750ms ease-in-out infinite;
-}
-
-[data-theme="dark"] .ask-answer-caret,
-html.dark .ask-answer-caret {
-  background: var(--accent, #60a5fa);
+  display: none !important;
 }
 
 .ask-error {
@@ -9360,6 +9346,67 @@ html:not(.dark) .mobile-model-options .ask-thinking-card {
   user-select: none;
 }
 
+.ask-thinking-suggestion-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+  animation: fadeInThinkingSuggestion 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ask-thinking-suggestion-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  background: var(--theme-surface-soft, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--theme-border-strong, rgba(0, 0, 0, 0.12));
+  border-radius: 999px;
+  color: var(--theme-ink, #0f172a);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.35;
+}
+
+.ask-thinking-suggestion-btn:hover {
+  background: var(--theme-surface-muted, rgba(0, 0, 0, 0.07));
+  border-color: var(--theme-blue-border, #6366f1);
+  color: var(--theme-blue-ink, #6366f1);
+  transform: translateY(-1px);
+}
+
+.ask-thinking-suggestion-spark {
+  color: var(--theme-blue-ink, #6366f1);
+  font-size: 11px;
+}
+
+[data-theme="dark"] .ask-thinking-suggestion-btn,
+html.dark .ask-thinking-suggestion-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .ask-thinking-suggestion-btn:hover,
+html.dark .ask-thinking-suggestion-btn:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: #818cf8;
+  color: #ffffff;
+}
+
+@keyframes fadeInThinkingSuggestion {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .ask-preset-prompt-cta {
   position: absolute;
   z-index: 60;
@@ -9666,13 +9713,19 @@ html:not(.dark) .mobile-model-options .ask-thinking-card {
 }
 
 @keyframes ask-thinking-dot {
-  0%, 60%, 100% { opacity: 0.28; transform: translateY(0); }
-  30% { opacity: 0.9; transform: translateY(-2px); }
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.95; }
 }
 
 @keyframes ask-answer-in {
-  from { opacity: 0.45; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  0% {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes ask-caret {

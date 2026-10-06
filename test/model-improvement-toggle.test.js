@@ -87,7 +87,7 @@ test("4. TelemetryService scrubs prompt/brief and flags onlyNecessaryData when r
   // Restricted ask query
   await telemetry.trackAskQuery({
     query: "Mənim gizli biznes sualım",
-    model: "gemini-3.7-flash",
+    model: "gemini-3.8-flash",
     latencyMs: 800,
     onlyNecessaryData: true,
   });
@@ -116,7 +116,7 @@ test("5. LearningLoopService redacts interactions and prevents training candidat
     mode: "ask",
     taskType: "ask_query",
     modelProvider: "google",
-    modelName: "gemini-3.7-flash",
+    modelName: "gemini-3.8-flash",
     userPrompt: "Məxfi maliyyə hesabatı təhlili",
     modelResponse: "Budur detallı maliyyə analizi...",
     relevantContext: { sensitiveBalance: 100000 },
@@ -274,7 +274,7 @@ test("9. Deactivating modelImprovement immediately scrubs existing learning inte
     mode: "ask",
     taskType: "ask_query",
     modelProvider: "google",
-    modelName: "gemini-3.7-flash",
+    modelName: "gemini-3.8-flash",
     userPrompt: "Məxfi şirkət gəlir məlumatları və maliyyə planı",
     modelResponse: "Şirkətinizin büdcə balansı və gizli strategiya planı",
     onlyNecessaryData: false,

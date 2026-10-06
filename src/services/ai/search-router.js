@@ -1,5 +1,5 @@
 /**
- * Dynamic search router module for Gemini 3.7 Flash Google Search Grounding.
+ * Dynamic search router module for Gemini 3.8 Flash Google Search Grounding.
  *
  * Intelligently determines whether a user prompt requires real-time web search
  * (market pricing, competitor analysis, current trends, recent dates, URLs, entity lookup)

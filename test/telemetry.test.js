@@ -131,7 +131,7 @@ test("6. TelemetryService: tracks Build, Ask, Summary, Export, Auth, and System 
   // 3. Ask stream (with Google Search Grounding)
   await service.trackAskQuery({
     ownerId: "usr-az-1",
-    model: "gemini-3.7-flash",
+    model: "gemini-3.8-flash",
     latencyMs: 850,
     usage: { prompt_tokens: 800, completion_tokens: 600 },
     groundingActive: true,
@@ -213,7 +213,7 @@ test("7. TelemetryRepository: listEvents supports filters, search, and paginatio
 
   await service.trackBuildStrategy({ ownerId: "u1", brief: "Bakı brend", model: "gemini-3.8-flash", status: "success" });
   await service.trackBuildStrategy({ ownerId: "u2", brief: "Global export", model: "gpt-5.6-terra", status: "success" });
-  await service.trackAskQuery({ ownerId: "u1", model: "gemini-3.7-flash", status: "success", querySnippet: "Local pricing" });
+  await service.trackAskQuery({ ownerId: "u1", model: "gemini-3.8-flash", status: "success", querySnippet: "Local pricing" });
   await service.trackExport({ ownerId: "u3", format: "excel", status: "success" });
 
   // Filter by mode

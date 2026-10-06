@@ -2184,22 +2184,19 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function isComplexAskQuery(lastUserMsg = "", hasStrategyContext = false) {
+  if (hasStrategyContext) return true;
+  const cleanMsg = String(lastUserMsg || "").trim();
+  if (cleanMsg.length >= 350) return true;
+
+  return /(hərtərəfli dərin analiz|hərtərəfli analiz|hərtərəfli təhlil|geniş təhlil|rəqib analizi|swot analizi|swot matrisi|audit hesabatı|maliyyə modeli|büdcə bölgüsü|cac\s*\/\s*ltv|tam marketinq planı|daha dərindən düşün|bütün detalları ilə|deep analysis|in-depth analysis|competitor analysis|financial model|budget breakdown|marketing plan|think deeper)/i.test(cleanMsg);
+}
+
 function getAskMessageModelInfo(model) {
-  const normalized = typeof model === "string" ? model.trim().toLowerCase() : "";
-  if (normalized.includes("gemini") || normalized === "flash") {
-    return {
-      isGemini: true,
-      isTerra: false,
-      displayName: "Auto",
-    };
-  }
-  // Support existing saved messages while only rendering product-friendly labels.
-  const isTerra = normalized === "terra" || /gpt[-\s]?5\.6[-\s]?terra/.test(normalized);
-  const displayName = isTerra ? (getLanguage() === "en" ? "Deep Analysis" : "Dərin Analiz") : "Auto";
   return {
-    isGemini: false,
-    isTerra,
-    displayName,
+    isGemini: true,
+    isTerra: false,
+    displayName: "Auto",
   };
 }
 
@@ -2425,11 +2422,6 @@ const state = {
     catch { return false; }
   })(),
   strategyAskOpen: false,
-  strategySummaryOpen: false,
-  strategySummaryLoading: false,
-  strategySummaryError: "",
-  strategySummaryData: null,
-  strategySummaryCachedId: null,
   refinementOpen: false,
   currentUser: null,
   settingsTab: "account",
@@ -2491,7 +2483,6 @@ function isAskThinkingActive(message) {
   if (level) {
     return level === "medium" || level === "high";
   }
-  if (message?.model === "terra") return true;
   return Boolean(state.askThinkingEnabled && state.askThinkingLevel && state.askThinkingLevel !== "low" && state.askThinkingLevel !== "off");
 }
 
@@ -2532,15 +2523,6 @@ function clearAskWaitStages(message) {
 
 function startAskWaitStages(message) {
   clearAskWaitStages(message);
-  if (!isAskThinkingActive(message)) {
-    // In default thinking (low), only the animated three-dots icon is shown.
-    return;
-  }
-  askWaitTimers.set(message, askActiveThinkingStages.map(([delay, az, en]) => setTimeout(() => {
-    if (!message.isStreaming || message.content || message.status === "searching") return;
-    message.statusText = getLanguage() === "en" ? en : az;
-    updateActiveAskThinkingStatus(message);
-  }, delay)));
 }
 
 function askThinkingIcon(isSearching) {
@@ -4059,12 +4041,13 @@ function buildAskResponseMoreMenu(message, messageIndex, isEn) {
     morePopover.appendChild(sourcesBtn);
   }
 
-  if (!isResearch && !msgModelInfo.isTerra && !msgModelInfo.isGemini && messageIndex !== undefined) {
+  const msgMeta = getAskMessageMeta(message);
+  if (!isResearch && msgMeta.thinkingLevel !== "high" && messageIndex !== undefined) {
     const thinkDeeperBtn = button("", "ask-response-popover-item ask-think-deeper-btn", (event) => {
       event.preventDefault();
       event.stopPropagation();
       moreMenu.open = false;
-      thinkDeeperWithTerra(messageIndex);
+      thinkDeeperWithHigh(messageIndex);
     });
     thinkDeeperBtn.type = "button";
     thinkDeeperBtn.innerHTML = `
@@ -4192,10 +4175,6 @@ function renderAsk() {
           content.appendChild(thinking);
         } else {
           content.appendChild(renderAskRichText(message.content));
-          if (isStreamingMsg) {
-            const caret = element("span", "ask-answer-caret is-streaming");
-            content.appendChild(caret);
-          }
           if (message.groundingMetadata) {
             const chips = renderAskSourceChips(message.groundingMetadata);
             if (chips) content.appendChild(chips);
@@ -4259,9 +4238,7 @@ function renderAsk() {
 
           content.appendChild(actions);
           if (isFreshResponse) {
-            const caret = element("span", "ask-answer-caret");
-            content.appendChild(caret);
-            setTimeout(() => caret.remove(), 900);
+            freshAskResponses.delete(message);
           }
         }
       } else {
@@ -4774,8 +4751,25 @@ function renderAsk() {
   });
 
   const helper = element("div", "ask-composer-meta");
+  const suggestionWrap = element("div", "ask-thinking-suggestion-wrap");
+  const suggestionBtn = button("", "ask-thinking-suggestion-btn", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    state.askThinkingLevel = "high";
+    currentAskThinking = "high";
+    state.askThinkingEnabled = true;
+    try { localStorage.setItem("helmer_ask_thinking_level", "high"); } catch { }
+    try { localStorage.setItem("helmer_ask_thinking_enabled", "true"); } catch { }
+    suggestionWrap.style.display = "none";
+    render();
+  });
+  suggestionBtn.type = "button";
+  suggestionBtn.innerHTML = `<span class="ask-thinking-suggestion-spark">✦</span><span>${isEn ? "Want to switch to High thinking level?" : "High düşünmə səviyyəsinə keçmək istəyirsən?"}</span>`;
+  suggestionWrap.style.display = "none";
+  suggestionWrap.appendChild(suggestionBtn);
+
   const disclaimer = element("p", "ask-disclaimer", isEn ? "Helmer can make mistakes." : "Helmer səhv edə bilər.");
-  helper.appendChild(disclaimer);
+  helper.append(suggestionWrap, disclaimer);
   composerArea.append(form, helper);
   shell.append(thread, composerArea);
   workspace.appendChild(shell);
@@ -4783,7 +4777,8 @@ function renderAsk() {
   resizeInput = () => {
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
-    const hasText = input.value.trim().length >= 2;
+    const val = input.value.trim();
+    const hasText = val.length >= 2;
     const hasFile = Boolean(state.askPendingFile);
     if (state.askLoading) {
       submit.disabled = false;
@@ -4793,6 +4788,13 @@ function renderAsk() {
     shell.classList.toggle("has-input", Boolean(input.value.trim()));
     const hasAnyInput = Boolean(input.value && input.value.length > 0);
     form.classList.toggle("has-input", hasAnyInput);
+
+    const isComplex = isComplexAskQuery(val, Boolean(state.askStrategyId || state.askTaskId));
+    if (isComplex && currentAskThinking !== "high" && !state.askLoading) {
+      suggestionWrap.style.display = "inline-flex";
+    } else {
+      suggestionWrap.style.display = "none";
+    }
   };
   resizeInput();
   input.addEventListener("input", () => {
@@ -4853,17 +4855,16 @@ class LiveTypewriter {
   append(chunk) {
     if (!chunk) return;
     this.targetText += chunk;
-    if (!this.rafId) {
-      this.rafId = requestAnimationFrame(() => this.tick());
+    this.currentText = this.targetText;
+    if (this.onUpdate) {
+      this.onUpdate(this.currentText, false);
     }
   }
 
   finish(finalText) {
     if (this.hasCompleted) return;
     if (typeof finalText === "string" && finalText.length > 0) {
-      if (finalText.length >= this.targetText.length || !this.targetText) {
-        this.targetText = finalText;
-      }
+      this.targetText = finalText;
     }
     this.isDone = true;
     this.flush();
@@ -4892,36 +4893,7 @@ class LiveTypewriter {
   }
 
   tick() {
-    this.rafId = null;
-    if (this.isDone) {
-      this.flush();
-      return;
-    }
-
-    const remaining = this.targetText.length - this.currentText.length;
-    if (remaining <= 0) {
-      return;
-    }
-
-    let charsToType;
-    if (remaining > 120) {
-      charsToType = Math.ceil(remaining / 4);
-    } else if (remaining > 40) {
-      charsToType = Math.ceil(remaining / 3);
-    } else if (remaining > 16) {
-      charsToType = Math.max(6, Math.ceil(remaining / 2));
-    } else {
-      charsToType = remaining;
-    }
-
-    this.currentText = this.targetText.slice(0, this.currentText.length + charsToType);
-    this.onUpdate(this.currentText, false);
-
-    if (this.currentText.length < this.targetText.length) {
-      this.rafId = requestAnimationFrame(() => this.tick());
-    } else if (this.isDone) {
-      this.flush();
-    }
+    this.flush();
   }
 }
 
@@ -5663,32 +5635,26 @@ function scheduleAskScroll() {
 }
 
 function updateActiveAskMessageContent(message, showCaret = true) {
-  const activeBubble = document.querySelector(".ask-message.is-streaming .ask-message-content");
-  if (activeBubble) {
-    activeBubble.innerHTML = "";
-    if (message.content) {
-      const richContent = renderAskRichText(message.content);
-      if (showCaret) {
-        const caret = element("span", "ask-answer-caret is-streaming");
-        let target = richContent;
-        while (
-          target.lastElementChild &&
-          !target.lastElementChild.classList?.contains("ask-table-wrap") &&
-          !target.lastElementChild.classList?.contains("ask-code-block")
-        ) {
-          target = target.lastElementChild;
+  const activeBubbles = document.querySelectorAll(".ask-message.is-streaming .ask-message-content");
+  if (activeBubbles.length) {
+    activeBubbles.forEach((activeBubble) => {
+      if (message.content) {
+        let streamWrap = activeBubble.querySelector(".ask-stream-wrap");
+        if (!streamWrap) {
+          activeBubble.innerHTML = "";
+          streamWrap = element("div", "ask-stream-wrap ask-text-glide-in");
+          activeBubble.appendChild(streamWrap);
         }
-        target.appendChild(caret);
+        streamWrap.innerHTML = "";
+        const richContent = renderAskRichText(message.content);
+        streamWrap.appendChild(richContent);
+
+        if (message.groundingMetadata) {
+          const chips = renderAskSourceChips(message.groundingMetadata);
+          if (chips) streamWrap.appendChild(chips);
+        }
       }
-      activeBubble.appendChild(richContent);
-    } else if (showCaret) {
-      const caret = element("span", "ask-answer-caret is-streaming");
-      activeBubble.appendChild(caret);
-    }
-    if (message.groundingMetadata) {
-      const chips = renderAskSourceChips(message.groundingMetadata);
-      if (chips) activeBubble.appendChild(chips);
-    }
+    });
     scheduleAskScroll();
     if (!showCaret) {
       const composerArea = document.querySelector(".ask-composer-area");
@@ -5715,7 +5681,7 @@ function rememberSavedAskChat(chat) {
   loadSavedChats();
 }
 
-async function thinkDeeperWithTerra(messageIndex) {
+async function thinkDeeperWithHigh(messageIndex) {
   if (state.askLoading) return;
   const assistantMsg = state.askMessages[messageIndex];
   if (!assistantMsg || assistantMsg.role !== "assistant") return;
@@ -5726,7 +5692,7 @@ async function thinkDeeperWithTerra(messageIndex) {
   recordLearningSignal(assistantMsg.interactionId, { regenerated: true });
 
   assistantMsg.content = "";
-  assistantMsg.model = "terra";
+  assistantMsg.model = "gemini-3.8-flash";
   assistantMsg.isStreaming = true;
   setAskMessageMeta(assistantMsg, {
     thinkingLevel: "high",
@@ -5758,7 +5724,7 @@ async function thinkDeeperWithTerra(messageIndex) {
       },
       body: JSON.stringify({
         messages: historyMessages.map(sanitizeAskMessageForApi),
-        model: "terra",
+        model: "gemini-3.8-flash",
         thinkingLevel: "high",
         strategyId: state.askStrategyId || undefined,
         taskId: state.askTaskId || undefined,
@@ -5782,7 +5748,7 @@ async function thinkDeeperWithTerra(messageIndex) {
           },
           body: JSON.stringify({
             messages: historyMessages.map(sanitizeAskMessageForApi),
-            model: "terra",
+            model: "gemini-3.8-flash",
             thinkingLevel: "high",
             strategyId: state.askStrategyId || undefined,
             taskId: state.askTaskId || undefined,
@@ -5799,7 +5765,7 @@ async function thinkDeeperWithTerra(messageIndex) {
       if (response.status === 409 && errData.code === "REVISION_CONFLICT" && state.askChatId && errData.revision) {
         window.helmerSecurity?.revisions.set(state.askChatId, errData.revision);
       }
-      throw new Error(errData.error || "Terra ilə yenidən generasiya etmək mümkün olmadı.");
+      throw new Error(errData.error || (getLanguage() === "en" ? "Failed to regenerate with deeper thinking." : "Daha dərin düşünmə ilə yenidən generasiya etmək mümkün olmadı."));
     }
 
     const contentType = response.headers.get("content-type") || "";
@@ -5856,6 +5822,7 @@ async function thinkDeeperWithTerra(messageIndex) {
             if (data.groundingMetadata) {
               assistantMsg.groundingMetadata = data.groundingMetadata;
             }
+            freshAskResponses.delete(assistantMsg);
             typewriter.finish(finalReply);
             assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
             rememberSavedAskChat(data.chat);
@@ -5900,7 +5867,7 @@ async function thinkDeeperWithTerra(messageIndex) {
     } else {
       const data = await response.json();
       assistantMsg.content = data.reply;
-      assistantMsg.model = data.model || "terra";
+      assistantMsg.model = data.model || "gemini-3.8-flash";
       assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
       assistantMsg.isStreaming = false;
       rememberSavedAskChat(data.chat);
@@ -6031,8 +5998,8 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     return;
   }
 
-  const chosenModel = fileToAttach ? "gemini-3.8-flash" : (state.askModel || "auto");
-  const initialPlaceholderModel = chosenModel === "gemini-3.8-flash" ? "gemini-3.8-flash" : (chosenModel === "terra" ? "terra" : (chosenModel === "luna" ? "luna" : "auto"));
+  const chosenModel = "gemini-3.8-flash";
+  const initialPlaceholderModel = "gemini-3.8-flash";
   const assistantMsg = {
     role: "assistant",
     content: "",
@@ -6040,7 +6007,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     isStreaming: true,
   };
   setAskMessageMeta(assistantMsg, {
-    thinkingLevel: currentAskThinking || "low",
+    thinkingLevel: state.askThinkingEnabled ? (currentAskThinking || "low") : "auto",
     thinkingEnabled: Boolean(state.askThinkingEnabled),
     userPrompt: contentText,
   });
@@ -6061,7 +6028,9 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   activeAskReader = null;
   activeAskTypewriter = null;
 
-  const apiThinkingLevel = ["low", "medium", "high", "off"].includes(currentAskThinking) ? currentAskThinking : "low";
+  const apiThinkingLevel = (state.askThinkingEnabled && ["low", "medium", "high", "off"].includes(currentAskThinking))
+    ? currentAskThinking
+    : undefined;
 
   try {
     let response = await fetch("/api/ask", {
@@ -6188,6 +6157,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
             if (data.groundingMetadata) {
               assistantMsg.groundingMetadata = data.groundingMetadata;
             }
+            freshAskResponses.delete(assistantMsg);
             typewriter.finish(finalReply);
             assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
             rememberSavedAskChat(data.chat);
@@ -7039,8 +7009,8 @@ function showLoadingAskModal(initialQuery) {
         },
         body: JSON.stringify({
           messages: thread.map(sanitizeAskMessageForApi),
-          model: state.askModel || "auto",
-          thinkingLevel: ["low", "medium", "high", "off"].includes(currentAskThinking) ? currentAskThinking : "low",
+          model: "gemini-3.8-flash",
+          thinkingLevel: (state.askThinkingEnabled && ["low", "medium", "high", "off"].includes(currentAskThinking)) ? currentAskThinking : undefined,
           strategyId: state.askStrategyId || undefined,
           taskId: state.askTaskId || undefined,
           chatId: state.askChatId || undefined,
@@ -7062,8 +7032,8 @@ function showLoadingAskModal(initialQuery) {
             },
             body: JSON.stringify({
               messages: thread.map(sanitizeAskMessageForApi),
-              model: state.askModel || "auto",
-              thinkingLevel: ["low", "medium", "high", "off"].includes(currentAskThinking) ? currentAskThinking : "low",
+              model: "gemini-3.8-flash",
+              thinkingLevel: (state.askThinkingEnabled && ["low", "medium", "high", "off"].includes(currentAskThinking)) ? currentAskThinking : undefined,
               strategyId: state.askStrategyId || undefined,
               taskId: state.askTaskId || undefined,
               chatId: state.askChatId || undefined,
@@ -7112,6 +7082,10 @@ function showLoadingAskModal(initialQuery) {
           }
           if (data.chunk) {
             loadingItem.querySelector(".ask-searching-badge")?.remove();
+            if (contentWrap && !contentWrap.dataset.hasStreamedText) {
+              contentWrap.dataset.hasStreamedText = "true";
+              contentWrap.classList.add("ask-text-glide-in");
+            }
             reply += data.chunk;
             renderReply();
           }
@@ -8877,8 +8851,7 @@ function resetAskForStrategy(strategyId, force = false) {
 }
 
 async function ensureStrategyAskContext() {
-  // Strategy chat always delegates model choice to the shared Ask router.
-  state.askModel = "auto";
+  state.askModel = "gemini-3.8-flash";
   if (state.savedId) {
     resetAskForStrategy(state.savedId);
     return true;
@@ -8954,7 +8927,6 @@ function buildStrategyAskMessage(message, messageIndex) {
     content.appendChild(thinking);
   } else {
     content.appendChild(renderAskRichText(message.content));
-    if (isStreaming) content.appendChild(element("span", "ask-answer-caret is-streaming"));
     if (message.groundingMetadata) {
       const chips = renderAskSourceChips(message.groundingMetadata);
       if (chips) content.appendChild(chips);
@@ -8986,8 +8958,9 @@ function buildStrategyAskMessage(message, messageIndex) {
       actions.appendChild(sourcesBtn);
     }
 
-    if (!getAskMessageModelInfo(message.model).isTerra) {
-      const deeper = button(isEn ? "✦ Think Deeper" : "✦ Dərin düşün", "strategy-ask-action strategy-ask-deeper", () => thinkDeeperWithTerra(messageIndex));
+    const msgMeta = getAskMessageMeta(message);
+    if (msgMeta.thinkingLevel !== "high") {
+      const deeper = button(isEn ? "✦ Think Deeper" : "✦ Dərin düşün", "strategy-ask-action strategy-ask-deeper", () => thinkDeeperWithHigh(messageIndex));
       deeper.type = "button";
       deeper.disabled = state.askLoading;
       actions.appendChild(deeper);
@@ -9119,13 +9092,36 @@ function buildStrategyAskAssistant() {
   window.HelmerArtifacts?.attachComposer({ input, body: composerBody, getSelection: () => state.askPluginIds || [], setSelection: ids => { state.askPluginIds = ids; }, disabled: state.askLoading });
   form.append(composerBody, send);
 
+  const suggestionWrap = element("div", "ask-thinking-suggestion-wrap strategy-ask-thinking-suggestion-wrap");
+  const suggestionBtn = button("", "ask-thinking-suggestion-btn", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    state.askThinkingLevel = "high";
+    currentAskThinking = "high";
+    state.askThinkingEnabled = true;
+    try { localStorage.setItem("helmer_ask_thinking_level", "high"); } catch { }
+    try { localStorage.setItem("helmer_ask_thinking_enabled", "true"); } catch { }
+    suggestionWrap.style.display = "none";
+  });
+  suggestionBtn.type = "button";
+  suggestionBtn.innerHTML = `<span class="ask-thinking-suggestion-spark">✦</span><span>${isEn ? "Want to switch to High thinking level?" : "High düşünmə səviyyəsinə keçmək istəyirsən?"}</span>`;
+  suggestionWrap.style.display = "none";
+  suggestionWrap.appendChild(suggestionBtn);
+
   const resize = () => {
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 110)}px`;
+    const val = input.value.trim();
     if (state.askLoading) {
       send.disabled = false;
     } else {
-      send.disabled = input.value.trim().length < 2;
+      send.disabled = val.length < 2;
+    }
+    const isComplex = isComplexAskQuery(val, false);
+    if (isComplex && currentAskThinking !== "high" && !state.askLoading) {
+      suggestionWrap.style.display = "inline-flex";
+    } else {
+      suggestionWrap.style.display = "none";
     }
   };
   input.addEventListener("input", () => { state.askDraft = input.value; resize(); });
@@ -9161,7 +9157,7 @@ function buildStrategyAskAssistant() {
     if (ready) submitAskMessage(message);
   });
 
-  footer.append(form, element("p", "strategy-ask-disclaimer", isEn ? "Conversation is saved in Chat history · Answers are grounded in the active strategy." : "Söhbət Ask tarixçəsində saxlanılır · Cavab aktiv strategiya əsasında hazırlanır."));
+  footer.append(form, suggestionWrap, element("p", "strategy-ask-disclaimer", isEn ? "Conversation is saved in Chat history · Answers are grounded in the active strategy." : "Söhbət Ask tarixçəsində saxlanılır · Cavab aktiv strategiya əsasında hazırlanır."));
   panel.append(header, body, footer);
   root.appendChild(panel);
 
@@ -9171,351 +9167,6 @@ function buildStrategyAskAssistant() {
       if (!state.askLoading && window.innerWidth > 767) input.focus();
     });
   }
-  return root;
-}
-
-function openStrategySummary() {
-  if (!state.strategy) return;
-  state.strategySummaryOpen = true;
-  state.strategySummaryError = "";
-
-  const strategyKey = state.savedId || state.strategy.title || "active";
-  if (state.strategySummaryCachedId !== strategyKey) {
-    state.strategySummaryData = null;
-    state.strategySummaryCachedId = strategyKey;
-  }
-
-  const root = document.querySelector(".strategy-summary-root");
-  const summaryBtn = document.querySelector(".dock-summary-btn");
-  if (summaryBtn) summaryBtn.setAttribute("aria-expanded", "true");
-
-  if (!state.strategySummaryData && !state.strategySummaryLoading) {
-    loadStrategySummary();
-  }
-
-  if (root) {
-    root.classList.add("is-open");
-    updateSummaryModalView();
-  } else {
-    render();
-  }
-}
-
-function closeStrategySummary() {
-  state.strategySummaryOpen = false;
-  const root = document.querySelector(".strategy-summary-root");
-  const summaryBtn = document.querySelector(".dock-summary-btn");
-  if (summaryBtn) summaryBtn.setAttribute("aria-expanded", "false");
-  if (root) {
-    root.classList.remove("is-open");
-  }
-}
-
-async function loadStrategySummary() {
-  if (!state.strategy) return;
-  state.strategySummaryLoading = true;
-  state.strategySummaryError = "";
-  updateSummaryModalView();
-
-  try {
-    const lang = getLanguage() === "en" ? "en" : "az";
-    const bodyPayload = {
-      strategy: state.strategy,
-      language: lang,
-    };
-    if (state.savedId && /^[0-9a-f-]{36}$/i.test(state.savedId)) {
-      bodyPayload.strategyId = state.savedId;
-    }
-
-    const response = await fetch("/api/strategy/summary", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Helmer-Language": lang,
-      },
-      body: JSON.stringify(bodyPayload),
-    });
-
-    if (!response.ok) {
-      const errJson = await response.json().catch(() => ({}));
-      throw new Error(errJson.error || (getLanguage() === "en" ? "Failed to generate strategy summary." : "Strategiya xülasəsi hazırlana bilmədi."));
-    }
-
-    const result = await response.json();
-    state.strategySummaryData = result.summary;
-    state.strategySummaryLoading = false;
-  } catch (err) {
-    state.strategySummaryError = err.message || (getLanguage() === "en" ? "Failed to generate strategy summary." : "Strategiya xülasəsi hazırlana bilmədi.");
-    state.strategySummaryLoading = false;
-  }
-
-  updateSummaryModalView();
-}
-
-function copySummaryToClipboard(data, feedbackBtn) {
-  if (!data) return;
-  const isEn = getLanguage() === "en";
-  const lines = [];
-  lines.push(data.title || (isEn ? "Strategy Summary" : "Strategiyanın Xülasəsi"));
-  lines.push("─".repeat(40));
-  if (data.objective) {
-    lines.push(`🎯 ${isEn ? "Objective & Focus" : "Hədəf və Fokus"}:\n${data.objective}\n`);
-  }
-  if (data.keyMoves && data.keyMoves.length) {
-    lines.push(`⚡ ${isEn ? "Critical Strategic Moves" : "Əsas Strateji Gedişlər"}:`);
-    data.keyMoves.forEach((m, idx) => lines.push(`  ${idx + 1}. ${m}`));
-    lines.push("");
-  }
-  if (data.execution) {
-    lines.push(`🧭 ${isEn ? "Execution Direction" : "İcra İstiqaməti"}:\n${data.execution}\n`);
-  }
-  if (data.kpisAndBudget) {
-    lines.push(`📊 ${isEn ? "Budget & KPIs" : "Büdcə və KPI-lar"}:\n${data.kpisAndBudget}\n`);
-  }
-  if (data.takeaway || data.summary) {
-    lines.push(`💡 ${isEn ? "Executive Takeaway" : "Kəsərli Yekun"}:\n${data.takeaway || data.summary}`);
-  }
-  const fullText = lines.join("\n").trim();
-  const notifySuccess = () => {
-    if (feedbackBtn) {
-      const textSpan = feedbackBtn.querySelector(".strategy-summary-btn-text");
-      if (textSpan) {
-        const prev = textSpan.textContent;
-        textSpan.textContent = t("strategy.summary.copied");
-        setTimeout(() => { textSpan.textContent = prev; }, 2000);
-      }
-    }
-  };
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(fullText).then(notifySuccess).catch(() => { });
-  } else {
-    try {
-      const tempArea = document.createElement("textarea");
-      tempArea.value = fullText;
-      tempArea.style.position = "fixed";
-      tempArea.style.opacity = "0";
-      document.body.appendChild(tempArea);
-      tempArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(tempArea);
-      notifySuccess();
-    } catch { }
-  }
-}
-
-function populateSummaryBody(body) {
-  body.replaceChildren();
-
-  if (state.strategySummaryLoading) {
-    const skeleton = element("div", "strategy-summary-skeleton");
-    skeleton.setAttribute("aria-busy", "true");
-    skeleton.setAttribute("aria-label", t("strategy.summary.loading"));
-
-    const pulseStatus = element("div", "strategy-summary-skeleton-status");
-    const pulseOrb = element("span", "strategy-summary-skeleton-orb");
-    const pulseLabel = element("span", "", t("strategy.summary.loading"));
-    pulseStatus.append(pulseOrb, pulseLabel);
-
-    skeleton.appendChild(pulseStatus);
-
-    for (let i = 0; i < 4; i++) {
-      const card = element("div", "strategy-summary-skeleton-card");
-      const titleLine = element("div", "strategy-summary-skeleton-line strategy-summary-skeleton-title");
-      const textLine1 = element("div", "strategy-summary-skeleton-line");
-      const textLine2 = element("div", "strategy-summary-skeleton-line strategy-summary-skeleton-short");
-      card.append(titleLine, textLine1, textLine2);
-      skeleton.appendChild(card);
-    }
-    body.appendChild(skeleton);
-    return;
-  }
-
-  if (state.strategySummaryError) {
-    const errorContainer = element("div", "strategy-summary-error-container");
-    const errorIcon = element("span", "strategy-summary-error-icon", "⚠️");
-    const errorMsg = element("p", "strategy-summary-error-msg", state.strategySummaryError);
-    const retryBtn = button(t("strategy.summary.retry"), "btn btn-primary strategy-summary-retry-btn", (e) => {
-      e.preventDefault();
-      loadStrategySummary();
-    });
-    errorContainer.append(errorIcon, errorMsg, retryBtn);
-    body.appendChild(errorContainer);
-    return;
-  }
-
-  const data = state.strategySummaryData;
-  if (!data) {
-    const emptyMsg = element("p", "strategy-summary-empty", t("strategy.summary.loading"));
-    body.appendChild(emptyMsg);
-    return;
-  }
-
-  // 1. Objective & Focus
-  if (data.objective) {
-    const card = element("div", "strategy-summary-card strategy-summary-card--objective");
-    const cardTitle = element("h4", "strategy-summary-card-heading");
-    cardTitle.append(element("span", "strategy-summary-card-icon", "🎯"), document.createTextNode(t("strategy.summary.objectiveTitle")));
-    const cardText = element("p", "strategy-summary-card-text", data.objective);
-    card.append(cardTitle, cardText);
-    body.appendChild(card);
-  }
-
-  // 2. Critical Strategic Moves
-  if (data.keyMoves && data.keyMoves.length > 0) {
-    const card = element("div", "strategy-summary-card strategy-summary-card--moves");
-    const cardTitle = element("h4", "strategy-summary-card-heading");
-    cardTitle.append(element("span", "strategy-summary-card-icon", "⚡"), document.createTextNode(t("strategy.summary.movesTitle")));
-    const list = element("ul", "strategy-summary-moves-list");
-    data.keyMoves.forEach((move, idx) => {
-      const item = element("li", "strategy-summary-move-item");
-      const num = element("span", "strategy-summary-move-badge", String(idx + 1).padStart(2, "0"));
-      const text = element("span", "strategy-summary-move-text", move);
-      item.append(num, text);
-      list.appendChild(item);
-    });
-    card.append(cardTitle, list);
-    body.appendChild(card);
-  }
-
-  // 3. Execution Direction
-  if (data.execution) {
-    const card = element("div", "strategy-summary-card strategy-summary-card--execution");
-    const cardTitle = element("h4", "strategy-summary-card-heading");
-    cardTitle.append(element("span", "strategy-summary-card-icon", "🧭"), document.createTextNode(t("strategy.summary.executionTitle")));
-    const cardText = element("p", "strategy-summary-card-text", data.execution);
-    card.append(cardTitle, cardText);
-    body.appendChild(card);
-  }
-
-  // 4. Budget & KPIs
-  if (data.kpisAndBudget) {
-    const card = element("div", "strategy-summary-card strategy-summary-card--kpis");
-    const cardTitle = element("h4", "strategy-summary-card-heading");
-    cardTitle.append(element("span", "strategy-summary-card-icon", "📊"), document.createTextNode(t("strategy.summary.kpiTitle")));
-    const cardText = element("p", "strategy-summary-card-text", data.kpisAndBudget);
-    card.append(cardTitle, cardText);
-    body.appendChild(card);
-  }
-
-  // 5. Executive Takeaway
-  if (data.takeaway || data.summary) {
-    const card = element("div", "strategy-summary-card strategy-summary-card--takeaway");
-    const cardTitle = element("h4", "strategy-summary-card-heading");
-    cardTitle.append(element("span", "strategy-summary-card-icon", "💡"), document.createTextNode(t("strategy.summary.takeawayTitle")));
-    const cardText = element("p", "strategy-summary-card-text", data.takeaway || data.summary);
-    card.append(cardTitle, cardText);
-    body.appendChild(card);
-  }
-}
-
-function updateSummaryModalView() {
-  const body = document.querySelector("#strategySummaryBody");
-  if (body) {
-    populateSummaryBody(body);
-  }
-  const root = document.querySelector(".strategy-summary-root");
-  if (root) {
-    root.classList.toggle("is-open", Boolean(state.strategySummaryOpen));
-  }
-}
-
-function buildStrategySummaryModal() {
-  const isEn = getLanguage() === "en";
-  const root = element(
-    "div",
-    `strategy-summary-root${state.strategySummaryOpen ? " is-open" : ""}`
-  );
-  root.id = "strategySummaryRoot";
-
-  const backdrop = button("", "strategy-summary-backdrop", (e) => {
-    e.preventDefault();
-    closeStrategySummary();
-  });
-  backdrop.type = "button";
-  backdrop.setAttribute("aria-label", t("strategy.summary.close"));
-  backdrop.tabIndex = -1;
-
-  const modal = element("section", "strategy-summary-modal");
-  modal.setAttribute("role", "dialog");
-  modal.setAttribute("aria-modal", "true");
-  modal.setAttribute("aria-labelledby", "strategySummaryModalTitle");
-
-  // Mobile grab bar handle
-  const grabHandle = element("div", "strategy-summary-grab-handle");
-  grabHandle.setAttribute("aria-hidden", "true");
-
-  // Header
-  const header = element("header", "strategy-summary-header");
-  const headingWrap = element("div", "strategy-summary-heading");
-
-  const kicker = element("div", "strategy-summary-kicker");
-  const kickerIcon = element("span", "strategy-summary-kicker-spark", "✦");
-  const kickerText = element("span", "", t("strategy.summary.badge"));
-  kicker.append(kickerIcon, kickerText);
-
-  const title = element("h3", "strategy-summary-title", t("strategy.summary.title"));
-  title.id = "strategySummaryModalTitle";
-
-  const subtitle = element(
-    "p",
-    "strategy-summary-subtitle",
-    state.strategy?.title || t("strategy.summary.subtitle")
-  );
-
-  headingWrap.append(kicker, title, subtitle);
-
-  const headerActions = element("div", "strategy-summary-header-actions");
-
-  const copyBtn = button("", "strategy-summary-action-btn strategy-summary-copy-btn", (e) => {
-    e.preventDefault();
-    if (state.strategySummaryData) {
-      copySummaryToClipboard(state.strategySummaryData, copyBtn);
-    }
-  });
-  copyBtn.type = "button";
-  copyBtn.setAttribute("aria-label", t("strategy.summary.copy"));
-  copyBtn.title = t("strategy.summary.copy");
-  copyBtn.innerHTML = `
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-    </svg>
-    <span class="strategy-summary-btn-text">${t("strategy.summary.copy")}</span>
-  `;
-
-  const closeBtn = button("", "strategy-summary-action-btn strategy-summary-close-btn", (e) => {
-    e.preventDefault();
-    closeStrategySummary();
-  });
-  closeBtn.type = "button";
-  closeBtn.setAttribute("aria-label", t("strategy.summary.close"));
-  closeBtn.title = t("strategy.summary.close");
-  closeBtn.innerHTML = `
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <line x1="18" y1="6" x2="6" y2="18"/>
-      <line x1="6" y1="6" x2="18" y2="18"/>
-    </svg>
-  `;
-
-  headerActions.append(copyBtn, closeBtn);
-  header.append(headingWrap, headerActions);
-
-  // Body
-  const body = element("div", "strategy-summary-body");
-  body.id = "strategySummaryBody";
-  populateSummaryBody(body);
-
-  // Footer
-  const footer = element("footer", "strategy-summary-footer");
-  const metaText = element("span", "strategy-summary-footer-meta", isEn ? "Grounded in active strategy context" : "Aktiv strategiya konteksti əsasında formalaşdırılıb");
-  const footerClose = button(t("strategy.summary.close"), "btn btn-secondary strategy-summary-footer-close", () => {
-    closeStrategySummary();
-  });
-  footer.append(metaText, footerClose);
-
-  modal.append(grabHandle, header, body, footer);
-  root.append(backdrop, modal);
-
   return root;
 }
 
@@ -9619,7 +9270,7 @@ function renderStrategyWorkspace() {
 
   const shell = element("div", "strategy-local-shell");
   shell.append(toc, documentCanvas);
-  view.append(toolbar, shell, buildRefinementPanel(), buildStrategyAskAssistant(), buildStrategySummaryModal());
+  view.append(toolbar, shell, buildRefinementPanel(), buildStrategyAskAssistant());
 
   if (state.status === "refining") {
     const working = element("div", "refining-banner");
@@ -9748,27 +9399,12 @@ function buildRefinementPanel() {
     <span>${state.savedId ? (isEn ? "Saved" : "Yadda saxlanıldı") : (isEn ? "Save" : "Yadda saxla")}</span>
   `;
 
-  const summarySeparator = element("span", "dock-toolbar-separator dock-summary-separator");
-  summarySeparator.setAttribute("aria-hidden", "true");
-
-  const summaryBtn = button("", "dock-action-btn dock-summary-btn", (e) => {
-    e.preventDefault();
-    openStrategySummary();
-  });
-  summaryBtn.type = "button";
-  summaryBtn.setAttribute("aria-label", isEn ? "Strategy Summary" : "Strategiyanın Xülasəsi");
-  summaryBtn.setAttribute("aria-expanded", String(Boolean(state.strategySummaryOpen)));
-  summaryBtn.innerHTML = `
-    <svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-    <span>${isEn ? "Summary" : "Xülasə"}</span>
-  `;
-
   const askSeparator = element("span", "dock-toolbar-separator dock-ask-separator");
   askSeparator.setAttribute("aria-hidden", "true");
 
   const askBtn = button("", "dock-action-btn dock-ask-btn", (e) => {
     e.preventDefault();
-    state.askModel = "auto";
+    state.askModel = "gemini-3.8-flash";
     if (state.savedId) resetAskForStrategy(state.savedId);
     else resetAskForStrategy("", true);
     state.strategyAskOpen = true;
@@ -9794,7 +9430,7 @@ function buildRefinementPanel() {
     <span>${isEn ? "Ask Strategy Copilot" : "Strategiya barədə soruş"}</span>
   `;
 
-  actionsStrip.append(refineToggle, exportWrap, toolbarSeparator, saveBtn, summarySeparator, summaryBtn, askSeparator, askBtn);
+  actionsStrip.append(refineToggle, exportWrap, toolbarSeparator, saveBtn, askSeparator, askBtn);
 
   // Suggestions are presented as an animated placeholder instead of controls.
   const form = element("form", "refinement-form");
@@ -16184,10 +15820,6 @@ railModeToggleButton?.addEventListener("dblclick", (event) => {
 
 function handleKeyboardShortcut(event) {
   if (event.key === "Escape") {
-    if (state.strategySummaryOpen) {
-      closeStrategySummary();
-      return;
-    }
     if (searchModalOverlay) {
       closeSearchModal();
       return;

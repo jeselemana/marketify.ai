@@ -11,6 +11,7 @@ const upload = z.object({
   fileId: z.string().max(100).optional(), name: z.string().min(1).max(255).refine(name => !/[\/\\\x00-\x1f]/.test(name)),
   size: z.number().min(0).max(20 * 1024 * 1024), type: z.string().max(100), mimeType: z.string().max(100).optional(),
   data: z.string().max(28 * 1024 * 1024).optional(), textContent: z.string().max(200000).optional(),
+  ownerId: z.string().max(100).optional(),
 }).strict().refine(validUploadMetadata, "Invalid upload MIME or extension");
 // Existing Ask UI fields are accepted explicitly. Persisted artifact metadata always comes from the server.
 export const askRequestSchema = z.object({
@@ -19,14 +20,14 @@ export const askRequestSchema = z.object({
     strategyTitle: z.string().max(1000).optional(), taskTitle: z.string().max(1000).optional(), model: z.string().max(100).optional(),
     interactionId: uuid.optional(), createdAt: z.string().max(100).optional(), feedback: z.enum(["positive", "negative"]).nullable().optional(),
     isStreaming: z.boolean().optional(), status: z.string().max(100).optional(), statusText: z.string().max(500).optional(),
-    thinkingLevel: z.enum(["low", "medium", "high", "off"]).optional(), thinkingEnabled: z.boolean().optional(), userPrompt: z.string().max(10000).optional(),
+    thinkingLevel: z.enum(["low", "medium", "high", "off", "auto"]).optional(), thinkingEnabled: z.boolean().optional(), userPrompt: z.string().max(10000).optional(),
     groundingMetadata: z.unknown().optional(), artifacts: z.array(z.unknown()).max(6).optional(), execution: z.unknown().optional(),
     pluginIds: z.array(z.string().max(41)).max(6).optional(),
     type: z.string().max(100).optional(), jobId: uuid.optional(), steps: z.array(z.unknown()).optional(),
     sources: z.array(z.unknown()).optional(), query: z.string().max(10000).optional(), error: z.string().max(2000).optional(),
     updatedAt: z.string().max(100).optional(), id: uuid.optional(),
   }).strict()).min(1).max(200),
-  model: z.string().max(100).optional(), mode: z.enum(["ask", "research"]).optional(), thinkingLevel: z.enum(["low", "medium", "high", "off"]).optional(),
+  model: z.string().max(100).optional(), mode: z.enum(["ask", "research"]).optional(), thinkingLevel: z.enum(["low", "medium", "high", "off", "auto"]).optional(),
   strategyId: uuid.optional(), taskId: uuid.optional(), chatId: uuid.optional(),
   pluginIds: z.array(z.string().regex(/^[a-z][a-z0-9-]{0,40}$/)).max(6).optional(),
   chatRevision: z.number().int().positive().optional(),

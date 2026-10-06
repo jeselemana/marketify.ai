@@ -9,7 +9,7 @@ export const aiConfig = Object.freeze({
   upModel: "gpt-6-luna",
   upMaxOutputTokens: 3000,
   strategyModel: "gemini-3.8-flash",
-  strategyFallbackModel: "gpt-6-sol",
+  strategyFallbackModel: "gpt-6.1-sol",
   strategyThinkingLevel: "HIGH",
   enableBuildSearchGrounding: process.env.ENABLE_BUILD_SEARCH_GROUNDING !== "false",
   askModel: process.env.OPENAI_ASK_MODEL || "gpt-5.6-luna",

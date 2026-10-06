@@ -31,7 +31,7 @@ import { aiConfig, hasOpenAIConfiguration, hasGeminiConfiguration } from "./src/
 import { getOpenAIClient, getGeminiClient } from "./src/services/ai/client.js";
 import { LLMProviderError } from "./src/services/ai/llm-router.js";
 import { httpStatusOf, publicErrorMessage } from "./src/http/error-response.js";
-import { resolveAskModelRoute, isComplexAskQuery } from "./src/services/ai/ask-routing.js";
+import { resolveAskModelRoute, isComplexAskQuery, resolveAskThinkingLevel } from "./src/services/ai/ask-routing.js";
 import { geminiFileCache } from "./src/services/ai/gemini-file-cache.js";
 import { evaluateSearchRoute } from "./src/services/ai/search-router.js";
 import { buildPersonalizationContext } from "./src/services/ai/personal-context.js";
@@ -1608,27 +1608,14 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     const hasStrategyContext = Boolean(selectedStrategy || selectedTask);
     const hasAnyAttachment = messages.some((m) => Boolean(m.file && (m.file.data || m.file.textContent || m.file.name || m.file.fileId)));
     const lastUserMsg = messages.at(-1)?.content || "";
-    let route = resolveAskModelRoute({ requestedModel: !req.user ? "luna" : requestedModel, lastUserMsg, hasStrategyContext: Boolean(req.user) && hasStrategyContext, hasAttachment: hasAnyAttachment });
-    if ((requestedModel === "auto" || !requestedModel || requestedModel === "gemini-3.8-flash" || requestedModel === "flash") && hasGeminiConfiguration()) {
-      route = "gemini-3.8-flash";
-    }
-    if (route === "gemini-3.8-flash" && !hasGeminiConfiguration() && hasOpenAIConfiguration() && !hasAnyAttachment) {
-      console.warn("⚠️ Gemini konfiqurasiya edilməyib, Ask rejimi OpenAI-yə yönləndirilir.");
-      route = isComplexAskQuery(lastUserMsg, Boolean(req.user) && hasStrategyContext) ? "terra" : "luna";
-    }
-    const isGemini = route === "gemini-3.8-flash";
-    isGeminiRoute = isGemini;
+    const route = resolveAskModelRoute({ requestedModel, lastUserMsg, hasStrategyContext: Boolean(req.user) && hasStrategyContext, hasAttachment: hasAnyAttachment });
+    const isGemini = true;
+    isGeminiRoute = true;
 
-    if (isGemini && !hasGeminiConfiguration()) {
+    if (!hasGeminiConfiguration()) {
       return res.status(503).json({
         code: "GEMINI_NOT_CONFIGURED",
         error: "Gemini xidməti konfiqurasiya edilməyib. Zəhmət olmasa .env faylında GEMINI_API_KEY əlavə edin.",
-      });
-    }
-    if (!isGemini && !hasOpenAIConfiguration()) {
-      return res.status(503).json({
-        code: "AI_NOT_CONFIGURED",
-        error: "OpenAI xidməti konfiqurasiya edilməyib. Zəhmət olmasa .env faylında OPENAI_API_KEY əlavə edin.",
       });
     }
 
@@ -1666,11 +1653,9 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       personalizationContext,
     });
     let reply = "";
-    let activeModel = "luna";
-    const selectedAskModel = isGemini ? ASK_GEMINI_MODEL : route === "terra" ? ASK_COMPLEX_MODEL : ASK_MODEL;
-    const searchDecision = isGemini
-      ? evaluateSearchRoute({ prompt: lastUserMsg, messages, hasStrategyContext })
-      : { enableSearch: false };
+    let activeModel = ASK_GEMINI_MODEL;
+    const selectedAskModel = ASK_GEMINI_MODEL;
+    const searchDecision = evaluateSearchRoute({ prompt: lastUserMsg, messages, hasStrategyContext });
     const enableSearch = searchDecision.enableSearch;
 
     learningInteractionId = learningLoop.createInteractionId();
@@ -1687,12 +1672,16 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       personalizationApplied: Boolean(personalizationContext),
       searchGrounded: Boolean(enableSearch),
     };
-    activeModel = route;
 
-    const requestedThinkingLevel = String(req.body.thinkingLevel || "low").toLowerCase();
-    if (!["low", "medium", "high", "off"].includes(requestedThinkingLevel)) {
+    const rawThinkingLevel = String(req.body.thinkingLevel || "auto").toLowerCase();
+    if (!["low", "medium", "high", "off", "auto"].includes(rawThinkingLevel)) {
       return res.status(400).json({ code: "VALIDATION_ERROR", error: "Düşünmə səviyyəsi düzgün deyil." });
     }
+    const requestedThinkingLevel = resolveAskThinkingLevel({
+      requestedThinkingLevel: rawThinkingLevel,
+      lastUserMsg,
+      hasStrategyContext,
+    });
 
     const prepareMessagesForStorage = (msgs) => msgs.map((m) => {
       if (m.file) {
@@ -1738,65 +1727,26 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         }
       }, 15000);
 
-      if (isGemini && enableSearch) {
+      if (enableSearch) {
         res.write(`data: ${JSON.stringify({ status: "searching", statusText: "Vebdə axtarıram", model: activeModel })}\n\n`);
         if (typeof res.flush === "function") res.flush();
       }
 
       let accumulated = "";
       try {
-        let generated;
-        if (isGemini) {
-          try {
-            generated = await generateGeminiAskStreamResponse({
-              model: selectedAskModel,
-              instructions: fullInstructions,
-              messages,
-              thinkingLevel: requestedThinkingLevel,
-              enableSearch,
-              signal: abortController.signal,
-              ownerId: req.ownerId,
-              onChunk: (chunk) => {
-                res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
-                if (typeof res.flush === "function") res.flush();
-              },
-            });
-          } catch (geminiStreamErr) {
-            if (abortController.signal.aborted) throw geminiStreamErr;
-            if (!accumulated && hasOpenAIConfiguration() && !hasAnyAttachment) {
-              console.warn("⚠️ [Ask Stream] Gemini xətası baş verdi, OpenAI fallback aktivləşdirilir:", geminiStreamErr?.message || geminiStreamErr);
-              const fallbackAskModel = isComplexAskQuery(lastUserMsg, Boolean(req.user) && hasStrategyContext) ? ASK_COMPLEX_MODEL : ASK_MODEL;
-              activeModel = fallbackAskModel === ASK_COMPLEX_MODEL ? "terra" : "luna";
-              generated = await generateOpenAIAskStreamResponse({
-                openaiClient: openai,
-                model: fallbackAskModel,
-                instructions: fullInstructions,
-                messages,
-                ownerId: req.ownerId,
-                signal: abortController.signal,
-                onChunk: (chunk) => {
-                  res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
-                  if (typeof res.flush === "function") res.flush();
-                },
-              });
-            } else {
-              throw geminiStreamErr;
-            }
-          }
-        } else {
-          generated = await generateOpenAIAskStreamResponse({
-            openaiClient: openai,
-            model: selectedAskModel,
-            instructions: fullInstructions,
-            messages,
-            ownerId: req.ownerId,
-            signal: abortController.signal,
-            onChunk: (chunk) => {
-              res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
-              if (typeof res.flush === "function") res.flush();
-            },
-          });
-        }
+        const generated = await generateGeminiAskStreamResponse({
+          model: selectedAskModel,
+          instructions: fullInstructions,
+          messages,
+          thinkingLevel: requestedThinkingLevel,
+          enableSearch,
+          signal: abortController.signal,
+          ownerId: req.ownerId,
+          onChunk: (chunk) => {
+            res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
+            if (typeof res.flush === "function") res.flush();
+          },
+        });
         accumulated = generated.text;
 
         const updatedMessages = [
@@ -1920,45 +1870,15 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
 
     let generated;
     try {
-      if (isGemini) {
-        try {
-          generated = await generateGeminiAskResponse({
-            model: selectedAskModel,
-            instructions: fullInstructions,
-            messages,
-            thinkingLevel: requestedThinkingLevel,
-            enableSearch,
-            ownerId: req.ownerId,
-            signal: abortController.signal,
-          });
-        } catch (geminiErr) {
-          if (abortController.signal.aborted) throw geminiErr;
-          if (hasOpenAIConfiguration() && !hasAnyAttachment) {
-            console.warn("⚠️ [Ask] Gemini xətası baş verdi, OpenAI fallback aktivləşdirilir:", geminiErr?.message || geminiErr);
-            const fallbackAskModel = isComplexAskQuery(lastUserMsg, Boolean(req.user) && hasStrategyContext) ? ASK_COMPLEX_MODEL : ASK_MODEL;
-            activeModel = fallbackAskModel === ASK_COMPLEX_MODEL ? "terra" : "luna";
-            generated = await generateOpenAIAskResponse({
-              openaiClient: openai,
-              model: fallbackAskModel,
-              instructions: fullInstructions,
-              messages,
-              ownerId: req.ownerId,
-              signal: abortController.signal,
-            });
-          } else {
-            throw geminiErr;
-          }
-        }
-      } else {
-        generated = await generateOpenAIAskResponse({
-          openaiClient: openai,
-          model: selectedAskModel,
-          instructions: fullInstructions,
-          messages,
-          ownerId: req.ownerId,
-          signal: abortController.signal,
-        });
-      }
+      generated = await generateGeminiAskResponse({
+        model: selectedAskModel,
+        instructions: fullInstructions,
+        messages,
+        thinkingLevel: requestedThinkingLevel,
+        enableSearch,
+        ownerId: req.ownerId,
+        signal: abortController.signal,
+      });
       reply = generated.text;
 
       if (!reply) throw new Error("Ask mode returned an empty response.");

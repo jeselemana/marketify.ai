@@ -18,12 +18,12 @@ test("LLMProviderError retains provider metadata", () => {
   const error = new LLMProviderError("OpenAI xidməti əlçatan deyil.", {
     code: "AI_PROVIDER_UNAVAILABLE",
     status: 503,
-    model: "gpt-6-sol",
+    model: "gpt-6.1-sol",
     provider: "openai",
   });
   assert.equal(error.code, "AI_PROVIDER_UNAVAILABLE");
   assert.equal(error.status, 503);
-  assert.equal(error.model, "gpt-6-sol");
+  assert.equal(error.model, "gpt-6.1-sol");
   assert.equal(error.provider, "openai");
 });
 
@@ -200,10 +200,10 @@ test("strategy router POST /generate returns existing saved strategy if clientSa
   assert.equal(response.body?.strategy?.title, "Pre-existing Strategy");
 });
 
-test("build mode defaults to gemini-3.8-flash with High thinking and gpt-6-sol fallback", async () => {
+test("build mode defaults to gemini-3.8-flash with High thinking and gpt-6.1-sol fallback", async () => {
   const { aiConfig } = await import("../src/services/ai/config.js");
   assert.equal(aiConfig.strategyModel, "gemini-3.8-flash");
-  assert.equal(aiConfig.strategyFallbackModel, "gpt-6-sol");
+  assert.equal(aiConfig.strategyFallbackModel, "gpt-6.1-sol");
   assert.equal(aiConfig.strategyThinkingLevel, "HIGH");
 });
 
@@ -373,16 +373,16 @@ test("buildAssessorPrompt and buildRefinementPrompt correctly apply context-awar
   assert.match(localAzInst, /İlk 7 gün/);
 });
 
-test("Build configuration uses Gemini High with GPT-6 Sol fallback and no Opus orchestration", async () => {
+test("Build configuration uses Gemini High with GPT-6.1 Sol fallback and no Opus orchestration", async () => {
   const { aiConfig } = await import("../src/services/ai/config.js");
   const { getPricingForModel } = await import("../src/services/telemetry/pricing.js");
   assert.equal(aiConfig.strategyModel, "gemini-3.8-flash");
   assert.equal(aiConfig.strategyThinkingLevel, "HIGH");
-  assert.equal(aiConfig.strategyFallbackModel, "gpt-6-sol");
+  assert.equal(aiConfig.strategyFallbackModel, "gpt-6.1-sol");
   assert.equal(aiConfig.opusModel, undefined);
   assert.equal(aiConfig.enableBuildSearchGrounding, true);
-  assert.deepEqual(getPricingForModel("gpt-6-sol"), {
-    model: "gpt-6-sol", inputPerMillion: 2, outputPerMillion: 10,
+  assert.deepEqual(getPricingForModel("gpt-6.1-sol"), {
+    model: "gpt-6.1-sol", inputPerMillion: 2, outputPerMillion: 10,
   });
 });
 
