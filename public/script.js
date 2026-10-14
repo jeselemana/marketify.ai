@@ -37,9 +37,11 @@ const homeNav = document.querySelector("#homeNav");
 const strategiesNav = document.querySelector("#strategiesNav");
 const plannerNav = document.querySelector("#plannerNav");
 const limitsNav = document.querySelector("#limitsNav");
+const aiHubNav = document.querySelector("#aiHubNav");
 const installAppNav = document.querySelector("#installAppNav");
 const whatsNewNav = document.querySelector("#whatsNewNav");
 const settingsNav = document.querySelector("#settingsNav");
+const railAiHubButton = document.querySelector("#railAiHubButton");
 const railLimitsButton = document.querySelector("#railLimitsButton");
 const railSettingsButton = document.querySelector("#railSettingsButton");
 const railInstallAppButton = document.querySelector("#railInstallAppButton");
@@ -97,6 +99,16 @@ export const NAV_ITEMS = [
     defaultLabelEn: "Helmer UP",
     icon: "Brain",
     svg: `<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/>`
+  },
+  {
+    id: "aiHub",
+    sidebarId: "aiHubNav",
+    railId: "railAiHubButton",
+    labelKey: "nav.aiHub",
+    defaultLabelAz: "AI Hub",
+    defaultLabelEn: "AI Hub",
+    icon: "Cpu",
+    svg: `<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>`
   },
   {
     id: "usage",
@@ -2888,11 +2900,12 @@ function syncLanguageControls() {
 function syncNav() {
   const isBuild = state.mode === "build";
   const isEn = getLanguage() === "en";
-  const nonHomeViews = ["list", "settings", "planner", "limits", "up"];
+  const nonHomeViews = ["list", "settings", "planner", "limits", "up", "aiHub"];
   homeNav.classList.toggle("is-active", !nonHomeViews.includes(state.view));
   strategiesNav.classList.toggle("is-active", state.view === "list");
   plannerNav?.classList.toggle("is-active", state.view === "planner");
   for (const id of ["upNav", "railUpButton"]) document.getElementById(id)?.classList.toggle("is-active", state.view === "up");
+  for (const id of ["aiHubNav", "railAiHubButton"]) document.getElementById(id)?.classList.toggle("is-active", state.view === "aiHub");
   limitsNav?.classList.toggle("is-active", state.view === "limits");
   settingsNav.classList.toggle("is-active", state.view === "settings");
   railHomeButton.classList.toggle("is-active", !nonHomeViews.includes(state.view));
@@ -2900,6 +2913,11 @@ function syncNav() {
   railPlannerButton?.classList.toggle("is-active", state.view === "planner");
   railLimitsButton?.classList.toggle("is-active", state.view === "limits");
   railSettingsButton?.classList.toggle("is-active", state.view === "settings");
+  if (railAiHubButton) {
+    const aiHubTooltip = `${t("nav.aiHub") || "AI Hub"} (${isEn ? "Coming soon" : "Tezliklə"})`;
+    railAiHubButton.setAttribute("data-tooltip", aiHubTooltip);
+    railAiHubButton.setAttribute("aria-label", aiHubTooltip);
+  }
 
   railHomeButton.setAttribute("data-tooltip", `${isBuild ? t("nav.home") : t("nav.askChat")}${shortcutSuffix("⌘ 1", "Ctrl 1")}`);
   railHomeButton.setAttribute("aria-label", isBuild ? t("nav.home") : t("nav.askChat"));
@@ -2994,6 +3012,20 @@ function syncNav() {
   const limitsLabel = limitsNav?.querySelector("span");
   if (limitsLabel) {
     limitsLabel.textContent = t("nav.limits");
+  }
+
+  const aiHubLabel = aiHubNav?.querySelector(".ai-hub-label");
+  if (aiHubLabel) {
+    aiHubLabel.textContent = t("nav.aiHub") || "AI Hub";
+  }
+  const aiHubBadge = aiHubNav?.querySelector(".ai-hub-badge");
+  if (aiHubBadge) {
+    aiHubBadge.textContent = isEn ? "Coming soon" : "Tezliklə";
+  }
+  if (aiHubNav) {
+    const aiHubTooltip = `${t("nav.aiHub") || "AI Hub"} (${isEn ? "Coming soon" : "Tezliklə"})`;
+    aiHubNav.setAttribute("aria-label", aiHubTooltip);
+    aiHubNav.setAttribute("data-tooltip", aiHubTooltip);
   }
 
   const installAppLabel = installAppNav?.querySelector("span");
@@ -3326,6 +3358,7 @@ function render() {
 
   if (state.view === "settings") return renderSettings();
   if (state.view === "up") return renderUpView(workspace);
+  if (state.view === "aiHub") return renderAiHubView();
   if (state.view === "planner") return renderPlannerView();
   if (state.view === "limits") return renderLimitsView();
   if (state.view === "list") return renderStrategyList();
@@ -11970,6 +12003,7 @@ function renderArchivePlannerSwitch(activeView = "archive") {
       syncNav();
       render();
       closeSidebar();
+      loadPlannerTasks();
     }
   });
   plannerBtn.type = "button";
@@ -13528,7 +13562,10 @@ function renderPlannerView() {
             }
             card.style.opacity = "0.4";
             try {
-              await authRequest(`/api/planner/${task.id}`, { method: "DELETE" });
+              const res = await authRequest(`/api/planner/${task.id}`, { method: "DELETE" });
+              if (res && res.ok === false) {
+                throw new Error(isEn ? "Task not found or could not be deleted" : "Tapşırıq tapılmadı və ya silinmədi");
+              }
               state.plannerTasks = state.plannerTasks.filter((t) => t.id !== task.id);
               state.plannerSelectedTaskIds.delete(task.id);
               updatePlannerBadge();
@@ -14198,6 +14235,304 @@ function renderLimitsView() {
   faqSection.appendChild(faqList);
   view.appendChild(faqSection);
 
+  workspace.appendChild(view);
+}
+
+function renderAiHubView() {
+  const isEn = getLanguage() === "en";
+  workspace.classList.add("workspace-ai-hub");
+  workspace.replaceChildren();
+
+  const view = element("section", "ai-hub-view");
+
+  // Hero Section
+  const hero = element("header", "ai-hub-hero");
+
+  // Kicker pill
+  const pillBadge = element("div", "ai-hub-pill-badge");
+  const pillDot = element("span", "ai-hub-pill-dot");
+  const pillText = element("span", "ai-hub-pill-text", t("aiHub.kicker") || (isEn ? "Coming soon" : "Tezliklə"));
+  pillBadge.append(pillDot, pillText);
+
+  // Title
+  const title = element("h1", "ai-hub-title", t("aiHub.title") || (isEn ? "Helmer SI Hub" : "Helmer SI Hub"));
+
+  // Subtitle / Lead
+  const lead = element("p", "ai-hub-lead", t("aiHub.lead") || (isEn
+    ? "A next-generation AI playground is coming to Helmer."
+    : "Helmer-ə yeni süni intellekt playground mühiti gəlir."
+  ));
+
+  // Subtext with core thesis
+  const subtext = element("p", "ai-hub-subtext", t("aiHub.subtext") || (isEn
+    ? "Users will soon gain direct access to diverse advanced models with higher limits, initially featuring Google's cutting-edge models."
+    : "İstifadəçilər yaxında müxtəlif modellərə (ilkin mərhələdə Google modellərinə) yüksək limitlərlə çıxış əldə edəcək."
+  ));
+
+  // Tagline under subtext
+  const tagline = element("p", "ai-hub-tagline", t("aiHub.tagline") || (isEn
+    ? "Different use case. Same seamless Helmer experience."
+    : "Fərqli istifadə sahəsi. Eyni rəvan Helmer təcrübəsi."
+  ));
+
+  hero.append(pillBadge, title, lead, subtext, tagline);
+  view.appendChild(hero);
+
+  // Centerpiece: Input Bar (disabled / inactive preview)
+  const inputBarContainer = element("div", "ai-hub-input-bar-container");
+  const inputBar = element("div", "ai-hub-input-bar");
+
+  // Input Bar Header
+  const barHeader = element("div", "ai-hub-input-bar-header");
+
+  const modelSelector = element("div", "ai-hub-model-selector");
+  const modelSpark = document.createElement("span");
+  modelSpark.className = "ai-hub-model-spark";
+  modelSpark.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/></svg>`;
+  const modelName = element("span", "ai-hub-model-name", t("aiHub.modelName") || "Gemini 4 Argon");
+  const modelChevron = document.createElement("span");
+  modelChevron.className = "ai-hub-model-chevron";
+  modelChevron.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+  modelSelector.append(modelSpark, modelName, modelChevron);
+
+  const previewBadge = element("span", "ai-hub-preview-badge", t("aiHub.previewBadge") || (isEn ? "Playground Preview" : "Playground Önizləmə"));
+
+  barHeader.append(modelSelector, previewBadge);
+
+  // Textarea Wrap (disabled)
+  const textareaWrap = element("div", "ai-hub-textarea-wrap");
+  const textarea = document.createElement("textarea");
+  textarea.className = "ai-hub-disabled-input";
+  textarea.placeholder = t("aiHub.inputPlaceholder") || (isEn
+    ? "Helmer SI Hub playground is coming soon... You will be able to select models and prompt freely with higher limits."
+    : "Helmer SI Hub playground-u tezliklə aktiv olacaq... Modelləri seçib yüksək limitlərlə sərbəst prompt yaza biləcəksiniz."
+  );
+  textarea.disabled = true;
+  textarea.readOnly = true;
+  textarea.setAttribute("tabindex", "-1");
+  textarea.setAttribute("aria-disabled", "true");
+  textareaWrap.appendChild(textarea);
+
+  // Footer inside input bar
+  const barFooter = element("div", "ai-hub-input-bar-footer");
+
+  const chipsWrap = element("div", "ai-hub-chips-wrap");
+
+  const chip1 = element("div", "ai-hub-chip");
+  const chip1Icon = document.createElement("span");
+  chip1Icon.className = "ai-hub-chip-icon";
+  chip1Icon.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+  const chip1Text = element("span", "ai-hub-chip-text", t("aiHub.chipLimits") || (isEn ? "Higher Limits" : "Yüksək Limitlər"));
+  chip1.append(chip1Icon, chip1Text);
+
+  const chip2 = element("div", "ai-hub-chip");
+  const chip2Icon = document.createElement("span");
+  chip2Icon.className = "ai-hub-chip-icon";
+  chip2Icon.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>`;
+  const chip2Text = element("span", "ai-hub-chip-text", t("aiHub.chipPlayground") || (isEn ? "Interactive Playground" : "İnteraktiv Playground"));
+  chip2.append(chip2Icon, chip2Text);
+
+  const chip3 = element("div", "ai-hub-chip");
+  const chip3Icon = document.createElement("span");
+  chip3Icon.className = "ai-hub-chip-icon";
+  chip3Icon.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`;
+  const chip3Text = element("span", "ai-hub-chip-text", t("aiHub.chipModels") || t("aiHub.chipGoogle") || (isEn ? "Diverse Models" : "Müxtəlif modellər"));
+  chip3.append(chip3Icon, chip3Text);
+
+  chipsWrap.append(chip1, chip2, chip3);
+
+  const sendBtn = document.createElement("button");
+  sendBtn.type = "button";
+  sendBtn.className = "ai-hub-disabled-send-btn";
+  sendBtn.disabled = true;
+  sendBtn.setAttribute("aria-disabled", "true");
+  sendBtn.setAttribute("aria-label", t("aiHub.sendTooltip") || (isEn ? "Coming soon" : "Tezliklə aktiv olacaq"));
+  sendBtn.setAttribute("title", t("aiHub.sendTooltip") || (isEn ? "Coming soon" : "Tezliklə aktiv olacaq"));
+  sendBtn.innerHTML = `
+    <span class="ai-hub-send-text">${escapeHtml(t("aiHub.promptAction") || (isEn ? "Prompt" : "Sorğu"))}</span>
+    <span class="ai-hub-send-icon-wrap" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </span>
+  `;
+
+  barFooter.append(chipsWrap, sendBtn);
+  inputBar.append(barHeader, textareaWrap, barFooter);
+  inputBarContainer.appendChild(inputBar);
+
+  // Notice banner
+  const noticeBanner = element("div", "ai-hub-notice-banner");
+  const noticeIcon = document.createElement("span");
+  noticeIcon.className = "ai-hub-notice-icon";
+  noticeIcon.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/></svg>`;
+  const noticeText = element("span", "ai-hub-notice-text", t("aiHub.noticeBanner") || (isEn
+    ? "Helmer SI Hub is currently under active development and will be unlocked for all Helmer users soon."
+    : "Helmer SI Hub hazırda hazırlanır və yaxında bütün istifadəçilərin ixtiyarına veriləcək."
+  ));
+  noticeBanner.append(noticeIcon, noticeText);
+  inputBarContainer.appendChild(noticeBanner);
+
+  view.appendChild(inputBarContainer);
+
+  // Thesis Highlights Cards Grid
+  const grid = element("div", "ai-hub-cards-grid");
+
+  const CARDS = [
+    {
+      iconSvg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>`,
+      title: t("aiHub.cardPlaygroundTitle") || (isEn ? "Playground Environment" : "Playground Mühiti"),
+      desc: t("aiHub.cardPlaygroundDesc") || (isEn
+        ? "Helmer is getting a dedicated AI playground. A seamless space to experiment with prompts, test scenarios, and evaluate model completions directly."
+        : "Helmer-ə tam interaktiv playground mühiti gəlir. Modelləri sərbəst sınaqdan keçirmək, fərqli sorğular vermək və nəticələri anında müqayisə etmək mümkün olacaq."
+      )
+    },
+    {
+      iconSvg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
+      title: t("aiHub.cardModelsTitle") || (isEn ? "Access to Diverse Models" : "Müxtəlif Modellərə Çıxış"),
+      desc: t("aiHub.cardModelsDesc") || (isEn
+        ? "Users will soon gain unified access to multiple leading AI architectures and model tiers from one intuitive platform."
+        : "İstifadəçilər tək bir platformadan müxtəlif aparıcı süni intellekt modellərinə birbaşa çıxış əldə edəcək."
+      )
+    },
+    {
+      iconSvg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>`,
+      title: t("aiHub.cardGoogleTitle") || (isEn ? "Initially Google Models" : "İlkin Mərhələdə Google Modelləri"),
+      desc: t("aiHub.cardGoogleDesc") || (isEn
+        ? "In the initial launch, Google's flagship models will be prioritized, offering deep contextual understanding, reasoning speed, and multimodal excellence."
+        : "İlkin mərhələdə Google-un ən qabaqcıl modelləri istifadəyə veriləcək; dərin analitika, zəngin kontekst və sürətli cavablandırma təmin olunacaq."
+      )
+    },
+    {
+      iconSvg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
+      title: t("aiHub.cardLimitsTitle") || (isEn ? "Higher Limits & High Velocity" : "Yüksək Limitlər"),
+      desc: t("aiHub.cardLimitsDesc") || (isEn
+        ? "Uninterrupted productivity with elevated, dependable rate limits designed for extensive testing, prototyping, and daily strategic tasks."
+        : "İşinizin və sınaqlarınızın fasiləsiz davam etməsi üçün yüksək və dayanıqlı resurs limitləri təqdim olunacaq."
+      )
+    }
+  ];
+
+  CARDS.forEach((cardData) => {
+    const card = element("div", "ai-hub-card");
+    const iconWrap = element("div", "ai-hub-card-icon");
+    iconWrap.innerHTML = cardData.iconSvg;
+    const cardTitle = element("h3", "ai-hub-card-title", cardData.title);
+    const cardDesc = element("p", "ai-hub-card-desc", cardData.desc);
+    card.append(iconWrap, cardTitle, cardDesc);
+    grid.appendChild(card);
+  });
+
+  view.appendChild(grid);
+
+  // FAQ Collapsible Card (minimalist, compact, collapsed by default)
+  const faqCard = document.createElement("details");
+  faqCard.className = "ai-hub-faq-card";
+
+  const faqSummary = document.createElement("summary");
+  faqSummary.className = "ai-hub-faq-summary";
+
+  const faqSummaryLeft = element("div", "ai-hub-faq-summary-left");
+  const faqIcon = document.createElement("span");
+  faqIcon.className = "ai-hub-faq-icon";
+  faqIcon.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+
+  const faqTitle = element("span", "ai-hub-faq-title", t("aiHub.faqTitle") || (isEn ? "Frequently Asked Questions" : "Tez-tez verilən suallar"));
+  const faqBadge = element("span", "ai-hub-faq-badge", t("aiHub.faqBadge") || (isEn ? "6 questions" : "6 sual"));
+  faqSummaryLeft.append(faqIcon, faqTitle, faqBadge);
+
+  const faqChevron = document.createElement("span");
+  faqChevron.className = "ai-hub-faq-chevron";
+  faqChevron.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+  faqSummary.append(faqSummaryLeft, faqChevron);
+  faqCard.appendChild(faqSummary);
+
+  const faqBody = element("div", "ai-hub-faq-body");
+
+  const FAQ_ITEMS = [
+    {
+      q: t("aiHub.faqQ1") || (isEn ? "Will limits apply?" : "Limit tətbiq ediləcək?"),
+      a: t("aiHub.faqA1") || (isEn
+        ? "To be frank: yes, because advanced (especially flagship) models require substantial compute resources, but in the initial phase limits will be kept very generous, and moving forward we will consistently maintain a fair balance."
+        : "Dürüst olaq: bəli, çünki bu (xüsusilə flaqman modellər) ciddi xərc tələb edir, lakin ilkin mərhələdə ciddi şəkildə aşağı olacaq, sonradan isə balansı daim qoruyacağıq."
+      )
+    },
+    {
+      q: t("aiHub.faqQ2") || (isEn ? "Will multimodal models be available?" : "Multimodal modellər əlçatan olacaq?"),
+      a: t("aiHub.faqA2") || (isEn
+        ? "Yes, they will be, but the initial phase is focused exclusively on text and reasoning-based model integrations."
+        : "Bəli, olacaq, amma ilkin mərhələdə yalnız mətn əsaslı modellərin inteqrasiyası nəzərdə tutulub."
+      )
+    },
+    {
+      q: t("aiHub.faqQ3") || (isEn ? "When will Helmer SI Hub be released?" : "Helmer SI Hub nə vaxt istifadəyə veriləcək?"),
+      a: t("aiHub.faqA3") || (isEn
+        ? "Infrastructure and integration testing are currently underway. It will be rolled out gradually to all Helmer users in the coming weeks."
+        : "Hazırda infrastruktur və inteqrasiya testləri aparılır. Çox yaxın həftələrdə bütün Helmer istifadəçiləri üçün mərhələli şəkildə aktivləşdiriləcək."
+      )
+    },
+    {
+      q: t("aiHub.faqQ4") || (isEn ? "Which providers' models will be supported?" : "Hansı provayderlərin modelləri olacaq?"),
+      a: t("aiHub.faqA4") || (isEn
+        ? "Google's flagship models (Gemini family) will be featured first. Subsequent phases will introduce additional leading foundation models from other top providers."
+        : "İlk olaraq Google-un ən son flaqman modelləri (Gemini ailəsi) təqdim olunacaq. Növbəti mərhələlərdə digər qabaqcıl provayderlərin modellərinin də əlavə olunması planlaşdırılır."
+      )
+    },
+    {
+      q: t("aiHub.faqQ5") || (isEn ? "Will the playground require a separate subscription or fee?" : "Playground üçün ayrıca abunəlik və ya ödəniş tələb olunacaq?"),
+      a: t("aiHub.faqA5") || (isEn
+        ? "No, during the initial launch phase Helmer users will be able to access the playground directly from their existing accounts without extra charges."
+        : "Xeyr, ilkin buraxılış mərhələsində Helmer istifadəçiləri mövcud hesabları ilə Playground-dan birbaşa və əlavə ödənişsiz yararlana biləcəklər."
+      )
+    },
+    {
+      q: t("aiHub.faqQ6") || (isEn ? "Why SI instead of AI?" : "Niyə AI yox, SI?"),
+      a: t("aiHub.faqA6") || (isEn ? "Because we are here in pursuit of excellence! Don't think it's a manifesto 😉" : "Çünki mükəmməl olmaq uğrunda buradayıq! Elə bilmə ki, manifestdi 😉")
+    }
+  ];
+
+  FAQ_ITEMS.forEach((item) => {
+    const itemEl = element("div", "ai-hub-faq-item");
+    const qWrap = element("div", "ai-hub-faq-item-q-wrap");
+    const qDot = element("span", "ai-hub-faq-item-dot");
+    const qText = element("h4", "ai-hub-faq-item-question", item.q);
+    qWrap.append(qDot, qText);
+
+    const aWrap = element("div", "ai-hub-faq-item-answer");
+    const aText = element("p", "ai-hub-faq-item-answer-text", item.a);
+    aWrap.appendChild(aText);
+
+    if (item.note) {
+      const noteEl = element("p", "ai-hub-faq-item-note", item.note);
+      aWrap.appendChild(noteEl);
+    }
+
+    if (item.link) {
+      const linkWrap = element("p", "ai-hub-faq-item-link-wrap");
+      const aLink = document.createElement("a");
+      aLink.className = "ai-hub-faq-link";
+      aLink.href = item.link.url;
+      aLink.target = "_blank";
+      aLink.rel = "noopener noreferrer";
+      aLink.textContent = item.link.label || item.link.url;
+
+      const linkIcon = document.createElement("span");
+      linkIcon.className = "ai-hub-faq-link-icon";
+      linkIcon.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+      aLink.appendChild(linkIcon);
+      linkWrap.appendChild(aLink);
+      aWrap.appendChild(linkWrap);
+    }
+
+    itemEl.append(qWrap, aWrap);
+    faqBody.appendChild(itemEl);
+  });
+
+  faqCard.appendChild(faqBody);
+  view.appendChild(faqCard);
   workspace.appendChild(view);
 }
 
@@ -15599,11 +15934,22 @@ for (const id of ["upNav", "railUpButton"]) document.getElementById(id)?.addEven
   closeSidebar();
   workspace.focus();
 });
+for (const id of ["aiHubNav", "railAiHubButton"]) document.getElementById(id)?.addEventListener("click", () => {
+  if (state.view !== "aiHub") {
+    state.previousView = state.view;
+  }
+  state.view = "aiHub";
+  syncNav();
+  render();
+  closeSidebar();
+  workspace.focus();
+});
 railPlannerButton?.addEventListener("click", () => {
   state.view = "planner";
   syncNav();
   render();
   closeSidebar();
+  loadPlannerTasks();
 });
 railLimitsButton?.addEventListener("click", () => {
   state.view = "limits";
@@ -15685,6 +16031,7 @@ plannerNav?.addEventListener("click", () => {
   syncNav();
   render();
   closeSidebar();
+  loadPlannerTasks();
 });
 limitsNav?.addEventListener("click", () => {
   state.view = "limits";

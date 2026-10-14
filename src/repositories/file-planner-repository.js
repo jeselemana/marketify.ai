@@ -5,6 +5,8 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   isR2Configured,
   loadJSONFromR2,
+  saveJSONToR2,
+  deleteJSONFromR2,
   readPlannerObject,
   writePlannerObject,
   deletePlannerObject,
@@ -102,6 +104,26 @@ export class FilePlannerRepository {
    * Migrate legacy monolithic planner.json / Redis / R2 into per-tenant shards.
    */
   async migrateLegacyPlannerIfPresent() {
+    const markerPath = path.join(this.plannerDir, ".migration_done");
+    let hasLocalMarker = false;
+    try {
+      await fs.access(markerPath);
+      hasLocalMarker = true;
+    } catch {}
+
+    let localLegacyExists = false;
+    if (this.legacyFilePath) {
+      try {
+        await fs.access(this.legacyFilePath);
+        localLegacyExists = true;
+      } catch {}
+    }
+
+    // If migration already finished and there is no unmigrated local legacy file, exit early
+    if (hasLocalMarker && !localLegacyExists) {
+      return { migratedCount: 0, tenantsCount: 0 };
+    }
+
     let legacyRecords = null;
 
     // 1. Check local legacy file
@@ -119,8 +141,8 @@ export class FilePlannerRepository {
       }
     }
 
-    // 2. Check R2 legacy object if not found locally
-    if ((!legacyRecords || legacyRecords.length === 0) && (this.cloud ?? isR2Configured())) {
+    // 2. Check R2 legacy object if not found locally (and migration was not already marked done)
+    if (!hasLocalMarker && (!legacyRecords || legacyRecords.length === 0) && (this.cloud ?? isR2Configured())) {
       try {
         const r2Data = await loadJSONFromR2("planner.json");
         if (Array.isArray(r2Data) && r2Data.length > 0) {
@@ -131,8 +153,8 @@ export class FilePlannerRepository {
       }
     }
 
-    // 3. Check legacy Redis global key if still empty
-    if ((!legacyRecords || legacyRecords.length === 0) && this.redis?.isReady) {
+    // 3. Check legacy Redis global key if still empty (and migration was not already marked done)
+    if (!hasLocalMarker && (!legacyRecords || legacyRecords.length === 0) && this.redis?.isReady) {
       try {
         const rawRedis = await this.redis.get("marketify:store:planner");
         if (rawRedis) {
@@ -147,6 +169,9 @@ export class FilePlannerRepository {
     }
 
     if (!legacyRecords || !Array.isArray(legacyRecords) || legacyRecords.length === 0) {
+      // Mark migration as done so we never search legacy stores on subsequent boots
+      await fs.mkdir(this.plannerDir, { recursive: true }).catch(() => {});
+      await fs.writeFile(markerPath, JSON.stringify({ migratedAt: new Date().toISOString(), empty: true }), "utf8").catch(() => {});
       return { migratedCount: 0, tenantsCount: 0 };
     }
 
@@ -212,6 +237,38 @@ export class FilePlannerRepository {
         await fs.rename(this.legacyFilePath, backupPath).catch(() => {});
       } catch {}
     }
+
+    // Archive and purge legacy R2 object to prevent resurrection on future restarts
+    if (this.cloud ?? isR2Configured()) {
+      try {
+        await saveJSONToR2("planner.json.migrated", legacyRecords);
+        await deleteJSONFromR2("planner.json");
+      } catch (err) {
+        console.error("Error archiving/deleting legacy R2 planner.json:", err?.message || err);
+      }
+    }
+
+    // Purge legacy Redis key to prevent resurrection on future restarts
+    if (this.redis?.isReady) {
+      try {
+        await this.redis.del("marketify:store:planner");
+      } catch (err) {
+        console.error("Error clearing legacy Redis planner key:", err?.message || err);
+      }
+    }
+
+    // Write persistent marker file
+    try {
+      await fs.writeFile(
+        markerPath,
+        JSON.stringify({
+          migratedAt: new Date().toISOString(),
+          tasksCount: migratedRecordsCount,
+          tenantsCount: byOwner.size,
+        }),
+        "utf8"
+      );
+    } catch {}
 
     console.log(`[FilePlannerRepository] Successfully migrated ${migratedRecordsCount} tasks across ${byOwner.size} tenants.`);
     return { migratedCount: migratedRecordsCount, tenantsCount: byOwner.size };
@@ -566,8 +623,13 @@ export class FilePlannerRepository {
     if (!id || !ownerId) return null;
     await this.ensureMigrated();
 
+    const targetId = String(id).trim().toLowerCase();
     return this.mutateTenant(ownerId, async (records) => {
-      const index = records.findIndex((r) => r.id === id && r.ownerId === ownerId);
+      const index = records.findIndex((r) => {
+        const matchesId = String(r.id || "").trim().toLowerCase() === targetId;
+        const matchesOwner = !r.ownerId || r.ownerId === ownerId;
+        return matchesId && matchesOwner;
+      });
       if (index === -1) return { updated: records, result: null };
 
       const now = new Date().toISOString();
@@ -658,8 +720,13 @@ export class FilePlannerRepository {
     if (!id || !ownerId) return false;
     await this.ensureMigrated();
 
+    const targetId = String(id).trim().toLowerCase();
     return this.mutateTenant(ownerId, async (records) => {
-      const filtered = records.filter((r) => !(r.id === id && r.ownerId === ownerId));
+      const filtered = records.filter((r) => {
+        const matchesId = String(r.id || "").trim().toLowerCase() === targetId;
+        const matchesOwner = !r.ownerId || r.ownerId === ownerId;
+        return !(matchesId && matchesOwner);
+      });
       if (filtered.length !== records.length) {
         return { updated: filtered, result: true };
       }
@@ -677,7 +744,11 @@ export class FilePlannerRepository {
     await this.ensureMigrated();
 
     return this.mutateTenant(ownerId, async (records) => {
-      const filtered = records.filter((r) => !(r.ownerId === ownerId && r.completed));
+      const filtered = records.filter((r) => {
+        const matchesOwner = !r.ownerId || r.ownerId === ownerId;
+        const isCompleted = Boolean(r.completed || r.status === "completed");
+        return !(matchesOwner && isCompleted);
+      });
       const count = records.length - filtered.length;
       return { updated: filtered, result: count };
     });

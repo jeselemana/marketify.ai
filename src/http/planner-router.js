@@ -397,12 +397,15 @@ export function createPlannerRouter(plannerRepository, options = {}) {
 
   router.delete("/:id", async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = typeof req.params?.id === "string" ? req.params.id.trim() : "";
       if (!/^[0-9a-f-]{36}$/i.test(id)) {
         return res.status(400).json({ error: "Tapşırıq ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
       }
       const ok = await plannerRepository.delete(id, req.ownerId);
-      return res.json({ ok });
+      if (!ok) {
+        return res.status(404).json({ error: "Tapşırıq tapılmadı.", code: "NOT_FOUND" });
+      }
+      return res.json({ ok: true, id });
     } catch (error) {
       console.error("Planner delete error:", error);
       return res.status(500).json({ error: "Tapşırığı silmək mümkün olmadı." });

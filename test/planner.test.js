@@ -5,7 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import { FilePlannerRepository } from "../src/repositories/file-planner-repository.js";
 import { fallbackPrioritizeTasks, prioritizeTasksWithLuna } from "../src/services/ai/strategy-service.js";
-import { PrioritizeTasksSchema, TaskInputSchema, UpdateTaskSchema } from "../src/http/planner-router.js";
+import { PrioritizeTasksSchema, TaskInputSchema, UpdateTaskSchema, createPlannerRouter } from "../src/http/planner-router.js";
 import { UserSettingsSchema } from "../src/auth/validation.js";
 import { FileTelemetryRepository } from "../src/repositories/file-telemetry-repository.js";
 import { TelemetryService } from "../src/services/telemetry/telemetry-service.js";
@@ -448,6 +448,85 @@ test("planner completed tasks: cannot be selected, Select All is hidden/disabled
   const plannerCssContent = await fs.readFile(path.resolve("public/style.css"), "utf8");
   assert.ok(plannerCssContent.includes(".planner-task-card.is-done"), "style.css styles .planner-task-card.is-done");
   assert.ok(plannerCssContent.includes("cursor: default;"), "style.css sets cursor: default on completed cards");
+
+  await fs.rm(temporaryDirectory, { recursive: true, force: true });
+});
+
+test("planner deletion integrity: tasks persist deletion across restarts without resurrection and DELETE route returns proper status", async () => {
+  const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-planner-del-test-"));
+  const legacyFilePath = path.join(temporaryDirectory, "planner.json");
+  const ownerId = "usr_test_99999999-9999-9999-9999-999999999999";
+
+  const task1Id = "11111111-1111-1111-1111-111111111111";
+  const task2Id = "22222222-2222-2222-2222-222222222222";
+
+  const legacyTasks = [
+    { id: task1Id, ownerId, text: "Tapşırıq 1", status: "todo", createdAt: new Date().toISOString() },
+    { id: task2Id, ownerId, text: "Tapşırıq 2", status: "todo", createdAt: new Date().toISOString() },
+  ];
+  await fs.writeFile(legacyFilePath, JSON.stringify(legacyTasks));
+
+  // 1. Initial repository instance starts and migrates legacy tasks
+  const repo1 = new FilePlannerRepository(legacyFilePath, null, { cloud: false });
+  const tasksAfterBoot1 = await repo1.list(ownerId);
+  assert.equal(tasksAfterBoot1.length, 2);
+
+  // Verify that marker file .migration_done exists
+  const markerPath = path.join(temporaryDirectory, "planner", ".migration_done");
+  const markerExists = await fs.access(markerPath).then(() => true).catch(() => false);
+  assert.equal(markerExists, true, "Migration marker must be written on first migration");
+
+  // 2. HTTP DELETE route tests
+  const router = createPlannerRouter(repo1);
+  const deleteHandler = router.stack.find((layer) => layer.route && layer.route.path === "/:id" && layer.route.methods.delete)?.route?.stack[0]?.handle;
+  assert.ok(deleteHandler, "DELETE /:id route handler exists");
+
+  // Test: Invalid UUID rejected with 400
+  let resStatus = 200;
+  let resData = null;
+  const mockRes = {
+    status(code) { resStatus = code; return this; },
+    json(data) { resData = data; return this; },
+  };
+
+  await deleteHandler({ params: { id: "invalid-id" }, ownerId }, mockRes);
+  assert.equal(resStatus, 400);
+  assert.equal(resData.code, "VALIDATION_ERROR");
+
+  // Test: Delete non-existent UUID returns 404 NOT_FOUND
+  resStatus = 200;
+  resData = null;
+  await deleteHandler({ params: { id: "33333333-3333-3333-3333-333333333333" }, ownerId }, mockRes);
+  assert.equal(resStatus, 404);
+  assert.equal(resData.code, "NOT_FOUND");
+
+  // Test: Valid deletion of task1 returns 200 with ok: true
+  resStatus = 200;
+  resData = null;
+  await deleteHandler({ params: { id: task1Id }, ownerId }, mockRes);
+  assert.equal(resStatus, 200);
+  assert.equal(resData.ok, true);
+  assert.equal(resData.id, task1Id);
+
+  // List should now contain only task2
+  const tasksAfterDel = await repo1.list(ownerId);
+  assert.equal(tasksAfterDel.length, 1);
+  assert.equal(tasksAfterDel[0].id, task2Id);
+
+  // 3. Server restart simulation: fresh repository instance created on the directory
+  const repo2 = new FilePlannerRepository(legacyFilePath, null, { cloud: false });
+  const tasksAfterBoot2 = await repo2.list(ownerId);
+
+  // Task 1 MUST NOT be resurrected!
+  assert.equal(tasksAfterBoot2.length, 1, "Deleted task must not be resurrected on subsequent repository boot");
+  assert.equal(tasksAfterBoot2[0].id, task2Id);
+
+  // 4. Test case-insensitive deletion on repo2
+  const delUpper = await repo2.delete(task2Id.toUpperCase(), ownerId);
+  assert.equal(delUpper, true, "Deletion should be case-insensitive on UUID");
+
+  const tasksAfterDel2 = await repo2.list(ownerId);
+  assert.equal(tasksAfterDel2.length, 0);
 
   await fs.rm(temporaryDirectory, { recursive: true, force: true });
 });

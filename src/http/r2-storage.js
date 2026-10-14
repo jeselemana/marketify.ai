@@ -101,6 +101,27 @@ export async function saveJSONToR2(fileName, data) {
   }
 }
 
+// Cloudflare R2-dən JSON faylı silmək
+export async function deleteJSONFromR2(fileName) {
+  if (!isR2Configured()) return true;
+  const s3 = getS3Client();
+  if (!s3) return false;
+
+  try {
+    const command = new DeleteObjectCommand({
+      Bucket: getBucket(),
+      Key: `data/${fileName}`,
+    });
+    await s3.send(command);
+    return true;
+  } catch (err) {
+    const code = err.name || err.Code || err.$metadata?.httpStatusCode;
+    if (code === "NoSuchKey" || code === 404) return true;
+    console.error(`❌ Cloudflare R2 silmə xətası (${fileName}):`, err.message);
+    return false;
+  }
+}
+
 // Cloudflare R2 bağlantısını və oxuma/yazma qabiliyyətini yoxlamaq
 export async function testR2Connection() {
   if (!isR2Configured()) {
