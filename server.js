@@ -951,18 +951,13 @@ function formatGeminiErrorMessage(error) {
     return "Bu sorğu Google təhlükəsizlik və məzmun siyasəti filtrləri tərəfindən dayandırıldı. Zəhmət olmasa sorğunuzu redaktə edib yenidən cəhd edin.";
   }
   if (error.status === 403 || /PERMISSION_DENIED|SERVICE_DISABLED|API_KEY_INVALID/i.test(msg)) {
-    if (/SERVICE_DISABLED/i.test(msg)) {
-      return "Gemini / Vertex AI API bu layihədə aktivləşdirilməyib. Zəhmət olmasa Google Cloud Console-dan Vertex AI API-ni aktivləşdirin.";
-    }
-    if (/API_KEY/i.test(msg)) {
-      return "Gemini / Vertex AI API açarı etibarsızdır və ya icazəsi yoxdur. Zəhmət olmasa .env faylında düzgün GEMINI_API_KEY təyin edin.";
-    }
-    return "Gemini / Vertex AI xidmətinə daxil olmaq üçün icazə yoxdur (403 Forbidden). Zəhmət olmasa .env faylındakı GEMINI_API_KEY açarını və layihə icazələrini yoxlayın.";
+    console.error("[Gemini Provider 403]", msg);
+    return "Süni intellekt xidməti hazırda əlçatmazdır. Zəhmət olmasa bir az sonra yenidən cəhd edin.";
   }
   if (error.status === 429 || /RESOURCE_EXHAUSTED|RATE_LIMIT/i.test(msg)) {
-    return "Gemini / Vertex AI sorğu limiti aşılıb (429 Rate Limit). Zəhmət olmasa bir az sonra yenidən cəhd edin.";
+    return "Sorğu limiti aşılıb. Zəhmət olmasa bir az sonra yenidən cəhd edin.";
   }
-  return msg;
+  return "Sorğu icra edilərkən xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.";
 }
 
 function sanitizeGroundingMetadata(metadata) {

@@ -183,6 +183,10 @@ export const SaveStrategyRequestSchema = z.object({
     .max(100),
 }).strict();
 
+export const UpdateStrategyTitleSchema = z.object({
+  title: z.string().trim().min(1, "Strategiya adı boş ola bilməz.").max(300),
+}).strict();
+
 export const StrategySummaryRequestSchema = z
   .object({
     strategy: StrategySchema.optional(),

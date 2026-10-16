@@ -1,9 +1,16 @@
 import { getOpenAIClient } from "../ai/client.js";
 import { aiConfig, hasGeminiConfiguration, hasOpenAIConfiguration } from "../ai/config.js";
+import { isLowQualityDomain, scoreDomain } from "../ai/research-service.js";
 
 function safeSource(url, title) {
-  try { const parsed = new URL(url); if (!["http:", "https:"].includes(parsed.protocol) || parsed.href.length > 2000) return null; return { web: { uri: parsed.href, title: String(title || parsed.hostname).slice(0, 180) } }; }
-  catch { return null; }
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol) || parsed.href.length > 2000) return null;
+    if (isLowQualityDomain(parsed.hostname)) return null;
+    return { web: { uri: parsed.href, title: String(title || parsed.hostname).slice(0, 180) } };
+  } catch {
+    return null;
+  }
 }
 
 export function createWebResearch({ geminiResearch, openAIClient } = {}) {
@@ -11,7 +18,11 @@ export function createWebResearch({ geminiResearch, openAIClient } = {}) {
     if (hasGeminiConfiguration() && geminiResearch) {
       try {
         const result = await geminiResearch({ messages, instructions, signal });
-        const groundingChunks = result.groundingMetadata?.groundingChunks?.map(chunk => safeSource(chunk.web?.uri, chunk.web?.title)).filter(Boolean).slice(0, 30) || [];
+        const groundingChunks = (result.groundingMetadata?.groundingChunks || [])
+          .map(chunk => safeSource(chunk.web?.uri, chunk.web?.title))
+          .filter(Boolean)
+          .sort((a, b) => scoreDomain(b.web?.uri) - scoreDomain(a.web?.uri))
+          .slice(0, 30);
         if (groundingChunks.length) return { ...result, groundingMetadata: { ...result.groundingMetadata, groundingChunks } };
       } catch (error) {
         if (signal?.aborted || !openAIClient) throw error;
@@ -37,6 +48,7 @@ export function createWebResearch({ geminiResearch, openAIClient } = {}) {
       }
     }
     if (!text.trim() || !chunks.length) throw new Error("Web research sources could not be verified");
+    chunks.sort((a, b) => scoreDomain(b.web?.uri) - scoreDomain(a.web?.uri));
     return { text, model: response.model || "gpt-6.1-sol", provider: "openai", usage: response.usage, groundingMetadata: { groundingChunks: chunks.slice(0, 30) } };
   };
 }

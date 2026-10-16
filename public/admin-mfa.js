@@ -21,7 +21,9 @@ async function init() {
       const setupRes = await fetch("/api/auth/admin-mfa/setup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currentPassword, enrollmentToken }) });
       const setupData = await setupRes.json();
       if (!setupRes.ok) { document.getElementById("mfa-msg").textContent = setupData.error || "Qeydiyyat xətası"; return; }
-      app.innerHTML = `<div class="mfa-card"><h2>TOTP Quraşdırma</h2><p>Gizli açar: <code>${setupData.secret}</code></p><p>Authenticator tətbiqində kodu daxil edib təsdiqləyin:</p><form id="confirm-form"><input type="text" id="confirm-code" placeholder="6 rəqəmli kod" maxlength="6" required><button type="submit" class="primary-button">Tamamla</button></form></div>`;
+      app.innerHTML = `<div class="mfa-card"><h2>TOTP Quraşdırma</h2><p>Gizli açar: <code id="mfa-secret-code"></code></p><p>Authenticator tətbiqində kodu daxil edib təsdiqləyin:</p><form id="confirm-form"><input type="text" id="confirm-code" placeholder="6 rəqəmli kod" maxlength="6" required><button type="submit" class="primary-button">Tamamla</button></form></div>`;
+      const secretCodeEl = document.getElementById("mfa-secret-code");
+      if (secretCodeEl) secretCodeEl.textContent = String(setupData.secret || "");
       document.getElementById("confirm-form").onsubmit = async (ev) => {
         ev.preventDefault();
         const confRes = await fetch("/api/auth/admin-mfa/confirm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ setupToken: setupData.setupToken, code: document.getElementById("confirm-code").value.trim() }) });
@@ -31,7 +33,9 @@ async function init() {
           return;
         }
         if (Array.isArray(confData.recoveryCodes) && confData.recoveryCodes.length) {
-          app.innerHTML = `<div class="mfa-card"><h2>MFA Qeydiyyatı Tamamlandı</h2><p style="color:#ef4444;font-weight:600;">DİQQƏT: Aşağıdakı bərpa kodlarını təhlükəsiz yerdə saxlayın. Authenticator itirildikdə hesabınızı yalnız bu kodlarla bərpa edə bilərsiniz:</p><pre style="background:#1e293b;color:#f8fafc;padding:12px;border-radius:6px;user-select:all;font-family:monospace;margin:12px 0;">${confData.recoveryCodes.join("\n")}</pre><button id="mfa-done-btn" class="primary-button">Kodları Saxladım, Davam Et</button></div>`;
+          app.innerHTML = `<div class="mfa-card"><h2>MFA Qeydiyyatı Tamamlandı</h2><p style="color:#ef4444;font-weight:600;">DİQQƏT: Aşağıdakı bərpa kodlarını təhlükəsiz yerdə saxlayın. Authenticator itirildikdə hesabınızı yalnız bu kodlarla bərpa edə bilərsiniz:</p><pre id="mfa-recovery-codes" style="background:#1e293b;color:#f8fafc;padding:12px;border-radius:6px;user-select:all;font-family:monospace;margin:12px 0;"></pre><button id="mfa-done-btn" class="primary-button">Kodları Saxladım, Davam Et</button></div>`;
+          const recoveryEl = document.getElementById("mfa-recovery-codes");
+          if (recoveryEl) recoveryEl.textContent = confData.recoveryCodes.map(c => String(c)).join("\n");
           document.getElementById("mfa-done-btn").onclick = () => { window.location.href = "/"; };
         } else {
           window.location.href = "/";

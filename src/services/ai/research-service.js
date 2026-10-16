@@ -623,6 +623,16 @@ export class ResearchService {
     }));
   }
 
+  hasActiveJobForOwner(ownerId) {
+    if (!ownerId) return false;
+    for (const job of this.activeJobs.values()) {
+      if (job.ownerId === ownerId && (job.status === "pending" || job.status === "running")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   async createJob(args) {
     return this.createResearchJob(args);
   }
@@ -637,6 +647,12 @@ export class ResearchService {
     language = "az",
     user = null,
   }) {
+    if (this.hasActiveJobForOwner(ownerId)) {
+      const busyErr = new Error("Active research job already running for owner");
+      busyErr.code = "EXECUTION_BUSY";
+      busyErr.status = 429;
+      throw busyErr;
+    }
     const researchPrompt = (prompt || query || "").trim();
     const isEn = language === "en";
     const jobId = randomUUID();
@@ -725,6 +741,11 @@ export class ResearchService {
     };
 
     this.activeJobs.set(jobId, job);
+
+    const reqCtx = executionContext.getStore();
+    if (reqCtx) {
+      reqCtx.providerStarted = true;
+    }
 
     if (this.prepareJob) await this.prepareJob(job);
 

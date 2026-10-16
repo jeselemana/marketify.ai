@@ -146,7 +146,15 @@ export class AiPolicy {
     const searching = tools.some(tool => tool.googleSearch || /web_search/.test(tool.type || ''));
     const searchPrice = Number.isFinite(price.search) ? price.search : 0.035;
     if (searching && (!Number.isFinite(searchPrice) || searchPrice < 0)) throw fail('TOOL_PRICING_UNAVAILABLE');
-    const input = Buffer.byteLength(JSON.stringify(params)), output = Math.min(params.max_output_tokens || params.max_completion_tokens || params.max_tokens || params.config?.maxOutputTokens || 16384, 16384);
+    let inlineBase64Chars = 0;
+    const serialized = JSON.stringify(params, (key, value) => {
+      if (key === 'data' && typeof value === 'string' && value.length > 4096) {
+        inlineBase64Chars += value.length;
+        return `[inlineData:${value.length}]`;
+      }
+      return value;
+    });
+    const input = Buffer.byteLength(serialized || '') + Math.ceil(inlineBase64Chars / 750), output = Math.min(params.max_output_tokens || params.max_completion_tokens || params.max_tokens || params.config?.maxOutputTokens || 16384, 16384);
     const micros = Math.ceil(input * price.input + output * price.output + (searching ? searchPrice * 1000000 : 0));
     const day = new Date().toISOString().slice(0, 10), keys = [`security:budget:${day}:${context.ownerId}`, `security:budget:${day}:global`];
     const userLimit = Number(this.env.AI_USER_DAILY_USD || 5), globalLimit = Number(this.env.AI_PLATFORM_DAILY_USD || 100);

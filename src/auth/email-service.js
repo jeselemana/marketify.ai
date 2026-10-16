@@ -64,7 +64,7 @@ export class PasswordResetEmailService {
     let outbox = [];
     try { outbox = JSON.parse(await fs.readFile(outboxPath, "utf8")); } catch {}
     outbox.push({ to, replyTo, subject, text, html, createdAt: new Date().toISOString() });
-    await fs.writeFile(outboxPath, `${JSON.stringify(outbox, null, 2)}\n`, "utf8");
+    await fs.writeFile(outboxPath, `${JSON.stringify(outbox, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   }
 
   async sendEmailVerificationCode({ email, fullName, code }) {
@@ -157,6 +157,11 @@ export class PasswordResetEmailService {
 </body>
 </html>`;
 
+    if (this.env.RESEND_API_KEY) {
+      await this.sendWithResend({ to: recipient, subject, text, html, replyTo: userEmail || undefined });
+      return;
+    }
+
     if (this.transport) {
       await this.transport.sendMail({
         from: this.env.EMAIL_FROM || "Helmer Legal <no-reply@helmeros.com>",
@@ -178,6 +183,6 @@ export class PasswordResetEmailService {
     let outbox = [];
     try { outbox = JSON.parse(await fs.readFile(outboxPath, "utf8")); } catch {}
     outbox.push({ to: recipient, replyTo: userEmail || undefined, subject, text, html, createdAt: timestamp });
-    await fs.writeFile(outboxPath, `${JSON.stringify(outbox, null, 2)}\n`, "utf8");
+    await fs.writeFile(outboxPath, `${JSON.stringify(outbox, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   }
 }

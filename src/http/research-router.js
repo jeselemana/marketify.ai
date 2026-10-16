@@ -57,6 +57,12 @@ export function createResearchRouter({ researchService, chatRepository, rateLimi
 
       return res.status(202).json({ ...result, status: "pending" });
     } catch (error) {
+      if (error?.code === "EXECUTION_BUSY" || error?.status === 429) {
+        return res.status(429).json({
+          error: "Hazırda aktiv araşdırma sorğunuz icra olunur. Zəhmət olmasa tamamlanmasını gözləyin.",
+          code: "EXECUTION_BUSY",
+        });
+      }
       console.error("[Research Router] Error creating research job:", error);
       return res.status(500).json({
         error: "Araşdırma işini başlatmaq mümkün olmadı.",

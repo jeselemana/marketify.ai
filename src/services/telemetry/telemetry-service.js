@@ -363,17 +363,26 @@ export class TelemetryService {
     strategyTitle = null,
     source = "brief",
     userNote = "",
+    onlyNecessaryData = false,
+    modelImprovement = true,
   } = {}) {
+    const isRestricted = onlyNecessaryData === true || modelImprovement === false || (this.privacyPolicy && !await this.privacyPolicy.allows(ownerId));
     const isLike = feedback === "like";
     const feedbackLabel = isLike ? "Faydalı oldu (Like 👍)" : "Faydalı olmadı (Dislike 👎)";
-    const safeTaskSnippet = redactSensitiveText(taskText || "Tapşırıq", 80);
-    const safeStrategyTitle = strategyTitle ? redactSensitiveText(strategyTitle, 60) : null;
+    const safeTaskSnippet = isRestricted
+      ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]"
+      : redactSensitiveText(taskText || "Tapşırıq", 80);
+    const safeStrategyTitle = isRestricted
+      ? null
+      : (strategyTitle ? redactSensitiveText(strategyTitle, 60) : null);
 
-    const baseExplanation = isLike
-      ? `İstifadəçi "${safeStrategyTitle || "Strategiya"}" briefindən olan tapşırığın icrasını FAYDALI hesab etdi.`
-      : `İstifadəçi "${safeStrategyTitle || "Strategiya"}" briefindən olan tapşırığın icrasını FAYDASIZ / QEYRİ-EFFEKTİV hesab etdi.`;
+    const baseExplanation = isRestricted
+      ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]"
+      : (isLike
+          ? `İstifadəçi "${safeStrategyTitle || "Strategiya"}" briefindən olan tapşırığın icrasını FAYDALI hesab etdi.`
+          : `İstifadəçi "${safeStrategyTitle || "Strategiya"}" briefindən olan tapşırığın icrasını FAYDASIZ / QEYRİ-EFFEKTİV hesab etdi.`);
 
-    const explanation = userNote ? `${baseExplanation} İstifadəçi qeydi: "${userNote}"` : baseExplanation;
+    const explanation = (!isRestricted && userNote) ? `${baseExplanation} İstifadəçi qeydi: "${redactSensitiveText(userNote, 200)}"` : baseExplanation;
 
     const event = {
       id: `evt_fbk_${randomUUID()}`,
@@ -381,25 +390,40 @@ export class TelemetryService {
       mode: "planner",
       maskedUserId: maskIdentifier(ownerId || sessionId),
       marketMode: null,
-      category: "İcra Rəyi",
+      category: isRestricted ? "Zəruri Əməliyyat" : "İcra Rəyi",
       model: "user-feedback",
       latencyMs: null,
       tokens: null,
       costUsd: 0,
       costAzn: 0,
       status: isLike ? "success" : "warning",
-      summary: `Planner Rəyi: [${feedbackLabel}] "${safeTaskSnippet}"`,
-      metadata: redactPayload({
-        taskId,
-        feedback,
-        rating: isLike ? "positive" : "negative",
-        taskTitle: safeTaskSnippet,
-        strategyId,
-        strategyTitle: safeStrategyTitle,
-        source,
-        izahat: explanation,
-        explanation,
-      }),
+      onlyNecessaryData: isRestricted,
+      modelImprovement: !isRestricted,
+      summary: isRestricted
+        ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]"
+        : `Planner Rəyi: [${feedbackLabel}] "${safeTaskSnippet}"`,
+      metadata: isRestricted
+        ? {
+            taskId,
+            feedback,
+            rating: isLike ? "positive" : "negative",
+            source,
+            onlyNecessaryData: true,
+            dataRestricted: true,
+            izahat: "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]",
+            explanation: "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]",
+          }
+        : redactPayload({
+            taskId,
+            feedback,
+            rating: isLike ? "positive" : "negative",
+            taskTitle: safeTaskSnippet,
+            strategyId,
+            strategyTitle: safeStrategyTitle,
+            source,
+            izahat: explanation,
+            explanation,
+          }),
       timestamp: new Date().toISOString(),
     };
 
@@ -421,7 +445,8 @@ export class TelemetryService {
         const learningStore = await aiLearningRepository.readStore().catch(() => null);
         if (learningStore && Array.isArray(learningStore.interactions)) {
           for (const item of learningStore.interactions) {
-            const rawMarket = detectTargetMarket({ brief: item.userPrompt });
+            const isRestricted = item.onlyNecessaryData === true || (this.privacyPolicy && !await this.privacyPolicy.allows(item.ownerId));
+            const rawMarket = isRestricted ? "global" : detectTargetMarket({ brief: item.userPrompt });
             const marketMode = rawMarket === "azerbaijan" ? "LOCAL_AZ_MODE" : "GLOBAL_MODE";
             const cost = calculateEstimatedCost(item.modelName, item.inputTokens, item.outputTokens);
             backfillEvents.push({
@@ -430,7 +455,7 @@ export class TelemetryService {
               mode: item.mode || "build",
               maskedUserId: maskIdentifier(item.ownerId || item.sessionId),
               marketMode,
-              category: item.mode === "build" ? categorizeBrief(item.userPrompt) : "İnteraktiv Məsləhət",
+              category: isRestricted ? "Zəruri Əməliyyat" : (item.mode === "build" ? categorizeBrief(item.userPrompt) : "İnteraktiv Məsləhət"),
               model: item.modelName || "gemini-3.8-flash",
               groundingActive: Boolean(item.relevantContext?.searchGrounded),
               latencyMs: item.latencyMs || null,
@@ -442,13 +467,25 @@ export class TelemetryService {
               costUsd: cost.costUsd,
               costAzn: cost.costAzn,
               status: item.requestStatus === "error" ? "error" : "success",
-              qualityScore: Number.isFinite(item.qualityScore) ? Number(item.qualityScore.toFixed(2)) : null,
-              summary: redactSensitiveText(item.userPrompt || "Tarixi qarşılıqlı əlaqə", 80),
-              metadata: redactPayload({
-                taskType: item.taskType,
-                model: item.modelName,
-                tokens: cost.totalTokens,
-              }),
+              qualityScore: isRestricted ? null : (Number.isFinite(item.qualityScore) ? Number(item.qualityScore.toFixed(2)) : null),
+              onlyNecessaryData: isRestricted,
+              modelImprovement: !isRestricted,
+              summary: isRestricted
+                ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]"
+                : redactSensitiveText(item.userPrompt || "Tarixi qarşılıqlı əlaqə", 80),
+              metadata: isRestricted
+                ? {
+                    taskType: item.taskType,
+                    model: item.modelName,
+                    tokens: cost.totalTokens,
+                    onlyNecessaryData: true,
+                    dataRestricted: true,
+                  }
+                : redactPayload({
+                    taskType: item.taskType,
+                    model: item.modelName,
+                    tokens: cost.totalTokens,
+                  }),
               timestamp: item.createdAt || new Date().toISOString(),
             });
           }
@@ -459,7 +496,8 @@ export class TelemetryService {
       if (backfillEvents.length === 0 && strategyRepository && typeof strategyRepository.readAll === "function") {
         const strategies = await strategyRepository.readAll().catch(() => []);
         for (const strat of strategies) {
-          const rawMarket = detectTargetMarket({ brief: strat.brief, answers: strat.answers, strategy: strat.strategy });
+          const isRestricted = Boolean(this.privacyPolicy && !await this.privacyPolicy.allows(strat.ownerId));
+          const rawMarket = isRestricted ? "global" : detectTargetMarket({ brief: strat.brief, answers: strat.answers, strategy: strat.strategy });
           const marketMode = rawMarket === "azerbaijan" ? "LOCAL_AZ_MODE" : "GLOBAL_MODE";
           const cost = calculateEstimatedCost("gemini-3.8-flash", 1200, 3200);
           backfillEvents.push({
@@ -468,20 +506,30 @@ export class TelemetryService {
             mode: "build",
             maskedUserId: maskIdentifier(strat.ownerId),
             marketMode,
-            category: categorizeBrief(strat.brief || strat.title || ""),
+            category: isRestricted ? "Zəruri Əməliyyat" : categorizeBrief(strat.brief || strat.title || ""),
             model: "gemini-3.8-flash",
             latencyMs: 1450,
             tokens: { prompt: 1200, completion: 3200, total: 4400 },
             costUsd: cost.costUsd,
             costAzn: cost.costAzn,
             status: "success",
-            qualityScore: 0.88,
-            summary: redactSensitiveText(strat.brief || strat.title || "Tarixi strategiya", 80),
-            metadata: redactPayload({
-              title: redactSensitiveText(strat.title, 40),
-              model: "gemini-3.8-flash",
-              marketMode,
-            }),
+            qualityScore: isRestricted ? null : 0.88,
+            onlyNecessaryData: isRestricted,
+            modelImprovement: !isRestricted,
+            summary: isRestricted
+              ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]"
+              : redactSensitiveText(strat.brief || strat.title || "Tarixi strategiya", 80),
+            metadata: isRestricted
+              ? {
+                  model: "gemini-3.8-flash",
+                  onlyNecessaryData: true,
+                  dataRestricted: true,
+                }
+              : redactPayload({
+                  title: redactSensitiveText(strat.title, 40),
+                  model: "gemini-3.8-flash",
+                  marketMode,
+                }),
             timestamp: strat.createdAt || new Date().toISOString(),
           });
         }

@@ -678,7 +678,9 @@ function renderLegalReports() {
 
     const dateStr = formatDate(rep.createdAt);
     const userDisplay = rep.userName || "Anonim istifadəçi";
-    const emailDisplay = rep.userEmail ? `<a href="mailto:${escapeHtml(rep.userEmail)}?subject=Helmer Hüquqi Müraciətiniz Barədə [${escapeHtml(rep.id || "")}]" class="legal-email-link" title="E-poçt göndər">✉️ ${escapeHtml(rep.userEmail)}</a>` : '<span class="text-muted">E-poçt qeyd olunmayıb</span>';
+    const encodedSubjectFull = encodeURIComponent(`Helmer Hüquqi Müraciətiniz Barədə [${rep.id || ""}]`);
+    const encodedSubjectShort = encodeURIComponent(`Helmer Hüquqi Müraciətiniz [${rep.id || ""}]`);
+    const emailDisplay = rep.userEmail ? `<a href="mailto:${escapeHtml(rep.userEmail)}?subject=${escapeHtml(encodedSubjectFull)}" class="legal-email-link" title="E-poçt göndər">✉️ ${escapeHtml(rep.userEmail)}</a>` : '<span class="text-muted">E-poçt qeyd olunmayıb</span>';
     const modelBadge = rep.model ? `<span class="model-badge">${escapeHtml(rep.model)}</span>` : "";
 
     card.innerHTML = `
@@ -722,7 +724,7 @@ function renderLegalReports() {
 
         <div class="action-buttons">
           ${rep.userEmail ? `
-            <a href="mailto:${escapeHtml(rep.userEmail)}?subject=Helmer Hüquqi Müraciətiniz [${escapeHtml(rep.id || "")}]" class="btn btn-email">
+            <a href="mailto:${escapeHtml(rep.userEmail)}?subject=${escapeHtml(encodedSubjectShort)}" class="btn btn-email">
               ✉️ Cavab yaz
             </a>
           ` : ""}

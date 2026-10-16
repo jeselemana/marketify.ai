@@ -37,9 +37,10 @@ export function createUpRouter(service) {
     if (!req.auth?.user) return next();
     const now = Date.now(), key = `${req.user.id}:${req.ip || req.socket.remoteAddress}`;
     for (const [id, bucket] of limits) if (bucket.until <= now) limits.delete(id);
+    if (!limits.has(key) && limits.size >= 5000) return res.status(429).json({ code: 'RATE_LIMIT', error: 'Bir az sonra yenidən cəhd edin.' });
     const bucket = limits.get(key) || { until: now + 60000, count: 0 };
     bucket.count++; limits.set(key, bucket);
-    if (bucket.count > 90 || limits.size > 5000) return res.status(429).json({ code: 'RATE_LIMIT', error: 'Bir az sonra yenidən cəhd edin.' });
+    if (bucket.count > 90) return res.status(429).json({ code: 'RATE_LIMIT', error: 'Bir az sonra yenidən cəhd edin.' });
     next();
   });
 

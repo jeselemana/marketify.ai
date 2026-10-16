@@ -8,6 +8,7 @@ import {
   GenerateRequestSchema,
   RefineRequestSchema,
   SaveStrategyRequestSchema,
+  UpdateStrategyTitleSchema,
   formatValidationError,
 } from "../domain/strategy.js";
 import {
@@ -818,7 +819,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           });
           const modelImprovement = isModelImprovementEnabled(req);
           const tracked = await runTrackedBuild({
-            learningLoop, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
+            learningLoop, telemetryService, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
             relevantContext: { resourceId: existing.id, personalizationApplied: Boolean(personalizationContext), language },
             execute: (onUsage) => refineStrategy({ ...payload, language }, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
             onlyNecessaryData: !modelImprovement,
@@ -906,11 +907,15 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
       if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) {
         return res.status(400).json({ error: "Strategiya ID-si düzgün deyil.", code: "VALIDATION_ERROR" });
       }
-      const title = typeof req.body?.title === "string" ? req.body.title.trim() : "";
-      if (!title) {
-        return res.status(400).json({ error: "Strategiya adı boş ola bilməz.", code: "VALIDATION_ERROR" });
+      const parsed = UpdateStrategyTitleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || "Strategiya adı boş ola bilməz.",
+          code: "VALIDATION_ERROR",
+          details: formatValidationError(parsed.error),
+        });
       }
-      const updated = await repository.updateTitle(req.params.id, req.ownerId, title);
+      const updated = await repository.updateTitle(req.params.id, req.ownerId, parsed.data.title);
       if (!updated) return res.status(404).json({ error: "Strategiya tapılmadı.", code: "NOT_FOUND" });
       return res.json({ strategy: publicRecord(updated) });
     }),

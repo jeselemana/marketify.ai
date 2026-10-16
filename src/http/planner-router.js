@@ -3,6 +3,7 @@ import { z } from "zod";
 import { summarizeTasksWithLuna, prioritizeTasksWithLuna } from "../services/ai/strategy-service.js";
 import { aiConfig } from "../services/ai/config.js";
 import { publicErrorMessage } from "./error-response.js";
+import { isModelImprovementEnabled } from "./auth-middleware.js";
 
 export const TaskInputSchema = z.object({
   text: z.string().trim().min(1).max(1000).optional(),
@@ -240,6 +241,7 @@ export function createPlannerRouter(plannerRepository, options = {}) {
       });
 
       if (telemetryService && typeof telemetryService.trackSummary === "function") {
+        const modelImprovement = isModelImprovementEnabled(req);
         telemetryService.trackSummary({
           ownerId: req.ownerId,
           sessionId: req.guestOwnerId,
@@ -247,6 +249,8 @@ export function createPlannerRouter(plannerRepository, options = {}) {
           latencyMs: Date.now() - startedAt,
           usage: summaryUsage,
           status: "success",
+          onlyNecessaryData: !modelImprovement,
+          modelImprovement,
         }).catch(() => {});
       }
 
@@ -321,6 +325,7 @@ export function createPlannerRouter(plannerRepository, options = {}) {
           }));
 
       if (telemetryService && typeof telemetryService.trackSummary === "function") {
+        const modelImprovement = isModelImprovementEnabled(req);
         telemetryService.trackSummary({
           ownerId: req.ownerId,
           sessionId: req.guestOwnerId,
@@ -328,6 +333,8 @@ export function createPlannerRouter(plannerRepository, options = {}) {
           latencyMs: Date.now() - startedAt,
           usage: priorityUsage,
           status: "success",
+          onlyNecessaryData: !modelImprovement,
+          modelImprovement,
         }).catch(() => {});
       }
 
@@ -365,6 +372,7 @@ export function createPlannerRouter(plannerRepository, options = {}) {
       }
 
       if (parsed.data.feedback && telemetryService && typeof telemetryService.trackTaskFeedback === "function") {
+        const modelImprovement = isModelImprovementEnabled(req);
         telemetryService.trackTaskFeedback({
           ownerId: req.ownerId,
           sessionId: req.guestOwnerId,
@@ -375,6 +383,8 @@ export function createPlannerRouter(plannerRepository, options = {}) {
           strategyTitle: updated.strategyTitle || null,
           source: updated.source || "brief",
           userNote: parsed.data.userNote || parsed.data.explanation || "",
+          onlyNecessaryData: !modelImprovement,
+          modelImprovement,
         }).catch(() => {});
       }
 

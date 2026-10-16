@@ -91,19 +91,31 @@ export class DistributedResearchService extends ResearchService {
   }
 
   async getJob(jobId, ownerId) {
+    if (!ownerId || !/^[A-Za-z0-9_-]{1,80}$/.test(String(jobId || ''))) return null;
     const local = await super.getJob(jobId, ownerId);
     if (local) return local;
     if (!this.jobStore) return null;
     const remote = await this.jobStore.read(`research:${jobId}`);
-    if (remote && (!ownerId || remote.ownerId === ownerId)) {
+    if (remote && remote.ownerId === ownerId) {
       if (remote.chatId && this.chatRepository) {
-        const chat = await this.chatRepository.getById(remote.chatId, remote.ownerId || ownerId).catch(() => null);
+        const chat = await this.chatRepository.getById(remote.chatId, ownerId).catch(() => null);
         if (chat && chat.deleted) {
           await this.persistCheckpoint(jobId, { status: 'deleted', content: null, prompt: null });
           return null;
         }
       }
-      return remote;
+      return {
+        id: remote.id || jobId,
+        chatId: remote.chatId,
+        status: remote.status,
+        steps: remote.steps || [],
+        sources: remote.sources || [],
+        artifacts: remote.artifacts || [],
+        content: remote.content || '',
+        error: remote.error || null,
+        createdAt: remote.createdAt,
+        updatedAt: remote.updatedAt,
+      };
     }
     return null;
   }
@@ -132,13 +144,13 @@ export class DistributedResearchService extends ResearchService {
   }
 
   async cancelJob(jobId, ownerId) {
+    if (!ownerId) return false;
     const job = await this.getJob(jobId, ownerId);
     if (!job) return false;
-    if (ownerId && job.ownerId && job.ownerId !== ownerId) return false;
     const cancelledLocally = await super.cancelJob(jobId, ownerId);
     await this.persistCheckpoint(jobId, { status: 'cancelled' });
     if (this.redis?.isReady) {
-      await this.redis.publish('helmer:research:cancel', JSON.stringify({ jobId, ownerId: job.ownerId })).catch(() => {});
+      await this.redis.publish('helmer:research:cancel', JSON.stringify({ jobId, ownerId })).catch(() => {});
     }
     return Boolean(cancelledLocally || true);
   }

@@ -1,6 +1,6 @@
 import { renderArtifact } from "./render.js";
 import { createPluginRegistry } from "../plugins/registry.js";
-import { renderWord, renderExcel, renderPowerPoint, renderPDF, validateRenderedFile } from "./renderers.js";
+import { renderWord, renderExcel, renderPowerPoint, renderPDF } from "./renderers.js";
 import { safeArtifactFilename } from "../../repositories/artifact-repository.js";
 
 /**
@@ -287,7 +287,7 @@ export function buildResearchArtifactSpecs(markdown = "", prompt = "", sources =
   // 2. Excel Specification
   const excelUnits = [];
   if (tables.length > 0) {
-    tables.forEach((t, tIdx) => {
+    tables.slice(0, 18).forEach((t, tIdx) => {
       const rows = [
         t.headers.map((h) => ({ type: "text", value: h, formula: "", result: null, format: "", bold: true })),
       ];
@@ -500,7 +500,6 @@ export async function generateSelectiveResearchArtifacts({ job, text, artifactRe
 
         const buffer = await renderArtifact(format, spec, { signal });
         signal?.throwIfAborted();
-        await validateRenderedFile(buffer, format);
 
         const meta = PLUGIN_METADATA[format];
         const title = spec.title || (isEn ? meta.defaultTitleEn : meta.defaultTitleAz);
