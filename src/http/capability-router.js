@@ -69,6 +69,7 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
       if (previous && previous.versions.at(-1).version !== latestPublished?.version) throw new Error("Artifact update is still being committed");
       const selection = resolveCapabilityIntent({ registry, pluginIds: payload.pluginIds, prompt, previousArtifact: previous });
       if (selection.intent === "chat") {
+        if (chat) req.preloadedAskChat = chat;
         if (previous) req.askArtifactContext = JSON.stringify(previous.versions.at(-1).spec);
         return next();
       }
@@ -76,8 +77,10 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
       if (rateLimit) { let limited = true; rateLimit(req, res, () => { limited = false; }); if (limited) return; }
       const strategyId = payload.strategyId || chat?.strategyId;
       const taskId = payload.taskId || chat?.taskId;
-      const strategy = strategyId ? await strategies.getById(strategyId, req.ownerId) : null;
-      const task = taskId ? (await planner.list(req.ownerId)).find(item => item.id === taskId) : null;
+      const [strategy, task] = await Promise.all([
+        strategyId ? strategies.getById(strategyId, req.ownerId) : null,
+        taskId ? planner.list(req.ownerId).then(items => items.find(item => item.id === taskId) || null) : null,
+      ]);
       if ((strategyId && !strategy) || (taskId && !task)) return res.status(404).json({ error: "Seçilmiş kontekst tapılmadı.", code: "NOT_FOUND" });
       const sourceContext = strategy || task ? JSON.stringify({ strategy: strategy ? { title: strategy.title, brief: strategy.brief, strategy: strategy.strategy } : null, task: task ? { text: task.text, strategyTitle: task.strategyTitle } : null }) : "";
       const isRetry = chat?.messages.at(-1)?.role === "user" && chat.messages.at(-1).content === prompt;
@@ -103,10 +106,14 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
         heartbeat = setInterval(() => { if (!res.destroyed) res.write(": keepalive\n\n"); }, 15000);
         emit({ status: "analyzing", statusText: "Məlumatları analiz edirəm...", chatId: allocatedChatId, chatRevision: initialChat.revision });
       }
+      const isWebResearchOnly = selection.plugins.length === 1 && selection.plugins[0].id === "web";
       const result = completedResult = await workflow.execute({ plugins: selection.plugins, ownerId: req.ownerId, chatId: allocatedChatId, prompt, messages: history, sourceContext, previous,
         preferEdit: Boolean(payload.artifactId),
         requestedModel: payload.model, scopes: new Set(["context:read", "artifacts:write", "web:search"]), signal: controller.signal,
-        language: req.user?.settings?.language || (req.headers["accept-language"]?.includes("en") ? "en" : "az"), onStatus: streaming ? emit : () => {} });
+        language: req.user?.settings?.language || (req.headers["accept-language"]?.includes("en") ? "en" : "az"),
+        onStatus: streaming ? emit : () => {},
+        onChunk: streaming && isWebResearchOnly ? (chunk) => emit({ chunk, model: "gemini-3.8-flash" }) : undefined,
+      });
       const assistant = { role: "assistant", content: result.reply, artifacts: result.artifacts, execution: result.execution, model: result.model, groundingMetadata: result.groundingMetadata, createdAt: new Date().toISOString() };
       const savedChat = await chats.saveChat({ id: allocatedChatId, ownerId: req.ownerId, messages: [...safeHistory, assistant], strategyId, taskId, mustExist: true, expectedRevision: initialChat.revision || 1 });
       committed = true;

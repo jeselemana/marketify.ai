@@ -2197,11 +2197,24 @@ function escapeHtml(value) {
 }
 
 function isComplexAskQuery(lastUserMsg = "", hasStrategyContext = false) {
-  if (hasStrategyContext) return true;
   const cleanMsg = String(lastUserMsg || "").trim();
-  if (cleanMsg.length >= 350) return true;
+  if (!cleanMsg) return false;
 
-  return /(hərtərəfli dərin analiz|hərtərəfli analiz|hərtərəfli təhlil|geniş təhlil|rəqib analizi|swot analizi|swot matrisi|audit hesabatı|maliyyə modeli|büdcə bölgüsü|cac\s*\/\s*ltv|tam marketinq planı|daha dərindən düşün|bütün detalları ilə|deep analysis|in-depth analysis|competitor analysis|financial model|budget breakdown|marketing plan|think deeper)/i.test(cleanMsg);
+  const deepHighPattern = /(hərtərəfli dərin analiz|hərtərəfli analiz|hərtərəfli təhlil|geniş təhlil|dərin araşdır|dərindən düşün|daha dərindən düşün|bütün detalları ilə|addım-addım.*hesabla|audit hesabatı|maliyyə modeli|unit economics|dcf|npv|irr|həssaslıq analizi|sensitivity analysis|sistem arxitekturası|deep analysis|in-depth analysis|comprehensive analysis|financial model|think deeper|step-by-step.*model)/i;
+  if (deepHighPattern.test(cleanMsg)) return true;
+
+  const modelingMediumPattern = /(rəqib analizi|swot analizi|swot matrisi|büdcə bölgüsü|cac\s*\/\s*ltv|roi\s+hesabla|unit\s+iqtisadiyyat|tam marketinq planı|go-to-market|gtm\s+strategiya|competitor analysis|budget breakdown|marketing plan|architecture review|kohort analizi)/i;
+  if (modelingMediumPattern.test(cleanMsg)) return true;
+
+  if (hasStrategyContext && /(analiz|təhlil|strategiya|plan|büdcə|rəqib|audit|hesabla|müqayisə|proqnoz|forecast|strategy|analysis)/i.test(cleanMsg)) {
+    return true;
+  }
+
+  if (cleanMsg.length >= 450 && /(analiz|təhlil|strategiya|maliyyə|büdcə|rəqib|arxitektura|hesabla|müqayisə|proqnoz|optimallaşdır|model|audit|risk|plan)/i.test(cleanMsg)) {
+    return true;
+  }
+
+  return false;
 }
 
 function getAskMessageModelInfo(model) {
@@ -3647,6 +3660,9 @@ function renderIntake() {
 
 function cleanMarkdownFormatting(raw) {
   let text = String(raw || "");
+  if (!text.includes("*") && !text.includes("`")) {
+    return text;
+  }
 
   // Step A: Protect code blocks and inline code
   const codePlaceholders = [];
@@ -3738,8 +3754,8 @@ function askTableCells(line) {
   return line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim());
 }
 
-function renderAskRichText(value) {
-  const root = element("div", "ask-rich-text");
+function parseAskRichTextBlocks(value) {
+  const blocks = [];
   const lines = String(value || "").replace(/\r/g, "").split("\n");
   let index = 0;
   while (index < lines.length) {
@@ -3750,7 +3766,7 @@ function renderAskRichText(value) {
     }
 
     if (/^[-*_]{3,}$/.test(line)) {
-      root.appendChild(element("hr", "ask-divider"));
+      blocks.push({ type: "hr", key: "hr" });
       index += 1;
       continue;
     }
@@ -3761,66 +3777,47 @@ function renderAskRichText(value) {
       index += 1;
       while (index < lines.length && !lines[index].trim().startsWith("```")) content.push(lines[index++]);
       if (index < lines.length) index += 1;
-      const pre = element("pre", "ask-code-block");
-      const code = element("code", language ? `language-${language}` : "", content.join("\n"));
-      pre.appendChild(code);
-      root.appendChild(pre);
+      const codeText = content.join("\n");
+      blocks.push({ type: "code", language, codeText, key: `code:${language}:${codeText}` });
       continue;
     }
 
     const heading = line.match(/^(#{2,4})\s+(.+)$/);
     if (heading) {
       const level = Math.min(4, heading[1].length);
-      const node = element(`h${level}`, "");
-      appendAskInline(node, heading[2]);
-      root.appendChild(node);
+      const text = heading[2];
+      blocks.push({ type: "heading", level, text, key: `h${level}:${text}` });
       index += 1;
       continue;
     }
 
     if (line.includes("|") && lines[index + 1]?.includes("|") && /^\|?[\s:|-]+\|?$/.test(lines[index + 1].trim())) {
-      const tableWrap = element("div", "ask-table-wrap");
-      const table = document.createElement("table");
-      const thead = document.createElement("thead");
-      const headerRow = document.createElement("tr");
-      askTableCells(line).forEach((cell) => {
-        const th = document.createElement("th");
-        appendAskInline(th, cell);
-        headerRow.appendChild(th);
-      });
-      thead.appendChild(headerRow);
-      table.appendChild(thead);
+      const headerLine = line;
       index += 2;
-      const tbody = document.createElement("tbody");
+      const bodyLines = [];
       while (index < lines.length && lines[index].includes("|") && lines[index].trim()) {
-        const row = document.createElement("tr");
-        askTableCells(lines[index]).forEach((cell) => {
-          const td = document.createElement("td");
-          appendAskInline(td, cell);
-          row.appendChild(td);
-        });
-        tbody.appendChild(row);
+        bodyLines.push(lines[index]);
         index += 1;
       }
-      table.appendChild(tbody);
-      tableWrap.appendChild(table);
-      root.appendChild(tableWrap);
+      blocks.push({
+        type: "table",
+        headerLine,
+        bodyLines,
+        key: `table:${headerLine}\n${bodyLines.join("\n")}`,
+      });
       continue;
     }
 
     if (/^[-*]\s+/.test(line)) {
-      const list = document.createElement("ul");
+      const items = [];
       while (index < lines.length) {
         const curLine = lines[index].trim();
         if (/^[-*]\s+/.test(curLine)) {
-          const item = document.createElement("li");
-          appendAskInline(item, curLine.replace(/^[-*]\s+/, ""));
-          list.appendChild(item);
+          items.push([curLine.replace(/^[-*]\s+/, "")]);
           index += 1;
           continue;
         }
 
-        // Blank lines between bullet list items
         if (!curLine) {
           let nextIdx = index + 1;
           while (nextIdx < lines.length && !lines[nextIdx].trim()) {
@@ -3833,15 +3830,12 @@ function renderAskRichText(value) {
           break;
         }
 
-        // Continuation lines of the current li item
         if (
           !/^#{2,4}\s+|^[-*]\s+|^\d+[.)]\s+|^```|^[-*_]{3,}$/.test(curLine) &&
           !curLine.includes("|")
         ) {
-          const lastLi = list.lastElementChild;
-          if (lastLi) {
-            lastLi.appendChild(document.createTextNode(" "));
-            appendAskInline(lastLi, curLine);
+          if (items.length > 0) {
+            items[items.length - 1].push(curLine);
             index += 1;
             continue;
           }
@@ -3849,33 +3843,29 @@ function renderAskRichText(value) {
 
         break;
       }
-      root.appendChild(list);
+      const normalizedItems = items.map((segments) => segments.join(" "));
+      blocks.push({
+        type: "ul",
+        items: normalizedItems,
+        key: `ul:${normalizedItems.join("\n")}`,
+      });
       continue;
     }
 
     const numMatch = line.match(/^(\d+)[.)]\s+(.*)$/);
     if (numMatch) {
       const startNum = parseInt(numMatch[1], 10) || 1;
-      const list = document.createElement("ol");
-      if (startNum !== 1) {
-        list.setAttribute("start", String(startNum));
-      }
+      const items = [];
       while (index < lines.length) {
         const curLine = lines[index].trim();
         const curMatch = curLine.match(/^(\d+)[.)]\s+(.*)$/);
         if (curMatch) {
           const itemNum = parseInt(curMatch[1], 10);
-          const item = document.createElement("li");
-          if (!isNaN(itemNum)) {
-            item.value = itemNum;
-          }
-          appendAskInline(item, curMatch[2]);
-          list.appendChild(item);
+          items.push({ num: isNaN(itemNum) ? null : itemNum, segments: [curMatch[2]] });
           index += 1;
           continue;
         }
 
-        // Blank lines between list items in markdown
         if (!curLine) {
           let nextIdx = index + 1;
           while (nextIdx < lines.length && !lines[nextIdx].trim()) {
@@ -3888,15 +3878,12 @@ function renderAskRichText(value) {
           break;
         }
 
-        // Continuation lines of the current li item
         if (
           !/^#{2,4}\s+|^[-*]\s+|^\d+[.)]\s+|^```|^[-*_]{3,}$/.test(curLine) &&
           !curLine.includes("|")
         ) {
-          const lastLi = list.lastElementChild;
-          if (lastLi) {
-            lastLi.appendChild(document.createTextNode(" "));
-            appendAskInline(lastLi, curLine);
+          if (items.length > 0) {
+            items[items.length - 1].segments.push(curLine);
             index += 1;
             continue;
           }
@@ -3904,11 +3891,20 @@ function renderAskRichText(value) {
 
         break;
       }
-      root.appendChild(list);
+      const normalizedItems = items.map((it) => ({
+        num: it.num,
+        text: it.segments.join(" "),
+        key: `${it.num ?? ""}:${it.segments.join(" ")}`,
+      }));
+      blocks.push({
+        type: "ol",
+        startNum,
+        items: normalizedItems,
+        key: `ol:${startNum}:${normalizedItems.map((it) => it.key).join("\n")}`,
+      });
       continue;
     }
 
-    const paragraph = element("p");
     const paragraphLines = [line];
     index += 1;
     while (index < lines.length && lines[index].trim() && !/^(#{2,4})\s+|^[-*]\s+|^\d+[.)]\s+|^```/.test(lines[index].trim())) {
@@ -3916,10 +3912,174 @@ function renderAskRichText(value) {
       paragraphLines.push(lines[index].trim());
       index += 1;
     }
-    appendAskInline(paragraph, paragraphLines.join(" "));
-    root.appendChild(paragraph);
+    const text = paragraphLines.join(" ");
+    blocks.push({ type: "p", text, key: `p:${text}` });
+  }
+  return blocks;
+}
+
+function createAskBlockNode(block) {
+  let node;
+  if (block.type === "hr") {
+    node = element("hr", "ask-divider");
+  } else if (block.type === "code") {
+    node = element("pre", "ask-code-block");
+    const code = element("code", block.language ? `language-${block.language}` : "", block.codeText);
+    node.appendChild(code);
+  } else if (block.type === "heading") {
+    node = element(`h${block.level}`, "");
+    appendAskInline(node, block.text);
+  } else if (block.type === "table") {
+    node = element("div", "ask-table-wrap");
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    askTableCells(block.headerLine).forEach((cell) => {
+      const th = document.createElement("th");
+      appendAskInline(th, cell);
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    block.bodyLines.forEach((rowLine) => {
+      const row = document.createElement("tr");
+      askTableCells(rowLine).forEach((cell) => {
+        const td = document.createElement("td");
+        appendAskInline(td, cell);
+        row.appendChild(td);
+      });
+      tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    node.appendChild(table);
+  } else if (block.type === "ul") {
+    node = document.createElement("ul");
+    block.items.forEach((itemText) => {
+      const li = document.createElement("li");
+      appendAskInline(li, itemText);
+      li._askItemKey = itemText;
+      node.appendChild(li);
+    });
+  } else if (block.type === "ol") {
+    node = document.createElement("ol");
+    if (block.startNum !== 1) {
+      node.setAttribute("start", String(block.startNum));
+    }
+    block.items.forEach((itemObj) => {
+      const li = document.createElement("li");
+      if (itemObj.num !== null) {
+        li.value = itemObj.num;
+      }
+      appendAskInline(li, itemObj.text);
+      li._askItemKey = itemObj.key;
+      node.appendChild(li);
+    });
+  } else {
+    node = element("p");
+    appendAskInline(node, block.text);
+  }
+  node._askBlockType = block.type;
+  node._askBlockKey = block.key;
+  return node;
+}
+
+function patchAskListNode(listNode, block) {
+  const isOrdered = block.type === "ol";
+  if (isOrdered) {
+    if (block.startNum !== 1) {
+      listNode.setAttribute("start", String(block.startNum));
+    } else {
+      listNode.removeAttribute("start");
+    }
+  }
+  const items = block.items;
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const itemKey = isOrdered ? item.key : item;
+    const itemText = isOrdered ? item.text : item;
+    const existingLi = listNode.childNodes[i];
+    if (existingLi && existingLi._askItemKey === itemKey) {
+      continue;
+    }
+    if (existingLi && existingLi.nodeName === "LI") {
+      existingLi.replaceChildren();
+      if (isOrdered && item.num !== null) {
+        existingLi.value = item.num;
+      }
+      appendAskInline(existingLi, itemText);
+      existingLi._askItemKey = itemKey;
+    } else {
+      const newLi = document.createElement("li");
+      if (isOrdered && item.num !== null) {
+        newLi.value = item.num;
+      }
+      appendAskInline(newLi, itemText);
+      newLi._askItemKey = itemKey;
+      if (existingLi) {
+        listNode.replaceChild(newLi, existingLi);
+      } else {
+        listNode.appendChild(newLi);
+      }
+    }
+  }
+  while (listNode.childNodes.length > items.length) {
+    listNode.removeChild(listNode.lastChild);
+  }
+  listNode._askBlockKey = block.key;
+}
+
+function patchAskRichTextElement(root, value) {
+  const blocks = parseAskRichTextBlocks(value);
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    const existingNode = root.childNodes[i];
+    if (existingNode && existingNode._askBlockKey === block.key) {
+      continue;
+    }
+    if (existingNode && existingNode._askBlockType === block.type) {
+      if (block.type === "p") {
+        existingNode.replaceChildren();
+        appendAskInline(existingNode, block.text);
+        existingNode._askBlockKey = block.key;
+        continue;
+      }
+      if (block.type === "heading" && existingNode.nodeName === `H${block.level}`) {
+        existingNode.replaceChildren();
+        appendAskInline(existingNode, block.text);
+        existingNode._askBlockKey = block.key;
+        continue;
+      }
+      if (block.type === "ul" || block.type === "ol") {
+        patchAskListNode(existingNode, block);
+        continue;
+      }
+      if (block.type === "code") {
+        const codeEl = existingNode.firstElementChild;
+        if (codeEl && codeEl.nodeName === "CODE") {
+          codeEl.className = block.language ? `language-${block.language}` : "";
+          codeEl.textContent = block.codeText;
+          existingNode._askBlockKey = block.key;
+          continue;
+        }
+      }
+    }
+    const newNode = createAskBlockNode(block);
+    if (existingNode) {
+      root.replaceChild(newNode, existingNode);
+    } else {
+      root.appendChild(newNode);
+    }
+  }
+  while (root.childNodes.length > blocks.length) {
+    root.removeChild(root.lastChild);
   }
   return root;
+}
+
+function renderAskRichText(value) {
+  const root = element("div", "ask-rich-text");
+  return patchAskRichTextElement(root, value);
 }
 
 async function copyAskResponse(content, successMessage = null) {
@@ -4166,6 +4326,66 @@ function buildAskResponseMoreMenu(message, messageIndex, isEn) {
   return moreMenu;
 }
 
+function createAskMessageActions(message, messageIndex, isEn) {
+  const actions = element("div", "ask-message-actions");
+  actions.setAttribute("aria-label", isEn ? "Response actions" : "Cavab əməliyyatları");
+
+  const copy = button("", "ask-response-action ask-response-copy-btn", async () => {
+    const ok = await copyAskResponse(message.content);
+    if (ok) {
+      recordLearningSignal(message.interactionId, { copied: true });
+      copy.classList.add("is-copied");
+      copy.title = isEn ? "Copied" : "Kopyalandı";
+      copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      setTimeout(() => {
+        copy.classList.remove("is-copied");
+        copy.title = isEn ? "Copy" : "Kopyala";
+        copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+      }, 1800);
+    }
+  });
+  copy.type = "button";
+  copy.setAttribute("aria-label", isEn ? "Copy response" : "Cavabı kopyala");
+  copy.title = isEn ? "Copy" : "Kopyala";
+  copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+
+  actions.append(copy);
+
+  let positive;
+  let negative;
+  positive = button("", `ask-response-action ask-response-positive-btn${message.feedback === "positive" ? " is-selected" : ""}`, () => {
+    const nextFeedback = message.feedback === "positive" ? null : "positive";
+    message.feedback = nextFeedback;
+    if (nextFeedback) {
+      recordLearningSignal(message.interactionId, { explicitRating: "positive", accepted: true });
+    }
+    positive.classList.toggle("is-selected", nextFeedback === "positive");
+    negative?.classList.remove("is-selected");
+  });
+  positive.type = "button";
+  positive.title = isEn ? "Helpful response" : "Cavabı bəyən";
+  positive.setAttribute("aria-label", isEn ? "Helpful response" : "Cavabı bəyən");
+  positive.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+
+  negative = button("", `ask-response-action ask-response-negative-btn${message.feedback === "negative" ? " is-selected" : ""}`, () => {
+    const nextFeedback = message.feedback === "negative" ? null : "negative";
+    message.feedback = nextFeedback;
+    if (nextFeedback) {
+      recordLearningSignal(message.interactionId, { explicitRating: "negative" });
+    }
+    negative.classList.toggle("is-selected", nextFeedback === "negative");
+    positive?.classList.remove("is-selected");
+  });
+  negative.type = "button";
+  negative.title = isEn ? "Unhelpful response" : "Cavabı bəyənmə";
+  negative.setAttribute("aria-label", isEn ? "Unhelpful response" : "Cavabı bəyənmə");
+  negative.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>';
+  actions.append(positive, negative);
+
+  actions.appendChild(buildAskResponseMoreMenu(message, messageIndex, isEn));
+  return actions;
+}
+
 function renderAsk() {
   const isEn = getLanguage() === "en";
   const isAuto = state.askModel === "auto" || !state.askModel;
@@ -4220,60 +4440,7 @@ function renderAsk() {
 
         if (!isStreamingMsg) appendArtifactCards(content, message);
         if (!isStreamingMsg && message.content) {
-          const actions = element("div", "ask-message-actions");
-          actions.setAttribute("aria-label", isEn ? "Response actions" : "Cavab əməliyyatları");
-
-          const copy = button("", "ask-response-action ask-response-copy-btn", async () => {
-            const ok = await copyAskResponse(message.content);
-            if (ok) {
-              recordLearningSignal(message.interactionId, { copied: true });
-              copy.classList.add("is-copied");
-              copy.title = isEn ? "Copied" : "Kopyalandı";
-              copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-              setTimeout(() => {
-                copy.classList.remove("is-copied");
-                copy.title = isEn ? "Copy" : "Kopyala";
-                copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
-              }, 1800);
-            }
-          });
-          copy.type = "button";
-          copy.setAttribute("aria-label", isEn ? "Copy response" : "Cavabı kopyala");
-          copy.title = isEn ? "Copy" : "Kopyala";
-          copy.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
-
-          actions.append(copy);
-
-          const positive = button("", `ask-response-action ask-response-positive-btn${message.feedback === "positive" ? " is-selected" : ""}`, () => {
-            const nextFeedback = message.feedback === "positive" ? null : "positive";
-            message.feedback = nextFeedback;
-            if (nextFeedback) {
-              recordLearningSignal(message.interactionId, { explicitRating: "positive", accepted: true });
-            }
-            render();
-          });
-          positive.type = "button";
-          positive.title = isEn ? "Helpful response" : "Cavabı bəyən";
-          positive.setAttribute("aria-label", isEn ? "Helpful response" : "Cavabı bəyən");
-          positive.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
-
-          const negative = button("", `ask-response-action ask-response-negative-btn${message.feedback === "negative" ? " is-selected" : ""}`, () => {
-            const nextFeedback = message.feedback === "negative" ? null : "negative";
-            message.feedback = nextFeedback;
-            if (nextFeedback) {
-              recordLearningSignal(message.interactionId, { explicitRating: "negative" });
-            }
-            render();
-          });
-          negative.type = "button";
-          negative.title = isEn ? "Unhelpful response" : "Cavabı bəyənmə";
-          negative.setAttribute("aria-label", isEn ? "Unhelpful response" : "Cavabı bəyənmə");
-          negative.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>';
-          actions.append(positive, negative);
-
-          actions.appendChild(buildAskResponseMoreMenu(message, messageIndex, isEn));
-
-          content.appendChild(actions);
+          content.appendChild(createAskMessageActions(message, messageIndex, isEn));
           if (isFreshResponse) {
             freshAskResponses.delete(message);
           }
@@ -4884,17 +5051,84 @@ class LiveTypewriter {
     this.onUpdate = onUpdate;
     this.onComplete = onComplete;
     this.rafId = null;
+    this.finishTimeoutId = null;
     this.isDone = false;
+    this.isFinishing = false;
+    this.finishDeadline = 0;
     this.hasCompleted = false;
     this.completionPromise = new Promise((resolve) => { this.resolveCompletion = resolve; });
   }
 
+  canAnimate() {
+    return (
+      typeof window !== "undefined" &&
+      typeof requestAnimationFrame === "function" &&
+      (typeof document === "undefined" || !document.hidden)
+    );
+  }
+
+  computeStep(isFinishing = false) {
+    const remaining = this.targetText.length - this.currentText.length;
+    if (remaining <= 0) return 0;
+
+    let step;
+    if (isFinishing) {
+      const now = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+      const msLeft = Math.max(0, this.finishDeadline - now);
+      const framesLeft = Math.max(1, Math.ceil(msLeft / 16));
+      step = Math.max(12, Math.ceil(remaining / framesLeft));
+      if (remaining <= step || msLeft <= 16) {
+        return remaining;
+      }
+    } else if (remaining <= 16) {
+      step = 3;
+    } else if (remaining <= 48) {
+      step = 6;
+    } else if (remaining <= 120) {
+      step = Math.min(16, Math.max(8, Math.ceil(remaining * 0.16)));
+    } else {
+      step = Math.min(26, Math.max(16, Math.ceil(remaining * 0.22)));
+    }
+
+    let nextIdx = Math.min(this.targetText.length, this.currentText.length + step);
+    if (nextIdx < this.targetText.length) {
+      const lookahead = this.targetText.slice(nextIdx, Math.min(this.targetText.length, nextIdx + 5));
+      const boundaryOffset = lookahead.search(/[\s.,;:!?)]/);
+      if (boundaryOffset >= 0) {
+        nextIdx += boundaryOffset + 1;
+      }
+      const prevChar = this.targetText.charCodeAt(nextIdx - 1);
+      if (prevChar >= 0xd800 && prevChar <= 0xdbff && nextIdx < this.targetText.length) {
+        nextIdx += 1;
+      }
+    }
+    return nextIdx - this.currentText.length;
+  }
+
+  scheduleTick() {
+    if (this.rafId || this.hasCompleted) return;
+    if (!this.canAnimate()) {
+      this.tick();
+      return;
+    }
+    this.rafId = requestAnimationFrame(() => this.tick());
+  }
+
   append(chunk) {
-    if (!chunk) return;
+    if (!chunk || this.hasCompleted) return;
     this.targetText += chunk;
-    this.currentText = this.targetText;
-    if (this.onUpdate) {
-      this.onUpdate(this.currentText, false);
+    if (!this.canAnimate()) {
+      this.currentText = this.targetText;
+      this.onUpdate?.(this.currentText, false);
+      return;
+    }
+    if (this.currentText.length === 0) {
+      const firstStep = this.computeStep(false);
+      this.currentText = this.targetText.slice(0, firstStep);
+      this.onUpdate?.(this.currentText, false);
+    }
+    if (this.currentText.length < this.targetText.length) {
+      this.scheduleTick();
     }
   }
 
@@ -4904,17 +5138,38 @@ class LiveTypewriter {
       this.targetText = finalText;
     }
     this.isDone = true;
-    this.flush();
+    this.isFinishing = true;
+    const remaining = this.targetText.length - this.currentText.length;
+    if (remaining <= 0 || !this.canAnimate()) {
+      this.flush();
+      return;
+    }
+    const now = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+    if (!this.finishDeadline) {
+      this.finishDeadline = now + 140;
+    }
+    if (!this.finishTimeoutId) {
+      this.finishTimeoutId = setTimeout(() => {
+        this.finishTimeoutId = null;
+        this.flush();
+      }, 165);
+    }
+    this.scheduleTick();
   }
 
   flush() {
     if (this.hasCompleted) return;
     this.hasCompleted = true;
-    if (this.rafId) {
+    if (this.rafId && typeof cancelAnimationFrame === "function") {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
+    if (this.finishTimeoutId) {
+      clearTimeout(this.finishTimeoutId);
+      this.finishTimeoutId = null;
+    }
     this.isDone = true;
+    this.isFinishing = false;
     this.currentText = this.targetText;
     if (this.onUpdate) {
       this.onUpdate(this.currentText, true);
@@ -4930,7 +5185,30 @@ class LiveTypewriter {
   }
 
   tick() {
-    this.flush();
+    this.rafId = null;
+    if (this.hasCompleted) return;
+    const remaining = this.targetText.length - this.currentText.length;
+    if (remaining <= 0) {
+      if (this.isDone) {
+        this.flush();
+      }
+      return;
+    }
+    const step = this.computeStep(this.isFinishing);
+    this.currentText = this.targetText.slice(0, this.currentText.length + step);
+    const reachedEnd = this.currentText.length >= this.targetText.length;
+    if (reachedEnd && this.isDone) {
+      this.flush();
+      return;
+    }
+    if (this.onUpdate) {
+      this.onUpdate(this.currentText, false);
+    }
+    if (this.currentText.length < this.targetText.length) {
+      this.scheduleTick();
+    } else if (this.isDone) {
+      this.flush();
+    }
   }
 }
 
@@ -5665,17 +5943,23 @@ function updateActiveAskMessageContent(message, showCaret = true) {
       if (message.content) {
         let streamWrap = activeBubble.querySelector(".ask-stream-wrap");
         if (!streamWrap) {
-          activeBubble.innerHTML = "";
+          activeBubble.replaceChildren();
           streamWrap = element("div", "ask-stream-wrap ask-text-glide-in");
           activeBubble.appendChild(streamWrap);
         }
-        streamWrap.innerHTML = "";
-        const richContent = renderAskRichText(message.content);
-        streamWrap.appendChild(richContent);
+        let richContent = streamWrap.querySelector(".ask-rich-text");
+        if (!richContent) {
+          richContent = renderAskRichText(message.content);
+          streamWrap.prepend(richContent);
+        } else {
+          patchAskRichTextElement(richContent, message.content);
+        }
 
-        if (message.groundingMetadata) {
+        if (message.groundingMetadata && streamWrap._renderedGroundingRef !== message.groundingMetadata) {
+          streamWrap.querySelector(".ask-grounding-container")?.remove();
           const chips = renderAskSourceChips(message.groundingMetadata);
           if (chips) streamWrap.appendChild(chips);
+          streamWrap._renderedGroundingRef = message.groundingMetadata;
         }
       }
     });
@@ -5690,6 +5974,115 @@ function updateActiveAskMessageContent(message, showCaret = true) {
   }
 }
 
+function createStrategyAskMessageActions(message, messageIndex, isEn) {
+  const actions = element("div", "strategy-ask-message-actions");
+  const copy = button("", "strategy-ask-action", async () => {
+    const copied = await copyAskResponse(message.content);
+    if (!copied) return;
+    copy.classList.add("is-copied");
+    copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>';
+    setTimeout(() => copy.classList.remove("is-copied"), 1400);
+  });
+  copy.type = "button";
+  copy.title = isEn ? "Copy" : "Kopyala";
+  copy.setAttribute("aria-label", isEn ? "Copy response" : "Cavabı kopyala");
+  copy.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+  actions.appendChild(copy);
+
+  if (message.groundingMetadata) {
+    const sourcesBtn = button(isEn ? "🌐 Web Sources" : "🌐 Mənbələr", "strategy-ask-action strategy-ask-sources", () => {
+      openGroundingSourcesModal(message.groundingMetadata);
+    });
+    sourcesBtn.type = "button";
+    sourcesBtn.title = isEn ? "Web sources" : "Veb mənbələri";
+    actions.appendChild(sourcesBtn);
+  }
+
+  const msgMeta = getAskMessageMeta(message);
+  if (msgMeta.thinkingLevel !== "high") {
+    const deeper = button(isEn ? "✦ Think Deeper" : "✦ Dərin düşün", "strategy-ask-action strategy-ask-deeper", () => thinkDeeperWithHigh(messageIndex));
+    deeper.type = "button";
+    deeper.disabled = state.askLoading;
+    actions.appendChild(deeper);
+  }
+  const report = button("", "strategy-ask-action strategy-ask-report", () => {
+    openLegalReportModal({ messageContent: message.content, model: getAskMessageModelInfo(message.model).displayName });
+  });
+  report.type = "button";
+  report.title = isEn ? "Report issue" : "Hüquqi problem bildir";
+  report.setAttribute("aria-label", isEn ? "Report issue" : "Hüquqi problem bildir");
+  report.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5h.01"/></svg>';
+  actions.appendChild(report);
+  return actions;
+}
+
+function finalizeStreamingAskMessageDom(message, messageIndex) {
+  if (state.askError || !message || !message.content) return false;
+  const streamingRows = document.querySelectorAll(".ask-message.is-streaming");
+  if (!streamingRows.length) return false;
+
+  updateActiveAskMessageContent(message, false);
+  const isEn = getLanguage() === "en";
+
+  streamingRows.forEach((row) => {
+    row.classList.remove("is-streaming", "is-fresh");
+    const content = row.querySelector(".ask-message-content");
+    if (!content) return;
+    content.querySelector(".ask-thinking")?.remove();
+    if (!content.querySelector(".ask-artifact-card") && Array.isArray(message.artifacts) && message.artifacts.length > 0) {
+      appendArtifactCards(content, message);
+    }
+    if (row.classList.contains("strategy-ask-message")) {
+      if (!content.querySelector(".strategy-ask-message-actions")) {
+        content.appendChild(createStrategyAskMessageActions(message, messageIndex, isEn));
+      }
+    } else if (!content.querySelector(".ask-message-actions")) {
+      content.appendChild(createAskMessageActions(message, messageIndex, isEn));
+    }
+  });
+
+  freshAskResponses.delete(message);
+
+  const askInput = document.querySelector("#askInput");
+  const askSubmit = document.querySelector(".ask-composer .ask-submit");
+  if (askInput) {
+    askInput.disabled = false;
+    if (window.innerWidth > 767 && document.activeElement !== askInput) {
+      askInput.focus();
+    }
+  }
+  if (askSubmit) {
+    askSubmit.classList.remove("is-stop", "is-generating");
+    askSubmit.type = "submit";
+    const val = askInput ? askInput.value.trim() : "";
+    askSubmit.disabled = !(val.length >= 2 || Boolean(state.askPendingFile));
+    askSubmit.setAttribute("aria-label", isEn ? "Send question" : "Sualı göndər");
+    askSubmit.title = isEn ? "Send question" : "Sualı göndər";
+    askSubmit.replaceChildren(createAskSendIcon());
+  }
+
+  const stratInput = document.querySelector("#strategyAskInput");
+  const stratSend = document.querySelector(".strategy-ask-composer .strategy-ask-send");
+  if (stratInput) {
+    stratInput.disabled = false;
+  }
+  if (stratSend) {
+    stratSend.classList.remove("is-stop", "is-generating");
+    stratSend.type = "submit";
+    const val = stratInput ? stratInput.value.trim() : "";
+    stratSend.disabled = val.length < 2;
+    stratSend.setAttribute("aria-label", isEn ? "Send question" : "Sualı göndər");
+    stratSend.title = isEn ? "Send question" : "Sualı göndər";
+    stratSend.replaceChildren(createStrategyAskSendIcon());
+  }
+
+  document.querySelectorAll(".ask-plugin-token-remove, .strategy-ask-deeper").forEach((btn) => {
+    btn.disabled = false;
+  });
+
+  return true;
+}
+
 function rememberSavedAskChat(chat) {
   if (!chat?.id) return;
   state.askChatId = chat.id;
@@ -5702,7 +6095,6 @@ function rememberSavedAskChat(chat) {
   };
   state.savedChats = [historyItem, ...state.savedChats.filter((item) => item.id !== chat.id)];
   renderRecentList();
-  loadSavedChats();
 }
 
 async function thinkDeeperWithHigh(messageIndex) {
@@ -5806,7 +6198,6 @@ async function thinkDeeperWithHigh(messageIndex) {
         },
         () => {
           assistantMsg.isStreaming = false;
-          render();
         }
       );
       activeAskTypewriter = typewriter;
@@ -5911,7 +6302,10 @@ async function thinkDeeperWithHigh(messageIndex) {
     }
     assistantMsg.isStreaming = false;
     state.askLoading = false;
-    render();
+    const msgIdx = state.askMessages.indexOf(assistantMsg);
+    if (!finalizeStreamingAskMessageDom(assistantMsg, msgIdx >= 0 ? msgIdx : messageIndex)) {
+      render();
+    }
   }
 }
 
@@ -6132,7 +6526,6 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         },
         () => {
           assistantMsg.isStreaming = false;
-          render();
         }
       );
       activeAskTypewriter = typewriter;
@@ -6150,7 +6543,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
           if (data.error) throw new Error(data.error);
           if (data.chatId) {
             state.askChatId = data.chatId;
-        if (data.chatRevision) window.helmerSecurity?.revisions.set(data.chatId, data.chatRevision);
+            if (data.chatRevision) window.helmerSecurity?.revisions.set(data.chatId, data.chatRevision);
             try { sessionStorage.setItem("helmer_active_ask_chat", data.chatId); } catch { }
           }
 
@@ -6264,7 +6657,10 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     }
     assistantMsg.isStreaming = false;
     state.askLoading = false;
-    render();
+    const msgIdx = state.askMessages.indexOf(assistantMsg);
+    if (!finalizeStreamingAskMessageDom(assistantMsg, msgIdx >= 0 ? msgIdx : messageIndex + 1)) {
+      render();
+    }
   }
 }
 

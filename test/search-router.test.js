@@ -14,6 +14,9 @@ test("shouldEnableSearch returns false for standard copywriting, general concept
     "Yeni kosmetika mağazası üçün ad ideyaları ver",
     "Bu mətni daha rəsmi və cəlbedici tonda yenidən yaz",
     "SEO optimizasiyası necə işləyir?",
+    "Öz biznesim üçün bu gün Instagram postu və reklam mətni yaz",
+    "Məhsul qiymətləndirmə strategiyası necə qurulur və marja düsturu nədir?",
+    "Rəqiblərdən fərqlənmək üçün öz brendimə necə dəyər təklifi (USP) yaza bilərəm?",
   ];
 
   for (const prompt of standardPrompts) {

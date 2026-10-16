@@ -14,10 +14,10 @@ function safeSource(url, title) {
 }
 
 export function createWebResearch({ geminiResearch, openAIClient } = {}) {
-  return async ({ messages, instructions, signal }) => {
+  return async ({ messages, instructions, signal, onChunk }) => {
     if (hasGeminiConfiguration() && geminiResearch) {
       try {
-        const result = await geminiResearch({ messages, instructions, signal });
+        const result = await geminiResearch({ messages, instructions, signal, onChunk });
         const groundingChunks = (result.groundingMetadata?.groundingChunks || [])
           .map(chunk => safeSource(chunk.web?.uri, chunk.web?.title))
           .filter(Boolean)

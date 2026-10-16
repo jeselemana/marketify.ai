@@ -7410,10 +7410,11 @@ circle.ask-thinking-dot.dot-3 {
 .ask-stream-wrap {
   display: block;
   width: 100%;
+  contain: layout style;
 }
 
 .ask-stream-wrap.ask-text-glide-in,
-.ask-message-assistant.is-fresh:not(.is-streaming) .ask-rich-text,
+.ask-message-assistant.is-fresh:not(.is-streaming) .ask-rich-text:not(.ask-stream-wrap .ask-rich-text),
 .ask-rich-text.ask-text-glide-in,
 .ask-thread-msg-content.ask-text-glide-in {
   animation: ask-answer-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;

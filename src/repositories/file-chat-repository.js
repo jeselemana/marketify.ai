@@ -11,6 +11,7 @@ import {
 } from "../http/r2-storage.js";
 import { TenantLockManager } from "./tenant-lock.js";
 import { storageCorruption, writeJsonAtomically } from "./atomic-json-store.js";
+import { invalidateUserContextCache } from "../services/ai/personal-context.js";
 
 export class FileChatRepository {
   /**
@@ -46,6 +47,9 @@ export class FileChatRepository {
 
     // In-memory per-tenant queue Map: tenantKey -> Promise
     this.tenantQueues = new Map();
+
+    // Track last synced ETag/digest per tenantKey to skip redundant disk/Redis writes on unchanged R2 reads
+    this.syncedShardTags = new Map();
 
     // Migration memoization promise
     this._migrationPromise = null;
@@ -259,6 +263,7 @@ export class FileChatRepository {
         const res = await this.readCloud(tenantKey);
         const { record, etag, notFound, tombstone } = res || {};
         if (tombstone || (record && typeof record === "object" && !Array.isArray(record) && record._tombstone)) {
+          this.syncedShardTags.delete(tenantKey);
           await fs.rm(this.tenantFilePath(tenantKey), { force: true }).catch(() => {});
           if (this.redis?.isReady) {
             await this.redis.del(this.tenantRedisKey(ownerId)).catch(() => {});
@@ -266,13 +271,19 @@ export class FileChatRepository {
           return { records: [], etag, tombstone: true, deletedAt: record?.deletedAt };
         }
         if (record && Array.isArray(record)) {
-          await this.writeLocalTenant(tenantKey, record).catch(() => {});
-          if (this.redis?.isReady) {
-            await this.redis.set(this.tenantRedisKey(ownerId), JSON.stringify(record)).catch(() => {});
+          const serialized = JSON.stringify(record);
+          const tagKey = etag ? `${etag}:${serialized.length}` : createHash("sha256").update(serialized).digest("hex");
+          if (this.syncedShardTags.get(tenantKey) !== tagKey) {
+            await this.writeLocalTenant(tenantKey, record).catch(() => {});
+            if (this.redis?.isReady) {
+              await this.redis.set(this.tenantRedisKey(ownerId), serialized).catch(() => {});
+            }
+            this.syncedShardTags.set(tenantKey, tagKey);
           }
           return { records: record, etag, tombstone: false };
         }
         if (notFound || record === null) {
+          this.syncedShardTags.delete(tenantKey);
           await fs.rm(this.tenantFilePath(tenantKey), { force: true }).catch(() => {});
           if (this.redis?.isReady) {
             await this.redis.del(this.tenantRedisKey(ownerId)).catch(() => {});
@@ -297,7 +308,11 @@ export class FileChatRepository {
       if (!Array.isArray(parsed)) throw storageCorruption("Invalid tenant shard structure.");
       const records = parsed;
       if (records.length > 0 && this.redis?.isReady) {
-        await this.redis.set(this.tenantRedisKey(ownerId), JSON.stringify(records)).catch(() => {});
+        const digest = createHash("sha256").update(raw).digest("hex");
+        if (this.syncedShardTags.get(tenantKey) !== digest) {
+          await this.redis.set(this.tenantRedisKey(ownerId), JSON.stringify(records)).catch(() => {});
+          this.syncedShardTags.set(tenantKey, digest);
+        }
       }
       return { records, etag: null, tombstone: false };
     } catch (error) {
@@ -379,6 +394,8 @@ export class FileChatRepository {
         }
 
         // Commit to local filesystem and Redis
+        this.syncedShardTags.delete(tenantKey);
+        invalidateUserContextCache(ownerId);
         await this.writeLocalTenant(tenantKey, nextRecords);
 
         if (this.redis?.isReady) {

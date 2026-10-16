@@ -27,7 +27,7 @@ export class CapabilityWorkflow {
   constructor({ registry, artifacts, generate = routeStructuredGeneration, research, render = renderArtifact, maxSteps = 6, timeoutMs = 180000 }) {
     Object.assign(this, { registry, artifacts, generate, researchHandler: research, render, maxSteps, timeoutMs });
   }
-  async execute({ plugins, ownerId, chatId, prompt, messages, sourceContext, previous, preferEdit = false, requestedModel, scopes, signal, onStatus = () => {}, language = "az" }) {
+  async execute({ plugins, ownerId, chatId, prompt, messages, sourceContext, previous, preferEdit = false, requestedModel, scopes, signal, onStatus = () => {}, onChunk, language = "az" }) {
     if (!plugins.length || plugins.length > this.maxSteps) throw new Error("Capability execution limit exceeded");
     const controller = new AbortController();
     const cancel = () => controller.abort(signal?.reason);
@@ -52,7 +52,8 @@ export class CapabilityWorkflow {
           research: async () => {
             if (!plugin.permissionRequirements.includes("web:search") || !scopes.has("web:search")) throw new Error("Plugin permission denied");
             report("searching", "Vebdə mənbələri araşdırıram...", "Researching web sources...");
-            const research = await bounded(() => this.researchHandler({ messages, instructions: sourceContext, signal: controller.signal }), controller.signal);
+            const streamChunks = plugins.length === 1 && typeof onChunk === "function" ? onChunk : undefined;
+            const research = await bounded(() => this.researchHandler({ messages, instructions: sourceContext, signal: controller.signal, onChunk: streamChunks }), controller.signal);
             check();
             const sources = research.groundingMetadata?.groundingChunks?.filter(chunk => /^https?:\/\//i.test(chunk.web?.uri || "")) || [];
             if (!research.text?.trim() || !sources.length) throw new Error("Veb mənbələri təsdiqlənmədi. Yenidən cəhd edin.");

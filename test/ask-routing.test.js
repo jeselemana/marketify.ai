@@ -22,16 +22,18 @@ test("isComplexAskQuery accurately identifies complex queries and strategy conte
 });
 
 test("resolveAskThinkingLevel routes auto thinking levels (low, medium, high) and preserves explicit levels", () => {
-  // Complex queries route to high
+  // Complex deep analysis queries route to high
   assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "Hərtərəfli dərin analiz və SWOT matrisi qur" }), "high");
   assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "Hərtərəfli rəqib analizi apar", hasStrategyContext: true }), "high");
-  // Strategic / moderate queries in strategy context route to medium
+  // Multi-step modeling or strategic queries in strategy context route to medium
   assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "İlk 30 gündə icra planı və prioritetlər nə olmalıdır?", hasStrategyContext: true }), "medium");
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "B2B SaaS üçün CAC/LTV və büdcə bölgüsü qur", hasStrategyContext: false }), "medium");
   // Simple / short queries in strategy context route to low
   assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "Salam, bu kimdir?", hasStrategyContext: true }), "low");
-  // General queries route to low by default, medium if long (>150 chars)
+  // Ordinary 150-350 char conversational queries stay low (thinkingBudget: 0) for ultra-low TTFT
   assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "Qısa sual", hasStrategyContext: false }), "low");
-  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "Bu çox uzun bir mətndir ki, ümumi Ask rejimində istifadəçinin daxil etdiyi sualın ölçüsü 150 simvoldan çox olduqda avtomatik olaraq medium düşünmə səviyyəsinə keçid təmin edilsin və dərin cavab alınsın." }), "medium");
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", lastUserMsg: "Bu adi uzun bir mətndir ki, ümumi Ask rejimində istifadəçinin daxil etdiyi sualın ölçüsü 150-350 simvol arasında olduqda lüzumsuz gecikmə olmasın və cavab ildırım sürəti ilə low rejimində qaytarılsın." }), "low");
+  assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "auto", thinkingEnabled: false, lastUserMsg: "Adi sual" }), "low");
   // Explicit levels are strictly preserved
   assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "high" }), "high");
   assert.equal(resolveAskThinkingLevel({ requestedThinkingLevel: "medium" }), "medium");
@@ -229,3 +231,92 @@ test("askRequestSchema strictly accepts follow-up messages containing assistant 
   assert.ok(scriptContent.includes("messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi)"), "script.js must map outgoing messages through sanitizeAskMessageForApi");
 });
 
+test("personal-context caches tenant context in memory and invalidates on mutation", async () => {
+  const { getRelevantUserContext, invalidateUserContextCache } = await import("../src/services/ai/personal-context.js");
+  let chatReadCount = 0;
+  let stratReadCount = 0;
+  const mockChatRepo = {
+    async readAll() {
+      chatReadCount += 1;
+      return [{ id: "c1", ownerId: "tenant_perf_1", title: "Kofe brendi satışı", updatedAt: new Date().toISOString(), messages: [{ role: "user", content: "Kofe brendi üçün strategiya" }] }];
+    },
+  };
+  const mockStrategyRepo = {
+    async readAll() {
+      stratReadCount += 1;
+      return [{ id: "s1", ownerId: "tenant_perf_1", title: "Kofe Bazar Strategiyası", updatedAt: new Date().toISOString(), brief: "Bakıda premium kofe" }];
+    },
+  };
+
+  invalidateUserContextCache("tenant_perf_1");
+  const ctx1 = await getRelevantUserContext({ ownerId: "tenant_perf_1", userMessage: "kofe brendi", chatRepository: mockChatRepo, strategyRepository: mockStrategyRepo });
+  assert.ok(ctx1.includes("Kofe Bazar Strategiyası"));
+  assert.equal(chatReadCount, 1);
+  assert.equal(stratReadCount, 1);
+
+  // Second call within TTL uses in-memory cache without re-reading repositories
+  const ctx2 = await getRelevantUserContext({ ownerId: "tenant_perf_1", userMessage: "kofe satışı", chatRepository: mockChatRepo, strategyRepository: mockStrategyRepo });
+  assert.ok(ctx2.includes("Kofe"));
+  assert.equal(chatReadCount, 1);
+  assert.equal(stratReadCount, 1);
+
+  // Invalidation forces fresh repository read
+  invalidateUserContextCache("tenant_perf_1");
+  await getRelevantUserContext({ ownerId: "tenant_perf_1", userMessage: "kofe", chatRepository: mockChatRepo, strategyRepository: mockStrategyRepo });
+  assert.equal(chatReadCount, 2);
+  assert.equal(stratReadCount, 2);
+});
+
+test("CapabilityWorkflow streams chunks via onChunk when only @Web plugin is selected", async () => {
+  const { CapabilityWorkflow } = await import("../src/services/plugins/workflow.js");
+  const streamedChunks = [];
+  const workflow = new CapabilityWorkflow({
+    artifacts: {},
+    research: async ({ onChunk }) => {
+      if (onChunk) {
+        onChunk("Birinci hissə ");
+        onChunk("İkinci hissə");
+      }
+      return {
+        text: "Birinci hissə İkinci hissə",
+        model: "gemini-3.8-flash",
+        usage: { inputTokens: 10, outputTokens: 10 },
+        groundingMetadata: {
+          webSearchQueries: ["test"],
+          groundingChunks: [{ web: { uri: "https://example.com", title: "Example" } }],
+        },
+      };
+    },
+  });
+
+  const webPlugin = {
+    id: "web",
+    name: "Web",
+    capabilities: ["web_research"],
+    outputTypes: ["research"],
+    permissionRequirements: ["web:search", "context:read"],
+    availability: () => true,
+    execute: async ({ research }) => research(),
+  };
+
+  const result = await workflow.execute({
+    plugins: [webPlugin],
+    ownerId: "user_1",
+    chatId: "00000000-0000-4000-8000-000000000001",
+    prompt: "Son iqtisadi xəbərlər",
+    messages: [{ role: "user", content: "Son iqtisadi xəbərlər" }],
+    scopes: new Set(["web:search", "context:read"]),
+    onChunk: (chunk) => streamedChunks.push(chunk),
+  });
+
+  assert.deepEqual(streamedChunks, ["Birinci hissə ", "İkinci hissə"]);
+  assert.equal(result.reply, "Birinci hissə İkinci hissə");
+});
+
+test("script.js implements 60 FPS LiveTypewriter, incremental block diffing, and zero-flicker completion", async () => {
+  const scriptContent = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
+  assert.ok(scriptContent.includes("function parseAskRichTextBlocks("), "defines parseAskRichTextBlocks");
+  assert.ok(scriptContent.includes("function patchAskRichTextElement("), "defines patchAskRichTextElement");
+  assert.ok(scriptContent.includes("function finalizeStreamingAskMessageDom("), "defines finalizeStreamingAskMessageDom");
+  assert.ok(scriptContent.includes("this.rafId = requestAnimationFrame(() => this.tick());"), "LiveTypewriter uses requestAnimationFrame loop");
+});

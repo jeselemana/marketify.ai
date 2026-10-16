@@ -112,6 +112,67 @@ export function buildStrategyPersonalizationContext({ user }) {
   return `\n\nUse only this minimal user-configured profile when relevant to the strategy. Do not infer additional personal context.\n<build_profile>\n${lines.join("\n")}\n</build_profile>`;
 }
 
+const USER_CONTEXT_CACHE_TTL_MS = 45 * 1000;
+const MAX_CACHED_TENANTS = 250;
+const MAX_INDEXED_CHATS = 25;
+const MAX_INDEXED_STRATEGIES = 20;
+const tenantContextCache = new Map();
+
+export function invalidateUserContextCache(ownerId) {
+  if (!ownerId) {
+    tenantContextCache.clear();
+    return;
+  }
+  tenantContextCache.delete(ownerId);
+}
+
+async function loadTenantContextData(ownerId, chatRepository, strategyRepository) {
+  const now = Date.now();
+  const cached = tenantContextCache.get(ownerId);
+  if (
+    cached &&
+    now - cached.timestamp < USER_CONTEXT_CACHE_TTL_MS &&
+    cached.chatRepoRef === chatRepository &&
+    cached.strategyRepoRef === strategyRepository
+  ) {
+    return { allChats: cached.allChats, allStrategies: cached.allStrategies };
+  }
+
+  const [rawChats, rawStrategies] = await Promise.all([
+    chatRepository?.readAll ? chatRepository.readAll(ownerId).catch(() => []) : [],
+    strategyRepository?.readAll ? strategyRepository.readAll(ownerId).catch(() => []) : [],
+  ]);
+
+  const allChats = Array.isArray(rawChats)
+    ? rawChats
+        .filter((c) => c && !c.deleted && c.ownerId === ownerId && Array.isArray(c.messages))
+        .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
+        .slice(0, MAX_INDEXED_CHATS)
+    : [];
+
+  const allStrategies = Array.isArray(rawStrategies)
+    ? rawStrategies
+        .filter((s) => s && !s.deleted && s.ownerId === ownerId)
+        .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
+        .slice(0, MAX_INDEXED_STRATEGIES)
+    : [];
+
+  if (tenantContextCache.size >= MAX_CACHED_TENANTS) {
+    const oldestKey = tenantContextCache.keys().next().value;
+    if (oldestKey) tenantContextCache.delete(oldestKey);
+  }
+
+  tenantContextCache.set(ownerId, {
+    timestamp: now,
+    chatRepoRef: chatRepository,
+    strategyRepoRef: strategyRepository,
+    allChats,
+    allStrategies,
+  });
+
+  return { allChats, allStrategies };
+}
+
 export async function getRelevantUserContext({
   ownerId,
   userMessage,
@@ -125,10 +186,7 @@ export async function getRelevantUserContext({
   const queryTokens = tokens(userMessage);
   if (!queryTokens.size) return "";
 
-  const [allChats, allStrategies] = await Promise.all([
-    chatRepository?.readAll ? chatRepository.readAll(ownerId).catch(() => []) : [],
-    strategyRepository?.readAll ? strategyRepository.readAll(ownerId).catch(() => []) : [],
-  ]);
+  const { allChats, allStrategies } = await loadTenantContextData(ownerId, chatRepository, strategyRepository);
   const candidates = [];
 
   for (const chat of allChats) {
