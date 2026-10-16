@@ -5,8 +5,8 @@ These directives are MANDATORY and NON-NEGOTIABLE across all coding, refactoring
 ---
 
 ### ARCHITECTURAL BASELINE ANCHOR
-- **Reference Commit**: `02ec9af`
-- **Baseline Invariant**: The codebase state at commit `02ec9af` is the immutable architectural benchmark. When adding features, refactoring, or optimizing, strictly preserve the patterns, defensive pipelines, and tenant isolation established in this commit. If in doubt about an implementation detail, inspect the patterns from commit `02ec9af`.
+- **Reference Commit**: `85f218d`
+- **Baseline Invariant**: The codebase state at commit `85f218d` is the immutable architectural benchmark. When adding features, refactoring, or optimizing, strictly preserve the patterns, defensive pipelines, and tenant isolation established in this commit. If in doubt about an implementation detail, inspect the patterns from commit `85f218d`.
 - **Zero Guard Truncation**: You are strictly FORBIDDEN from omitting, simplifying, or commenting out existing validation checks, locks, abort handlers, or security guards during refactoring. Every defensive check in the original code must persist.
 - **No Unauthorized Dependencies**: Do not introduce new external npm packages (especially networking, HTTP, or alternate parsing libraries) without explicit confirmation. Rely strictly on verified internal utilities.
 
@@ -36,7 +36,7 @@ These directives are MANDATORY and NON-NEGOTIABLE across all coding, refactoring
 
 ### 4. AI Execution & Concurrency Control (All Generation Routes)
 - **Universal Scope**: Mandatory for `/api/ask`, `/api/strategy`, `/api/up`, and any future generation or streaming endpoints.
-- **Per-Tenant Mutex**: All AI generation must pass through `createAskExecutionGuard`. A single `ownerId` cannot run concurrent AI generation requests (must return 429 `EXECUTION_BUSY`).
+- **Per-Tenant Mutex**: All AI generation must pass through `createAskExecutionGuard` (and `hasActiveJobForOwner` for background research jobs). A single `ownerId` cannot run concurrent AI generation or background research requests (must return 429 `EXECUTION_BUSY`).
 - **Platform-Wide Capacity & Heartbeats**: Enforce global concurrent execution limits and Redis provider slots via atomic Lua scripts and heartbeat lease renewals.
 - **Idempotency & Fingerprinting**: All mutating generation endpoints require an `Idempotency-Key` header (`^[A-Za-z0-9_-]{16,100}$`). In Build mode, always compute canonical payload fingerprints (`computePayloadFingerprint`) and reject parameter mismatches with 409 `IDEMPOTENCY_CONFLICT`.
 - **Budget Tracking**: Every AI model call must be reserved through `AiPolicy.reserveProvider()` to enforce daily per-user (`AI_USER_DAILY_USD`) and platform (`AI_PLATFORM_DAILY_USD`) micro-dollar spend ceilings.
