@@ -3840,6 +3840,94 @@ export function createHomeGuideCards(isEn, currentMode) {
   return container;
 }
 
+export function createAskContextSuggestions(isEn, selectedStrategy, selectedTask, onSelect) {
+  const container = element("div", "ask-context-suggestions");
+  container.setAttribute("role", "toolbar");
+  container.setAttribute("aria-label", t("ask.contextActions.ariaToolbar") || (isEn ? "Context quick actions" : "Kontekst üzrə sürətli əməliyyatlar"));
+
+  const items = selectedStrategy
+    ? [
+        {
+          id: "analyze",
+          label: t("ask.contextActions.analyze") || (isEn ? "Analyze" : "Analiz et"),
+          prompt: t("ask.contextActions.analyzePrompt") || (isEn ? "Analyze this strategy in detail: identify core strengths, weaknesses, critical risks, and highest-impact growth opportunities." : "Bu strategiyanı ətraflı analiz et: əsas güclü və zəif tərəflərini, kritik riskləri və ən vacib inkişaf imkanlarını prioritetləşdir."),
+          icon: '<svg viewBox="0 0 24 24" width="13.5" height="13.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>',
+        },
+        {
+          id: "pros-cons",
+          label: t("ask.contextActions.prosAndCons") || (isEn ? "Explore pros & cons" : "Müsbət və mənfi tərəflərini araşdır"),
+          prompt: t("ask.contextActions.prosAndConsPrompt") || (isEn ? "Critically evaluate the pros and cons of this strategy, highlighting potential pitfalls, trade-offs, and alternative approaches." : "Bu strategiyanın bütün müsbət və mənfi cəhətlərini obyektiv araşdır, potensial təhlükələri və alternativ yanaşmaları qiymətləndir."),
+          icon: '<svg viewBox="0 0 24 24" width="13.5" height="13.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>',
+        },
+        {
+          id: "roadmap",
+          label: t("ask.contextActions.roadmap") || (isEn ? "Build execution roadmap" : "İcra xəritəsi hazırla"),
+          prompt: t("ask.contextActions.roadmapPrompt") || (isEn ? "Create a step-by-step execution roadmap for this strategy: include phased milestones, timeline, and key performance indicators." : "Bu strategiyanın uğurla icrası üçün mərhələli fəaliyyət xəritəsi hazırla: addım-addım prioritetlər, zaman qrafiki və əsas KPI-lar daxil olsun."),
+          icon: '<svg viewBox="0 0 24 24" width="13.5" height="13.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>',
+        },
+        {
+          id: "bottlenecks",
+          label: t("ask.contextActions.bottlenecks") || (isEn ? "Find bottlenecks & risks" : "Darboğaz və riskləri tap"),
+          prompt: t("ask.contextActions.bottlenecksPrompt") || (isEn ? "Stress-test this strategy to uncover potential execution bottlenecks, resource constraints, and strategic risks." : "Bu strategiyanın həyata keçirilməsində yarana biləcək əsas darboğazları, resurs çatışmazlıqlarını və uğursuzluq risklərini stress-test et."),
+          icon: '<svg viewBox="0 0 24 24" width="13.5" height="13.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+        },
+      ]
+    : [
+        {
+          id: "task-plan",
+          label: t("ask.contextActions.taskPlan") || (isEn ? "Create action plan" : "İcra planı qur"),
+          prompt: t("ask.contextActions.taskPlanPrompt") || (isEn ? "Provide a concrete step-by-step action plan and best practices to execute this task efficiently." : "Bu tapşırığı uğurla və operativ icra etmək üçün addım-addım konkret plan və ən yaxşı təcrübələri təqdim et."),
+          icon: '<svg viewBox="0 0 24 24" width="13.5" height="13.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>',
+        },
+        {
+          id: "task-blockers",
+          label: t("ask.contextActions.taskBlockers") || (isEn ? "Identify blockers & risks" : "Maneə və riskləri tap"),
+          prompt: t("ask.contextActions.taskBlockersPrompt") || (isEn ? "Identify potential blockers and risks during the execution of this task, along with mitigation strategies." : "Bu tapşırığın icrası zamanı yarana biləcək əsas maneələri, riskləri və onların həll yollarını müəyyən et."),
+          icon: '<svg viewBox="0 0 24 24" width="13.5" height="13.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+        },
+        {
+          id: "task-effort",
+          label: t("ask.contextActions.taskEffort") || (isEn ? "Effort & timeline" : "Resurs və zaman bölgüsü"),
+          prompt: t("ask.contextActions.taskEffortPrompt") || (isEn ? "Structure the estimated effort, required resources, and clear success criteria for completing this task." : "Bu tapşırıq üçün tələb olunan təxmini vaxt, zəruri resurslar və uğur meyarlarını strukturlaşdır."),
+          icon: '<svg viewBox="0 0 24 24" width="13.5" height="13.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        },
+        {
+          id: "task-steps",
+          label: t("ask.contextActions.taskSteps") || (isEn ? "Immediate steps" : "Hərəkətə keçmə addımları"),
+          prompt: t("ask.contextActions.taskStepsPrompt") || (isEn ? "List the first 3 highest-priority, immediate action items to get started on this task right away." : "Bu tapşırığa dərhal başlamaq üçün ilk 3 ən vacib praktik addımı sırala."),
+          icon: '<svg viewBox="0 0 24 24" width="13.5" height="13.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>',
+        },
+      ];
+
+  items.forEach((item) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ask-context-suggestion-btn";
+    btn.setAttribute("data-action-id", item.id);
+    btn.setAttribute("aria-label", item.label);
+    btn.title = item.prompt;
+
+    const iconSpan = element("span", "ask-context-suggestion-icon");
+    iconSpan.innerHTML = item.icon;
+
+    const labelSpan = element("span", "ask-context-suggestion-label", item.label);
+
+    btn.append(iconSpan, labelSpan);
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (state.askLoading) return;
+      btn.classList.add("is-active");
+      container.querySelectorAll("button").forEach(b => { b.disabled = true; });
+      onSelect(item.prompt);
+    });
+
+    container.appendChild(btn);
+  });
+
+  return container;
+}
+
 function renderIntake() {
   const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-ask", "workspace-intake", "is-empty");
@@ -5182,7 +5270,7 @@ function renderAsk() {
   }
 
   const updateAskPlaceholder = () => {
-    input.placeholder = selectedStrategy?.title || selectedTask?.text || (state.askPendingFile ? (isEn ? "Ask a question about this file…" : "Fayl haqqında sualını yaz…") : (isEn ? "Ask Helmer anything or @ to mention" : "Helmer-dən soruş və ya @ işarələ"));
+    input.placeholder = state.askPendingFile ? (isEn ? "Ask a question about this file…" : "Fayl haqqında sualını yaz…") : (isEn ? "Ask Helmer anything or @ to mention" : "Helmer-dən soruş və ya @ işarələ");
   };
   updateAskPlaceholder();
 
@@ -5236,6 +5324,7 @@ function renderAsk() {
   }
   if (selectedStrategy || selectedTask) {
     const contextChip = element("div", "ask-active-context-chip");
+    contextChip.title = selectedStrategy?.title || selectedTask?.text || "Context Selected";
     const chipIcon = element("span", "ask-active-context-icon");
     chipIcon.innerHTML = `
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -5247,7 +5336,7 @@ function renderAsk() {
     const chipLabel = element(
       "span",
       "ask-active-context-label",
-      selectedStrategy ? (isEn ? `Strategy: ${selectedStrategy.title}` : `Strategiya: ${selectedStrategy.title}`) : (isEn ? `Task: ${selectedTask.text}` : `Tapşırıq: ${selectedTask.text}`)
+      "Context Selected"
     );
     const chipRemove = button("", "ask-active-context-remove", (e) => {
       e.preventDefault();
@@ -5338,6 +5427,21 @@ function renderAsk() {
     composerArea.append(form, helper, guideCards);
   } else {
     composerArea.append(form, helper);
+  }
+
+  const contextSuggestions = (!isChatActive && (selectedStrategy || selectedTask))
+    ? createAskContextSuggestions(isEn, selectedStrategy, selectedTask, (promptText) => {
+        if (state.askLoading) return;
+        const extraText = input ? input.value.trim() : "";
+        const finalPrompt = extraText ? `${promptText}\n\nXüsusi fokus: ${extraText}` : promptText;
+        if (input) input.value = "";
+        state.askDraft = "";
+        submitAskMessage(finalPrompt, state.askPendingFile);
+      })
+    : null;
+  if (contextSuggestions) {
+    form.insertAdjacentElement("afterend", contextSuggestions);
+    if (guideCards) guideCards.style.display = "none";
   }
   shell.append(thread, composerArea);
   workspace.appendChild(shell);
