@@ -21,8 +21,7 @@ export function isAiRequest(req) {
     /^\/api\/ask(?:\/research)?\/?$/i.test(req.path) ||
     /^\/api\/strategy\/(?:assess|generate|generate-stream|refine|[^/]+\/refine)\/?$/i.test(req.path) ||
     /^\/api\/planner\/(?:summarize|prioritize)\/?$/i.test(req.path) ||
-    /^\/api\/up\/challenges\/?$/i.test(req.path) ||
-    /^\/api\/user\/ai-summary\/?$/i.test(req.path)
+    /^\/api\/up\/challenges\/?$/i.test(req.path)
   );
 }
 export class AiPolicy {

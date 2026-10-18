@@ -92,3 +92,11 @@ These directives are MANDATORY and NON-NEGOTIABLE across all coding, refactoring
 - **Guest Sessions**: Guest sessions must be HMAC-signed (`signGuestId`). Any unsigned or forged guest cookie must be rejected and re-issued.
 - **Production Secrets Zero-Fallback**: When `NODE_ENV === "production"`, missing `SESSION_SECRET`, `AUTH_SECRET`, or `REDIS_URL` must immediately throw a fatal error on startup. Never silently fall back to default development keys.
 - **IP Rate Limiting**: Identify rate limits strictly via trusted reverse-proxy IP headers (`req.ip || req.socket.remoteAddress`), never through spoofable raw client headers alone. Enforce strict limits on auth, password resets, and AI generation endpoints.
+
+---
+
+### 10. UI Card & Teaser Permanent Dismissal (Zero Clutter Policy)
+- **Permanent Dismissal with X / Close**: When a user clicks 'X' (close), 'Dismiss', 'Keç', or 'Bir daha göstərmə' on any informational card, teaser banner, starter guide, or announcement (such as "SI Hub yaxında", starter guide cards in Ask/Build, Archive feature tips, or release toasts), the dismissal MUST be stored permanently in persistent client storage (`localStorage`).
+- **Zero Temporary Memory / No Session Clutter**: Never use `sessionStorage` or transient in-memory flags for dismissible UI cards or promotional teasers that cause them to reappear upon reload, opening a new tab, or starting a new session.
+- **Cross-Mode Cleanliness**: Dismissing starter or guide cards must permanently dismiss all related starter guide cards across all modes (Ask and Build) so the interface remains clean and the user is never repeatedly interrupted.
+- **Interaction & Action Dismissal**: When the user acts on a promotional or informational card (e.g., clicking 'Try it' / 'Yoxla' or navigating to the featured destination), the card must be marked permanently dismissed so future visits to that page remain decluttered.

@@ -21,7 +21,6 @@ export const aiConfig = Object.freeze({
   assessmentMaxOutputTokens: 6144,
   strategyMaxOutputTokens: 24576,
   refinementMaxOutputTokens: 24576,
-  accountSummaryModel: process.env.OPENAI_ACCOUNT_SUMMARY_MODEL || "gpt-5.6-luna",
   strategySummaryModel: process.env.OPENAI_STRATEGY_SUMMARY_MODEL || "gpt-5.6-luna",
   plannerSummaryModel: process.env.OPENAI_PLANNER_SUMMARY_MODEL || "gpt-6-luna",
   plannerPriorityModel: process.env.OPENAI_PLANNER_PRIORITY_MODEL || "gpt-6-luna",

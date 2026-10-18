@@ -95,3 +95,30 @@ test("style.css: mobile CTA has gentle entrance animation on site open", async (
     "mobile-cta-enter animation is applied to .ask-shell.is-empty .ask-intro"
   );
 });
+
+test("style.css: mobile empty state extends full viewport without bottom black strip and eliminates transparent box-shadows", async () => {
+  const css = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
+
+  // Verify that .workspace-ask.is-empty has height: auto and max-height: none (no 100dvh - 60px capping)
+  assert.ok(
+    !css.includes(".workspace-ask.is-empty,\n  .workspace-intake.is-empty,\n  .workspace.is-empty,\n  .workspace:has(.ask-shell.is-empty),\n  .workspace-ask:has(.ask-shell.is-empty) {\n    flex: 1 1 auto;\n    height: calc(100dvh - 60px"),
+    "Artificial height calculation calc(100dvh - 60px...) is removed from empty workspace"
+  );
+
+  assert.ok(
+    css.includes("height: auto;\n    max-height: none;"),
+    "Mobile empty workspace uses height: auto and max-height: none to fill full viewport seamlessly"
+  );
+
+  // Verify transparent shadows are eliminated on mobile
+  assert.ok(
+    css.includes("/* Eliminate all transparent shadows on mobile to keep only the pure background gradient */"),
+    "Rules eliminating transparent shadows on mobile are present"
+  );
+
+  assert.ok(
+    css.includes(".ask-composer,\n  .ask-composer:hover,\n  .ask-composer:focus-within,"),
+    "box-shadow: none is explicitly enforced on mobile composer and surrounding elements"
+  );
+});
+

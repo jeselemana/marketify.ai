@@ -306,7 +306,7 @@ export class FileUserRepository {
       const index = store.users.findIndex((user) => user.id === id);
       if (index === -1) return { store, result: null };
 
-      const publicFields = ['fullName', 'username', 'email', 'avatarUrl', 'settings', 'aiSummary', 'lastLoginAt', 'onboardingFocus', 'onboardingRole', 'onboardingGoal', 'onboardingCompletedAt', 'status', 'deletionRequestedAt', 'scheduledDeletionAt'];
+      const publicFields = ['fullName', 'username', 'email', 'avatarUrl', 'settings', 'lastLoginAt', 'onboardingFocus', 'onboardingRole', 'onboardingGoal', 'onboardingCompletedAt', 'status', 'deletionRequestedAt', 'scheduledDeletionAt'];
       const internalFields = ['emailVerifiedAt', 'googleSub', 'pendingEmail', 'pendingEmailExpiresAt', 'authVersion', 'privacyEpoch', 'mfa'];
       const fields = allowSystemFields ? [...publicFields, ...internalFields] : publicFields;
       const effectiveChanges = Object.fromEntries(fields.filter(key => changes[key] !== undefined).map(key => [key, changes[key]]));

@@ -3492,7 +3492,7 @@ function addPresetPromptPane(popover, mode, onSelect, onBack) {
 
 function createMainAiHubTeaserCard(isEn) {
   try {
-    if (sessionStorage.getItem("helmer_main_ai_hub_dismissed") === "1") return null;
+    if (localStorage.getItem("helmer_main_ai_hub_dismissed") === "1" || sessionStorage.getItem("helmer_main_ai_hub_dismissed") === "1") return null;
   } catch { }
 
   const card = element("aside", "main-ai-hub-teaser");
@@ -3516,6 +3516,15 @@ function createMainAiHubTeaserCard(isEn) {
   logoWrap.append(geminiIcon, claudeIcon);
   leftGroup.append(logoWrap);
 
+  const dismissTeaser = () => {
+    try {
+      localStorage.setItem("helmer_main_ai_hub_dismissed", "1");
+      sessionStorage.setItem("helmer_main_ai_hub_dismissed", "1");
+    } catch { }
+    card.classList.add("is-dismissing");
+    setTimeout(() => card.remove(), 200);
+  };
+
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
   closeBtn.className = "main-ai-hub-close";
@@ -3523,9 +3532,7 @@ function createMainAiHubTeaserCard(isEn) {
   closeBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
   closeBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    card.classList.add("is-dismissing");
-    try { sessionStorage.setItem("helmer_main_ai_hub_dismissed", "1"); } catch { }
-    setTimeout(() => card.remove(), 200);
+    dismissTeaser();
   });
 
   header.append(leftGroup, closeBtn);
@@ -3546,6 +3553,7 @@ function createMainAiHubTeaserCard(isEn) {
 
   const lookBtn = button(t("aiHub.homeCardBtnLook") || (isEn ? "Look at" : "Bax"), "main-ai-hub-btn main-ai-hub-btn-look", (e) => {
     e.stopPropagation();
+    dismissTeaser();
     state.view = "aiHub";
     render();
   });
@@ -3553,9 +3561,7 @@ function createMainAiHubTeaserCard(isEn) {
 
   const ignoreBtn = button(t("aiHub.homeCardBtnIgnore") || (isEn ? "Ignore" : "Keç"), "main-ai-hub-btn main-ai-hub-btn-ignore", (e) => {
     e.stopPropagation();
-    card.classList.add("is-dismissing");
-    try { sessionStorage.setItem("helmer_main_ai_hub_dismissed", "1"); } catch { }
-    setTimeout(() => card.remove(), 200);
+    dismissTeaser();
   });
   ignoreBtn.type = "button";
 
@@ -3565,6 +3571,7 @@ function createMainAiHubTeaserCard(isEn) {
 
   card.addEventListener("click", (e) => {
     if (e.target.closest(".main-ai-hub-close") || e.target.closest(".main-ai-hub-btn")) return;
+    dismissTeaser();
     state.view = "aiHub";
     render();
   });
@@ -3710,15 +3717,26 @@ export function openGuideModal(initialMode = "build") {
 
     // ── Footer ──
     const footer = element("footer", "guide-modal-footer");
+    const dontShowBtn = button(
+      t("starterGuide.dismissAria") || (isEn ? "Don't show again" : "Bir daha göstərmə"),
+      "guide-modal-dismiss-btn secondary-button",
+      () => {
+        dismissHomeGuideCardsPermanently();
+        closeGuideModal();
+      }
+    );
+    dontShowBtn.type = "button";
+
     const startBtn = button(
       currentTab === "build" ? t("starterGuide.btnStartBuild") : t("starterGuide.btnStartAsk"),
       "guide-modal-start-btn",
       () => {
+        dismissHomeGuideCardsPermanently();
         startInMode(currentTab);
       }
     );
     startBtn.type = "button";
-    footer.appendChild(startBtn);
+    footer.append(dontShowBtn, startBtn);
 
     card.append(header, tabs, body, footer);
   };
@@ -3729,7 +3747,20 @@ export function openGuideModal(initialMode = "build") {
   document.body.style.overflow = "hidden";
 }
 
+export function dismissHomeGuideCardsPermanently() {
+  try {
+    localStorage.setItem("helmer_guide_dismissed_build", "1");
+    localStorage.setItem("helmer_guide_dismissed_ask", "1");
+    localStorage.setItem("helmer_guide_dismissed_all", "1");
+  } catch { }
+  document.querySelectorAll(".home-guide-cards").forEach((el) => {
+    el.classList.add("is-dismissing");
+    setTimeout(() => el.remove(), 180);
+  });
+}
+
 function applyStarterPrompt(prompt, targetMode) {
+  dismissHomeGuideCardsPermanently();
   closeGuideModal();
   if (state.mode !== targetMode) {
     setMode(targetMode);
@@ -3754,6 +3785,7 @@ function applyStarterPrompt(prompt, targetMode) {
 }
 
 function startInMode(targetMode) {
+  dismissHomeGuideCardsPermanently();
   closeGuideModal();
   if (state.mode !== targetMode) {
     setMode(targetMode);
@@ -3763,10 +3795,17 @@ function startInMode(targetMode) {
 }
 
 export function createHomeGuideCards(isEn, currentMode) {
+  if (state.askStrategyId || state.askTaskId || state.strategy) {
+    return null;
+  }
   const isBuild = currentMode === "build";
   const storageKey = isBuild ? "helmer_guide_dismissed_build" : "helmer_guide_dismissed_ask";
   try {
-    if (localStorage.getItem(storageKey) === "1") {
+    if (
+      localStorage.getItem(storageKey) === "1" ||
+      localStorage.getItem("helmer_guide_dismissed_all") === "1" ||
+      (localStorage.getItem("helmer_guide_dismissed_build") === "1" && localStorage.getItem("helmer_guide_dismissed_ask") === "1")
+    ) {
       return null;
     }
   } catch { }
@@ -3811,6 +3850,9 @@ export function createHomeGuideCards(isEn, currentMode) {
     e.stopPropagation();
     try {
       localStorage.setItem(storageKey, "1");
+      localStorage.setItem("helmer_guide_dismissed_build", "1");
+      localStorage.setItem("helmer_guide_dismissed_ask", "1");
+      localStorage.setItem("helmer_guide_dismissed_all", "1");
     } catch { }
     container.classList.add("is-dismissing");
     setTimeout(() => {
@@ -4066,7 +4108,8 @@ function renderIntake() {
   const disclaimer = element("p", "ask-disclaimer", t("common.disclaimer"));
   helper.appendChild(disclaimer);
 
-  const guideCards = createHomeGuideCards(isEn, "build");
+  const isStrategySelected = Boolean(state.strategy || state.askStrategyId || state.askTaskId);
+  const guideCards = !isStrategySelected ? createHomeGuideCards(isEn, "build") : null;
   if (guideCards) {
     composerArea.append(form, helper, guideCards);
   } else {
@@ -5422,7 +5465,7 @@ function renderAsk() {
   const disclaimer = element("p", "ask-disclaimer", isEn ? "Helmer can make mistakes." : "Helmer səhv edə bilər.");
   helper.append(suggestionWrap, disclaimer);
 
-  const guideCards = !isChatActive ? createHomeGuideCards(isEn, "ask") : null;
+  const guideCards = (!isChatActive && !selectedStrategy && !selectedTask) ? createHomeGuideCards(isEn, "ask") : null;
   if (guideCards) {
     composerArea.append(form, helper, guideCards);
   } else {
@@ -5441,7 +5484,7 @@ function renderAsk() {
     : null;
   if (contextSuggestions) {
     form.insertAdjacentElement("afterend", contextSuggestions);
-    if (guideCards) guideCards.style.display = "none";
+    if (guideCards) guideCards.remove();
   }
   shell.append(thread, composerArea);
   workspace.appendChild(shell);
@@ -11100,166 +11143,6 @@ function renderSettings() {
     return { section, cardsContainer };
   }
 
-  function buildAiAccountSummaryCard() {
-    const card = element("section", "ai-account-summary-card");
-    const isPersonalizationEnabled = Boolean(
-      state.currentUser &&
-      state.currentUser.settings &&
-      state.currentUser.settings.personalIntelligence === true
-    );
-
-    // If personalization is disabled: show graceful notification, NO model request
-    if (!isPersonalizationEnabled) {
-      card.classList.add("is-disabled-state");
-
-      const header = element("div", "ai-account-summary-header");
-      const headerLeft = element("div", "ai-summary-header-left");
-      headerLeft.innerHTML = `
-        <svg class="ai-summary-sparkle-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/>
-        </svg>
-        <strong class="ai-summary-card-title">${escapeHtml(t("settings.aiSummary.title"))}</strong>
-      `;
-      header.appendChild(headerLeft);
-
-      const body = element("div", "ai-summary-body");
-      const desc = element("p", "ai-summary-disabled-desc", t("settings.aiSummary.disabledNotice"));
-      const enableBtn = button(t("settings.aiSummary.enableBtn"), "ai-summary-enable-btn secondary-button", () => {
-        state.settingsTab = "experience";
-        renderSettings();
-      });
-
-      body.append(desc, enableBtn);
-      card.append(header, body);
-      return card;
-    }
-
-    // Personalization IS enabled
-    const header = element("div", "ai-account-summary-header");
-    const headerLeft = element("div", "ai-summary-header-left");
-    headerLeft.innerHTML = `
-      <svg class="ai-summary-sparkle-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/>
-      </svg>
-      <strong class="ai-summary-card-title">${escapeHtml(t("settings.aiSummary.title"))}</strong>
-    `;
-
-    const refreshBtn = button("", "ai-summary-refresh-btn", () => {
-      loadSummary(true);
-    });
-    refreshBtn.type = "button";
-    refreshBtn.setAttribute("aria-label", t("settings.aiSummary.regenerateBtn"));
-    refreshBtn.innerHTML = `
-      <svg class="ai-summary-refresh-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="23 4 23 10 17 10"></polyline>
-        <polyline points="1 20 1 14 7 14"></polyline>
-        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-      </svg>
-      <span class="ai-summary-refresh-label">${escapeHtml(t("settings.aiSummary.regenerateBtn"))}</span>
-    `;
-    header.append(headerLeft, refreshBtn);
-
-    const body = element("div", "ai-summary-body");
-
-    function renderSummaryContent(data) {
-      body.replaceChildren();
-      const summaryP = element("p", "ai-summary-content");
-      summaryP.textContent = data.summary;
-      body.appendChild(summaryP);
-
-      if (Array.isArray(data.focusTags) && data.focusTags.length > 0) {
-        const tagsRow = element("div", "ai-summary-tags-row");
-        data.focusTags.forEach((tag) => {
-          const tagPill = element("span", "ai-summary-tag");
-          tagPill.textContent = tag;
-          tagsRow.appendChild(tagPill);
-        });
-        body.appendChild(tagsRow);
-      }
-
-      const footerNote = element("span", "ai-summary-footer-note", t("settings.aiSummary.poweredBy"));
-      body.appendChild(footerNote);
-    }
-
-    function renderSkeleton() {
-      body.replaceChildren();
-      const skeleton = element("div", "ai-summary-skeleton");
-      skeleton.setAttribute("aria-busy", "true");
-      skeleton.setAttribute("aria-label", t("settings.aiSummary.loading"));
-      skeleton.innerHTML = `
-        <div class="ai-summary-skeleton-line is-title"></div>
-        <div class="ai-summary-skeleton-line"></div>
-        <div class="ai-summary-skeleton-line is-short"></div>
-        <div class="ai-summary-skeleton-tags">
-          <div class="ai-summary-skeleton-tag"></div>
-          <div class="ai-summary-skeleton-tag"></div>
-          <div class="ai-summary-skeleton-tag"></div>
-        </div>
-      `;
-      body.appendChild(skeleton);
-    }
-
-    function renderError(message) {
-      body.replaceChildren();
-      const errBox = element("div", "ai-summary-error-box");
-      const errText = element("p", "ai-summary-error-text", message || t("settings.aiSummary.error"));
-      const retryBtn = button(t("settings.aiSummary.retryBtn"), "secondary-button", () => {
-        loadSummary(true);
-      });
-      errBox.append(errText, retryBtn);
-      body.appendChild(errBox);
-    }
-
-    async function loadSummary(force = false) {
-      renderSkeleton();
-      refreshBtn.disabled = true;
-      const refreshIcon = refreshBtn.querySelector(".ai-summary-refresh-icon");
-      if (refreshIcon) refreshIcon.classList.add("is-spinning");
-      const refreshLabel = refreshBtn.querySelector(".ai-summary-refresh-label");
-      if (refreshLabel) refreshLabel.textContent = t("settings.aiSummary.regenerating");
-
-      try {
-        const data = await authRequest("/api/user/ai-summary", {
-          method: "POST",
-          body: JSON.stringify({ forceRefresh: force }),
-        });
-        if (state.currentUser) {
-          state.currentUser.aiSummary = data;
-        }
-        renderSummaryContent(data);
-      } catch (err) {
-        console.error("AI Summary load error:", err);
-        if (state.currentUser?.aiSummary?.summary) {
-          renderSummaryContent(state.currentUser.aiSummary);
-          showToast(err.message || t("settings.aiSummary.error"), "error");
-        } else {
-          renderError(err.message || t("settings.aiSummary.error"));
-        }
-      } finally {
-        refreshBtn.disabled = false;
-        if (refreshIcon) refreshIcon.classList.remove("is-spinning");
-        if (refreshLabel) refreshLabel.textContent = t("settings.aiSummary.regenerateBtn");
-      }
-    }
-
-    // If we already have a cached summary on the current user, check if it contains the old full-name with surname
-    const hasOldFullNameSummary = Boolean(
-      state.currentUser?.fullName &&
-      state.currentUser.fullName.includes(" ") &&
-      state.currentUser.aiSummary?.summary?.includes(state.currentUser.fullName)
-    );
-
-    if (state.currentUser && state.currentUser.aiSummary && state.currentUser.aiSummary.summary && !hasOldFullNameSummary) {
-      renderSummaryContent(state.currentUser.aiSummary);
-    } else {
-      // First time loading or upgrading stale full-name summary: fetch automatically
-      loadSummary(Boolean(hasOldFullNameSummary));
-    }
-
-    card.append(header, body);
-    return card;
-  }
-
   let panel;
   if (state.settingsTab === "account") {
     panel = element("section", "settings-panel settings-account-panel");
@@ -11267,9 +11150,6 @@ function renderSettings() {
       element("h2", "", state.currentUser ? t("settings.account.title") : (isEn ? "Account & Workspace" : "Hesab və İş Mühiti")),
       element("p", "settings-panel-intro", state.currentUser ? t("settings.account.intro") : (isEn ? "Manage your profile, workspace preferences, and device synchronization." : "Profilinizi, iş mühiti parametrlərini və cihazlararası sinxronizasiyanı idarə edin."))
     );
-
-    // Account Summary Card (Placed above Profile Card)
-    panel.appendChild(buildAiAccountSummaryCard());
 
     // Profile Identity Card with collapsible details via arrow on the right
     const avatarInitial = state.currentUser ? (state.currentUser.fullName || state.currentUser.username || "U")[0].toUpperCase() : "G";
@@ -12613,6 +12493,12 @@ function createStrategyRowContextMenu(record) {
 }
 
 function renderArchiveBackgroundCta() {
+  try {
+    if (localStorage.getItem("helmer_archive_bg_cta_dismissed") === "1") {
+      return null;
+    }
+  } catch { }
+
   const banner = element("aside", "archive-bg-cta");
   banner.setAttribute("role", "note");
   banner.setAttribute("aria-label", t("archive.bgCtaTitle"));
@@ -12636,7 +12522,10 @@ function renderArchiveBackgroundCta() {
   left.append(iconWrap, textWrap);
 
   const actions = element("div", "archive-bg-cta-actions");
-  const actionBtn = button("", "archive-bg-cta-btn", resetStrategy);
+  const actionBtn = button("", "archive-bg-cta-btn", () => {
+    try { localStorage.setItem("helmer_archive_bg_cta_dismissed", "1"); } catch { }
+    resetStrategy();
+  });
   actionBtn.type = "button";
   actionBtn.setAttribute("aria-label", t("archive.bgCtaAction"));
   const arrow = document.createElement("span");
@@ -12652,6 +12541,7 @@ function renderArchiveBackgroundCta() {
   dismissBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
   dismissBtn.addEventListener("click", (e) => {
     e.stopPropagation();
+    try { localStorage.setItem("helmer_archive_bg_cta_dismissed", "1"); } catch { }
     banner.classList.add("is-dismissed");
     setTimeout(() => {
       banner.remove();
@@ -12725,6 +12615,9 @@ export function renderArchiveResearchCard(isEn) {
     "archive-research-card-btn",
     (e) => {
       e.stopPropagation();
+      try {
+        localStorage.setItem("helmer_archive_research_card_dismissed", "1");
+      } catch { }
       goToAskDeepResearch();
     }
   );
@@ -12755,6 +12648,9 @@ export function renderArchiveResearchCard(isEn) {
 
   card.addEventListener("click", (e) => {
     if (e.target.closest(".archive-research-card-close")) return;
+    try {
+      localStorage.setItem("helmer_archive_research_card_dismissed", "1");
+    } catch { }
     goToAskDeepResearch();
   });
 
@@ -17277,7 +17173,7 @@ export function showV35ReleaseToast() {
   );
   title.id = "v35ToastTitle";
 
-  const closeBtn = button("✕", "v35-toast-close", dismiss);
+  const closeBtn = button("✕", "v35-toast-close", dismissPermanently);
   closeBtn.setAttribute("aria-label", t("announcement.closeAria"));
   closeBtn.id = "v35ToastCloseBtn";
   header.append(title, closeBtn);

@@ -26,7 +26,6 @@ import { UpService } from "./src/services/up/up-service.js";
 import { createUpRouter } from "./src/http/up-router.js";
 import { FilePlannerRepository } from "./src/repositories/file-planner-repository.js";
 import { createPlannerRouter } from "./src/http/planner-router.js";
-import { createUserRouter } from "./src/http/user-router.js";
 import { aiConfig, hasOpenAIConfiguration, hasGeminiConfiguration } from "./src/services/ai/config.js";
 import { getOpenAIClient, getGeminiClient } from "./src/services/ai/client.js";
 import { LLMProviderError } from "./src/services/ai/llm-router.js";
@@ -374,7 +373,6 @@ app.use("/api/auth/admin-mfa", createAdminMfaRouter({
 app.use("/api/strategy", createStrategyRouter(strategyRepository, learningLoop, { telemetryService }));
 app.use("/api/up", createUpRouter(upService));
 app.use("/api/planner", createPlannerRouter(plannerRepository, { strategyRepository, telemetryService }));
-app.use("/api/user", createUserRouter({ userRepository, strategyRepository, chatRepository, plannerRepository }));
 app.use("/api/learning/signals", createAiLearningSignalRouter(learningLoop));
 app.use("/api/telemetry", createTelemetryClientRouter(telemetryService));
 app.use("/admin/api/telemetry", requireAuth, requireAdmin, createTelemetryAdminRouter(telemetryService));
