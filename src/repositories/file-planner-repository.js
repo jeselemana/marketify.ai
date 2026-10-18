@@ -48,6 +48,9 @@ export class FilePlannerRepository {
     // In-memory per-tenant queue Map: tenantKey -> Promise
     this.tenantQueues = new Map();
 
+    // Track last synced ETag/digest per tenantKey to skip redundant disk/Redis writes on unchanged R2 reads
+    this.syncedShardTags = new Map();
+
     // Migration memoization promise
     this._migrationPromise = null;
   }
@@ -121,6 +124,9 @@ export class FilePlannerRepository {
 
     // If migration already finished and there is no unmigrated local legacy file, exit early
     if (hasLocalMarker && !localLegacyExists) {
+      if (this.redis?.isReady && typeof this.redis.del === "function") {
+        await this.redis.del("marketify:store:planner").catch(() => {});
+      }
       return { migratedCount: 0, tenantsCount: 0 };
     }
 
@@ -169,6 +175,9 @@ export class FilePlannerRepository {
     }
 
     if (!legacyRecords || !Array.isArray(legacyRecords) || legacyRecords.length === 0) {
+      if (this.redis?.isReady && typeof this.redis.del === "function") {
+        await this.redis.del("marketify:store:planner").catch(() => {});
+      }
       // Mark migration as done so we never search legacy stores on subsequent boots
       await fs.mkdir(this.plannerDir, { recursive: true }).catch(() => {});
       await fs.writeFile(markerPath, JSON.stringify({ migratedAt: new Date().toISOString(), empty: true }), "utf8").catch(() => {});
@@ -190,10 +199,20 @@ export class FilePlannerRepository {
     await fs.mkdir(this.plannerDir, { recursive: true });
 
     let migratedRecordsCount = 0;
+    const isCloud = this.cloud ?? isR2Configured();
     for (const [ownerId, records] of byOwner.entries()) {
       const tenantKey = this.tenantKey(ownerId);
-      const { records: existing, etag, tombstone } = await this.readTenantDataWithEtag(ownerId, tenantKey).catch(() => ({ records: [], etag: null, tombstone: false }));
+      const { records: existing, etag, notFound, tombstone } = await this.readTenantDataWithEtag(ownerId, tenantKey).catch(() => ({
+        records: [],
+        etag: null,
+        notFound: true,
+        tombstone: false,
+      }));
       if (tombstone) {
+        continue;
+      }
+      // If tenant already has an authoritative shard in R2, do not merge stale legacy records
+      if (isCloud && !notFound && etag) {
         continue;
       }
       const existingIds = new Set((existing || []).map((r) => r.id));
@@ -213,7 +232,7 @@ export class FilePlannerRepository {
         await this.redis.set(this.tenantRedisKey(ownerId), JSON.stringify(merged)).catch(() => {});
       }
 
-      if (this.cloud ?? isR2Configured()) {
+      if (isCloud) {
         let currentEtag = etag;
         for (let attempt = 0; attempt < 5; attempt++) {
           try {
@@ -239,9 +258,10 @@ export class FilePlannerRepository {
     }
 
     // Archive and purge legacy R2 object to prevent resurrection on future restarts
-    if (this.cloud ?? isR2Configured()) {
+    if (isCloud) {
       try {
         await saveJSONToR2("planner.json.migrated", legacyRecords);
+        await saveJSONToR2("planner.json", []);
         await deleteJSONFromR2("planner.json");
       } catch (err) {
         console.error("Error archiving/deleting legacy R2 planner.json:", err?.message || err);
@@ -249,12 +269,8 @@ export class FilePlannerRepository {
     }
 
     // Purge legacy Redis key to prevent resurrection on future restarts
-    if (this.redis?.isReady) {
-      try {
-        await this.redis.del("marketify:store:planner");
-      } catch (err) {
-        console.error("Error clearing legacy Redis planner key:", err?.message || err);
-      }
+    if (this.redis?.isReady && typeof this.redis.del === "function") {
+      await this.redis.del("marketify:store:planner").catch(() => {});
     }
 
     // Write persistent marker file
@@ -306,7 +322,7 @@ export class FilePlannerRepository {
    * Read tenant records and R2 ETag across R2, Redis, and local filesystem.
    * @param {string} ownerId
    * @param {string} tenantKey
-   * @returns {Promise<{ records: any[], etag: string | null, tombstone?: boolean, deletedAt?: string }>}
+   * @returns {Promise<{ records: any[], etag: string | null, notFound?: boolean, tombstone?: boolean, deletedAt?: string }>}
    */
   async readTenantDataWithEtag(ownerId, tenantKey) {
     // 1. Try Cloudflare R2
@@ -315,25 +331,32 @@ export class FilePlannerRepository {
         const res = await this.readCloud(tenantKey);
         const { record, etag, notFound, tombstone } = res || {};
         if (tombstone || (record && typeof record === "object" && !Array.isArray(record) && record._tombstone)) {
+          this.syncedShardTags.delete(tenantKey);
           await fs.rm(this.tenantFilePath(tenantKey), { force: true }).catch(() => {});
           if (this.redis?.isReady) {
             await this.redis.del(this.tenantRedisKey(ownerId)).catch(() => {});
           }
-          return { records: [], etag, tombstone: true, deletedAt: record?.deletedAt };
+          return { records: [], etag, notFound: false, tombstone: true, deletedAt: record?.deletedAt };
         }
         if (record && Array.isArray(record)) {
-          await this.writeLocalTenant(tenantKey, record).catch(() => {});
-          if (this.redis?.isReady) {
-            await this.redis.set(this.tenantRedisKey(ownerId), JSON.stringify(record)).catch(() => {});
+          const serialized = JSON.stringify(record);
+          const tagKey = etag ? `${etag}:${serialized.length}` : createHash("sha256").update(serialized).digest("hex");
+          if (this.syncedShardTags.get(tenantKey) !== tagKey) {
+            await this.writeLocalTenant(tenantKey, record).catch(() => {});
+            if (this.redis?.isReady) {
+              await this.redis.set(this.tenantRedisKey(ownerId), serialized).catch(() => {});
+            }
+            this.syncedShardTags.set(tenantKey, tagKey);
           }
-          return { records: record, etag, tombstone: false };
+          return { records: record, etag, notFound: false, tombstone: false };
         }
         if (notFound || record === null) {
+          this.syncedShardTags.delete(tenantKey);
           await fs.rm(this.tenantFilePath(tenantKey), { force: true }).catch(() => {});
           if (this.redis?.isReady) {
             await this.redis.del(this.tenantRedisKey(ownerId)).catch(() => {});
           }
-          return { records: [], etag: null, tombstone: false };
+          return { records: [], etag: null, notFound: true, tombstone: false };
         }
         throw storageCorruption("Invalid authoritative tenant shard structure.");
       } catch (err) {
@@ -348,17 +371,21 @@ export class FilePlannerRepository {
       const raw = await fs.readFile(targetPath, "utf8");
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed._tombstone) {
-        return { records: [], etag: null, tombstone: true, deletedAt: parsed.deletedAt };
+        return { records: [], etag: null, notFound: false, tombstone: true, deletedAt: parsed.deletedAt };
       }
       if (!Array.isArray(parsed)) throw storageCorruption("Invalid tenant shard structure.");
       const records = parsed;
       if (records.length > 0 && this.redis?.isReady) {
-        await this.redis.set(this.tenantRedisKey(ownerId), JSON.stringify(records)).catch(() => {});
+        const digest = createHash("sha256").update(raw).digest("hex");
+        if (this.syncedShardTags.get(tenantKey) !== digest) {
+          await this.redis.set(this.tenantRedisKey(ownerId), JSON.stringify(records)).catch(() => {});
+          this.syncedShardTags.set(tenantKey, digest);
+        }
       }
-      return { records, etag: null, tombstone: false };
+      return { records, etag: null, notFound: false, tombstone: false };
     } catch (error) {
       if (error.code === "ENOENT") {
-        return { records: [], etag: null, tombstone: false };
+        return { records: [], etag: null, notFound: true, tombstone: false };
       }
       if (error instanceof SyntaxError) {
         throw storageCorruption(`Planner shard ${tenantKey} contains invalid JSON.`, error);
@@ -435,6 +462,7 @@ export class FilePlannerRepository {
         }
 
         // Commit to local filesystem and Redis
+        this.syncedShardTags.delete(tenantKey);
         await this.writeLocalTenant(tenantKey, nextRecords);
 
         if (this.redis?.isReady) {
@@ -465,7 +493,7 @@ export class FilePlannerRepository {
     const tenantKey = this.tenantKey(ownerId);
     const { records, tombstone } = await this.readTenantDataWithEtag(ownerId, tenantKey);
     if (tombstone) return [];
-    return records;
+    return records.filter((r) => !r.deleted && guestVisible(r, ownerId));
   }
 
   /**
@@ -491,7 +519,7 @@ export class FilePlannerRepository {
             const raw = await fs.readFile(path.join(this.plannerDir, entry.name), "utf8");
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
-              aggregated.push(...parsed);
+              aggregated.push(...parsed.filter((r) => r && !r.deleted));
             }
           } catch {
             // Ignore malformed shard
@@ -538,7 +566,7 @@ export class FilePlannerRepository {
     if (!ownerId) return [];
     const records = await this.readTenant(ownerId);
     return records
-      .filter((task) => task.ownerId === ownerId)
+      .filter((task) => !task.deleted && task.ownerId === ownerId)
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }
 
@@ -572,9 +600,10 @@ export class FilePlannerRepository {
         const strategyId = item.strategyId || null;
         const strategyTitle = item.strategyTitle || null;
 
-        // Prevent duplicate task from same strategy with exact same text or title
+        // Prevent duplicate task from same strategy with exact same text or title (ignore soft-deleted tasks)
         const isDuplicate = records.some(
           (r) =>
+            !r.deleted &&
             r.ownerId === ownerId &&
             ((r.title && r.title.toLowerCase() === title.toLowerCase()) ||
              (r.text && r.text.toLowerCase() === text.toLowerCase())) &&
@@ -626,6 +655,7 @@ export class FilePlannerRepository {
     const targetId = String(id).trim().toLowerCase();
     return this.mutateTenant(ownerId, async (records) => {
       const index = records.findIndex((r) => {
+        if (r.deleted) return false;
         const matchesId = String(r.id || "").trim().toLowerCase() === targetId;
         const matchesOwner = !r.ownerId || r.ownerId === ownerId;
         return matchesId && matchesOwner;
@@ -693,7 +723,7 @@ export class FilePlannerRepository {
       let updatedCount = 0;
       const now = new Date().toISOString();
       for (const record of records) {
-        if (record.ownerId === ownerId) {
+        if (!record.deleted && record.ownerId === ownerId) {
           const shouldBePriority = idSet.has(record.id);
           if (Boolean(record.isPriority) !== shouldBePriority || record.priority !== (shouldBePriority ? "high" : "normal")) {
             record.isPriority = shouldBePriority;
@@ -704,14 +734,14 @@ export class FilePlannerRepository {
         }
       }
       const sorted = records
-        .filter((task) => task.ownerId === ownerId)
+        .filter((task) => !task.deleted && task.ownerId === ownerId)
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       return { updated: records, result: sorted };
     });
   }
 
   /**
-   * Delete a task by ID.
+   * Delete a task by ID (retaining a soft-delete tombstone to prevent resurrection).
    * @param {string} id
    * @param {string} ownerId
    * @returns {Promise<boolean>}
@@ -722,20 +752,32 @@ export class FilePlannerRepository {
 
     const targetId = String(id).trim().toLowerCase();
     return this.mutateTenant(ownerId, async (records) => {
-      const filtered = records.filter((r) => {
+      let matched = false;
+      const deletedAt = new Date().toISOString();
+      const nextRecords = records.map((r) => {
+        if (r.deleted) return r;
         const matchesId = String(r.id || "").trim().toLowerCase() === targetId;
         const matchesOwner = !r.ownerId || r.ownerId === ownerId;
-        return !(matchesId && matchesOwner);
+        if (matchesId && matchesOwner) {
+          matched = true;
+          return {
+            id: r.id,
+            ownerId: r.ownerId || ownerId,
+            deleted: true,
+            deletedAt,
+          };
+        }
+        return r;
       });
-      if (filtered.length !== records.length) {
-        return { updated: filtered, result: true };
+      if (matched) {
+        return { updated: nextRecords, result: true };
       }
       return { updated: records, result: false };
     });
   }
 
   /**
-   * Clear all completed tasks for an owner.
+   * Clear all completed tasks for an owner (retaining soft-delete tombstones).
    * @param {string} ownerId
    * @returns {Promise<number>}
    */
@@ -744,13 +786,24 @@ export class FilePlannerRepository {
     await this.ensureMigrated();
 
     return this.mutateTenant(ownerId, async (records) => {
-      const filtered = records.filter((r) => {
+      let count = 0;
+      const now = new Date().toISOString();
+      const nextRecords = records.map((r) => {
+        if (r.deleted) return r;
         const matchesOwner = !r.ownerId || r.ownerId === ownerId;
         const isCompleted = Boolean(r.completed || r.status === "completed");
-        return !(matchesOwner && isCompleted);
+        if (matchesOwner && isCompleted) {
+          count++;
+          return {
+            id: r.id,
+            ownerId: r.ownerId || ownerId,
+            deleted: true,
+            deletedAt: now,
+          };
+        }
+        return r;
       });
-      const count = records.length - filtered.length;
-      return { updated: filtered, result: count };
+      return { updated: nextRecords, result: count };
     });
   }
 
@@ -793,19 +846,30 @@ export class FilePlannerRepository {
           ownerId,
         }));
 
+        const existingIds = new Set(
+          userRecords.map((r) => String(r.id || "").toLowerCase())
+        );
         const existingSignatures = new Set(
-          userRecords.map((r) => `${r.strategyId || ""}:${(r.title || r.text || "").toLowerCase()}`)
+          userRecords
+            .filter((r) => !r.deleted)
+            .map((r) => `${r.strategyId || ""}:${(r.title || r.text || "").toLowerCase()}`)
         );
         const deduplicatedClaimed = claimedRecords.filter(
-          (r) => !existingSignatures.has(`${r.strategyId || ""}:${(r.title || r.text || "").toLowerCase()}`)
+          (r) =>
+            !existingIds.has(String(r.id || "").toLowerCase()) &&
+            !existingSignatures.has(`${r.strategyId || ""}:${(r.title || r.text || "").toLowerCase()}`)
         );
 
         claimedCount = deduplicatedClaimed.length;
-        const combined = [...userRecords, ...deduplicatedClaimed].sort(
+        const activeUserRecords = userRecords.filter((r) => !r.deleted);
+        const tombstoneUserRecords = userRecords.filter((r) => r.deleted);
+        const sortedActive = [...activeUserRecords, ...deduplicatedClaimed].sort(
           (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
+        const combined = [...sortedActive, ...tombstoneUserRecords];
 
         // Commit User Records locally first
+        this.syncedShardTags.delete(userKey);
         await this.writeLocalTenant(userKey, combined);
 
         if (isCloud) {
@@ -842,10 +906,11 @@ export class FilePlannerRepository {
       const freshGuestData = await this.readTenantDataWithEtag(previousOwnerId, guestKey).catch(() => ({ records: [] }));
       const freshGuestRecords = Array.isArray(freshGuestData.records) ? freshGuestData.records : [];
       const migratedIds = new Set(guestRecords.map((r) => r.id));
-      const unmigratedGuestRecords = freshGuestRecords.filter((r) => !migratedIds.has(r.id));
+      const unmigratedGuestRecords = freshGuestRecords.filter((r) => !r.deleted && !migratedIds.has(r.id));
 
       if (unmigratedGuestRecords.length > 0) {
         // Parallel write added new records to guest shard: preserve unmigrated records!
+        this.syncedShardTags.delete(guestKey);
         await this.writeLocalTenant(guestKey, unmigratedGuestRecords);
         if (isCloud) {
           await this.writeCloud(guestKey, unmigratedGuestRecords, freshGuestData.etag).catch(() => {});
@@ -855,11 +920,13 @@ export class FilePlannerRepository {
         }
       } else {
         // Safely remove guest shard
+        this.syncedShardTags.delete(guestKey);
         await fs.rm(this.tenantFilePath(guestKey), { force: true }).catch(() => {});
         if (this.redis?.isReady) {
           await this.redis.del(this.tenantRedisKey(previousOwnerId)).catch(() => {});
         }
         if (isCloud) {
+          await this.writeCloud(guestKey, [], freshGuestData.etag).catch(() => {});
           await this.deleteCloud(guestKey).catch(() => {});
         }
       }
@@ -879,7 +946,7 @@ export class FilePlannerRepository {
 
     return this.runInTenantLock(ownerId, async (tenantKey) => {
       const { records, etag } = await this.readTenantDataWithEtag(ownerId, tenantKey);
-      const count = Array.isArray(records) ? records.length : 0;
+      const count = Array.isArray(records) ? records.filter((r) => !r.deleted).length : 0;
       const now = new Date().toISOString();
 
       const tombstoneRecord = {
@@ -923,6 +990,7 @@ export class FilePlannerRepository {
       }
 
       // 2. Write tombstone to local shard with unique temp file + rename
+      this.syncedShardTags.delete(tenantKey);
       const targetPath = this.tenantFilePath(tenantKey);
       const tempPath = `${targetPath}.${randomUUID()}.tmp`;
       await fs.mkdir(path.dirname(targetPath), { recursive: true });

@@ -530,3 +530,169 @@ test("planner deletion integrity: tasks persist deletion across restarts without
 
   await fs.rm(temporaryDirectory, { recursive: true, force: true });
 });
+
+test("planner cold-start resurrection prevention: deleted and cleared tasks never resurrect on ephemeral container restart, and deleted tasks can be manually re-added", async () => {
+  const dir1 = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-planner-coldstart-1-"));
+  const dir2 = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-planner-coldstart-2-"));
+  const ownerId = "usr_coldstart_88888888-8888-8888-8888-888888888888";
+
+  const task1Id = "aaaaaaaa-1111-4111-8111-111111111111";
+  const task2Id = "bbbbbbbb-2222-4222-8222-222222222222";
+  const task3Id = "cccccccc-3333-4333-8333-333333333333";
+
+  // Simulated R2 cloud shard store and legacy Redis store
+  const cloudShards = new Map();
+  const legacyTasks = [
+    { id: task1Id, ownerId, title: "Silinəcək tapşırıq", text: "Silinəcək tapşırıq", status: "todo", completed: false, createdAt: "2026-10-18T10:00:00.000Z" },
+    { id: task2Id, ownerId, title: "Tamamlanıb təmizlənəcək tapşırıq", text: "Tamamlanıb təmizlənəcək tapşırıq", status: "completed", completed: true, createdAt: "2026-10-18T10:05:00.000Z" },
+    { id: task3Id, ownerId, title: "Aktiv qalan tapşırıq", text: "Aktiv qalan tapşırıq", status: "todo", completed: false, createdAt: "2026-10-18T10:10:00.000Z" },
+  ];
+
+  const redisData = new Map([
+    ["marketify:store:planner", JSON.stringify(legacyTasks)],
+  ]);
+  const mockRedis = {
+    isReady: true,
+    async get(key) { return redisData.get(key) ?? null; },
+    async set(key, val) { redisData.set(key, val); },
+    async del(key) { redisData.delete(key); },
+  };
+
+  const cloudOptions = {
+    cloud: true,
+    async readCloud(tenantKey) {
+      const entry = cloudShards.get(tenantKey);
+      if (!entry) return { record: null, etag: null, notFound: true, tombstone: false };
+      if (entry.record && entry.record._tombstone) {
+        return { record: entry.record, etag: entry.etag, notFound: false, tombstone: true };
+      }
+      return { record: JSON.parse(JSON.stringify(entry.record)), etag: entry.etag, notFound: false, tombstone: false };
+    },
+    async writeCloud(tenantKey, data, expectedEtag) {
+      const current = cloudShards.get(tenantKey);
+      if (expectedEtag && current && current.etag !== expectedEtag) return false;
+      const nextEtag = `etag-${Date.now()}-${Math.random()}`;
+      cloudShards.set(tenantKey, { record: JSON.parse(JSON.stringify(data)), etag: nextEtag });
+      return true;
+    },
+    async deleteCloud(tenantKey) {
+      cloudShards.delete(tenantKey);
+      return true;
+    },
+  };
+
+  // Container Instance 1: boots, migrates from legacy store to R2 shard
+  const repo1 = new FilePlannerRepository(path.join(dir1, "planner.json"), mockRedis, cloudOptions);
+  const initialList = await repo1.list(ownerId);
+  assert.equal(initialList.length, 3);
+
+  // User deletes task1 and clears completed task2
+  const deleted = await repo1.delete(task1Id, ownerId);
+  assert.equal(deleted, true);
+
+  // Deleting an already-deleted task returns false (404)
+  const deletedAgain = await repo1.delete(task1Id, ownerId);
+  assert.equal(deletedAgain, false);
+
+  // Updating a deleted task returns null
+  const updateDeleted = await repo1.update(task1Id, ownerId, { text: "Yenilənməməlidir" });
+  assert.equal(updateDeleted, null);
+
+  const clearedCount = await repo1.clearCompleted(ownerId);
+  assert.equal(clearedCount, 1);
+
+  const afterDeletionList = await repo1.list(ownerId);
+  assert.equal(afterDeletionList.length, 1);
+  assert.equal(afterDeletionList[0].id, task3Id);
+
+  // Simulate Cloud Run Cold Start (Container Instance 2 on empty ephemeral disk `dir2` where `.migration_done` does NOT exist,
+  // and even if legacy planner data was somehow still present in Redis or local legacy file)
+  redisData.set("marketify:store:planner", JSON.stringify(legacyTasks));
+  await fs.writeFile(path.join(dir2, "planner.json"), JSON.stringify(legacyTasks), "utf8");
+
+  const repo2 = new FilePlannerRepository(path.join(dir2, "planner.json"), mockRedis, cloudOptions);
+  const coldStartList = await repo2.list(ownerId);
+
+  // Deleted task1 and cleared task2 MUST NEVER resurrect!
+  assert.equal(coldStartList.length, 1, "Deleted/cleared tasks must never resurrect on Cloud Run cold start");
+  assert.equal(coldStartList[0].id, task3Id);
+
+  // Verify user can manually re-add a task with the same title as a previously deleted task
+  const reAdded = await repo2.addBatch(ownerId, [
+    { text: "Silinəcək tapşırıq", groupLabel: "Bu gün" },
+  ]);
+  assert.equal(reAdded.length, 1, "User must be able to re-add a task with the same text after deleting it");
+  const finalList = await repo2.list(ownerId);
+  assert.equal(finalList.length, 2);
+
+  await fs.rm(dir1, { recursive: true, force: true });
+  await fs.rm(dir2, { recursive: true, force: true });
+});
+
+test("planner claimOwner resilience: deleting a claimed task does not resurrect even if guest deleteCloud fails", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "helmer-planner-claim-resilience-"));
+  const guestOwnerId = "guest_resilience_111";
+  const userOwnerId = "usr_resilience_222";
+
+  const cloudShards = new Map();
+  const cloudOptions = {
+    cloud: true,
+    async readCloud(tenantKey) {
+      const entry = cloudShards.get(tenantKey);
+      if (!entry) return { record: null, etag: null, notFound: true, tombstone: false };
+      return { record: JSON.parse(JSON.stringify(entry.record)), etag: entry.etag, notFound: false, tombstone: false };
+    },
+    async writeCloud(tenantKey, data, expectedEtag) {
+      const current = cloudShards.get(tenantKey);
+      if (expectedEtag && current && current.etag !== expectedEtag) return false;
+      cloudShards.set(tenantKey, { record: JSON.parse(JSON.stringify(data)), etag: `etag-${Date.now()}-${Math.random()}` });
+      return true;
+    },
+    async deleteCloud() {
+      // Simulate S3/R2 DeleteObjectCommand failure or permission restriction
+      return false;
+    },
+  };
+
+  const repo = new FilePlannerRepository(path.join(tempDir, "planner.json"), null, cloudOptions);
+
+  // 1. Guest adds two tasks
+  const guestAdded = await repo.addBatch(guestOwnerId, [
+    { text: "Qonaq tapşırığı 1", groupLabel: "Bu gün" },
+    { text: "Qonaq tapşırığı 2", groupLabel: "Bu həftə" },
+  ]);
+  assert.equal(guestAdded.length, 2);
+
+  // 2. Guest logs in and claims tasks into user account
+  const claimed1 = await repo.claimOwner(guestOwnerId, userOwnerId);
+  assert.equal(claimed1, 2);
+
+  let userTasks = await repo.list(userOwnerId);
+  assert.equal(userTasks.length, 2);
+
+  // 3. User deletes one of the claimed tasks
+  const deletedId = userTasks[0].id;
+  const delResult = await repo.delete(deletedId, userOwnerId);
+  assert.equal(delResult, true);
+
+  userTasks = await repo.list(userOwnerId);
+  assert.equal(userTasks.length, 1);
+
+  // 4. Even if guest shard still had records or claimOwner is triggered again, deleted task must NOT resurrect
+  const claimed2 = await repo.claimOwner(guestOwnerId, userOwnerId);
+  assert.equal(claimed2, 0);
+
+  // Also test if guest shard in R2 somehow still held the old guest records before writeCloud([])
+  const guestKey = repo.tenantKey(guestOwnerId);
+  cloudShards.set(guestKey, { record: guestAdded, etag: "etag-stale-guest" });
+
+  const claimed3 = await repo.claimOwner(guestOwnerId, userOwnerId);
+  assert.equal(claimed3, 0, "Soft-delete tombstone in user shard must block re-claiming deleted guest task ID");
+
+  userTasks = await repo.list(userOwnerId);
+  assert.equal(userTasks.length, 1);
+  assert.notEqual(userTasks[0].id, deletedId);
+
+  await fs.rm(tempDir, { recursive: true, force: true });
+});
+
