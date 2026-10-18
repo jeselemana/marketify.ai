@@ -16054,40 +16054,9 @@ html.dark .model-info-popover-close:hover {
     display: none;
   }
 
-  /* Mobile Ask composer: Compact model selector beside Send button */
+  /* Mobile Ask composer: hide model selector inside Input Bar (header selector is used on mobile) */
   .ask-composer .ask-model-selector-menu {
-    display: inline-flex !important;
-    align-items: center;
-    position: relative;
-  }
-
-  .ask-composer .ask-model-selector-trigger {
-    height: 36px;
-    padding: 0 4px;
-    background: transparent !important;
-    border: 0 !important;
-    color: var(--text-secondary);
-    font-size: 13.5px;
-    font-weight: 500;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .ask-composer .ask-model-selector-trigger:active {
-    background: transparent !important;
-    opacity: 0.7;
-  }
-
-  [data-theme="light"] .ask-composer .ask-model-selector-trigger,
-  html:not(.dark) .ask-composer .ask-model-selector-trigger {
-    background: transparent !important;
-    border: 0 !important;
-    color: var(--text-secondary, #475467);
-  }
-
-  [data-theme="light"] .ask-composer .ask-model-selector-trigger:active,
-  html:not(.dark) .ask-composer .ask-model-selector-trigger:active {
-    background: transparent !important;
-    opacity: 0.7;
+    display: none !important;
   }
 
   /* Prevent desktop <details> popovers on mobile; native bottom sheets are opened instead */
