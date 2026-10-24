@@ -18136,6 +18136,70 @@ export function showV35ReleaseToast() {
   window.addEventListener("helmer:language-change", updateToastLanguage);
 }
 
+export function showLimitPolicyNotice() {
+  const STORAGE_KEY = "helmer_limit_policy_notice_dismissed";
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === "1" || saved === "dismissed") return;
+  } catch { }
+  if (document.querySelector("#limitPolicyNotice")) return;
+
+  const appMain = document.querySelector(".app-main");
+  const workspaceEl = document.querySelector("#workspace");
+  if (!appMain || !workspaceEl) return;
+
+  const banner = element("aside", "limit-policy-notice");
+  banner.id = "limitPolicyNotice";
+  banner.setAttribute("role", "status");
+  banner.setAttribute("aria-live", "polite");
+
+  const dismissPermanently = () => {
+    try {
+      localStorage.setItem(STORAGE_KEY, "1");
+    } catch { }
+    banner.classList.add("is-dismissing");
+    setTimeout(() => banner.remove(), 220);
+  };
+
+  const inner = element("div", "limit-policy-notice-inner");
+
+  const content = element("div", "limit-policy-notice-content");
+  const icon = element("span", "limit-policy-notice-icon");
+  icon.setAttribute("aria-hidden", "true");
+  icon.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+
+  const text = element("p", "limit-policy-notice-text", t("limitPolicyNotice.body"));
+  text.id = "limitPolicyNoticeText";
+  content.append(icon, text);
+
+  const actions = element("div", "limit-policy-notice-actions");
+  const dismissBtn = button(t("limitPolicyNotice.closeBtn"), "limit-policy-notice-btn", dismissPermanently);
+  dismissBtn.type = "button";
+  dismissBtn.id = "limitPolicyNoticeDismissBtn";
+
+  const closeBtn = button("✕", "limit-policy-notice-close", dismissPermanently);
+  closeBtn.type = "button";
+  closeBtn.id = "limitPolicyNoticeCloseBtn";
+  closeBtn.setAttribute("aria-label", t("limitPolicyNotice.closeAria"));
+  closeBtn.title = t("limitPolicyNotice.closeAria");
+
+  actions.append(dismissBtn, closeBtn);
+  inner.append(content, actions);
+  banner.appendChild(inner);
+
+  appMain.insertBefore(banner, workspaceEl);
+
+  const updateNoticeLanguage = () => {
+    if (text) text.textContent = t("limitPolicyNotice.body");
+    if (dismissBtn) dismissBtn.textContent = t("limitPolicyNotice.closeBtn");
+    if (closeBtn) {
+      closeBtn.setAttribute("aria-label", t("limitPolicyNotice.closeAria"));
+      closeBtn.title = t("limitPolicyNotice.closeAria");
+    }
+  };
+  window.addEventListener("helmer:language-change", updateNoticeLanguage);
+}
+
 // Global helmer:language-change handler to re-render components on language switch
 window.addEventListener("helmer:language-change", () => {
   syncMode();
@@ -18153,6 +18217,7 @@ window.addEventListener("storage", (event) => {
 // Render the workspace immediately while authentication and saved data load in the background.
 if (!new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/verify-email"]).has(window.location.pathname)) {
   render();
+  showLimitPolicyNotice();
 }
 
 initializeAuthentication(async (user) => {
@@ -18193,5 +18258,6 @@ initializeAuthentication(async (user) => {
     openLegalModal("privacy");
   }
   setupRailArchiveHover();
+  showLimitPolicyNotice();
   showV35ReleaseToast();
 });

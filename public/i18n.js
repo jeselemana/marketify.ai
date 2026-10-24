@@ -963,6 +963,13 @@ export const TRANSLATIONS = {
       closeAria: "Bağla",
     },
 
+    // ── Limit Policy Notice (24.10.2026) ───────────────────────────────────
+    limitPolicyNotice: {
+      body: "24.10.2026-cı il tarixindən etibarən Helmer-də limit siyasətinə dəyişiklik etdik. Bildirmək istəyirik ki, bu dəyişiklik yalnız qeydiyyatsız istifadəçilər üçün nəzərdə tutulmuşdur və qeydiyyatlı hesablarda limitlər dəyişilməz olaraq saxlanılıb. Anlayışınıza görə təşəkkür edirik!",
+      closeBtn: "Bağla",
+      closeAria: "Bağla",
+    },
+
     // ── Changelog / What's New ────────────────────────────────────────────────
     changelog: {
       title: "Yeniliklər",
@@ -2030,6 +2037,13 @@ export const TRANSLATIONS = {
       body: "Completely revamped modern foundational architecture meeting high security standards, new features, and much more. Details in the What's new section.",
       dontShow: "Don't show again",
       cta: "Got it",
+      closeAria: "Close",
+    },
+
+    // ── Limit Policy Notice (24.10.2026) ───────────────────────────────────
+    limitPolicyNotice: {
+      body: "Effective October 24, 2026, we have updated the limit policy in Helmer. Please note that this change applies only to unregistered users, while limits for registered accounts remain unchanged. Thank you for your understanding!",
+      closeBtn: "Close",
       closeAria: "Close",
     },
 
