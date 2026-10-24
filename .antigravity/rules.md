@@ -2,8 +2,8 @@
 # MANDATORY OPERATIONAL INVARIANTS ACROSS ALL SESSIONS
 
 ### ARCHITECTURAL BASELINE ANCHOR
-- **Reference Commit**: `7124bdb`
-- **Baseline Invariant**: The codebase state at commit `7124bdb` is the immutable architectural benchmark. When adding features, refactoring, or optimizing, strictly preserve the design patterns, defensive pipelines, and tenant isolation established in this commit. If in doubt about an implementation detail, inspect the patterns from commit `7124bdb`.
+- **Reference Commit**: `2f16168`
+- **Baseline Invariant**: The codebase state at commit `2f16168` is the immutable architectural benchmark. When adding features, refactoring, or optimizing, strictly preserve the design patterns, defensive pipelines, and tenant isolation established in this commit. If in doubt about an implementation detail, inspect the patterns from commit `2f16168`.
 - **Zero Guard Truncation**: You are strictly FORBIDDEN from omitting, simplifying, or commenting out existing validation checks, locks, abort handlers, or security guards during refactors. Every defensive check in the original code must persist.
 - **No Unauthorized Dependencies**: Do not introduce new external npm packages (especially networking, HTTP, or alternate parsing libraries) without explicit user confirmation.
 
