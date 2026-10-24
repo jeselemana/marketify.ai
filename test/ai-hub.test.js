@@ -218,48 +218,28 @@ test("style.css: includes premium animation, inactive input bar styling, dark mo
   assert.ok(css.includes("@media (max-width: 380px)"), "ultra-compact mobile breakpoint defined");
 });
 
-test("Main Page Teaser: SI Hub announcement card is rendered with authentic logos, exact title, and minimalist buttons", async () => {
-  const azHub = TRANSLATIONS.az.aiHub;
-  const enHub = TRANSLATIONS.en.aiHub;
+test("Main Page Teaser: Limit policy notice replaces SI Hub teaser card in the same slot with permanent dismissal", async () => {
+  const azNotice = TRANSLATIONS.az.limitPolicyNotice;
+  const enNotice = TRANSLATIONS.en.limitPolicyNotice;
 
-  // 1. Translations & exact title validation
   assert.equal(
-    azHub.homeCardTitle,
-    "SI Hub yaxında",
-    "AZ teaser title matches user prompt exactly"
+    azNotice.body,
+    "24.10.2026-cı il tarixindən etibarən Helmer-də limit siyasətinə dəyişiklik etdik. Bildirmək istəyirik ki, bu dəyişiklik yalnız qeydiyyatsız istifadəçilər üçün nəzərdə tutulmuşdur və qeydiyyatlı hesablarda limitlər dəyişilməz olaraq saxlanılıb. Anlayışınıza görə təşəkkür edirik!"
   );
-  assert.equal(
-    enHub.homeCardTitle,
-    "SI Hub coming soon",
-    "EN teaser title matches accurately"
-  );
-  assert.ok(azHub.homeCardDesc && enHub.homeCardDesc, "homeCardDesc exists in both languages");
-  assert.ok(azHub.homeCardBadge && enHub.homeCardBadge, "homeCardBadge exists in both languages");
-  assert.equal(azHub.homeCardBtnLook, "Bax", "AZ Look at button label");
-  assert.equal(azHub.homeCardBtnIgnore, "Keç", "AZ Ignore button label");
-  assert.equal(enHub.homeCardBtnLook, "Look at", "EN Look at button label");
-  assert.equal(enHub.homeCardBtnIgnore, "Ignore", "EN Ignore button label");
+  assert.equal(azNotice.closeBtn, "Bağla");
+  assert.equal(enNotice.closeBtn, "Close");
 
-  // 2. script.js logic verification
   const script = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
   assert.ok(script.includes("function createMainAiHubTeaserCard("), "createMainAiHubTeaserCard exists");
   assert.ok(script.includes("main-ai-hub-teaser"), "teaser card class exists");
-  assert.ok(script.includes("main-ai-hub-logo-gemini"), "Gemini logo container exists");
-  assert.ok(script.includes("main-ai-hub-logo-claude"), "Claude logo container exists");
-  assert.ok(script.includes("main-ai-hub-btn-look"), "Look at button exists");
-  assert.ok(script.includes("main-ai-hub-btn-ignore"), "Ignore button exists");
-  assert.ok(script.includes("helmer_main_ai_hub_dismissed"), "session dismissal key exists");
-  assert.ok(script.includes('state.view = "aiHub"'), "teaser click navigates to aiHub view");
+  assert.ok(script.includes("helmer_limit_policy_notice_dismissed"), "permanent localStorage dismissal key exists");
   assert.ok(script.includes("createMainAiHubTeaserCard(isEn)"), "teaser invoked in intake and ask views");
 
-  // 3. style.css verification
   const css = await fs.readFile(path.join(process.cwd(), "public/style.css"), "utf8");
   assert.ok(css.includes(".main-ai-hub-teaser"), ".main-ai-hub-teaser CSS defined");
   assert.ok(css.includes("mainAiHubTeaserFadeIn"), "teaser entrance animation defined");
-  assert.ok(css.includes(".main-ai-hub-logos"), "logos container CSS defined");
   assert.ok(css.includes(".main-ai-hub-badge"), "teaser badge CSS defined");
-  assert.ok(css.includes(".main-ai-hub-btn-look"), "Look at button CSS defined");
-  assert.ok(css.includes(".main-ai-hub-btn-ignore"), "Ignore button CSS defined");
+  assert.ok(css.includes(".main-ai-hub-btn-ignore"), "Close button CSS defined");
   assert.ok(css.includes('[data-theme="dark"] .main-ai-hub-teaser'), "dark mode styles defined");
 });
 

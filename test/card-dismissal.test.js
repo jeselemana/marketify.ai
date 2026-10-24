@@ -3,18 +3,19 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-test("script.js: SI Hub teaser card persists permanent dismissal in localStorage", async () => {
+test("script.js: Main page teaser card (limit policy notice) persists permanent dismissal in localStorage", async () => {
   const scriptContent = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
 
   // Check that createMainAiHubTeaserCard reads from localStorage
   assert.ok(
-    scriptContent.includes('localStorage.getItem("helmer_main_ai_hub_dismissed") === "1"'),
+    scriptContent.includes('const STORAGE_KEY = "helmer_limit_policy_notice_dismissed";') &&
+    scriptContent.includes('localStorage.getItem(STORAGE_KEY) === "1"'),
     "createMainAiHubTeaserCard checks localStorage for permanent dismissal"
   );
 
   // Check that dismissTeaser writes to localStorage
   assert.ok(
-    scriptContent.includes('localStorage.setItem("helmer_main_ai_hub_dismissed", "1")'),
+    scriptContent.includes('localStorage.setItem(STORAGE_KEY, "1")'),
     "createMainAiHubTeaserCard persists permanent dismissal to localStorage"
   );
 });
