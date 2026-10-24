@@ -206,6 +206,7 @@ export async function writeUpObject(ownerHash, record, etag) {
 }
 
 const MAX_R2_ETAG_CACHE_ENTRIES = 128;
+const R2_REVALIDATE_TTL_MS = 2500;
 const _r2EtagCache = new Map();
 const _r2InFlightReads = new Map();
 
@@ -219,13 +220,24 @@ function setR2EtagCache(fullKey, entry) {
     const oldestKey = _r2EtagCache.keys().next().value;
     if (oldestKey) _r2EtagCache.delete(oldestKey);
   }
-  _r2EtagCache.set(fullKey, entry);
+  _r2EtagCache.set(fullKey, { ...entry, verifiedAt: Date.now() });
 }
 
 async function readConditionalJsonFromR2(fullKey, errorLabel) {
   if (!isR2Configured()) return { record: null, etag: null, isCloud: false, notFound: true, tombstone: false };
   const s3 = getS3Client();
   if (!s3) return { record: null, etag: null, isCloud: false, notFound: true, tombstone: false };
+
+  const freshCached = _r2EtagCache.get(fullKey);
+  if (freshCached && freshCached.verifiedAt && (Date.now() - freshCached.verifiedAt < R2_REVALIDATE_TTL_MS)) {
+    return {
+      record: freshCached.record,
+      etag: freshCached.etag,
+      notFound: false,
+      isCloud: true,
+      tombstone: Boolean(freshCached.tombstone),
+    };
+  }
 
   let pending = _r2InFlightReads.get(fullKey);
   if (!pending) {
@@ -256,6 +268,7 @@ async function readConditionalJsonFromR2(fullKey, errorLabel) {
         const statusCode = err?.$metadata?.httpStatusCode;
         const code = err?.name || err?.Code || statusCode;
         if ((statusCode === 304 || code === "NotModified" || code === 304) && cached) {
+          cached.verifiedAt = Date.now();
           return {
             record: cached.record,
             etag: cached.etag,

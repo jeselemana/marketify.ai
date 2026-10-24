@@ -1187,7 +1187,7 @@ Google Search Grounding tool is actively configured and available for this conve
   };
 
   const normThinking = String(thinkingLevel || "low").toLowerCase();
-  config.thinkingConfig = (normThinking === "high" || normThinking === "medium")
+  config.thinkingConfig = (!hasSearchCapability && (normThinking === "high" || normThinking === "medium"))
     ? { thinkingLevel: normThinking.toUpperCase() }
     : { thinkingBudget: 0 };
 
@@ -1454,7 +1454,7 @@ Google Search Grounding tool is actively configured and available for this conve
   };
 
   const normThinking = String(thinkingLevel || "low").toLowerCase();
-  config.thinkingConfig = (normThinking === "high" || normThinking === "medium")
+  config.thinkingConfig = (!hasSearchCapability && (normThinking === "high" || normThinking === "medium"))
     ? { thinkingLevel: normThinking.toUpperCase() }
     : { thinkingBudget: 0 };
 

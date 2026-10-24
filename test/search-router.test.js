@@ -195,3 +195,29 @@ test("shouldEnableSearch returns true for fact-checking and official status veri
     );
   }
 });
+
+test("shouldEnableSearch returns false for conversational assistant identity questions and evaluateSearchRoute reserves requireGrounding for strict regulatory facts", () => {
+  const identityPrompts = [
+    "OpenAI deyilsən?",
+    "Sən hansısan indi",
+    "Sən hansı modelsən?",
+    "Sən Gemini-san?",
+    "ChatGPT deyilsən?",
+    "Hansı modeldə işləyirsən?",
+  ];
+
+  for (const prompt of identityPrompts) {
+    assert.equal(shouldEnableSearch(prompt), false, `Expected "${prompt}" to not trigger web search`);
+    assert.equal(evaluateSearchRoute({ prompt }).enableSearch, false);
+  }
+
+  const normalSearchRoute = evaluateSearchRoute({ prompt: "Gemini-ın son modelini araşdır" });
+  assert.equal(normalSearchRoute.enableSearch, true);
+  assert.equal(normalSearchRoute.requireGrounding, false);
+
+  const strictRegulatoryRoute = evaluateSearchRoute({
+    prompt: "2026-cı ildə son rəsmi inflyasiya faizi və Mərkəzi Bankın faiz dərəcəsi nə qədərdir?",
+  });
+  assert.equal(strictRegulatoryRoute.enableSearch, true);
+  assert.equal(strictRegulatoryRoute.requireGrounding, true);
+});

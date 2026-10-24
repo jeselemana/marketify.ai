@@ -7655,31 +7655,60 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       }),
     });
 
-    if (!response.ok && response.status === 409) {
+    if (!response.ok && (response.status === 409 || response.status === 429)) {
       const errData = await response.clone().json().catch(() => ({}));
-      if (errData.code === "REVISION_CONFLICT" && state.askChatId && errData.revision) {
-        window.helmerSecurity?.revisions.set(state.askChatId, errData.revision);
-        response = await fetch("/api/ask", {
-          method: "POST",
-          signal: currentAskAbortController.signal,
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "text/event-stream",
-            "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
-          },
-          body: JSON.stringify({
-            messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi),
-            model: chosenModel,
-            thinkingLevel: apiThinkingLevel,
-            strategyId: state.askStrategyId || undefined,
-            taskId: state.askTaskId || undefined,
-            chatId: state.askChatId || undefined,
-            chatRevision: errData.revision,
-            pluginIds,
-            artifactId,
-            stream: true,
-          }),
-        });
+      if (response.status === 429 && errData.code === "EXECUTION_BUSY" && !currentAskAbortController.signal.aborted) {
+        await new Promise((resolve) => setTimeout(resolve, 650));
+        if (!currentAskAbortController.signal.aborted) {
+          response = await fetch("/api/ask", {
+            method: "POST",
+            signal: currentAskAbortController.signal,
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "text/event-stream",
+              "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
+            },
+            body: JSON.stringify({
+              messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi),
+              model: chosenModel,
+              thinkingLevel: apiThinkingLevel,
+              strategyId: state.askStrategyId || undefined,
+              taskId: state.askTaskId || undefined,
+              chatId: state.askChatId || undefined,
+              chatRevision: state.askChatId ? (window.helmerSecurity?.getRevision(state.askChatId) || 1) : undefined,
+              pluginIds,
+              artifactId,
+              stream: true,
+            }),
+          });
+        }
+      }
+      if (!response.ok && response.status === 409) {
+        const conflictData = await response.clone().json().catch(() => ({}));
+        if (conflictData.code === "REVISION_CONFLICT" && state.askChatId && conflictData.revision) {
+          window.helmerSecurity?.revisions.set(state.askChatId, conflictData.revision);
+          response = await fetch("/api/ask", {
+            method: "POST",
+            signal: currentAskAbortController.signal,
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "text/event-stream",
+              "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
+            },
+            body: JSON.stringify({
+              messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi),
+              model: chosenModel,
+              thinkingLevel: apiThinkingLevel,
+              strategyId: state.askStrategyId || undefined,
+              taskId: state.askTaskId || undefined,
+              chatId: state.askChatId || undefined,
+              chatRevision: conflictData.revision,
+              pluginIds,
+              artifactId,
+              stream: true,
+            }),
+          });
+        }
       }
     }
 
