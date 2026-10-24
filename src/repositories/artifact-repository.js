@@ -43,7 +43,7 @@ export class ArtifactRepository {
   async coordinate(id, ownerId, operation) {
     const hash = createHash("sha256").update(`${ownerId}:${id}`).digest("hex");
     return this.locks.runInLock(hash, async () => {
-      if ((process.env.NODE_ENV === "production" && isR2Configured() && !this.redis?.isReady) || (this.redis && !this.redis.isReady)) throw Object.assign(new Error("Artifact coordination unavailable"), { statusCode: 503 });
+      if ((process.env.NODE_ENV === "production" && isR2Configured() && (process.env.REDIS_URL || process.env.REQUIRE_REDIS === "true") && !this.redis?.isReady) || (this.redis && !this.redis.isReady)) throw Object.assign(new Error("Artifact coordination unavailable"), { statusCode: 503 });
       const key = `helmer:artifact-lock:${ownerId}:${id}`, token = randomUUID();
       let timer, lost = false;
       const assertLease = async () => {

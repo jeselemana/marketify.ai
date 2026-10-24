@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 // Uses the same tenant key as HTTP admission; recovery cannot bypass active requests.
 export async function acquireOwnerExecutionLease(redis, ownerId, controller) {
   if (!redis?.isReady) {
-    if (process.env.NODE_ENV === 'production' || redis) throw Object.assign(new Error('Execution unavailable'), { code: 'EXECUTION_UNAVAILABLE', status: 503 });
+    if ((process.env.NODE_ENV === 'production' && (process.env.REDIS_URL || process.env.REQUIRE_REDIS === 'true')) || redis) throw Object.assign(new Error('Execution unavailable'), { code: 'EXECUTION_UNAVAILABLE', status: 503 });
     let released = false;
     return { assertOwned: async () => { if (released) throw Object.assign(new Error('Execution lease lost'), { code: 'EXECUTION_LOCK_LOST' }); }, release: async () => { released = true; } };
   }

@@ -53,7 +53,7 @@ export class AiPolicy {
     if (this.env.AI_EXECUTION_DISABLED === 'true' || (this.redis?.isReady && this.redis.get && await this.redis.get('security:ai-paused') === '1')) throw fail('EXECUTION_DISABLED');
   }
   ready() {
-    if (this.env.NODE_ENV === 'production' && !this.redis?.isReady) throw fail('EXECUTION_UNAVAILABLE');
+    if (this.env.NODE_ENV === 'production' && (this.env.REDIS_URL || this.env.REQUIRE_REDIS === 'true') && !this.redis?.isReady) throw fail('EXECUTION_UNAVAILABLE');
     if (this.redis && !this.redis.isReady) throw fail('EXECUTION_UNAVAILABLE');
   }
   async turnstile(req) {
@@ -111,16 +111,27 @@ export class AiPolicy {
       catch (error) { return res.status(503).json({ code: error.code === 'EXECUTION_DISABLED' ? 'EXECUTION_DISABLED' : 'EXECUTION_UNAVAILABLE', error: 'Sorğu icra edilə bilmədi.' }); }
       let controller;
       if (!this.redis?.isReady) {
-        if (this.env.NODE_ENV === 'production') {
+        if (this.env.NODE_ENV === 'production' && (this.env.REDIS_URL || this.env.REQUIRE_REDIS === 'true')) {
           return res.status(503).json({ code: 'EXECUTION_UNAVAILABLE', error: 'Sorğu icra edilə bilmədi.' });
         }
         controller = new AbortController();
         req.securityContext.route = req.path;
         req.securityContext.controller = controller;
         req.securityContext.signal = controller.signal;
+        req.securityContext.transferToBackground = () => {
+          req.securityContext.isBackgroundJob = true;
+          return {
+            signal: controller.signal,
+            assertOwned: async () => {},
+            release: async () => { controller.abort(); },
+          };
+        };
         if (!guest) {
-          res.once('finish', () => controller.abort());
-          res.once('close', () => controller.abort());
+          const finishRequest = () => {
+            if (!req.securityContext.isBackgroundJob) controller.abort();
+          };
+          res.once('finish', finishRequest);
+          res.once('close', finishRequest);
         }
         if (guest) {
           try {
@@ -326,7 +337,7 @@ export class AiPolicy {
   async reserveProvider(context, params) {
     await this.assertEnabled();
     if (!this.redis?.isReady) {
-      if (this.env.NODE_ENV === 'production') throw fail('EXECUTION_UNAVAILABLE', 503);
+      if (this.env.NODE_ENV === 'production' && (this.env.REDIS_URL || this.env.REQUIRE_REDIS === 'true')) throw fail('EXECUTION_UNAVAILABLE', 503);
       return async () => {};
     }
     this.ready();
