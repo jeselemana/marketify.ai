@@ -83,7 +83,9 @@ export class AiPolicy {
       if (req.user?.status && req.user.status !== 'active') return res.status(403).json({ code: 'ACCOUNT_UNAVAILABLE', error: 'Hesab aktiv deyil.' });
       if (req.user && !req.user.emailVerifiedAt) return res.status(403).json({ code: 'EMAIL_VERIFICATION_REQUIRED', error: 'E-poçtunu təsdiqlə.' });
       const previousAuthorization = req.securityContext?.assertAuthorized;
-      if (req.securityContext) req.securityContext.assertAuthorized = async () => { await this.assertEnabled(); await req.securityContext.assertLease?.(); await previousAuthorization?.(); };
+      if (req.securityContext) req.securityContext.assertAuthorized = async () => {
+        await Promise.all([this.assertEnabled(), req.securityContext.assertLease?.(), previousAuthorization?.()]);
+      };
       const guest = !req.user;
       if (guest && (/^\/api\/(?:up|user|artifacts)(?:\/|$)/i.test(req.path) || /^\/api\/ask\/research(?:\/|$)/i.test(req.path))) return res.status(401).json({ code: 'AUTH_REQUIRED' });
       if (guest) {

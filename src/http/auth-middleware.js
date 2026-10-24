@@ -31,12 +31,18 @@ export function createIdentityMiddleware({ authStore, userRepository }) {
       const rawToken = cookies[SESSION_COOKIE];
       if (!rawToken || rawToken.length > 200) return next();
       const sessionId = hashOpaqueToken(rawToken);
-      const session = await authStore.getSession(sessionId);
+      const canPreloadStore = typeof userRepository?.readStore === "function";
+      const [session, preloadedStore] = await Promise.all([
+        authStore.getSession(sessionId),
+        canPreloadStore ? userRepository.readStore().catch(() => null) : Promise.resolve(null),
+      ]);
       if (!session) {
         clearSessionCookie(req, res);
         return next();
       }
-      let user = await userRepository.findById(session.userId);
+      let user = Array.isArray(preloadedStore?.users)
+        ? (preloadedStore.users.find((item) => item.id === session.userId) || null)
+        : await userRepository.findById(session.userId);
       if (!user && typeof userRepository.syncFromR2 === "function") {
         await userRepository.syncFromR2(true).catch(() => {});
         user = await userRepository.findById(session.userId);

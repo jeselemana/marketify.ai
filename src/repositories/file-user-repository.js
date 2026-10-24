@@ -40,6 +40,7 @@ export class FileUserRepository {
     this.lastMtimeMs = 0;
     this.lastR2Sync = 0;
     this.syncPromise = null;
+    this.inFlightStoreRead = null;
   }
 
   async ensure() {
@@ -110,9 +111,19 @@ export class FileUserRepository {
   }
 
   async readStore() {
-    const { store } = await this.readAuthoritativeStore();
+    let pending = this.cloud ? this.inFlightStoreRead : null;
+    if (!pending) {
+      pending = this.readAuthoritativeStore();
+      if (this.cloud) {
+        this.inFlightStoreRead = pending;
+        const clear = () => { if (this.inFlightStoreRead === pending) this.inFlightStoreRead = null; };
+        pending.then(clear, clear);
+      }
+    }
+    const { store } = await pending;
     this.lastR2Sync = Date.now();
-    return store;
+    // Share the read, never mutable account objects or a time-based auth cache.
+    return this.cloud ? structuredClone(store) : store;
   }
 
   async writeStore(store) {

@@ -27,24 +27,30 @@ export class PrivacyPolicy {
   }
   async assertExecution(context) {
     context.signal?.throwIfAborted();
-    if (!context.guest) {
-      const user = await this.users.findById(context.ownerId);
-      const snapshot = context.privacySnapshot;
-      if (!user || user.status !== 'active' || user.scheduledDeletionAt ||
-          !snapshot || (user.privacyEpoch || 0) !== snapshot.epoch ||
-          (snapshot.authVersion !== undefined && (user.authVersion || 1) !== snapshot.authVersion)) {
-        throw Object.assign(new Error('Execution authorization revoked'), { code: 'EXECUTION_REVOKED', status: 403 });
-      }
-    }
-    await context.assertResources?.();
-    for (const check of context.resourceChecks || []) {
-      if (!await check()) throw Object.assign(new Error('Execution context removed'), { code: 'EXECUTION_REVOKED', status: 403 });
-    }
+    // Every streaming boundary still revalidates authoritative state. These
+    // independent reads share one round trip instead of a serial cloud queue.
+    await Promise.all([
+      (async () => {
+        if (!context.guest) {
+          const user = await this.users.findById(context.ownerId);
+          const snapshot = context.privacySnapshot;
+          if (!user || user.status !== 'active' || user.scheduledDeletionAt ||
+              !snapshot || (user.privacyEpoch || 0) !== snapshot.epoch ||
+              (snapshot.authVersion !== undefined && (user.authVersion || 1) !== snapshot.authVersion)) {
+            throw Object.assign(new Error('Execution authorization revoked'), { code: 'EXECUTION_REVOKED', status: 403 });
+          }
+        }
+      })(),
+      context.assertResources?.(),
+      ...(context.resourceChecks || []).map(async check => {
+        if (!await check()) throw Object.assign(new Error('Execution context removed'), { code: 'EXECUTION_REVOKED', status: 403 });
+      }),
+    ]);
     context.signal?.throwIfAborted();
   }
   middleware() {
     return (req, res, next) => {
-      const context = { ownerId: req.ownerId, privacySnapshot: privacySnapshot(req.user), providerStarted: false, guest: !req.user, signal: null };
+      const context = { ownerId: req.ownerId, privacySnapshot: privacySnapshot(req.user), providerStarted: false, guest: !req.user, signal: null, timings: req.askTimings };
       context.assertAuthorized = () => this.assertExecution(context);
       req.securityContext = context;
       executionContext.run(context, next);

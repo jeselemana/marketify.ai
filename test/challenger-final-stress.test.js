@@ -708,7 +708,8 @@ test("SUITE 5.1: sanitizeGroundingMetadata strictly rejects adversarial protocol
   const serverCode = await fs.readFile(path.join(process.cwd(), "server.js"), "utf8");
   const match = serverCode.match(/function sanitizeGroundingMetadata\([\s\S]*?\n\}/);
   assert.ok(match, "sanitizeGroundingMetadata must exist in server.js");
-  const sanitizeGroundingMetadata = new Function(`${match[0]}; return sanitizeGroundingMetadata;`)();
+  const { isLowQualityDomain } = await import('../src/services/ai/research-service.js');
+  const sanitizeGroundingMetadata = new Function('isLowQualityDomain', `${match[0]}; return sanitizeGroundingMetadata;`)(isLowQualityDomain);
 
   const adversarialInputs = [
     // XSS and script execution vectors
@@ -746,6 +747,8 @@ test("SUITE 5.1: sanitizeGroundingMetadata strictly rejects adversarial protocol
     "https://[::1:80",
     "",
     "   ",
+    "https://pinterest.com/pin/low-quality-source",
+    'https://example.com/' + 'a'.repeat(2001),
   ];
 
   const validUrls = [

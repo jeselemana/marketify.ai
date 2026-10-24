@@ -68,6 +68,7 @@ import { CapabilityWorkflow } from "./src/services/plugins/workflow.js";
 import { createCapabilityRouter, createArtifactRouter } from "./src/http/capability-router.js";
 import { createAskExecutionGuard } from "./src/http/ask-execution-guard.js";
 import { createWebResearch } from "./src/services/plugins/research.js";
+import { isLowQualityDomain } from "./src/services/ai/research-service.js";
 import { DistributedResearchService as ResearchService } from "./src/services/ai/distributed-research.js";
 import { createResearchRouter } from "./src/http/research-router.js";
 import { GuestRetention } from "./src/services/security/guest-retention.js";
@@ -101,6 +102,17 @@ if (redis) {
 
 const app = express();
 app.set("trust proxy", 1);
+// Operational timings contain no account identifiers, prompts or outputs.
+app.use((req, res, next) => {
+  if (req.method === "POST" && req.path === "/api/ask") {
+    req.askTimings = { startedAt: Date.now() };
+    res.once("finish", () => {
+      const { startedAt, ...timings } = req.askTimings;
+      console.log("[Ask timing]", JSON.stringify({ ...timings, authenticated: Boolean(req.user), status: res.statusCode, totalMs: Date.now() - startedAt }));
+    });
+  }
+  next();
+});
 
 const APP_PORT = process.env.PORT || 8080;
 const APP_URL = process.env.APP_URL || `http://localhost:${APP_PORT}`;
@@ -987,7 +999,7 @@ function sanitizeGroundingMetadata(metadata) {
       if (typeof uri !== "string" || !uri.trim()) return false;
       try {
         const parsed = new URL(uri.trim());
-        return parsed.protocol === "http:" || parsed.protocol === "https:";
+        return (parsed.protocol === "http:" || parsed.protocol === "https:") && parsed.href.length <= 2000 && !isLowQualityDomain(parsed.hostname);
       } catch {
         return false;
       }
@@ -1193,6 +1205,13 @@ Google Search Grounding tool is actively configured and available for this conve
   let groundingMetadata = null;
   let streamFinishReason = null;
   let streamBlockReason = null;
+  let publishedLength = 0;
+  let streamGroundingVerified = false;
+  let publishedGroundingMetadata = null;
+  const publishChunk = (text) => {
+    onChunk(text, groundingMetadata !== publishedGroundingMetadata ? groundingMetadata || undefined : undefined);
+    publishedGroundingMetadata = groundingMetadata;
+  };
 
   const runStream = async (streamConfig) => {
     const stream = await gemini.models.generateContentStream(
@@ -1201,7 +1220,7 @@ Google Search Grounding tool is actively configured and available for this conve
         contents,
         config: streamConfig,
       },
-      signal ? { signal } : undefined,
+      { signal, bufferGroundingPrelude: requireGrounding },
     );
 
     for await (const chunk of stream) {
@@ -1233,7 +1252,22 @@ Google Search Grounding tool is actively configured and available for this conve
       }
       if (delta) {
         accumulated += delta;
-        if (!requireGrounding) onChunk(delta);
+        if (!requireGrounding) publishChunk(delta);
+      }
+      // Release the buffered prefix as soon as grounding arrives, including a
+      // metadata-only event. Keep the final grounding and authorization checks.
+      if (requireGrounding && groundingMetadata?.groundingChunks?.length &&
+          streamFinishReason !== "SAFETY" && streamBlockReason !== "SAFETY" &&
+          streamFinishReason !== "BLOCKLIST" && streamFinishReason !== "PROHIBITED_CONTENT") {
+        if (!streamGroundingVerified) {
+          await assertExecutionAuthorized(signal);
+          streamGroundingVerified = true;
+        }
+        assertExecutionActive(undefined, signal);
+        if (accumulated.length > publishedLength) {
+          publishChunk(accumulated.slice(publishedLength));
+          publishedLength = accumulated.length;
+        }
       }
     }
   };
@@ -1275,7 +1309,7 @@ Google Search Grounding tool is actively configured and available for this conve
     if (requireGrounding) {
       if (!sanitizeGroundingMetadata(groundingMetadata)?.groundingChunks?.length) throw Object.assign(new Error('Grounding unavailable'), { code: 'GROUNDING_UNAVAILABLE', status: 503 });
       await assertExecutionAuthorized(signal);
-      onChunk(accumulated);
+      if (accumulated.length > publishedLength) publishChunk(accumulated.slice(publishedLength));
     }
     return {
       text: accumulated.trim(),
@@ -1639,15 +1673,20 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
 
     const requestedModel = (typeof req.body.model === "string" ? req.body.model.trim().toLowerCase() : "") || "auto";
     req.securityContext.assertResources = async () => {
-      if ((chatId && !await chatRepository.getById(chatId, req.ownerId)) ||
-          (strategyId && !await strategyRepository.getById(strategyId, req.ownerId)) ||
-          (taskId && !(await plannerRepository.list(req.ownerId)).some(item => item.id === taskId))) {
+      const [authorizedChat, authorizedStrategy, authorizedTasks] = await Promise.all([
+        chatId ? chatRepository.getById(chatId, req.ownerId) : null,
+        strategyId ? strategyRepository.getById(strategyId, req.ownerId) : null,
+        taskId ? plannerRepository.list(req.ownerId) : null,
+      ]);
+      if ((chatId && !authorizedChat) || (strategyId && !authorizedStrategy) ||
+          (taskId && !authorizedTasks.some(item => item.id === taskId))) {
         throw Object.assign(new Error('Execution context removed'), { code: 'EXECUTION_REVOKED', status: 403 });
       }
     };
     const lastUserMessageText = messages.at(-1)?.content || "";
 
     // Parallel Pre-Flight Context Loading & Deduplicated Chat Read
+    const contextStartedAt = Date.now();
     const [existingChat, selectedStrategy, selectedTask, personalizationContext] = await Promise.all([
       chatId
         ? (req.preloadedAskChat && req.preloadedAskChat.id === chatId
@@ -1667,6 +1706,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           })
         : Promise.resolve(""),
     ]);
+    if (req.askTimings) req.askTimings.contextMs = Date.now() - contextStartedAt;
 
     if (chatId) {
       if (!existingChat) {
@@ -1951,11 +1991,14 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       }
 
       let accumulated = "";
+      let streamedGrounding;
       const guestStream = isGuest ? createGuestAnswerStream(remainingMessages, (chunk) => {
-        res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
+        res.write(`data: ${JSON.stringify({ chunk, model: activeModel, groundingMetadata: streamedGrounding })}\n\n`);
+        streamedGrounding = undefined;
         if (typeof res.flush === "function") res.flush();
       }) : null;
       try {
+        if (req.askTimings) req.askTimings.providerStartMs = Date.now() - req.askTimings.startedAt;
         const generated = await generateGeminiAskStreamResponse({
           model: selectedAskModel,
           instructions: fullInstructions,
@@ -1965,10 +2008,12 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           requireGrounding,
           signal: abortController.signal,
           ownerId: req.ownerId,
-          onChunk: (chunk) => {
+          onChunk: (chunk, groundingMetadata) => {
+            if (req.askTimings && req.askTimings.firstChunkMs === undefined) req.askTimings.firstChunkMs = Date.now() - req.askTimings.startedAt;
+            if (groundingMetadata) streamedGrounding = groundingMetadata;
             if (guestStream) guestStream.push(chunk);
             else {
-              res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
+              res.write(`data: ${JSON.stringify({ chunk, model: activeModel, groundingMetadata })}\n\n`);
               if (typeof res.flush === "function") res.flush();
             }
           },

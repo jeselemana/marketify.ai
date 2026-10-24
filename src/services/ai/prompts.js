@@ -346,13 +346,27 @@ export function formatGuestAnswerWithCta(text, remainingMessages) {
 // Keep the CTA tail private while allowing the answer body to stream immediately.
 export function createGuestAnswerStream(remainingMessages, emit) {
   let received = '', published = '';
+  const markers = ['Qeyd: Qonaq rejimində qalan mesaj haqqınız:', 'Diqqət: Cəmi']
+    .flatMap(marker => [marker, `*${marker}`, `**${marker}`]);
   return {
     push(chunk) {
       if (!(remainingMessages > 0)) return;
       received += chunk;
       const text = received.trimStart();
       const marker = text.search(/\*{0,2}(?:Qeyd: Qonaq rejimində qalan mesaj haqqınız:|Diqqət: Cəmi)/);
-      const end = Math.max(0, Math.min(text.length - 512, marker < 0 ? text.length : marker));
+      let end = marker < 0 ? text.length : marker;
+      if (marker < 0) {
+        // Only hold a possible CTA prefix, even when it is split between tokens.
+        // A fixed-size tail delays short answers until the provider finishes.
+        for (const candidate of markers) {
+          for (let length = Math.min(candidate.length - 1, text.length); length > 0; length--) {
+            if (text.endsWith(candidate.slice(0, length))) {
+              end = Math.min(end, text.length - length);
+              break;
+            }
+          }
+        }
+      }
       const prefix = text.slice(0, end).trimEnd();
       if (prefix.length > published.length) {
         emit(prefix.slice(published.length));

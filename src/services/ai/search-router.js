@@ -8,17 +8,17 @@
 
 const URL_PATTERN = /https?:\/\/[^\s]+|www\.[^\s]+|\b[a-zA-Z0-9-]+\.(?:az|com|org|net|io|co|ai|edu|gov|tr|ru|tech|biz|info|me|app)\b/i;
 
-const REALTIME_TIME_PATTERN = /(?:202[4-9]|203[0-9]|bu\s+il|bu\s+ay|bu\s+h[əe]ft[əe]|bu\s+g[uü]n|cari\s+il|cari\s+ay|son\s+vaxtlar|son\s+aylar|son\s+g[uü]nl[əe]r|haz[ıi]r(?:da|k[ıi])|hal-haz[ıi]r(?:da|k[ıi])|bug[uü]nk[uü]|d[uü]n[əe]n|sabah|current|latest|today|this\s+year|recent|now)/i;
+const REALTIME_TIME_PATTERN = /(?:202[4-9]|203[0-9]|bu\s+il|bu\s+ay|bu\s+h[əe]ft[əe]|bu\s+g[uü]n|cari\s+il|cari\s+ay|son\s+vaxtlar|son\s+aylar|son\s+g[uü]nl[əe]r|haz[ıi]r(?:da|k[ıi])|hal-haz[ıi]r(?:da|k[ıi])|bug[uü]nk[uü]|d[uü]n[əe]n|sabah|\b(?:current|latest|today|this\s+year|recent|now)\b)/i;
 
-const TRENDS_AND_NEWS_PATTERN = /(?:trend|trendl[əe]r|trendl[əe]ri|yenilik|yenilikl[əe]r|x[əe]b[əe]r|x[əe]b[əe]rl[əe]r|hadis[əe]|hadis[əe]l[əe]r|aktual|statistika|statistikas[ıi]|hesabat|hesabat[ıi]|news|updates|statistics|burax[ıi]l[ıi][sş]\s+tarixi|t[əe]qdimat)/i;
+const TRENDS_AND_NEWS_PATTERN = /(?:trend|trendl[əe]r|trendl[əe]ri|yenilik|yenilikl[əe]r|x[əe]b[əe]r|x[əe]b[əe]rl[əe]r|hadis[əe]|hadis[əe]l[əe]r|aktual|statistika|statistikas[ıi]|hesabat|hesabat[ıi]|\b(?:news|updates|statistics)\b|burax[ıi]l[ıi][sş]\s+tarixi|t[əe]qdimat)/i;
 
-const COMPETITOR_PATTERN = /(?:r[əe]qib|r[əe]qibl[əe]r|r[əe]qibl[əe]rin|r[əe]qibl[əe]ri|r[əe]qab[əe]t|r[əe]qab[əe]t[cç]il|competitor|competitors|competition|bazar\s+pay[ıi]|market\s+share)/i;
+const COMPETITOR_PATTERN = /(?:r[əe]qib|r[əe]qibl[əe]r|r[əe]qibl[əe]rin|r[əe]qibl[əe]ri|r[əe]qab[əe]t|r[əe]qab[əe]t[cç]il|\b(?:competitor|competitors|competition)\b|bazar\s+pay[ıi]|market\s+share)/i;
 
-const PRICE_AND_MARKET_PATTERN = /(?:qiym[əe]t|qiym[əe]ti|qiym[əe]tl[əe]r|qiym[əe]tl[əe]ri|qiym[əe]tl[əe]ndirm[əe]|bazar\s+qiym[əe]ti|bazar\s+qiym[əe]tl[əe]ri|bazar[ıi]nda|sat[ıi][sş]\s+qiym[əe]t|tarif|tarifl[əe]r|tarifl[əe]ri|m[əe]z[əe]nn[əe]|valyuta|inflyasiya|price|prices|pricing|cost|costs|rate|rates|n[əe]\s+q[əe]d[əe]rdir|ne[cç][əe]y[əe]dir)/i;
+const PRICE_AND_MARKET_PATTERN = /(?:qiym[əe]t|qiym[əe]ti|qiym[əe]tl[əe]r|qiym[əe]tl[əe]ri|qiym[əe]tl[əe]ndirm[əe]|bazar\s+qiym[əe]ti|bazar\s+qiym[əe]tl[əe]ri|bazar[ıi]nda|sat[ıi][sş]\s+qiym[əe]t|tarif|tarifl[əe]r|tarifl[əe]ri|m[əe]z[əe]nn[əe]|valyuta|inflyasiya|\b(?:price|prices|pricing|cost|costs|rate|rates)\b|n[əe]\s+q[əe]d[əe]rdir|ne[cç][əe]y[əe]dir)/i;
 
 const EXPLICIT_WEB_LOOKUP_PATTERN = /(?:google(?:-da)?\s+axtar|internet(?:d[əe])?\s+(?:axtar|ara[sş]d[ıi]r)|sayt[ıi]ndan|sayt[ıi]n[ıi]\s+(?:analiz|yoxla)|web(?:-d[əe])?\s+axtar|m[əe]nb[əe]l[əe]ri\s+g[oö]st[əe]r|search\s+online|find\s+online|look\s+up\s+on\s+the\s+web)/i;
 
-const SEARCH_INTENT_PATTERN = /(?:google|axtar|axtar[ıi][sş]|web|internet|sayt|sayt[ıi]|sayt[ıi]ndan|sayt[ıi]nda|m[əe]nb[əe]|m[əe]nb[əe]l[əe]r|m[əe]nb[əe]yi|link|linki|url|onlayn|online|ara[sş]d[ıi]r|ara[sş]d[ıi]rma|tap|lookup|search|browse|find\s+online)/i;
+const SEARCH_INTENT_PATTERN = /(?<![a-zA-Z0-9əıiöüçşğƏIİÖÜÇŞĞ])(?:google|axtar|axtar[ıi][sş]|web|internet|sayt|sayt[ıi]|sayt[ıi]ndan|sayt[ıi]nda|m[əe]nb[əe]|m[əe]nb[əe]l[əe]r|m[əe]nb[əe]yi|link|linki|url|onlayn|online|ara[sş]d[ıi]r|ara[sş]d[ıi]rma|tap|lookup|search|browse|find\s+online)(?![a-zA-Z0-9əıiöüçşğƏIİÖÜÇŞĞ])/i;
 
 const SPECIFIC_ENTITY_LOOKUP_PATTERN = /(?:hans[ıi]\s+[sş]irk[əe]tl[əe]r|hans[ıi]\s+brendl[əe]r|hans[ıi]\s+ma[gğ]azalar|hans[ıi]\s+agentlikl[əe]r|harada\s+yerl[əe][sş]ir|haradan\s+almaq|[əe]laq[əe]\s+n[oö]mr[əe]si|[uü]nvan[ıi])/i;
 

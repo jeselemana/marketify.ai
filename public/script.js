@@ -1652,6 +1652,9 @@ function createAskThinkingControls(isEn, onToggle = null) {
       btn.classList.toggle("is-active", active);
       btn.setAttribute("aria-checked", String(active));
     }
+    if (typeof onToggle === "function") {
+      onToggle(Boolean(state.askThinkingEnabled));
+    }
   };
 
   ["medium", "high"].forEach((lvl) => {
@@ -1720,7 +1723,11 @@ function createAskModelSelector(isEn) {
   trigger.setAttribute("aria-label", isEn ? "Model and thinking selection" : "Model və düşünmə seçimi");
   trigger.setAttribute("role", "button");
 
-  const nameSpan = element("span", "ask-model-name", "Auto");
+  const getSelectorLabel = () => {
+    if (!state.askThinkingEnabled) return "Auto";
+    return state.askThinkingLevel === "high" ? "Thinking · High" : "Thinking · Med";
+  };
+  const nameSpan = element("span", "ask-model-name", getSelectorLabel());
   const chevron = element("span", "ask-model-chevron-icon");
   chevron.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
   trigger.append(nameSpan, chevron);
@@ -1768,6 +1775,7 @@ function createAskModelSelector(isEn) {
 
   const divider = element("div", "ask-model-popover-divider");
   const thinkingControls = createAskThinkingControls(isEn, (enabled) => {
+    nameSpan.textContent = getSelectorLabel();
     autoOption.classList.toggle("is-active", !enabled);
     const existingCheck = autoOption.querySelector(".ask-model-check");
     if (!enabled && !existingCheck) {
@@ -4704,15 +4712,33 @@ function appendAskInline(parent, value) {
   });
 }
 
+function patchAskInline(parent, value) {
+  if (parent.childNodes.length === 1 && parent.firstChild.nodeType === 3 && !/[*_`\[]/.test(value)) {
+    parent.firstChild.nodeValue = value;
+  } else {
+    parent.replaceChildren();
+    appendAskInline(parent, value);
+  }
+}
+
 function askTableCells(line) {
   return line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim());
 }
 
-function parseAskRichTextBlocks(value) {
+function parseAskRichTextBlocks(value, sourceOffset = 0) {
   const blocks = [];
   const lines = String(value || "").replace(/\r/g, "").split("\n");
+  const lineOffsets = [];
+  let offset = sourceOffset;
+  for (const line of lines) {
+    lineOffsets.push(offset);
+    offset += line.length + 1;
+  }
+  let blockStart = sourceOffset;
+  const addBlock = (block) => blocks.push({ ...block, sourceStart: blockStart });
   let index = 0;
   while (index < lines.length) {
+    blockStart = lineOffsets[index];
     const line = lines[index].trim();
     if (!line) {
       index += 1;
@@ -4720,7 +4746,7 @@ function parseAskRichTextBlocks(value) {
     }
 
     if (/^[-*_]{3,}$/.test(line)) {
-      blocks.push({ type: "hr", key: "hr" });
+      addBlock({ type: "hr", key: "hr" });
       index += 1;
       continue;
     }
@@ -4732,7 +4758,7 @@ function parseAskRichTextBlocks(value) {
       while (index < lines.length && !lines[index].trim().startsWith("```")) content.push(lines[index++]);
       if (index < lines.length) index += 1;
       const codeText = content.join("\n");
-      blocks.push({ type: "code", language, codeText, key: `code:${language}:${codeText}` });
+      addBlock({ type: "code", language, codeText, key: `code:${language}:${codeText}` });
       continue;
     }
 
@@ -4740,7 +4766,7 @@ function parseAskRichTextBlocks(value) {
     if (heading) {
       const level = Math.min(4, heading[1].length);
       const text = heading[2];
-      blocks.push({ type: "heading", level, text, key: `h${level}:${text}` });
+      addBlock({ type: "heading", level, text, key: `h${level}:${text}` });
       index += 1;
       continue;
     }
@@ -4753,7 +4779,7 @@ function parseAskRichTextBlocks(value) {
         bodyLines.push(lines[index]);
         index += 1;
       }
-      blocks.push({
+      addBlock({
         type: "table",
         headerLine,
         bodyLines,
@@ -4798,7 +4824,7 @@ function parseAskRichTextBlocks(value) {
         break;
       }
       const normalizedItems = items.map((segments) => segments.join(" "));
-      blocks.push({
+      addBlock({
         type: "ul",
         items: normalizedItems,
         key: `ul:${normalizedItems.join("\n")}`,
@@ -4850,7 +4876,7 @@ function parseAskRichTextBlocks(value) {
         text: it.segments.join(" "),
         key: `${it.num ?? ""}:${it.segments.join(" ")}`,
       }));
-      blocks.push({
+      addBlock({
         type: "ol",
         startNum,
         items: normalizedItems,
@@ -4867,7 +4893,7 @@ function parseAskRichTextBlocks(value) {
       index += 1;
     }
     const text = paragraphLines.join(" ");
-    blocks.push({ type: "p", text, key: `p:${text}` });
+    addBlock({ type: "p", text, key: `p:${text}` });
   }
   return blocks;
 }
@@ -4957,11 +4983,10 @@ function patchAskListNode(listNode, block) {
       continue;
     }
     if (existingLi && existingLi.nodeName === "LI") {
-      existingLi.replaceChildren();
       if (isOrdered && item.num !== null) {
         existingLi.value = item.num;
       }
-      appendAskInline(existingLi, itemText);
+      patchAskInline(existingLi, itemText);
       existingLi._askItemKey = itemKey;
     } else {
       const newLi = document.createElement("li");
@@ -4984,7 +5009,20 @@ function patchAskListNode(listNode, block) {
 }
 
 function patchAskRichTextElement(root, value) {
-  const blocks = parseAskRichTextBlocks(value);
+  const text = String(value || "").replace(/\r/g, "");
+  const previous = root._askParseCache;
+  if (previous?.text === text) return root;
+  let blocks;
+  if (previous?.blocks.length && text.startsWith(previous.text)) {
+    // The last partial line can still join the preceding list or table.
+    const restart = Math.max(0, previous.blocks.length - 2);
+    const stableBlocks = previous.blocks.slice(0, restart);
+    const start = previous.blocks[restart].sourceStart;
+    blocks = stableBlocks.concat(parseAskRichTextBlocks(text.slice(start), start));
+  } else {
+    blocks = parseAskRichTextBlocks(text);
+  }
+  root._askParseCache = { text, blocks };
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     const existingNode = root.childNodes[i];
@@ -4993,14 +5031,12 @@ function patchAskRichTextElement(root, value) {
     }
     if (existingNode && existingNode._askBlockType === block.type) {
       if (block.type === "p") {
-        existingNode.replaceChildren();
-        appendAskInline(existingNode, block.text);
+        patchAskInline(existingNode, block.text);
         existingNode._askBlockKey = block.key;
         continue;
       }
       if (block.type === "heading" && existingNode.nodeName === `H${block.level}`) {
-        existingNode.replaceChildren();
-        appendAskInline(existingNode, block.text);
+        patchAskInline(existingNode, block.text);
         existingNode._askBlockKey = block.key;
         continue;
       }
@@ -6117,63 +6153,31 @@ class LiveTypewriter {
     this.onComplete = onComplete;
     this.rafId = null;
     this.finishTimeoutId = null;
+    this.revealDeadline = 0;
     this.isDone = false;
-    this.isFinishing = false;
-    this.finishDeadline = 0;
     this.hasCompleted = false;
     this.completionPromise = new Promise((resolve) => { this.resolveCompletion = resolve; });
+  }
+
+  now() {
+    return typeof performance !== "undefined" ? performance.now() : Date.now();
   }
 
   canAnimate() {
     return (
       typeof window !== "undefined" &&
       typeof requestAnimationFrame === "function" &&
-      (typeof document === "undefined" || !document.hidden)
+      (typeof document === "undefined" || !document.hidden) &&
+      !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
     );
   }
 
-  computeStep(isFinishing = false) {
-    const remaining = this.targetText.length - this.currentText.length;
-    if (remaining <= 0) return 0;
-
-    let step;
-    if (isFinishing) {
-      const now = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
-      const msLeft = Math.max(0, this.finishDeadline - now);
-      const framesLeft = Math.max(1, Math.ceil(msLeft / 16));
-      step = Math.max(12, Math.ceil(remaining / framesLeft));
-      if (remaining <= step || msLeft <= 16) {
-        return remaining;
-      }
-    } else if (remaining <= 16) {
-      step = 3;
-    } else if (remaining <= 48) {
-      step = 6;
-    } else if (remaining <= 120) {
-      step = Math.min(16, Math.max(8, Math.ceil(remaining * 0.16)));
-    } else {
-      step = Math.min(26, Math.max(16, Math.ceil(remaining * 0.22)));
-    }
-
-    let nextIdx = Math.min(this.targetText.length, this.currentText.length + step);
-    if (nextIdx < this.targetText.length) {
-      const lookahead = this.targetText.slice(nextIdx, Math.min(this.targetText.length, nextIdx + 5));
-      const boundaryOffset = lookahead.search(/[\s.,;:!?)]/);
-      if (boundaryOffset >= 0) {
-        nextIdx += boundaryOffset + 1;
-      }
-      const prevChar = this.targetText.charCodeAt(nextIdx - 1);
-      if (prevChar >= 0xd800 && prevChar <= 0xdbff && nextIdx < this.targetText.length) {
-        nextIdx += 1;
-      }
-    }
-    return nextIdx - this.currentText.length;
-  }
-
   scheduleTick() {
-    if (this.rafId || this.hasCompleted) return;
+    if (this.rafId !== null || this.hasCompleted) return;
     if (!this.canAnimate()) {
-      this.tick();
+      this.currentText = this.targetText;
+      if (this.isDone) this.flush();
+      else this.onUpdate?.(this.currentText, false);
       return;
     }
     this.rafId = requestAnimationFrame(() => this.tick());
@@ -6181,43 +6185,45 @@ class LiveTypewriter {
 
   append(chunk) {
     if (!chunk || this.hasCompleted) return;
+    const wasCaughtUp = this.currentText.length === this.targetText.length;
     this.targetText += chunk;
+    if (wasCaughtUp) this.revealDeadline = this.now() + 120;
     if (!this.canAnimate()) {
       this.currentText = this.targetText;
       this.onUpdate?.(this.currentText, false);
       return;
     }
-    if (this.currentText.length === 0) {
-      const firstStep = this.computeStep(false);
-      this.currentText = this.targetText.slice(0, firstStep);
-      this.onUpdate?.(this.currentText, false);
+    // Show the first word synchronously, then glide through the provider burst
+    // within 120ms. Network completion must not erase the visible animation.
+    if (!this.currentText) this.reveal(Math.min(8, this.targetText.length));
+    if (this.currentText.length < this.targetText.length) this.scheduleTick();
+  }
+
+  reveal(step) {
+    let end = Math.min(this.targetText.length, this.currentText.length + step);
+    if (end < this.targetText.length) {
+      const boundary = this.targetText.slice(end, end + 5).search(/[\s.,;:!?)]/);
+      if (boundary >= 0) end = Math.min(this.targetText.length, end + boundary + 1);
+      const char = this.targetText.charCodeAt(end - 1);
+      if (char >= 0xd800 && char <= 0xdbff) end += 1;
     }
-    if (this.currentText.length < this.targetText.length) {
-      this.scheduleTick();
-    }
+    this.currentText = this.targetText.slice(0, end);
+    this.onUpdate?.(this.currentText, false);
   }
 
   finish(finalText) {
     if (this.hasCompleted) return;
-    if (typeof finalText === "string" && finalText.length > 0) {
-      this.targetText = finalText;
-    }
+    if (typeof finalText === "string" && finalText.length > 0) this.targetText = finalText;
+    const firstFinish = !this.isDone;
     this.isDone = true;
-    this.isFinishing = true;
-    const remaining = this.targetText.length - this.currentText.length;
-    if (remaining <= 0 || !this.canAnimate()) {
+    if (!this.canAnimate() || this.currentText === this.targetText) {
       this.flush();
       return;
     }
-    const now = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
-    if (!this.finishDeadline) {
-      this.finishDeadline = now + 140;
-    }
-    if (!this.finishTimeoutId) {
-      this.finishTimeoutId = setTimeout(() => {
-        this.finishTimeoutId = null;
-        this.flush();
-      }, 165);
+    if (!this.currentText) this.reveal(Math.min(8, this.targetText.length));
+    if (firstFinish) {
+      this.revealDeadline = Math.min(this.revealDeadline || Infinity, this.now() + 120);
+      this.finishTimeoutId = setTimeout(() => this.flush(), 150);
     }
     this.scheduleTick();
   }
@@ -6225,98 +6231,67 @@ class LiveTypewriter {
   flush() {
     if (this.hasCompleted) return;
     this.hasCompleted = true;
-    if (this.rafId && typeof cancelAnimationFrame === "function") {
+    if (this.rafId !== null && typeof cancelAnimationFrame === "function") {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
-    if (this.finishTimeoutId) {
+    if (this.finishTimeoutId !== null) {
       clearTimeout(this.finishTimeoutId);
       this.finishTimeoutId = null;
     }
-    this.isDone = true;
-    this.isFinishing = false;
     this.currentText = this.targetText;
-    if (this.onUpdate) {
-      this.onUpdate(this.currentText, true);
-    }
-    if (this.onComplete) {
-      this.onComplete();
-    }
+    this.onUpdate?.(this.currentText, true);
+    this.onComplete?.();
     this.resolveCompletion?.();
   }
 
-  waitForCompletion() {
-    return this.completionPromise;
-  }
+  waitForCompletion() { return this.completionPromise; }
 
   tick() {
     this.rafId = null;
     if (this.hasCompleted) return;
+    if (!this.canAnimate()) {
+      this.currentText = this.targetText;
+      if (this.isDone) this.flush();
+      else this.onUpdate?.(this.currentText, false);
+      return;
+    }
     const remaining = this.targetText.length - this.currentText.length;
     if (remaining <= 0) {
-      if (this.isDone) {
-        this.flush();
-      }
+      if (this.isDone) this.flush();
       return;
     }
-    const step = this.computeStep(this.isFinishing);
-    this.currentText = this.targetText.slice(0, this.currentText.length + step);
-    const reachedEnd = this.currentText.length >= this.targetText.length;
-    if (reachedEnd && this.isDone) {
-      this.flush();
-      return;
-    }
-    if (this.onUpdate) {
-      this.onUpdate(this.currentText, false);
-    }
-    if (this.currentText.length < this.targetText.length) {
-      this.scheduleTick();
-    } else if (this.isDone) {
-      this.flush();
-    }
+    const framesLeft = Math.max(1, Math.ceil((this.revealDeadline - this.now()) / 16));
+    this.reveal(Math.max(3, Math.ceil(remaining / framesLeft)));
+    if (this.currentText.length < this.targetText.length) this.scheduleTick();
+    else if (this.isDone) this.flush();
   }
 }
 
 function extractGroundingWebChunks(groundingMetadata) {
   if (!groundingMetadata || typeof groundingMetadata !== "object") return [];
-  const chunks = Array.isArray(groundingMetadata.groundingChunks) ? groundingMetadata.groundingChunks : [];
   const webChunks = [];
   const seen = new Set();
-
-  for (const c of chunks) {
-    const web = c && c.web;
-    if (!web || typeof web.uri !== "string") continue;
-    const uri = web.uri.trim();
-    if (!/^https?:\/\//i.test(uri)) continue;
-    if (seen.has(uri)) continue;
-    seen.add(uri);
-
-    let hostname = "";
+  const addSource = (rawUri, rawTitle) => {
+    if (typeof rawUri !== "string") return;
+    const uri = rawUri.trim();
+    if (!/^https?:\/\//i.test(uri) || seen.has(uri)) return;
+    let hostname;
     try {
-      hostname = new URL(uri).hostname.replace(/^www\./, "");
-    } catch {
-      hostname = uri;
-    }
-
-    const title = typeof web.title === "string" && web.title.trim() ? web.title.trim() : hostname;
-    webChunks.push({ uri, title, hostname });
-  }
-
-  const citations = Array.isArray(groundingMetadata.citations) ? groundingMetadata.citations : [];
-  for (const cit of citations) {
-    const uri = (cit?.url || cit?.uri || "").trim();
-    if (!uri || !/^https?:\/\//i.test(uri) || seen.has(uri)) continue;
+      const parsed = new URL(uri);
+      if (!["http:", "https:"].includes(parsed.protocol)) return;
+      hostname = parsed.hostname.replace(/^www\./, "");
+    } catch { return; }
     seen.add(uri);
-    let hostname = "";
-    try {
-      hostname = new URL(uri).hostname.replace(/^www\./, "");
-    } catch {
-      hostname = uri;
-    }
-    const title = typeof cit?.title === "string" && cit.title.trim() ? cit.title.trim() : (cit?.text || hostname);
+    const title = typeof rawTitle === "string" && rawTitle.trim() ? rawTitle.trim() : hostname;
     webChunks.push({ uri, title, hostname });
+  };
+  for (const chunk of Array.isArray(groundingMetadata.groundingChunks) ? groundingMetadata.groundingChunks : []) {
+    addSource(chunk?.web?.uri, chunk?.web?.title);
   }
-
+  for (const citation of Array.isArray(groundingMetadata.citations) ? groundingMetadata.citations : []) {
+    addSource(citation?.url || citation?.uri, citation?.title || citation?.text);
+  }
   return webChunks;
 }
 
@@ -6387,7 +6362,9 @@ function renderAskSourceChips(groundingMetadata) {
   const icon = element("span", "ask-grounding-icon");
   icon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
   const label = element("span", "ask-grounding-header-label", isEn ? "Sources" : "Mənbələr");
+  icon.setAttribute("aria-hidden", "true");
   header.append(icon, label);
+  if (webChunks.length) header.appendChild(element("span", "ask-grounding-count", String(webChunks.length)));
 
   const viewAllBtn = button(isEn ? "View all" : "Hamısı", "ask-grounding-all-btn", (e) => {
     e.preventDefault();
@@ -6405,7 +6382,7 @@ function renderAskSourceChips(groundingMetadata) {
   const visibleChunks = webChunks.slice(0, MAX_VISIBLE_CHIPS);
   const remainingCount = webChunks.length - visibleChunks.length;
 
-  visibleChunks.forEach((item) => {
+  visibleChunks.forEach((item, index) => {
     const chip = document.createElement("a");
     chip.className = "ask-grounding-chip";
     chip.href = item.uri;
@@ -6414,16 +6391,19 @@ function renderAskSourceChips(groundingMetadata) {
     chip.title = `${item.title} (${item.hostname})`;
     chip.setAttribute("aria-label", `${item.title} (${item.hostname})`);
 
-    const faviconWrap = element("span", "ask-grounding-chip-favicon");
-    faviconWrap.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-
-    const domainSpan = element("span", "ask-grounding-chip-domain", item.hostname);
-    chip.append(faviconWrap, domainSpan);
-
-    if (item.title && item.title !== item.hostname) {
-      const titleSpan = element("span", "ask-grounding-chip-title", ` · ${item.title}`);
-      chip.appendChild(titleSpan);
+    const faviconWrap = element("span", "ask-grounding-chip-favicon", String(index + 1));
+    faviconWrap.setAttribute("aria-hidden", "true");
+    // Google relay links do not expose the publisher domain. Prefer the supplied
+    // title, preserving the original HTTPS destination without fetching it.
+    const isRelay = item.hostname === "vertexaisearch.cloud.google.com";
+    const sourceTitle = item.title !== item.hostname ? item.title :
+      (isRelay ? `${isEn ? "Source" : "Mənbə"} ${index + 1}` : item.hostname);
+    const info = element("span", "ask-grounding-chip-info");
+    info.appendChild(element("span", "ask-grounding-chip-title", sourceTitle));
+    if (!isRelay && item.title !== item.hostname) {
+      info.appendChild(element("span", "ask-grounding-chip-domain", item.hostname));
     }
+    chip.append(faviconWrap, info);
 
     const extIcon = element("span", "ask-grounding-chip-ext");
     extIcon.innerHTML = '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
@@ -6448,15 +6428,16 @@ function renderAskSourceChips(groundingMetadata) {
   }
 
   if (searchSuggestions.length > 0) {
-    const suggestionsBar = element("div", "ask-search-suggestions");
+    const suggestionsBar = element("details", "ask-search-suggestions");
     suggestionsBar.setAttribute("aria-label", "Google Search Suggestions");
-    const gBadge = element("span", "ask-search-suggestions-badge");
+    const gBadge = element("summary", "ask-search-suggestions-badge");
     gBadge.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
     gBadge.appendChild(element("span", "ask-search-suggestions-label", "Google Search"));
+    gBadge.appendChild(element("span", "ask-search-suggestions-count", `${searchSuggestions.length} ${isEn ? "queries" : "sorğu"}`));
     suggestionsBar.appendChild(gBadge);
 
     const suggestionsList = element("div", "ask-search-suggestions-list");
-    searchSuggestions.slice(0, 4).forEach((suggestion) => {
+    searchSuggestions.forEach((suggestion) => {
       const sugChip = document.createElement("a");
       sugChip.className = "ask-search-suggestion-chip";
       sugChip.href = suggestion.url;
@@ -7383,6 +7364,7 @@ async function thinkDeeperWithHigh(messageIndex) {
           }
 
           if (data.model) assistantMsg.model = data.model;
+          if (data.groundingMetadata) assistantMsg.groundingMetadata = data.groundingMetadata;
 
           if (data.chunk) {
             clearAskWaitStages(assistantMsg);
@@ -7473,6 +7455,7 @@ async function thinkDeeperWithHigh(messageIndex) {
     }
   } finally {
     clearAskWaitStages(assistantMsg);
+    typewriter?.flush();
     activeAskReader = null;
     activeAskTypewriter = null;
     currentAskAbortController = null;
@@ -7766,6 +7749,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
           }
 
           if (data.model) assistantMsg.model = data.model;
+          if (data.groundingMetadata) assistantMsg.groundingMetadata = data.groundingMetadata;
 
           if (data.chunk) {
             clearAskWaitStages(assistantMsg);
@@ -7875,6 +7859,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     }
   } finally {
     clearAskWaitStages(assistantMsg);
+    typewriter?.flush();
     activeAskReader = null;
     activeAskTypewriter = null;
     currentAskAbortController = null;

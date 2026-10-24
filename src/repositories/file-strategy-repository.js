@@ -45,6 +45,7 @@ export class FileStrategyRepository {
 
     // In-memory per-tenant queue Map: tenantKey -> Promise
     this.tenantQueues = new Map();
+    this.inFlightTenantReads = new Map();
 
     // Track last synced ETag/digest per tenantKey to skip redundant disk/Redis writes on unchanged R2 reads
     this.syncedShardTags = new Map();
@@ -254,11 +255,25 @@ export class FileStrategyRepository {
    * @param {string} tenantKey
    * @returns {Promise<{ records: any[], etag: string | null, tombstone?: boolean, deletedAt?: string }>}
    */
-  async readTenantDataWithEtag(ownerId, tenantKey) {
+  async readCloudSnapshot(tenantKey, { clone = true } = {}) {
+    // Coalesce only the remote read, never the following local mirror writes.
+    // A later authorization must not join a snapshot already received from R2.
+    let pending = this.inFlightTenantReads.get(tenantKey);
+    if (!pending) {
+      pending = Promise.resolve().then(() => this.readCloud(tenantKey));
+      this.inFlightTenantReads.set(tenantKey, pending);
+      const clear = () => { if (this.inFlightTenantReads.get(tenantKey) === pending) this.inFlightTenantReads.delete(tenantKey); };
+      pending.then(clear, clear);
+    }
+    const res = await pending;
+    return clone ? structuredClone(res) : res;
+  }
+
+  async readTenantDataWithEtag(ownerId, tenantKey, options = {}) {
     // 1. Try Cloudflare R2
     if (this.cloud) {
       try {
-        const res = await this.readCloud(tenantKey);
+        const res = await this.readCloudSnapshot(tenantKey, options);
         const { record, etag, notFound, tombstone } = res || {};
         if (tombstone || (record && typeof record === "object" && !Array.isArray(record) && record._tombstone)) {
           // Explicit tombstone detected: clean up local shard cache and Redis to prevent resurrection
@@ -270,12 +285,13 @@ export class FileStrategyRepository {
           return { records: [], etag, tombstone: true, deletedAt: record?.deletedAt };
         }
         if (record && Array.isArray(record)) {
-          const serialized = JSON.stringify(record);
-          const tagKey = etag ? `${etag}:${serialized.length}` : createHash("sha256").update(serialized).digest("hex");
+          const tagKey = etag
+            ? `${etag}:${record.length}:${record[0]?.id || ""}:${record[0]?.updatedAt || ""}:${record.at(-1)?.id || ""}:${record.at(-1)?.updatedAt || ""}`
+            : createHash("sha256").update(JSON.stringify(record)).digest("hex");
           if (this.syncedShardTags.get(tenantKey) !== tagKey) {
             await this.writeLocalTenant(tenantKey, record).catch(() => {});
             if (this.redis?.isReady) {
-              await this.redis.set(this.tenantRedisKey(ownerId), serialized).catch(() => {});
+              await this.redis.set(this.tenantRedisKey(ownerId), JSON.stringify(record)).catch(() => {});
             }
             this.syncedShardTags.set(tenantKey, tagKey);
           }
@@ -404,10 +420,10 @@ export class FileStrategyRepository {
    * @param {string} ownerId
    * @returns {Promise<any[]>}
    */
-  async readTenant(ownerId) {
+  async readTenant(ownerId, options = {}) {
     await this.ensureMigrated();
     const tenantKey = this.tenantKey(ownerId);
-    const { records, tombstone } = await this.readTenantDataWithEtag(ownerId, tenantKey);
+    const { records, tombstone } = await this.readTenantDataWithEtag(ownerId, tenantKey, options);
     if (tombstone) return [];
     return Array.isArray(records) ? records.filter(record => guestVisible(record, ownerId)) : [];
   }
@@ -480,12 +496,12 @@ export class FileStrategyRepository {
    */
   async list(ownerId) {
     if (!ownerId) return [];
-    const records = await this.readTenant(ownerId);
+    const records = await this.readTenant(ownerId, { clone: false });
     return records
       .filter((record) => record.ownerId === ownerId)
       .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
       .map(({ versions, ownerId: _ownerId, clientSaveId: _clientSaveId, ...record }) => ({
-        ...record,
+        ...structuredClone(record),
         versionCount: (versions || []).length,
       }));
   }
@@ -498,8 +514,9 @@ export class FileStrategyRepository {
    */
   async getById(id, ownerId) {
     if (!id || !ownerId) return null;
-    const records = await this.readTenant(ownerId);
-    return records.find((record) => record.id === id && record.ownerId === ownerId) || null;
+    const records = await this.readTenant(ownerId, { clone: false });
+    const found = records.find((record) => record.id === id && record.ownerId === ownerId) || null;
+    return found ? structuredClone(found) : null;
   }
 
   /**

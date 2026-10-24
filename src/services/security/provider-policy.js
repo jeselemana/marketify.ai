@@ -13,15 +13,26 @@ export function wrapProvider(client, kind) {
       if (!policy) return original(params, options);
       const context = executionContext.getStore();
       if (!context?.ownerId) throw Object.assign(new Error('Missing execution identity'), { code: 'EXECUTION_UNAVAILABLE', status: 503 });
+      const measure = async (name, operation) => {
+        const startedAt = Date.now();
+        try { return await operation(); }
+        finally {
+          if (context.timings) {
+            context.timings[name] = (context.timings[name] || 0) + Date.now() - startedAt;
+            context.timings[`${name}Checks`] = (context.timings[`${name}Checks`] || 0) + 1;
+          }
+        }
+      };
+      const authorize = () => measure('authorizationMs', () => context.assertAuthorized?.());
+      const enabled = () => measure('platformMs', () => assertPlatformEnabled());
       context.signal?.throwIfAborted();
-      await assertPlatformEnabled();
-      await context.assertAuthorized?.();
+      await Promise.all([enabled(), authorize()]);
       const release = await policy.reserveProvider(context, params);
       let checking = false;
       const authorizationTimer = setInterval(async () => {
         if (checking) return;
         checking = true;
-        try { await assertPlatformEnabled(); await context.assertAuthorized?.(); }
+        try { await Promise.all([enabled(), authorize()]); }
         catch (error) { context.controller?.abort(error); }
         finally { checking = false; }
       }, 1000);
@@ -45,31 +56,80 @@ export function wrapProvider(client, kind) {
       };
       try {
         context.signal?.throwIfAborted();
-        await assertPlatformEnabled();
-        await context.assertAuthorized?.();
+        await Promise.all([enabled(), authorize()]);
         const signals = [context.signal, type === 'gemini' ? params.config?.abortSignal : options?.signal].filter(Boolean);
         const signal = signals.length ? AbortSignal.any(signals) : undefined;
         let payload;
-        if (type === 'gemini') payload = { ...params, config: { ...params.config, maxOutputTokens: Math.min(params.config?.maxOutputTokens || 16384, 16384), abortSignal: signal } };
+        if (type === 'gemini') {
+          const rawThinking = params.config?.thinkingConfig;
+          const sanitizedThinking = (rawThinking && rawThinking.thinkingLevel && rawThinking.thinkingBudget !== undefined)
+            ? { thinkingLevel: rawThinking.thinkingLevel }
+            : rawThinking;
+          payload = {
+            ...params,
+            config: {
+              ...params.config,
+              ...(sanitizedThinking ? { thinkingConfig: sanitizedThinking } : {}),
+              maxOutputTokens: Math.min(params.config?.maxOutputTokens || 16384, 16384),
+              abortSignal: signal,
+            },
+          };
+        }
         else if (type === 'chat') payload = { ...params, store: false, ...(params.max_completion_tokens ? { max_completion_tokens: Math.min(params.max_completion_tokens, 16384) } : { max_tokens: Math.min(params.max_tokens || 16384, 16384) }) };
         else payload = { ...params, store: false, max_output_tokens: Math.min(params.max_output_tokens || 16384, 16384), ...(context.guest ? { max_tool_calls: 1 } : {}) };
         context.providerStarted = true;
+        if (context.timings) context.timings.providerRequestMs = Date.now() - context.timings.startedAt;
         const value = await original(payload, type === 'gemini' ? undefined : { ...options, signal });
         observe(value);
         if (value?.[Symbol.asyncIterator]) return (async function* () {
+          // Grounded Ask keeps this prelude private until its source and fresh
+          // authorization gate pass. Validate every event, but let independent
+          // checks overlap so source metadata is not trapped behind cloud I/O.
+          let bufferPrelude = type === 'gemini' && options?.bufferGroundingPrelude === true &&
+            params.config?.tools?.some(tool => tool.googleSearch);
+          let prelude = [];
+          const validate = async event => {
+            observe(event);
+            signal?.throwIfAborted();
+            await Promise.all([enabled(), authorize()]);
+          };
+          const drain = async function* () {
+            const batch = prelude;
+            prelude = [];
+            const results = await Promise.all(batch.map(item => item.validation));
+            const failure = results.find(result => result.error);
+            if (failure) throw failure.error;
+            for (const item of batch) {
+              signal?.throwIfAborted();
+              yield item.event;
+            }
+          };
           try {
             for await (const event of value) {
-              observe(event);
-              signal?.throwIfAborted();
-              await assertPlatformEnabled();
-              await context.assertAuthorized?.();
-              yield event;
+              if (context.timings && context.timings.firstProviderEventMs === undefined) {
+                context.timings.firstProviderEventMs = Date.now() - context.timings.startedAt;
+              }
+              if (bufferPrelude) {
+                // Attach a rejection handler immediately, even while the next
+                // provider event is pending. Failed checks never publish data.
+                const validation = validate(event).then(() => ({}), error => {
+                  context.controller?.abort(error);
+                  return { error };
+                });
+                prelude.push({ event, validation });
+                const hasSources = Boolean((event.candidates?.[0]?.groundingMetadata || event.groundingMetadata)?.groundingChunks?.length);
+                if (hasSources || prelude.length >= 16) yield* drain();
+                if (hasSources) bufferPrelude = false;
+              } else {
+                await validate(event);
+                yield event;
+              }
             }
+            if (prelude.length) yield* drain();
           }
           finally { await finish(); }
         })();
-        await assertPlatformEnabled();
-        await context.assertAuthorized?.();
+        await Promise.all([enabled(), authorize()]);
         await finish(); return value;
       } catch (error) {
         if (/^EXECUTION_/.test(error.code || '')) context.controller?.abort(error);

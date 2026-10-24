@@ -207,6 +207,35 @@ test('guest HTTP: malformed Thinking values return sanitized validation errors',
   assert.equal(f.providers(), 0);
 });
 
+test('guest SSE: short answers appear before completion without leaking partial CTA markers', () => {
+  for (const count of [5, 2, 1]) {
+    const chunks = [];
+    const stream = createGuestAnswerStream(count, chunk => chunks.push(chunk));
+    stream.push('Salam!');
+    assert.equal(chunks.join(''), 'Salam!', 'The first short chunk must appear immediately');
+    stream.push(' Sizə necə kömək edə bilərəm?');
+    const body = 'Salam! Sizə necə kömək edə bilərəm?';
+    assert.equal(chunks.join(''), body);
+    const tail = '\n\n**' + getGuestCtaNotice(4) + '**';
+    for (const character of tail) {
+      stream.push(character);
+      assert.equal(chunks.join(''), body, 'Incomplete or stale model CTA must stay private');
+    }
+    const final = stream.finish();
+    assert.equal(chunks.join(''), formatGuestAnswerWithCta(body, count));
+    assert.equal(chunks.join(''), final);
+  }
+});
+
+test('guest SSE: ambiguous suffixes are released when they turn out to be answer text', () => {
+  const chunks = [];
+  const stream = createGuestAnswerStream(5, chunk => chunks.push(chunk));
+  const body = ' **Keyfiyyət** və Qeydiyyat faydalıdır. Diqqətli olun.';
+  for (const character of body) stream.push(character);
+  assert.equal(chunks.join(''), body.trim());
+  assert.equal(stream.finish(), formatGuestAnswerWithCta(body, 5));
+});
+
 test('guest SSE: streams the body progressively and publishes one authoritative CTA across chunk boundaries', () => {
   for (const count of [5, 2, 1]) {
     const body = '  ' + 'Biznes cavabı. '.repeat(150) + '\n\n';

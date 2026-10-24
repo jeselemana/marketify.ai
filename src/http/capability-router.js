@@ -46,7 +46,12 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
   router.get("/plugins", requireAuth, (_req, res) => res.json({ plugins: registry.list() }));
   router.post("/", (req, res, next) => allowGuestChat && !req.user && req.ownerId?.startsWith("guest_") ? next() : requireAuth(req, res, next), async (req, res, next) => {
     let streaming = false, controller, heartbeat, completedResult, committed = false, allocatedChatId, initialChat;
-    const emit = data => { if (!res.destroyed && !res.writableEnded) res.write(`data: ${JSON.stringify(data)}\n\n`); };
+    const emit = data => {
+      if (!res.destroyed && !res.writableEnded) {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        res.flush?.();
+      }
+    };
     try {
       const parsed = askRequestSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "Sorğu parametrləri düzgün deyil.", code: "VALIDATION_ERROR" });
@@ -110,9 +115,13 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
       const safeHistory = history.map((message, index) => chat && index < chat.messages.length ? chat.messages[index] : { ...storedMessage(message), pluginIds: message.pluginIds });
       initialChat = await chats.saveChat({ id: allocatedChatId, ownerId: req.ownerId, messages: safeHistory, strategyId, taskId, mustExist: Boolean(chat), expectedRevision: chat ? expectedRevision : null });
       if (req.securityContext) req.securityContext.assertResources = async () => {
-        if (!await chats.getById(allocatedChatId, req.ownerId) ||
-            (strategyId && !await strategies.getById(strategyId, req.ownerId)) ||
-            (taskId && !(await planner.list(req.ownerId)).some(item => item.id === taskId))) {
+        const [authorizedChat, authorizedStrategy, authorizedTasks] = await Promise.all([
+          chats.getById(allocatedChatId, req.ownerId),
+          strategyId ? strategies.getById(strategyId, req.ownerId) : null,
+          taskId ? planner.list(req.ownerId) : null,
+        ]);
+        if (!authorizedChat || (strategyId && !authorizedStrategy) ||
+            (taskId && !authorizedTasks.some(item => item.id === taskId))) {
           throw Object.assign(new Error('Execution context removed'), { code: 'EXECUTION_REVOKED', status: 403 });
         }
       };
@@ -131,7 +140,7 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
         requestedModel: payload.model, scopes: new Set(["context:read", "artifacts:write", "web:search"]), signal: controller.signal,
         language: req.user?.settings?.language || (req.headers["accept-language"]?.includes("en") ? "en" : "az"),
         onStatus: streaming ? emit : () => {},
-        onChunk: streaming && isWebResearchOnly ? (chunk) => emit({ chunk, model: "gemini-3.8-flash" }) : undefined,
+        onChunk: streaming && isWebResearchOnly ? (chunk, groundingMetadata) => emit({ chunk, groundingMetadata, model: "gemini-3.8-flash" }) : undefined,
       });
       const assistant = { role: "assistant", content: result.reply, artifacts: result.artifacts, execution: result.execution, model: result.model, groundingMetadata: result.groundingMetadata, createdAt: new Date().toISOString() };
       await req.securityContext?.assertAuthorized?.();

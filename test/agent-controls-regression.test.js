@@ -729,7 +729,7 @@ test('Priority 1: primary /api/ask HTTP route enforces requireGrounding on strea
     httpStatusOf,
     publicErrorMessage,
     researchService: {},
-    console: { warn() {}, error() {} },
+    console: { warn() {}, error() {}, log() {} },
   };
   vm.runInNewContext(`${source.slice(genStart, genEnd)}\n${source.slice(routeStart, routeEnd)}`, sandbox);
   const server = app.listen(0, '127.0.0.1');
@@ -812,6 +812,46 @@ test('Priority 1: primary /api/ask HTTP route enforces requireGrounding on strea
   assert.equal(okJson.reply, 'Təsdiqlənmiş cavab.');
   assert.equal(okJson.groundingMetadata.groundingChunks.length, 1);
   assert.equal(savedChats.length, 1);
+
+  // A metadata-only grounding event releases the buffered text while the
+  // provider is still running. Later deltas must not be duplicated at finish.
+  let releaseProvider;
+  const providerGate = new Promise(resolve => { releaseProvider = resolve; });
+  activeClient.models.generateContentStream = async () => (async function* () {
+    yield { text: 'İlk hissə.', candidates: [{}] };
+    yield { text: '', candidates: [{ groundingMetadata: validGrounding }] };
+    await providerGate;
+    yield { text: ' Son hissə.', candidates: [{}] };
+  })();
+  try {
+    const response = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(5000),
+      body: JSON.stringify({ stream: true, messages: [{ role: 'user', content: mandatorySearchPrompt }] }),
+    });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let received = '';
+    while (!received.includes('İlk hissə.')) {
+      const part = await reader.read();
+      assert.equal(part.done, false, 'Grounded prefix must arrive before provider completion');
+      received += decoder.decode(part.value, { stream: true });
+    }
+    assert.equal(savedChats.length, 1, 'Streaming must begin before the final save');
+    releaseProvider();
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      received += decoder.decode(part.value, { stream: true });
+    }
+    const events = received.split('\n\n').filter(line => line.startsWith('data: ')).map(line => JSON.parse(line.slice(6)));
+    assert.equal(events.filter(event => event.chunk).map(event => event.chunk).join(''), 'İlk hissə. Son hissə.');
+    assert.equal(events.find(event => event.chunk).groundingMetadata.groundingChunks.length, 1);
+    assert.equal(events.at(-1).done, true);
+    assert.equal(savedChats.length, 2);
+  } finally { releaseProvider(); }
+
+
 });
 
 test('Priority 2: Research separates empty search from failed search, bounds retries without marking failed stage completed, preserves deadline and aligns restart SSE status', async t => {

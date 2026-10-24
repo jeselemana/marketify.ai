@@ -209,6 +209,7 @@ export async function getRelevantUserContext({
           updatedAt: chat.updatedAt || chat.createdAt || "",
           label: `Əvvəlki istifadəçi qeydi (${clip(chat.title, 80) || "söhbət"})`,
           value: clip(message.content),
+          resourceKey: chat.id ? `chat:${chat.id}` : null,
           exists: chatRepository?.getById ? async () => Boolean(await chatRepository.getById(chat.id, ownerId)) : null,
         });
       }
@@ -225,6 +226,7 @@ export async function getRelevantUserContext({
         updatedAt: strategy.updatedAt || strategy.createdAt || "",
         label: `Yadda saxlanmış strategiya (${clip(strategy.title, 80) || "strategiya"})`,
         value: clip(strategy.brief || strategy.context?.business || strategy.summary),
+        resourceKey: strategy.id ? `strategy:${strategy.id}` : null,
         exists: strategyRepository?.getById ? async () => Boolean(await strategyRepository.getById(strategy.id, ownerId)) : null,
       });
     }
@@ -244,7 +246,19 @@ export async function getRelevantUserContext({
     .slice(0, maxItems);
   if (!selected.length) return "";
   const execution = executionContext.getStore();
-  if (execution?.ownerId === ownerId) execution.resourceChecks = [...(execution.resourceChecks || []), ...selected.map(item => item.exists).filter(Boolean)];
+  if (execution?.ownerId === ownerId) {
+    const seenResourceKeys = new Set();
+    const uniqueChecks = [];
+    for (const item of selected) {
+      if (!item.exists) continue;
+      if (item.resourceKey) {
+        if (seenResourceKeys.has(item.resourceKey)) continue;
+        seenResourceKeys.add(item.resourceKey);
+      }
+      uniqueChecks.push(item.exists);
+    }
+    execution.resourceChecks = [...(execution.resourceChecks || []), ...uniqueChecks];
+  }
 
   return selected.map((item) => `- ${item.label}: ${item.value}`).join("\n");
 }

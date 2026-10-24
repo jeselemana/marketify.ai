@@ -86,16 +86,22 @@ export async function saveJSONToR2(fileName, data) {
   const s3 = getS3Client();
   if (!s3) return false;
 
+  const fullKey = `data/${fileName}`;
+  _r2EtagCache.delete(fullKey);
   try {
     const command = new PutObjectCommand({
       Bucket: getBucket(),
-      Key: `data/${fileName}`,
+      Key: fullKey,
       Body: JSON.stringify(data, null, 2),
       ContentType: "application/json",
     });
-    await s3.send(command);
+    const response = await s3.send(command);
+    if (response?.ETag) {
+      setR2EtagCache(fullKey, { record: structuredClone(data), etag: response.ETag, tombstone: false });
+    }
     return true;
   } catch (err) {
+    _r2EtagCache.delete(fullKey);
     console.error(`❌ Cloudflare R2 yazma xətası (${fileName}):`, err.message);
     return false;
   }
@@ -107,10 +113,12 @@ export async function deleteJSONFromR2(fileName) {
   const s3 = getS3Client();
   if (!s3) return false;
 
+  const fullKey = `data/${fileName}`;
+  _r2EtagCache.delete(fullKey);
   try {
     const command = new DeleteObjectCommand({
       Bucket: getBucket(),
-      Key: `data/${fileName}`,
+      Key: fullKey,
     });
     await s3.send(command);
     return true;
@@ -197,29 +205,87 @@ export async function writeUpObject(ownerHash, record, etag) {
   }
 }
 
+const MAX_R2_ETAG_CACHE_ENTRIES = 128;
+const _r2EtagCache = new Map();
+const _r2InFlightReads = new Map();
+
+function setR2EtagCache(fullKey, entry) {
+  if (!entry?.etag || entry.etag === '"dry-run-etag"') {
+    _r2EtagCache.delete(fullKey);
+    return;
+  }
+  if (_r2EtagCache.has(fullKey)) _r2EtagCache.delete(fullKey);
+  else if (_r2EtagCache.size >= MAX_R2_ETAG_CACHE_ENTRIES) {
+    const oldestKey = _r2EtagCache.keys().next().value;
+    if (oldestKey) _r2EtagCache.delete(oldestKey);
+  }
+  _r2EtagCache.set(fullKey, entry);
+}
+
+async function readConditionalJsonFromR2(fullKey, errorLabel) {
+  if (!isR2Configured()) return { record: null, etag: null, isCloud: false, notFound: true, tombstone: false };
+  const s3 = getS3Client();
+  if (!s3) return { record: null, etag: null, isCloud: false, notFound: true, tombstone: false };
+
+  let pending = _r2InFlightReads.get(fullKey);
+  if (!pending) {
+    pending = (async () => {
+      const cached = _r2EtagCache.get(fullKey);
+      try {
+        const command = new GetObjectCommand({
+          Bucket: getBucket(),
+          Key: fullKey,
+          ...(cached?.etag ? { IfNoneMatch: cached.etag } : {}),
+        });
+        const response = await s3.send(command);
+        const bodyStr = await response.Body.transformToString();
+        if (!bodyStr || !bodyStr.trim()) {
+          _r2EtagCache.delete(fullKey);
+          return { record: null, etag: response.ETag || null, isCloud: true, notFound: false, tombstone: false };
+        }
+        const parsed = JSON.parse(bodyStr);
+        const isTombstone = Boolean(parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed._tombstone);
+        const etag = response.ETag || null;
+        if (etag) {
+          setR2EtagCache(fullKey, { record: parsed, etag, tombstone: isTombstone });
+        } else {
+          _r2EtagCache.delete(fullKey);
+        }
+        return { record: parsed, etag, notFound: false, isCloud: true, tombstone: isTombstone };
+      } catch (err) {
+        const statusCode = err?.$metadata?.httpStatusCode;
+        const code = err?.name || err?.Code || statusCode;
+        if ((statusCode === 304 || code === "NotModified" || code === 304) && cached) {
+          return {
+            record: cached.record,
+            etag: cached.etag,
+            notFound: false,
+            isCloud: true,
+            tombstone: Boolean(cached.tombstone),
+          };
+        }
+        if (code === "NoSuchKey" || code === 404 || err?.message?.includes("NoSuchKey")) {
+          _r2EtagCache.delete(fullKey);
+          return { record: null, etag: null, notFound: true, isCloud: true, tombstone: false };
+        }
+        console.error(`❌ Cloudflare R2 ${errorLabel} error:`, err?.message || err);
+        throw err;
+      }
+    })();
+    _r2InFlightReads.set(fullKey, pending);
+    const clear = () => {
+      if (_r2InFlightReads.get(fullKey) === pending) _r2InFlightReads.delete(fullKey);
+    };
+    pending.then(clear, clear);
+  }
+
+  const res = await pending;
+  return { ...res };
+}
+
 // Cloudflare R2-dən Users JSON faylı oxumaq (OCC ETag ilə)
 export async function readUserObject() {
-  if (!isR2Configured()) return { record: null, etag: null, isCloud: false };
-  const s3 = getS3Client();
-  if (!s3) return { record: null, etag: null, isCloud: false };
-
-  try {
-    const command = new GetObjectCommand({
-      Bucket: getBucket(),
-      Key: "data/users.json",
-    });
-    const response = await s3.send(command);
-    const str = await response.Body.transformToString();
-    if (!str || !str.trim()) return { record: null, etag: response.ETag || null, isCloud: true };
-    return { record: JSON.parse(str), etag: response.ETag || null, isCloud: true, notFound: false };
-  } catch (err) {
-    const code = err.name || err.Code || err.$metadata?.httpStatusCode;
-    if (code === "NoSuchKey" || code === 404 || err.message?.includes("NoSuchKey")) {
-      return { record: null, etag: null, notFound: true, isCloud: true };
-    }
-    console.error("❌ Cloudflare R2 readUserObject error:", err?.message || err);
-    throw err;
-  }
+  return readConditionalJsonFromR2("data/users.json", "readUserObject");
 }
 
 // Cloudflare R2-yə Users JSON faylı yazmaq (OCC ETag CAS ilə)
@@ -228,17 +294,24 @@ export async function writeUserObject(record, etag = null) {
   const s3 = getS3Client();
   if (!s3) return false;
 
+  const fullKey = "data/users.json";
   try {
     const command = new PutObjectCommand({
       Bucket: getBucket(),
-      Key: "data/users.json",
+      Key: fullKey,
       Body: `${JSON.stringify(record, null, 2)}\n`,
       ContentType: "application/json",
       ...(etag ? { IfMatch: etag } : { IfNoneMatch: "*" }),
     });
-    await s3.send(command);
+    const response = await s3.send(command);
+    if (response?.ETag) {
+      setR2EtagCache(fullKey, { record: structuredClone(record), etag: response.ETag, tombstone: false });
+    } else {
+      _r2EtagCache.delete(fullKey);
+    }
     return true;
   } catch (err) {
+    _r2EtagCache.delete(fullKey);
     const statusCode = err.$metadata?.httpStatusCode;
     if (statusCode === 409 || statusCode === 412 || err.name === "PreconditionFailed") {
       return false; // OCC conflict
@@ -250,27 +323,7 @@ export async function writeUserObject(record, etag = null) {
 
 // Cloudflare R2-dən AuthStore JSON faylı oxumaq (OCC ETag ilə)
 export async function readAuthStoreObject() {
-  if (!isR2Configured()) return { record: null, etag: null, isCloud: false };
-  const s3 = getS3Client();
-  if (!s3) return { record: null, etag: null, isCloud: false };
-
-  try {
-    const command = new GetObjectCommand({
-      Bucket: getBucket(),
-      Key: "data/auth-store.json",
-    });
-    const response = await s3.send(command);
-    const str = await response.Body.transformToString();
-    if (!str || !str.trim()) return { record: null, etag: response.ETag || null, isCloud: true };
-    return { record: JSON.parse(str), etag: response.ETag || null, isCloud: true, notFound: false };
-  } catch (err) {
-    const code = err.name || err.Code || err.$metadata?.httpStatusCode;
-    if (code === "NoSuchKey" || code === 404 || err.message?.includes("NoSuchKey")) {
-      return { record: null, etag: null, notFound: true, isCloud: true };
-    }
-    console.error("❌ Cloudflare R2 readAuthStoreObject error:", err?.message || err);
-    throw err;
-  }
+  return readConditionalJsonFromR2("data/auth-store.json", "readAuthStoreObject");
 }
 
 // Cloudflare R2-yə AuthStore JSON faylı yazmaq (OCC ETag CAS ilə)
@@ -279,17 +332,24 @@ export async function writeAuthStoreObject(record, etag = null) {
   const s3 = getS3Client();
   if (!s3) return false;
 
+  const fullKey = "data/auth-store.json";
   try {
     const command = new PutObjectCommand({
       Bucket: getBucket(),
-      Key: "data/auth-store.json",
+      Key: fullKey,
       Body: `${JSON.stringify(record, null, 2)}\n`,
       ContentType: "application/json",
       ...(etag ? { IfMatch: etag } : { IfNoneMatch: "*" }),
     });
-    await s3.send(command);
+    const response = await s3.send(command);
+    if (response?.ETag) {
+      setR2EtagCache(fullKey, { record: structuredClone(record), etag: response.ETag, tombstone: false });
+    } else {
+      _r2EtagCache.delete(fullKey);
+    }
     return true;
   } catch (err) {
+    _r2EtagCache.delete(fullKey);
     const statusCode = err.$metadata?.httpStatusCode;
     if (statusCode === 409 || statusCode === 412 || err.name === "PreconditionFailed") {
       return false; // OCC conflict
@@ -322,31 +382,8 @@ function resolveTenantStorageKey(prefixOrKey, maybeTenantKey = null) {
  * @returns {Promise<{ record: any, etag: string | null, notFound?: boolean, isCloud: boolean, tombstone?: boolean }>}
  */
 export async function readTenantObject(prefixOrKey, maybeTenantKey = null) {
-  if (!isR2Configured()) return { record: null, etag: null, isCloud: false, notFound: true, tombstone: false };
-  const s3 = getS3Client();
-  if (!s3) return { record: null, etag: null, isCloud: false, notFound: true, tombstone: false };
-
   const fullKey = resolveTenantStorageKey(prefixOrKey, maybeTenantKey);
-  try {
-    const response = await s3.send(
-      new GetObjectCommand({
-        Bucket: getBucket(),
-        Key: fullKey,
-      })
-    );
-    const bodyStr = await response.Body.transformToString();
-    if (!bodyStr || !bodyStr.trim()) return { record: null, etag: response.ETag || null, isCloud: true, notFound: false, tombstone: false };
-    const parsed = JSON.parse(bodyStr);
-    const isTombstone = Boolean(parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed._tombstone);
-    return { record: parsed, etag: response.ETag || null, notFound: false, isCloud: true, tombstone: isTombstone };
-  } catch (error) {
-    const code = error.name || error.Code || error.$metadata?.httpStatusCode;
-    if (code === "NoSuchKey" || code === 404 || error.message?.includes("NoSuchKey")) {
-      return { record: null, etag: null, notFound: true, isCloud: true, tombstone: false };
-    }
-    console.error(`❌ Cloudflare R2 readTenantObject error (${fullKey}):`, error?.message || error);
-    throw error;
-  }
+  return readConditionalJsonFromR2(fullKey, `readTenantObject (${fullKey})`);
 }
 
 /**
@@ -378,7 +415,7 @@ export async function writeTenantObject(prefixOrKey, ...args) {
   }
 
   try {
-    await s3.send(
+    const response = await s3.send(
       new PutObjectCommand({
         Bucket: getBucket(),
         Key: fullKey,
@@ -387,8 +424,15 @@ export async function writeTenantObject(prefixOrKey, ...args) {
         ...(etag ? { IfMatch: etag } : { IfNoneMatch: "*" }),
       })
     );
+    const isTombstone = Boolean(data && typeof data === "object" && !Array.isArray(data) && data._tombstone);
+    if (response?.ETag) {
+      setR2EtagCache(fullKey, { record: structuredClone(data), etag: response.ETag, tombstone: isTombstone });
+    } else {
+      _r2EtagCache.delete(fullKey);
+    }
     return true;
   } catch (error) {
+    _r2EtagCache.delete(fullKey);
     const statusCode = error.$metadata?.httpStatusCode;
     if (statusCode === 409 || statusCode === 412 || error.name === "PreconditionFailed") {
       return false; // OCC conflict detected
@@ -411,6 +455,7 @@ export async function deleteTenantObject(prefixOrKey, maybeTenantKey = null) {
   if (!s3) return false;
 
   const fullKey = resolveTenantStorageKey(prefixOrKey, maybeTenantKey);
+  _r2EtagCache.delete(fullKey);
   try {
     await s3.send(
       new DeleteObjectCommand({
