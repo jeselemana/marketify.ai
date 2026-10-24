@@ -177,8 +177,8 @@ test('guest quotas: Redis uses the larger owner/IP count and rejects corrupt cou
   await assert.rejects(policy.getGuestQuota(req), { code: 'EXECUTION_UNAVAILABLE' });
 });
 
-test('production requires Redis at startup, quota reads, admission and provider reservation', async () => {
-  assert.throws(() => validateSecurityConfig({ NODE_ENV: 'production', SESSION_SECRET: 'fixture', AUTH_SECRET: 'fixture', APP_URL: 'https://example.com' }), /REDIS_URL/);
+test('production requires Redis at startup when configured, quota reads, admission and provider reservation', async () => {
+  assert.throws(() => validateSecurityConfig({ NODE_ENV: 'production', REQUIRE_REDIS: 'true', SESSION_SECRET: 'fixture', AUTH_SECRET: 'fixture', APP_URL: 'https://example.com' }), /REDIS_URL/);
   const policy = new AiPolicy({ redis: null, env: { NODE_ENV: 'production' } });
   await assert.rejects(policy.getGuestQuota({ ownerId: 'guest_test' }), { code: 'EXECUTION_UNAVAILABLE' });
   await assert.rejects(policy.reserveProvider({}, {}), { code: 'EXECUTION_UNAVAILABLE' });
