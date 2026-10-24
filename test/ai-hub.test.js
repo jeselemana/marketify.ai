@@ -16,13 +16,13 @@ test("index.html: AI Hub exists in sidebar primary navigation and navigation rai
   assert.ok(html.includes('id="railAiHubButton"'), "railAiHubButton exists in navigation rail");
   assert.ok(html.includes('data-tooltip="AI Hub (Tezliklə)"'), "railAiHubButton has tooltip with Tezliklə indicator");
 
-  // Ordering in sidebar: upNav -> aiHubNav -> limitsNav
+  // Ordering in sidebar: upNav -> aiHubNav -> installAppNav
   const upNavIndex = html.indexOf('id="upNav"');
   const aiHubNavIndex = html.indexOf('id="aiHubNav"');
-  const limitsNavIndex = html.indexOf('id="limitsNav"');
-  assert.ok(upNavIndex !== -1 && aiHubNavIndex !== -1 && limitsNavIndex !== -1, "All nav items exist");
+  const installAppNavIndex = html.indexOf('id="installAppNav"');
+  assert.ok(upNavIndex !== -1 && aiHubNavIndex !== -1 && installAppNavIndex !== -1, "All nav items exist");
   assert.ok(upNavIndex < aiHubNavIndex, "upNav precedes aiHubNav");
-  assert.ok(aiHubNavIndex < limitsNavIndex, "aiHubNav precedes limitsNav");
+  assert.ok(aiHubNavIndex < installAppNavIndex, "aiHubNav precedes installAppNav");
 });
 
 test("i18n.js: aiHub translations exist with 100% key parity in AZ and EN, anchored on core thesis", () => {

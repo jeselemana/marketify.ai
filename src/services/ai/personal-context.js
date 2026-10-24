@@ -1,3 +1,5 @@
+import { executionContext } from '../security/privacy-policy.js';
+
 const STOP_WORDS = new Set([
   "about", "after", "also", "and", "are", "but", "can", "for", "from", "how", "into", "our", "that", "the", "their", "this", "what", "when", "with", "your",
   "amma", "artıq", "bəlkə", "bir", "biraz", "biz", "bizim", "bu", "buna", "bunun", "çünki", "daha", "də", "edə", "edir", "et", "etmək", "həm", "hansı", "hər", "ilə", "kimi", "mən", "mənim", "mənə", "necə", "nə", "nəyə", "olan", "olaraq", "olmaq", "olur", "onlar", "onların", "siz", "sizin", "üçün", "və", "ya", "yaxud", "yoxsa",
@@ -133,9 +135,16 @@ async function loadTenantContextData(ownerId, chatRepository, strategyRepository
     cached &&
     now - cached.timestamp < USER_CONTEXT_CACHE_TTL_MS &&
     cached.chatRepoRef === chatRepository &&
-    cached.strategyRepoRef === strategyRepository
+    cached.strategyRepoRef === strategyRepository &&
+    (!chatRepository || typeof chatRepository.getById === 'function') &&
+    (!strategyRepository || typeof strategyRepository.getById === 'function')
   ) {
-    return { allChats: cached.allChats, allStrategies: cached.allStrategies };
+    // Cached content is never authoritative across replicas or after deletion.
+    const [chats, strategies] = await Promise.all([
+      Promise.all(cached.allChats.map(item => chatRepository.getById(item.id, ownerId).catch(() => null))),
+      Promise.all(cached.allStrategies.map(item => strategyRepository.getById(item.id, ownerId).catch(() => null))),
+    ]);
+    return { allChats: chats.filter(item => item && !item.deleted && item.ownerId === ownerId), allStrategies: strategies.filter(item => item && !item.deleted && item.ownerId === ownerId) };
   }
 
   const [rawChats, rawStrategies] = await Promise.all([
@@ -200,6 +209,7 @@ export async function getRelevantUserContext({
           updatedAt: chat.updatedAt || chat.createdAt || "",
           label: `Əvvəlki istifadəçi qeydi (${clip(chat.title, 80) || "söhbət"})`,
           value: clip(message.content),
+          exists: chatRepository?.getById ? async () => Boolean(await chatRepository.getById(chat.id, ownerId)) : null,
         });
       }
     }
@@ -215,6 +225,7 @@ export async function getRelevantUserContext({
         updatedAt: strategy.updatedAt || strategy.createdAt || "",
         label: `Yadda saxlanmış strategiya (${clip(strategy.title, 80) || "strategiya"})`,
         value: clip(strategy.brief || strategy.context?.business || strategy.summary),
+        exists: strategyRepository?.getById ? async () => Boolean(await strategyRepository.getById(strategy.id, ownerId)) : null,
       });
     }
   }
@@ -232,6 +243,8 @@ export async function getRelevantUserContext({
     .sort((a, b) => b.score - a.score || String(b.updatedAt).localeCompare(String(a.updatedAt)))
     .slice(0, maxItems);
   if (!selected.length) return "";
+  const execution = executionContext.getStore();
+  if (execution?.ownerId === ownerId) execution.resourceChecks = [...(execution.resourceChecks || []), ...selected.map(item => item.exists).filter(Boolean)];
 
   return selected.map((item) => `- ${item.label}: ${item.value}`).join("\n");
 }

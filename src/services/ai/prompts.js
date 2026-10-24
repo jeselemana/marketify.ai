@@ -297,8 +297,204 @@ If reference context (such as a saved strategy or task) is provided, thoroughly 
 If the user wants to build a complete business or marketing strategy, explain that the Build mode is optimized for the structured strategy workflow, while still answering their immediate question.
 ${EPISTEMIC_HUMILITY_RULES}`;
 
-export function buildAskPrompt({ strategyContext = "", taskContext = "", personalizationContext = "" } = {}) {
-  return `${ASK_INSTRUCTIONS}${strategyContext}${taskContext}${personalizationContext}`;
+export const GUEST_EXHAUSTED_MESSAGE = "Qonaq mesaj limitiniz bitdi. Helmer-dən limitsiz istifadə etmək və söhbəti davam etdirmək üçün qeydiyyatdan keçin.";
+export const GUEST_BUILD_EXHAUSTED_MESSAGE = "Qonaq brif limitiniz bitdi. Helmer-dən limitsiz istifadə etmək və yeni strategiyalar hazırlamaq üçün qeydiyyatdan keçin.";
+export const GUEST_BUILD_EXHAUSTED_MESSAGE_EN = "Guest brief limit reached. Sign up to keep all your strategies and continue unlimited usage.";
+
+export function getGuestBuildCtaNotice(remainingBriefs, isEn = false) {
+  const count = Math.max(0, Number(remainingBriefs) || 0);
+  if (isEn) {
+    if (count === 0) return GUEST_BUILD_EXHAUSTED_MESSAGE_EN;
+    if (count === 1 || count === 2) {
+      return `Attention: Only ${count} brief${count === 1 ? "" : "s"} left! Sign up now so your strategy is saved and not interrupted.`;
+    }
+    return `Guest mode · Remaining briefs: ${count}. Sign up to save all your strategies and unlock unlimited usage.`;
+  }
+  if (count === 0) {
+    return GUEST_BUILD_EXHAUSTED_MESSAGE;
+  }
+  if (count === 1 || count === 2) {
+    return `Diqqət: Cəmi ${count} brif haqqınız qaldı! Strategiyanın yarımçıq qalmaması və sessiyanın itməməsi üçün indi qeydiyyatdan keçin.`;
+  }
+  return `Qeyd: Qonaq rejimində qalan brif haqqınız: ${count}. Bütün analizlərin yaddaşda qalması və limitsiz istifadə üçün qeydiyyatdan keçin.`;
 }
 
+export function getGuestCtaNotice(remainingMessages) {
+  const count = Math.max(0, Number(remainingMessages) || 0);
+  if (count === 0) {
+    return GUEST_EXHAUSTED_MESSAGE;
+  }
+  if (count === 1 || count === 2) {
+    return `Diqqət: Cəmi ${count} mesaj haqqınız qaldı! Söhbətin yarımçıq qalmaması və sessiyanın itməməsi üçün indi qeydiyyatdan keçin.`;
+  }
+  return `Qeyd: Qonaq rejimində qalan mesaj haqqınız: ${count}. Bütün analizlərin yaddaşda qalması və limitsiz istifadə üçün qeydiyyatdan keçin.`;
+}
 
+export function formatGuestAnswerWithCta(text, remainingMessages) {
+  const count = Math.max(0, Number(remainingMessages) || 0);
+  if (count === 0) {
+    return GUEST_EXHAUSTED_MESSAGE;
+  }
+  // Remove model-authored CTA copies before appending the authoritative notice once.
+  let answer = (text || "").trim();
+  const suffix = /(?:\n\s*)?\*{0,2}(?:Qeyd: Qonaq rejimində qalan mesaj haqqınız: \d+\. Bütün analizlərin yaddaşda qalması və limitsiz istifadə üçün qeydiyyatdan keçin\.|Diqqət: Cəmi \d+ mesaj haqqınız qaldı! Söhbətin yarımçıq qalmaması və sessiyanın itməməsi üçün indi qeydiyyatdan keçin\.)\*{0,2}\s*$/;
+  while (suffix.test(answer)) answer = answer.replace(suffix, '').trim();
+  const notice = getGuestCtaNotice(count);
+  return `${answer}\n\n${count <= 2 ? `**${notice}**` : notice}`.trim();
+}
+
+// Keep the CTA tail private while allowing the answer body to stream immediately.
+export function createGuestAnswerStream(remainingMessages, emit) {
+  let received = '', published = '';
+  return {
+    push(chunk) {
+      if (!(remainingMessages > 0)) return;
+      received += chunk;
+      const text = received.trimStart();
+      const marker = text.search(/\*{0,2}(?:Qeyd: Qonaq rejimində qalan mesaj haqqınız:|Diqqət: Cəmi)/);
+      const end = Math.max(0, Math.min(text.length - 512, marker < 0 ? text.length : marker));
+      const prefix = text.slice(0, end).trimEnd();
+      if (prefix.length > published.length) {
+        emit(prefix.slice(published.length));
+        published = prefix;
+      }
+    },
+    finish(text = received) {
+      const formatted = formatGuestAnswerWithCta(text, remainingMessages);
+      if (!formatted.startsWith(published)) throw new Error('Guest stream content mismatch');
+      const suffix = formatted.slice(published.length);
+      if (suffix) emit(suffix);
+      return formatted;
+    },
+  };
+}
+
+export function buildGuestMessageLimitInstructions(remainingMessages) {
+  if (remainingMessages === null || remainingMessages === undefined) {
+    return "";
+  }
+  const count = Math.max(0, Number(remainingMessages) || 0);
+  if (count === 0) {
+    return `\n\n### İSTİFADƏÇİ STATUSU VƏ MESAJ LİMİTİ QAYDALARI:
+1. İstifadəçi statusu: Qeydiyyatsız (Qonaq).
+2. Qonaq mesaj limiti bitib ({remaining_messages} = 0).
+3. İstifadəçinin sualına cavab vermə. Yalnız və yalnız bu bildirişi qaytar:
+   "${GUEST_EXHAUSTED_MESSAGE}"`;
+  }
+  return `\n\n### İSTİFADƏÇİ STATUSU VƏ MESAJ LİMİTİ QAYDALARI:
+1. İstifadəçi statusu: Qeydiyyatsız (Qonaq). Cari {remaining_messages} = ${count}.
+2. Cavab qaydası: İstifadəçinin biznes və strateji sualını tam, peşəkar və keyfiyyətli cavablandır.
+3. Cavabın sonunda boş sətirdən sonra yalnız bu dəqiq bildirişi bir dəfə əlavə et${count <= 2 ? ", son sətri qalın vurğula" : ""}:
+   "${getGuestCtaNotice(count)}"`;
+}
+
+export const GUEST_RESTRICTION_NOTICES = {
+  thinking: "Ask rejimində 'Thinking' funksiyasından istifadə etmək üçün qeydiyyatdan keçməlisiniz. Hesab yaradaraq dərin strateji təhlilləri aktivləşdirin.",
+  file: "Fayl yükləmək və sənədlərinizi analiz etmək üçün qeydiyyatdan keçməlisiniz.",
+  strategy: "Saxlanılmış strategiyalarınıza daxil olmaq və onlar üzərində işləmək üçün qeydiyyatdan keçməlisiniz.",
+  planner: "'Planner Tasks' bölməsindən istifadə etmək və tapşırıqlarınızı idarə etmək üçün qeydiyyatdan keçməlisiniz.",
+};
+
+export function buildGuestFunctionalRestrictionInstructions() {
+  return `\n\n### GİRİŞ VƏ FUNKSİONAL MƏHDUDİYYƏT QAYDALARI (QEYDİYYAT TƏLƏBİ):
+Hazırkı istifadəçi sessiyası: Qeydiyyatsız (Qonaq).
+Aşağıdakı 4 funksiyadan hər hansı biri tələb olunduqda və ya istifadəçi bunlardan istifadə etməyə cəhd göstərdikdə, sorğunu qətiyyən icra etmə və YALNIZ aidiyyəti dəqiq bildirişi qaytararaq birbaşa qeydiyyat tələb et:
+1. Ask rejimində "Thinking" (Düşünmə / Dərin Təhlil):
+   - Bildiriş: "${GUEST_RESTRICTION_NOTICES.thinking}"
+2. Fayl əlavə etmə ("Attach file" / sənəd analizi / fayl yükləmə):
+   - Bildiriş: "${GUEST_RESTRICTION_NOTICES.file}"
+3. Yadda saxlanılmış strategiyalar ("My Strategies" və "Discuss a saved strategy"):
+   - Bildiriş: "${GUEST_RESTRICTION_NOTICES.strategy}"
+4. Planlayıcı tapşırıqları ("Planner Tasks"):
+   - Bildiriş: "${GUEST_RESTRICTION_NOTICES.planner}"
+
+Ümumi Qayda: Yuxarıdakı 4 halda əlavə heç bir izahat və ya alternativ cavab vermə. Yalnız göstərilən dəqiq bildirişi qaytar və qeydiyyata yönləndir.`;
+}
+
+export function detectGuestFunctionalRestriction({
+  lastUserMsg = "",
+  hasAttachment = false,
+  hasStrategyContext = false,
+  hasTaskContext = false,
+  rawThinkingLevel = null,
+} = {}) {
+  const text = (lastUserMsg || "").toLowerCase();
+
+  // 1. Thinking
+  if (rawThinkingLevel === "high" || rawThinkingLevel === "medium") {
+    return GUEST_RESTRICTION_NOTICES.thinking;
+  }
+  if (
+    text.includes("thinking") ||
+    text.includes("dərindən düşün") ||
+    text.includes("düşünmə rejim") ||
+    text.includes("dərin təhlil") ||
+    text.includes("think deeper") ||
+    text.includes("deep thinking")
+  ) {
+    return GUEST_RESTRICTION_NOTICES.thinking;
+  }
+
+  // 2. File
+  if (hasAttachment) {
+    return GUEST_RESTRICTION_NOTICES.file;
+  }
+  if (
+    text.includes("fayl əlavə") ||
+    text.includes("faylı analiz") ||
+    text.includes("fayl yüklə") ||
+    text.includes("sənədi analiz") ||
+    text.includes("attach file") ||
+    text.includes("upload file")
+  ) {
+    return GUEST_RESTRICTION_NOTICES.file;
+  }
+
+  // 3. Saved Strategies
+  if (hasStrategyContext) {
+    return GUEST_RESTRICTION_NOTICES.strategy;
+  }
+  if (
+    text.includes("my strategies") ||
+    text.includes("saved strateg") ||
+    text.includes("saxlanılmış strategiya") ||
+    text.includes("yadda saxlanılmış strategiya") ||
+    text.includes("discuss a saved strategy") ||
+    text.includes("strategiyamı aç") ||
+    text.includes("strategiyalarımı göstər")
+  ) {
+    return GUEST_RESTRICTION_NOTICES.strategy;
+  }
+
+  // 4. Planner Tasks
+  if (hasTaskContext) {
+    return GUEST_RESTRICTION_NOTICES.planner;
+  }
+  if (
+    text.includes("planner task") ||
+    text.includes("planlayıcı tapşırıq") ||
+    text.includes("tapşırıqlarımı göstər") ||
+    text.includes("planlayıcıya bax") ||
+    text.includes("tapşırıqlarımı idarə")
+  ) {
+    return GUEST_RESTRICTION_NOTICES.planner;
+  }
+
+  return null;
+}
+
+export function buildAskPrompt({
+  strategyContext = "",
+  taskContext = "",
+  personalizationContext = "",
+  isGuest = false,
+  remainingMessages = null,
+} = {}) {
+  const guestDirective = isGuest && typeof remainingMessages === "number"
+    ? buildGuestMessageLimitInstructions(remainingMessages)
+    : "";
+  const restrictionDirective = isGuest
+    ? buildGuestFunctionalRestrictionInstructions()
+    : "";
+  return `${ASK_INSTRUCTIONS}${strategyContext}${taskContext}${personalizationContext}${guestDirective}${restrictionDirective}`;
+}

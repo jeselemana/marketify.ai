@@ -1,8 +1,9 @@
 import express from "express";
 import { z } from "zod";
+import { assertExecutionAuthorized, createExecutionController } from "../services/security/execution-control.js";
 import { summarizeTasksWithLuna, prioritizeTasksWithLuna } from "../services/ai/strategy-service.js";
 import { aiConfig } from "../services/ai/config.js";
-import { publicErrorMessage } from "./error-response.js";
+import { httpStatusOf, publicErrorMessage } from "./error-response.js";
 import { isModelImprovementEnabled } from "./auth-middleware.js";
 
 export const TaskInputSchema = z.object({
@@ -198,6 +199,15 @@ export function createPlannerRouter(plannerRepository, options = {}) {
   });
 
   router.post("/summarize", async (req, res) => {
+    const abortController = createExecutionController();
+    const onReqClose = () => {
+      if (!req.complete && !res.writableEnded) abortController.abort();
+    };
+    const onResClose = () => {
+      if (!res.writableEnded) abortController.abort();
+    };
+    req.on?.("close", onReqClose);
+    res.on?.("close", onResClose);
     try {
       const parsed = SummarizeTasksSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -232,13 +242,16 @@ export function createPlannerRouter(plannerRepository, options = {}) {
       const startedAt = Date.now();
       let summaryUsage = null;
 
+      await assertExecutionAuthorized(abortController.signal);
       const result = await summarizeTasksWithLuna({
         tasks,
         strategyTitle: strategyTitle || "",
         language,
         client,
+        signal: abortController.signal,
         onUsage: (u) => { summaryUsage = u; },
       });
+      await assertExecutionAuthorized(abortController.signal);
 
       if (telemetryService && typeof telemetryService.trackSummary === "function") {
         const modelImprovement = isModelImprovementEnabled(req);
@@ -254,18 +267,39 @@ export function createPlannerRouter(plannerRepository, options = {}) {
         }).catch(() => {});
       }
 
-      return res.json({
+      const responseBody = {
         tasks: result.tasks,
         model: result.model || "gpt-6-luna",
         count: result.tasks.length,
-      });
+      };
+      req.securityContext?.recordIdempotentResult?.(200, responseBody);
+      return res.json(responseBody);
     } catch (error) {
+      if (abortController.signal.aborted && !error?.code) {
+        return res.end();
+      }
+      const status = httpStatusOf(error);
       console.error("Planner summarize error:", error);
-      return res.status(500).json({ error: publicErrorMessage(error, "Tapşırıqları xülasələndirmək mümkün olmadı.") });
+      return res.status(status).json({
+        error: publicErrorMessage(error, "Tapşırıqları xülasələndirmək mümkün olmadı."),
+        ...(error?.code ? { code: error.code } : {}),
+      });
+    } finally {
+      req.off?.("close", onReqClose);
+      res.off?.("close", onResClose);
     }
   });
 
   router.post("/prioritize", async (req, res) => {
+    const abortController = createExecutionController();
+    const onReqClose = () => {
+      if (!req.complete && !res.writableEnded) abortController.abort();
+    };
+    const onResClose = () => {
+      if (!res.writableEnded) abortController.abort();
+    };
+    req.on?.("close", onReqClose);
+    res.on?.("close", onResClose);
     try {
       const parsed = PrioritizeTasksSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -281,12 +315,14 @@ export function createPlannerRouter(plannerRepository, options = {}) {
       // Tenant isolation: fetch owner's tasks strictly scoped to req.ownerId (Rule 3)
       const allUserTasks = await plannerRepository.list(req.ownerId);
       if (!allUserTasks.length) {
-        return res.json({
+        const emptyBody = {
           tasks: [],
           prioritizedTaskIds: [],
           model: aiConfig.plannerPriorityModel || "gpt-6-luna",
           count: 0,
-        });
+        };
+        req.securityContext?.recordIdempotentResult?.(200, emptyBody);
+        return res.json(emptyBody);
       }
 
       let tasksToEvaluate = allUserTasks;
@@ -296,26 +332,32 @@ export function createPlannerRouter(plannerRepository, options = {}) {
       }
 
       if (!tasksToEvaluate.length) {
-        return res.json({
+        const unchangedBody = {
           tasks: allUserTasks,
           prioritizedTaskIds: [],
           model: aiConfig.plannerPriorityModel || "gpt-6-luna",
           count: 0,
-        });
+        };
+        req.securityContext?.recordIdempotentResult?.(200, unchangedBody);
+        return res.json(unchangedBody);
       }
 
       const client = options.openAiClient || options.client || null;
       const startedAt = Date.now();
       let priorityUsage = null;
 
+      await assertExecutionAuthorized(abortController.signal);
       const result = await prioritizeTasksWithLuna({
         tasks: tasksToEvaluate,
         language,
         client,
+        signal: abortController.signal,
         onUsage: (u) => { priorityUsage = u; },
       });
 
+      await assertExecutionAuthorized(abortController.signal);
       const priorityIds = new Set(result.prioritizedTaskIds || []);
+      req.securityContext?.markMutationPending?.();
       const updatedTasks = typeof plannerRepository.updatePriorities === "function"
         ? await plannerRepository.updatePriorities(req.ownerId, priorityIds)
         : allUserTasks.map((t) => ({
@@ -323,6 +365,15 @@ export function createPlannerRouter(plannerRepository, options = {}) {
             isPriority: priorityIds.has(t.id),
             priority: priorityIds.has(t.id) ? "high" : "normal",
           }));
+
+      const priorityCount = updatedTasks.filter((t) => t.isPriority).length;
+      const responseBody = {
+        tasks: updatedTasks,
+        prioritizedTaskIds: result.prioritizedTaskIds,
+        model: result.model || "gpt-6-luna",
+        count: priorityCount,
+      };
+      req.securityContext?.recordIdempotentResult?.(200, responseBody);
 
       if (telemetryService && typeof telemetryService.trackSummary === "function") {
         const modelImprovement = isModelImprovementEnabled(req);
@@ -338,17 +389,20 @@ export function createPlannerRouter(plannerRepository, options = {}) {
         }).catch(() => {});
       }
 
-      const priorityCount = updatedTasks.filter((t) => t.isPriority).length;
-
-      return res.json({
-        tasks: updatedTasks,
-        prioritizedTaskIds: result.prioritizedTaskIds,
-        model: result.model || "gpt-6-luna",
-        count: priorityCount,
-      });
+      return res.json(responseBody);
     } catch (error) {
+      if (abortController.signal.aborted && !error?.code) {
+        return res.end();
+      }
+      const status = httpStatusOf(error);
       console.error("Planner prioritize error:", error);
-      return res.status(500).json({ error: publicErrorMessage(error, "Tapşırıqları prioritetləşdirmək mümkün olmadı.") });
+      return res.status(status).json({
+        error: publicErrorMessage(error, "Tapşırıqları prioritetləşdirmək mümkün olmadı."),
+        ...(error?.code ? { code: error.code } : {}),
+      });
+    } finally {
+      req.off?.("close", onReqClose);
+      res.off?.("close", onResClose);
     }
   });
 

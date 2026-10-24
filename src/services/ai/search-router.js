@@ -131,6 +131,7 @@ export function evaluateSearchRoute({ prompt = "", messages = [], hasStrategyCon
 
   return {
     enableSearch,
+    requireGrounding: Boolean(enableSearch),
     intent: enableSearch ? "grounded_search" : "standard",
     prompt: lastUserMsg,
   };

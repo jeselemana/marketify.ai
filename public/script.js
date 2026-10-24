@@ -36,14 +36,12 @@ const searchNav = document.querySelector("#searchNav");
 const homeNav = document.querySelector("#homeNav");
 const strategiesNav = document.querySelector("#strategiesNav");
 const plannerNav = document.querySelector("#plannerNav");
-const limitsNav = document.querySelector("#limitsNav");
+const upNav = document.querySelector("#upNav");
+const railUpButton = document.querySelector("#railUpButton");
 const aiHubNav = document.querySelector("#aiHubNav");
 const installAppNav = document.querySelector("#installAppNav");
 const whatsNewNav = document.querySelector("#whatsNewNav");
-const settingsNav = document.querySelector("#settingsNav");
 const railAiHubButton = document.querySelector("#railAiHubButton");
-const railLimitsButton = document.querySelector("#railLimitsButton");
-const railSettingsButton = document.querySelector("#railSettingsButton");
 const railInstallAppButton = document.querySelector("#railInstallAppButton");
 const railLangToggleButton = document.querySelector("#railLangToggleButton");
 const railLangBadge = document.querySelector("#railLangBadge");
@@ -109,26 +107,6 @@ export const NAV_ITEMS = [
     defaultLabelEn: "AI Hub",
     icon: "Cpu",
     svg: `<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>`
-  },
-  {
-    id: "usage",
-    sidebarId: "limitsNav",
-    railId: "railLimitsButton",
-    labelKey: "nav.limits",
-    defaultLabelAz: "İstifadə",
-    defaultLabelEn: "Usage",
-    icon: "Activity",
-    svg: `<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>`
-  },
-  {
-    id: "settings",
-    sidebarId: "settingsNav",
-    railId: "railSettingsButton",
-    labelKey: "nav.settings",
-    defaultLabelAz: "Parametrlər",
-    defaultLabelEn: "Settings",
-    icon: "Settings",
-    svg: `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>`
   }
 ];
 const accountButton = document.querySelector("#accountButton");
@@ -152,6 +130,20 @@ const mobileNotifSheetOverlay = document.querySelector("#mobileNotifSheetOverlay
 const guideModalOverlay = document.querySelector("#guideModalOverlay");
 const profilePopoverMenu = document.querySelector("#profilePopoverMenu");
 
+function openSettings(tab = "account") {
+  if (state.view !== "settings") {
+    state.previousView = state.view;
+  }
+  state.view = "settings";
+  state.settingsTab = tab;
+  syncNav();
+  render();
+  closeSidebar();
+  if (typeof closeUserProfileMenu === "function") {
+    closeUserProfileMenu();
+  }
+}
+
 function getKeyboardShortcuts() {
   const isEn = getLanguage() === "en";
   return [
@@ -160,7 +152,7 @@ function getKeyboardShortcuts() {
     { label: t("shortcuts.items.home"), mac: "⌘ 1", windows: "Ctrl 1", action: () => homeNav?.click() },
     { label: t("shortcuts.items.archive"), mac: "⌘ 2", windows: "Ctrl 2", action: () => strategiesNav?.click() },
     { label: t("shortcuts.items.planner"), mac: "⌘ 3", windows: "Ctrl 3", action: () => plannerNav?.click() },
-    { label: t("shortcuts.items.settings"), mac: "⌘ ,", windows: "Ctrl ,", action: () => settingsNav?.click() },
+    { label: t("shortcuts.items.settings"), mac: "⌘ ,", windows: "Ctrl ,", action: () => openSettings() },
     { label: t("shortcuts.items.toggleMode"), mac: "⌘ ⇧ A", windows: "Ctrl ⇧ A", action: () => setMode(state.mode === "build" ? "ask" : "build") },
     { label: t("shortcuts.items.closeModal"), mac: "Esc", windows: "Esc", action: () => closeShortcutModal() },
   ];
@@ -1089,7 +1081,9 @@ function isPersonalIntelligenceActive() {
 async function togglePersonalIntelligence(enable) {
   if (state.currentUser) {
     if (!state.currentUser.settings) state.currentUser.settings = {};
+    const previous = structuredClone(state.currentUser.settings);
     state.currentUser.settings.personalIntelligence = enable;
+    if (!enable) state.currentUser.settings.modelImprovement = false;
     try {
       const data = await authRequest("/api/auth/settings", {
         method: "PATCH",
@@ -1097,7 +1091,8 @@ async function togglePersonalIntelligence(enable) {
       });
       if (data?.user) updateWorkspaceIdentity(data.user);
     } catch (err) {
-      console.error("Failed to update personal intelligence:", err);
+      state.currentUser.settings = previous;
+      showToast(getLanguage() === "en" ? "Settings could not be saved." : "Parametrlər saxlanılmadı.");
     }
   } else {
     try {
@@ -1107,6 +1102,7 @@ async function togglePersonalIntelligence(enable) {
 }
 
 function isModelImprovementActive() {
+  if (!isPersonalIntelligenceActive()) return false;
   if (state.currentUser && state.currentUser.settings && typeof state.currentUser.settings.modelImprovement === "boolean") {
     return state.currentUser.settings.modelImprovement;
   }
@@ -1119,46 +1115,24 @@ function isModelImprovementActive() {
 
 async function toggleModelImprovement(enable) {
   const isEn = getLanguage() === "en";
+  if (enable && !isPersonalIntelligenceActive()) {
+    showToast(isEn ? "Enable personalization first." : "Əvvəl fərdiləşdirməni aktivləşdirin.");
+    return;
+  }
   try {
+    if (state.currentUser) {
+      const data = await authRequest("/api/auth/settings", { method: "PATCH", body: JSON.stringify({ modelImprovement: enable }) });
+      if (!data?.user) throw new Error("Settings response missing");
+      updateWorkspaceIdentity(data.user);
+      enable = isModelImprovementActive();
+    }
     localStorage.setItem("helmer_model_improvement", String(enable));
     setCookie("helmer_model_improvement", String(enable));
-    if (!enable) {
-
-
-    }
-  } catch { }
-  if (!enable) {
-    // Contribution and personalization are independent preferences.
-    if (state.currentUser) {
-      if (!state.currentUser.settings) state.currentUser.settings = {};
-      state.currentUser.settings.modelImprovement = false;
-      try {
-        const data = await authRequest("/api/auth/settings", {
-          method: "PATCH",
-          body: JSON.stringify({ modelImprovement: false }),
-        });
-        if (data?.user) updateWorkspaceIdentity(data.user);
-      } catch (err) {
-        console.error("Failed to update model improvement:", err);
-      }
-    }
-    showToast(t("settings.security.modelImprovementDeactivatedToast") || (isEn ? "New model improvement contributions are disabled. Existing records remain." : "Yeni model təkmilləşdirmə töhfələri söndürüldü. Əvvəlki qeydlər saxlanılır."));
-  } else {
-    // When activating
-    if (state.currentUser) {
-      if (!state.currentUser.settings) state.currentUser.settings = {};
-      state.currentUser.settings.modelImprovement = true;
-      try {
-        const data = await authRequest("/api/auth/settings", {
-          method: "PATCH",
-          body: JSON.stringify({ modelImprovement: true }),
-        });
-        if (data?.user) updateWorkspaceIdentity(data.user);
-      } catch (err) {
-        console.error("Failed to update model improvement:", err);
-      }
-    }
-    showToast(t("settings.security.modelImprovementActivatedToast") || (isEn ? "Contribution to model improvement enabled." : "Modelin inkişafına töhfə aktivləşdirildi."));
+    showToast(enable
+      ? (isEn ? "Model improvement enabled." : "Model inkişafına töhfə aktivləşdirildi.")
+      : (isEn ? "Model improvement disabled." : "Model inkişafına töhfə söndürüldü."));
+  } catch {
+    showToast(isEn ? "Settings could not be saved." : "Parametrlər saxlanılmadı.");
   }
 }
 
@@ -1284,12 +1258,22 @@ function openMobileContextSheet(handlers = {}) {
         const fileTile = button("", "mobile-sheet-tile tile-files", (e) => {
           e.preventDefault();
           closeMobileBottomSheet();
+          if (!state.currentUser) {
+            openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.file);
+            return;
+          }
           handlers.onFileSelect?.();
         });
         fileTile.type = "button";
         const fileIcon = element("div", "mobile-sheet-tile-icon");
         fileIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
-        const fileTitle = element("span", "mobile-sheet-tile-title", t("ask.contextSheet.files"));
+        const fileTitle = element("span", "mobile-sheet-tile-title");
+        fileTitle.append(element("span", "", t("ask.contextSheet.files")));
+        if (!state.currentUser) {
+          const lock = element("span", "guest-inline-lock");
+          lock.innerHTML = getGuestLockIconSvg(11);
+          fileTitle.appendChild(lock);
+        }
         const fileDesc = element("span", "mobile-sheet-tile-desc", t("ask.contextSheet.filesDesc"));
         fileTile.append(fileIcon, fileTitle, fileDesc);
 
@@ -1297,12 +1281,22 @@ function openMobileContextSheet(handlers = {}) {
         const photoTile = button("", "mobile-sheet-tile tile-photos", (e) => {
           e.preventDefault();
           closeMobileBottomSheet();
+          if (!state.currentUser) {
+            openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.file);
+            return;
+          }
           handlers.onPhotoSelect?.();
         });
         photoTile.type = "button";
         const photoIcon = element("div", "mobile-sheet-tile-icon");
         photoIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>';
-        const photoTitle = element("span", "mobile-sheet-tile-title", t("ask.contextSheet.photos"));
+        const photoTitle = element("span", "mobile-sheet-tile-title");
+        photoTitle.append(element("span", "", t("ask.contextSheet.photos")));
+        if (!state.currentUser) {
+          const lock = element("span", "guest-inline-lock");
+          lock.innerHTML = getGuestLockIconSvg(11);
+          photoTitle.appendChild(lock);
+        }
         const photoDesc = element("span", "mobile-sheet-tile-desc", t("ask.contextSheet.photosDesc"));
         photoTile.append(photoIcon, photoTitle, photoDesc);
 
@@ -1316,6 +1310,11 @@ function openMobileContextSheet(handlers = {}) {
       if (!isBuildMode) {
         // Row: Strategies
         const stratRow = button("", "mobile-sheet-row", () => {
+          if (!state.currentUser) {
+            closeMobileBottomSheet();
+            openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.strategy);
+            return;
+          }
           currentPane = "strategies";
           renderBody();
         });
@@ -1324,8 +1323,15 @@ function openMobileContextSheet(handlers = {}) {
         const stratIcon = element("div", "mobile-sheet-row-icon");
         stratIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>';
         const stratCopy = element("div", "mobile-sheet-row-copy");
+        const stratTitle = element("strong", "");
+        stratTitle.append(element("span", "", t("ask.contextSheet.strategies")));
+        if (!state.currentUser) {
+          const lock = element("span", "guest-inline-lock");
+          lock.innerHTML = getGuestLockIconSvg(12);
+          stratTitle.appendChild(lock);
+        }
         stratCopy.append(
-          element("strong", "", t("ask.contextSheet.strategies")),
+          stratTitle,
           element("small", "", t("ask.contextSheet.strategiesDesc"))
         );
         stratLeading.append(stratIcon, stratCopy);
@@ -1333,6 +1339,11 @@ function openMobileContextSheet(handlers = {}) {
 
         // Row: Tasks
         const taskRow = button("", "mobile-sheet-row", () => {
+          if (!state.currentUser) {
+            closeMobileBottomSheet();
+            openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.planner);
+            return;
+          }
           currentPane = "tasks";
           renderBody();
         });
@@ -1341,8 +1352,15 @@ function openMobileContextSheet(handlers = {}) {
         const taskIcon = element("div", "mobile-sheet-row-icon");
         taskIcon.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>';
         const taskCopy = element("div", "mobile-sheet-row-copy");
+        const taskTitle = element("strong", "");
+        taskTitle.append(element("span", "", t("ask.contextSheet.tasks")));
+        if (!state.currentUser) {
+          const lock = element("span", "guest-inline-lock");
+          lock.innerHTML = getGuestLockIconSvg(12);
+          taskTitle.appendChild(lock);
+        }
         taskCopy.append(
-          element("strong", "", t("ask.contextSheet.tasks")),
+          taskTitle,
           element("small", "", t("ask.contextSheet.tasksDesc"))
         );
         taskLeading.append(taskIcon, taskCopy);
@@ -1592,7 +1610,13 @@ function createAskThinkingControls(isEn, onToggle = null) {
   const mainRow = element("div", "ask-thinking-main-row");
 
   const info = element("div", "ask-thinking-info");
-  const title = element("strong", "ask-thinking-title", isEn ? "Thinking" : "Düşünmə");
+  const title = element("strong", "ask-thinking-title");
+  title.append(element("span", "", isEn ? "Thinking" : "Düşünmə"));
+  if (!state.currentUser) {
+    const lock = element("span", "guest-inline-lock");
+    lock.innerHTML = getGuestLockIconSvg(12);
+    title.appendChild(lock);
+  }
   const desc = element("small", "ask-thinking-desc", isEn ? "Smart analysis" : "Ağıllı analiz");
   info.append(title, desc);
 
@@ -1616,6 +1640,10 @@ function createAskThinkingControls(isEn, onToggle = null) {
   const pillButtons = new Map();
 
   const setLevel = (level) => {
+    if (!state.currentUser) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.thinking);
+      return;
+    }
     state.askThinkingLevel = level;
     currentAskThinking = level;
     try { localStorage.setItem("helmer_ask_thinking_level", level); } catch { }
@@ -1637,6 +1665,10 @@ function createAskThinkingControls(isEn, onToggle = null) {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (!state.currentUser) {
+        openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.thinking);
+        return;
+      }
       setLevel(lvl);
     });
 
@@ -1648,6 +1680,11 @@ function createAskThinkingControls(isEn, onToggle = null) {
 
   toggleInput.addEventListener("change", (e) => {
     e.stopPropagation();
+    if (!state.currentUser) {
+      toggleInput.checked = false;
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.thinking);
+      return;
+    }
     const isChecked = toggleInput.checked;
     state.askThinkingEnabled = isChecked;
     try { localStorage.setItem("helmer_ask_thinking_enabled", String(isChecked)); } catch { }
@@ -1932,6 +1969,11 @@ function buildProfileMenuItems() {
   );
   infoWrap.append(nameEl);
 
+  if (user?.email) {
+    const emailEl = element("span", "profile-menu-email", user.email);
+    infoWrap.append(emailEl);
+  }
+
   const headerChevron = element("span", "profile-menu-chevron");
   headerChevron.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
 
@@ -1982,6 +2024,35 @@ function buildProfileMenuItems() {
   // Divider 1
   const divider1 = element("div", "profile-menu-divider");
   divider1.setAttribute("role", "separator");
+
+  // Guest Limits Section (Minimalist daily limits for unregistered guests)
+  let limitsSection = null;
+  let dividerLimits = null;
+  if (!user) {
+    limitsSection = element("div", "profile-menu-limits");
+
+    const limitsHeader = element("div", "profile-menu-limits-header");
+    const limitsTitle = element("span", "profile-menu-limits-title", isEn ? "Limits" : "Limitlər");
+    limitsHeader.appendChild(limitsTitle);
+
+    const askRemaining = Number.isInteger(state.remainingGuestMessages) ? Math.max(0, state.remainingGuestMessages) : 5;
+    const buildRemaining = Number.isInteger(state.remainingGuestBriefs) ? Math.max(0, state.remainingGuestBriefs) : 3;
+
+    const askRow = element("div", "profile-menu-limit-row");
+    const askLabel = element("span", "profile-menu-limit-name", isEn ? "Ask mode" : "Ask rejimi");
+    const askVal = element("span", "profile-menu-limit-val", `${askRemaining} / 5 ${isEn ? "messages" : "mesaj"}`);
+    askRow.append(askLabel, askVal);
+
+    const buildRow = element("div", "profile-menu-limit-row");
+    const buildLabel = element("span", "profile-menu-limit-name", isEn ? "Build mode" : "Build rejimi");
+    const buildVal = element("span", "profile-menu-limit-val", `${buildRemaining} / 3 ${isEn ? "briefs" : "brif"}`);
+    buildRow.append(buildLabel, buildVal);
+
+    limitsSection.append(limitsHeader, askRow, buildRow);
+
+    dividerLimits = element("div", "profile-menu-divider");
+    dividerLimits.setAttribute("role", "separator");
+  }
 
   // Section 1: Settings sections (Profile, Personalization, Security, Legal)
   const section1 = element("div", "profile-menu-section profile-menu-section-1");
@@ -2090,10 +2161,39 @@ function buildProfileMenuItems() {
   });
   section2.append(helpItem, logoutItem);
 
-  return [headerBtn, divider1, section1, divider2, section2];
+  const items = [headerBtn, divider1];
+  if (limitsSection && dividerLimits) {
+    items.push(limitsSection, dividerLimits);
+  }
+  items.push(section1, divider2, section2);
+  return items;
 }
 
 function openUserProfileMenu(triggerEl) {
+  if (!state.currentUser && !Number.isInteger(state.remainingGuestMessages) && !window._fetchingGuestQuota) {
+    window._fetchingGuestQuota = true;
+    fetch("/api/auth/guest-status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data || !Number.isInteger(data.remaining)) return;
+        state.remainingGuestMessages = data.remaining;
+        if (Number.isInteger(data.buildRemaining)) {
+          state.remainingGuestBriefs = data.buildRemaining;
+        }
+        const askValEl = document.querySelector(".profile-menu-limits .profile-menu-limit-row:first-of-type .profile-menu-limit-val");
+        const buildValEl = document.querySelector(".profile-menu-limits .profile-menu-limit-row:last-of-type .profile-menu-limit-val");
+        const isEn = getLanguage() === "en";
+        if (askValEl) askValEl.textContent = `${state.remainingGuestMessages} / 5 ${isEn ? "messages" : "mesaj"}`;
+        if (buildValEl && Number.isInteger(state.remainingGuestBriefs)) {
+          buildValEl.textContent = `${state.remainingGuestBriefs} / 3 ${isEn ? "briefs" : "brif"}`;
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        window._fetchingGuestQuota = false;
+      });
+  }
+
   const isMobile = window.innerWidth <= 767;
 
   if (isMobile) {
@@ -2450,6 +2550,10 @@ const state = {
   strategyAskOpen: false,
   refinementOpen: false,
   currentUser: null,
+  remainingGuestMessages: null,
+  remainingGuestBriefs: null,
+  guestQuotaCheckedAt: 0,
+  guestQuotaVersion: 0,
   settingsTab: "account",
   strategyFormat: "blog",
   faqFilter: "",
@@ -2920,13 +3024,9 @@ function syncNav() {
   plannerNav?.classList.toggle("is-active", state.view === "planner");
   for (const id of ["upNav", "railUpButton"]) document.getElementById(id)?.classList.toggle("is-active", state.view === "up");
   for (const id of ["aiHubNav", "railAiHubButton"]) document.getElementById(id)?.classList.toggle("is-active", state.view === "aiHub");
-  limitsNav?.classList.toggle("is-active", state.view === "limits");
-  settingsNav.classList.toggle("is-active", state.view === "settings");
   railHomeButton.classList.toggle("is-active", !nonHomeViews.includes(state.view));
   railStrategiesButton.classList.toggle("is-active", state.view === "list");
   railPlannerButton?.classList.toggle("is-active", state.view === "planner");
-  railLimitsButton?.classList.toggle("is-active", state.view === "limits");
-  railSettingsButton?.classList.toggle("is-active", state.view === "settings");
   if (railAiHubButton) {
     const aiHubTooltip = `${t("nav.aiHub") || "AI Hub"} (${isEn ? "Coming soon" : "Tezliklə"})`;
     railAiHubButton.setAttribute("data-tooltip", aiHubTooltip);
@@ -2942,14 +3042,6 @@ function syncNav() {
   if (railPlannerButton) {
     railPlannerButton.setAttribute("data-tooltip", `${t("nav.planner")}${shortcutSuffix("⌘ 3", "Ctrl 3")}`);
     railPlannerButton.setAttribute("aria-label", t("nav.planner"));
-  }
-  if (railLimitsButton) {
-    railLimitsButton.setAttribute("data-tooltip", t("nav.limits"));
-    railLimitsButton.setAttribute("aria-label", t("nav.limits"));
-  }
-  if (railSettingsButton) {
-    railSettingsButton.setAttribute("data-tooltip", t("nav.settings"));
-    railSettingsButton.setAttribute("aria-label", t("nav.settings"));
   }
   if (railInstallAppButton) {
     railInstallAppButton.setAttribute("data-tooltip", t("nav.installApp"));
@@ -3023,9 +3115,40 @@ function syncNav() {
     plannerLabel.textContent = t("nav.planner");
   }
 
-  const limitsLabel = limitsNav?.querySelector("span");
-  if (limitsLabel) {
-    limitsLabel.textContent = t("nav.limits");
+  // Minimalist lock indicators for guests on restricted navigation items (in sidebar)
+  const isGuest = !state.currentUser;
+  strategiesNav.classList.toggle("is-guest-locked", isGuest);
+  plannerNav?.classList.toggle("is-guest-locked", isGuest);
+  upNav?.classList.toggle("is-guest-locked", isGuest);
+
+  // Ensure rail buttons do not show lock indicators
+  for (const btn of [railStrategiesButton, railPlannerButton, railUpButton]) {
+    btn?.classList.remove("is-guest-locked");
+    btn?.querySelector(".guest-lock-indicator")?.remove();
+  }
+
+  const updateNavLock = (el) => {
+    if (!el) return;
+    const existing = el.querySelector(".guest-lock-indicator");
+    if (isGuest && !existing) {
+      const lock = element("span", "guest-lock-indicator");
+      lock.innerHTML = getGuestLockIconSvg(11);
+      el.appendChild(lock);
+    } else if (!isGuest && existing) {
+      existing.remove();
+    }
+  };
+
+  updateNavLock(strategiesNav);
+  updateNavLock(plannerNav);
+  updateNavLock(upNav);
+
+  // Hide count indicators for guest users in sidebar, show for authenticated users
+  if (strategyCount) {
+    strategyCount.style.display = isGuest ? "none" : "";
+  }
+  if (plannerCount) {
+    plannerCount.style.display = isGuest ? "none" : "";
   }
 
   const aiHubLabel = aiHubNav?.querySelector(".ai-hub-label");
@@ -3049,10 +3172,6 @@ function syncNav() {
 
   updateInstallButtonVisibility();
 
-  const settingsLabel = settingsNav?.querySelector("span");
-  if (settingsLabel) {
-    settingsLabel.textContent = t("nav.settings");
-  }
 
   const whatsNewLabel = whatsNewNav?.querySelector(".whats-new-label");
   if (whatsNewLabel) {
@@ -3087,7 +3206,7 @@ function syncNav() {
     workspaceMeta.textContent = state.currentUser ? t("brand.personalAccount") : t("brand.guestAccount");
   }
 
-  document.title = "Helmer | Build, Ask & Act";
+  document.title = "Helmer";
 
   renderRecentList();
   syncLanguageControls();
@@ -3882,6 +4001,361 @@ export function createHomeGuideCards(isEn, currentMode) {
   return container;
 }
 
+export function createAskGuestLimitCard(isEn) {
+  if (state.currentUser) return null;
+
+  if (Date.now() - state.guestQuotaCheckedAt >= 60000 && !window._fetchingGuestQuota) {
+    window._fetchingGuestQuota = true;
+    const quotaVersion = state.guestQuotaVersion;
+    fetch("/api/auth/guest-status")
+      .then((r) => {
+        if (!r.ok) throw new Error("Guest quota unavailable");
+        return r.json();
+      })
+      .then((data) => {
+        if (!Number.isInteger(data?.remaining) || data.remaining < 0) throw new Error("Invalid guest quota");
+        if (quotaVersion !== state.guestQuotaVersion || state.currentUser) return;
+        state.remainingGuestMessages = data.remaining;
+        if (Number.isInteger(data?.buildRemaining) && data.buildRemaining >= 0) {
+          state.remainingGuestBriefs = data.buildRemaining;
+        }
+        state.guestQuotaCheckedAt = Date.now();
+        render();
+      })
+      .catch(() => {
+        if (quotaVersion !== state.guestQuotaVersion || state.currentUser) return;
+        state.remainingGuestMessages = null;
+        state.remainingGuestBriefs = null;
+        state.guestQuotaCheckedAt = Date.now();
+        render();
+      })
+      .finally(() => {
+        window._fetchingGuestQuota = false;
+        clearTimeout(window._guestQuotaRefreshTimer);
+        window._guestQuotaRefreshTimer = setTimeout(() => {
+          if (!state.currentUser) { state.guestQuotaCheckedAt = 0; render(); }
+        }, 60000);
+      });
+  }
+
+  if (!Number.isInteger(state.remainingGuestMessages)) return null;
+  const remaining = state.remainingGuestMessages;
+
+  const isExhausted = remaining === 0;
+  const isUrgent = remaining === 1 || remaining === 2;
+
+  // Rule 10: Permanent Dismissal with 'X' in localStorage for informational tier (> 2)
+  if (!isExhausted && !isUrgent) {
+    try {
+      if (localStorage.getItem("helmer_guest_limit_dismissed") === "1") {
+        return null;
+      }
+    } catch {}
+  }
+
+  const card = element("div", `ask-guest-limit-card ${isExhausted ? "is-exhausted" : isUrgent ? "is-urgent" : "is-info"}`);
+  card.setAttribute("role", "status");
+  card.setAttribute("aria-live", "polite");
+
+  const content = element("div", "ask-guest-limit-content");
+  const badge = element("div", "ask-guest-limit-badge");
+
+  if (isExhausted) {
+    badge.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>`;
+  } else if (isUrgent) {
+    badge.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+  } else {
+    badge.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+  }
+
+  const textWrap = element("div", "ask-guest-limit-text");
+  let titleStr = "";
+  let descStr = "";
+
+  if (isExhausted) {
+    titleStr = isEn ? "Guest message limit reached" : "Qonaq mesaj limitiniz bitdi";
+    descStr = isEn
+      ? "Sign up to keep all your analyses and continue unlimited AI chats."
+      : "Helmer-dən limitsiz istifadə etmək və söhbəti davam etdirmək üçün qeydiyyatdan keçin.";
+  } else if (isUrgent) {
+    titleStr = isEn
+      ? `Attention: Only ${remaining} message${remaining === 1 ? "" : "s"} left!`
+      : `Diqqət: Cəmi ${remaining} mesaj haqqınız qaldı!`;
+    descStr = isEn
+      ? "Sign up now so your conversation is saved and not interrupted."
+      : "Söhbətin yarımçıq qalmaması və sessiyanın itməməsi üçün indi qeydiyyatdan keçin.";
+  } else {
+    titleStr = isEn
+      ? `Guest mode · Remaining messages: ${remaining}`
+      : `Qeyd: Qonaq rejimində qalan mesaj haqqınız: ${remaining}`;
+    descStr = isEn
+      ? "Sign up to save all your business analyses and unlock unlimited usage."
+      : "Bütün analizlərin yaddaşda qalması və limitsiz istifadə üçün qeydiyyatdan keçin.";
+  }
+
+  const titleEl = element("div", "ask-guest-limit-title", titleStr);
+  const descEl = element("div", "ask-guest-limit-desc", descStr);
+  textWrap.append(titleEl, descEl);
+  content.append(badge, textWrap);
+
+  const actions = element("div", "ask-guest-limit-actions");
+
+  const returnPath = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+  const signupLink = document.createElement("a");
+  signupLink.className = "ask-guest-limit-btn";
+  signupLink.href = `/signup?returnTo=${returnPath}`;
+  signupLink.innerHTML = `<span>${isEn ? "Sign up" : "Qeydiyyatdan keç"}</span><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>`;
+
+  actions.appendChild(signupLink);
+
+  if (!isExhausted && !isUrgent) {
+    const dismissBtn = document.createElement("button");
+    dismissBtn.type = "button";
+    dismissBtn.className = "ask-guest-limit-dismiss";
+    dismissBtn.title = isEn ? "Dismiss" : "Bağla";
+    dismissBtn.setAttribute("aria-label", isEn ? "Dismiss" : "Bağla");
+    dismissBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+    dismissBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      try {
+        localStorage.setItem("helmer_guest_limit_dismissed", "1");
+      } catch {}
+      card.classList.add("is-dismissing");
+      setTimeout(() => card.remove(), 180);
+    });
+    actions.appendChild(dismissBtn);
+  }
+
+  card.append(content, actions);
+  return card;
+}
+
+export function createBuildGuestLimitCard(isEn) {
+  if (state.currentUser) return null;
+
+  if (Date.now() - state.guestQuotaCheckedAt >= 60000 && !window._fetchingGuestQuota) {
+    window._fetchingGuestQuota = true;
+    const quotaVersion = state.guestQuotaVersion;
+    fetch("/api/auth/guest-status")
+      .then((r) => {
+        if (!r.ok) throw new Error("Guest quota unavailable");
+        return r.json();
+      })
+      .then((data) => {
+        if (quotaVersion !== state.guestQuotaVersion || state.currentUser) return;
+        if (Number.isInteger(data?.remaining) && data.remaining >= 0) {
+          state.remainingGuestMessages = data.remaining;
+        }
+        if (Number.isInteger(data?.buildRemaining) && data.buildRemaining >= 0) {
+          state.remainingGuestBriefs = data.buildRemaining;
+        }
+        state.guestQuotaCheckedAt = Date.now();
+        render();
+      })
+      .catch(() => {
+        if (quotaVersion !== state.guestQuotaVersion || state.currentUser) return;
+        state.remainingGuestBriefs = null;
+        state.guestQuotaCheckedAt = Date.now();
+        render();
+      })
+      .finally(() => {
+        window._fetchingGuestQuota = false;
+        clearTimeout(window._guestQuotaRefreshTimer);
+        window._guestQuotaRefreshTimer = setTimeout(() => {
+          if (!state.currentUser) { state.guestQuotaCheckedAt = 0; render(); }
+        }, 60000);
+      });
+  }
+
+  if (!Number.isInteger(state.remainingGuestBriefs)) return null;
+  const remaining = state.remainingGuestBriefs;
+
+  const isExhausted = remaining === 0;
+  const isUrgent = remaining === 1 || remaining === 2;
+
+  // Rule 10: Permanent Dismissal with 'X' in localStorage for informational tier (> 2)
+  if (!isExhausted && !isUrgent) {
+    try {
+      if (localStorage.getItem("helmer_guest_build_limit_dismissed") === "1") {
+        return null;
+      }
+    } catch {}
+  }
+
+  const card = element("div", `ask-guest-limit-card ${isExhausted ? "is-exhausted" : isUrgent ? "is-urgent" : "is-info"}`);
+  card.setAttribute("role", "status");
+  card.setAttribute("aria-live", "polite");
+
+  const content = element("div", "ask-guest-limit-content");
+  const badge = element("div", "ask-guest-limit-badge");
+
+  if (isExhausted) {
+    badge.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>`;
+  } else if (isUrgent) {
+    badge.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+  } else {
+    badge.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+  }
+
+  const textWrap = element("div", "ask-guest-limit-text");
+  let titleStr = "";
+  let descStr = "";
+
+  if (isExhausted) {
+    titleStr = isEn ? "Guest brief limit reached" : "Qonaq brif limitiniz bitdi";
+    descStr = isEn
+      ? "Sign up to keep all your strategies and unlock unlimited usage."
+      : "Helmer-dən limitsiz istifadə etmək və yeni strategiyalar hazırlamaq üçün qeydiyyatdan keçin.";
+  } else if (isUrgent) {
+    titleStr = isEn
+      ? `Attention: Only ${remaining} brief${remaining === 1 ? "" : "s"} left!`
+      : `Diqqət: Cəmi ${remaining} brif haqqınız qaldı!`;
+    descStr = isEn
+      ? "Sign up now so your strategy is saved and not interrupted."
+      : "Strategiyanın yarımçıq qalmaması və sessiyanın itməməsi üçün indi qeydiyyatdan keçin.";
+  } else {
+    titleStr = isEn
+      ? `Guest mode · Remaining briefs: ${remaining}`
+      : `Qeyd: Qonaq rejimində qalan brif haqqınız: ${remaining}`;
+    descStr = isEn
+      ? "Sign up to save all your strategies and unlock unlimited usage."
+      : "Bütün analizlərin yaddaşda qalması və limitsiz istifadə üçün qeydiyyatdan keçin.";
+  }
+
+  const titleEl = element("div", "ask-guest-limit-title", titleStr);
+  const descEl = element("div", "ask-guest-limit-desc", descStr);
+  textWrap.append(titleEl, descEl);
+  content.append(badge, textWrap);
+
+  const actions = element("div", "ask-guest-limit-actions");
+
+  const returnPath = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+  const signupLink = document.createElement("a");
+  signupLink.className = "ask-guest-limit-btn";
+  signupLink.href = `/signup?returnTo=${returnPath}`;
+  signupLink.innerHTML = `<span>${isEn ? "Sign up" : "Qeydiyyatdan keç"}</span><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>`;
+
+  actions.appendChild(signupLink);
+
+  if (!isExhausted && !isUrgent) {
+    const dismissBtn = document.createElement("button");
+    dismissBtn.type = "button";
+    dismissBtn.className = "ask-guest-limit-dismiss";
+    dismissBtn.title = isEn ? "Dismiss" : "Bağla";
+    dismissBtn.setAttribute("aria-label", isEn ? "Dismiss" : "Bağla");
+    dismissBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+    dismissBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      try {
+        localStorage.setItem("helmer_guest_build_limit_dismissed", "1");
+      } catch {}
+      card.classList.add("is-dismissing");
+      setTimeout(() => card.remove(), 180);
+    });
+    actions.appendChild(dismissBtn);
+  }
+
+  card.append(content, actions);
+  return card;
+}
+
+export function getGuestLockIconSvg(size = 12, className = "guest-lock-badge") {
+  const isEn = getLanguage() === "en";
+  const label = isEn ? "Registration required" : "Qeydiyyat tələb olunur";
+  return `<span class="${className}" title="${label}" aria-label="${label}"><svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>`;
+}
+
+export const GUEST_BUILD_EXHAUSTED_MESSAGE = "Qonaq brif limitiniz bitdi. Helmer-dən limitsiz istifadə etmək və yeni strategiyalar hazırlamaq üçün qeydiyyatdan keçin.";
+export const GUEST_BUILD_EXHAUSTED_MESSAGE_EN = "Guest brief limit reached. Sign up to keep all your strategies and continue unlimited usage.";
+
+export const GUEST_RESTRICTION_NOTICES = {
+  thinking: "Ask rejimində 'Thinking' funksiyasından istifadə etmək üçün qeydiyyatdan keçməlisiniz. Hesab yaradaraq dərin strateji təhlilləri aktivləşdirin.",
+  file: "Fayl yükləmək və sənədlərinizi analiz etmək üçün qeydiyyatdan keçməlisiniz.",
+  strategy: "Saxlanılmış strategiyalarınıza daxil olmaq və onlar üzərində işləmək üçün qeydiyyatdan keçməlisiniz.",
+  planner: "'Planner Tasks' bölməsindən istifadə etmək və tapşırıqlarınızı idarə etmək üçün qeydiyyatdan keçməlisiniz.",
+  buildExhausted: GUEST_BUILD_EXHAUSTED_MESSAGE,
+};
+
+export const GUEST_RESTRICTION_NOTICES_EN = {
+  thinking: "You must sign up to use the 'Thinking' feature in Ask mode. Create an account to activate deep strategic reasoning.",
+  file: "You must sign up to upload files and analyze your documents.",
+  strategy: "You must sign up to access your saved strategies and work on them.",
+  planner: "You must sign up to use the 'Planner Tasks' section and manage your tasks.",
+  buildExhausted: GUEST_BUILD_EXHAUSTED_MESSAGE_EN,
+};
+
+export function getGuestRestrictionNotice(noticeOrKey, isEn = getLanguage() === "en") {
+  if (!noticeOrKey) return "";
+  if (!isEn) {
+    if (GUEST_RESTRICTION_NOTICES[noticeOrKey]) return GUEST_RESTRICTION_NOTICES[noticeOrKey];
+    const match = Object.entries(GUEST_RESTRICTION_NOTICES_EN).find(([, text]) => text === noticeOrKey);
+    if (match && GUEST_RESTRICTION_NOTICES[match[0]]) return GUEST_RESTRICTION_NOTICES[match[0]];
+    return noticeOrKey;
+  }
+  if (GUEST_RESTRICTION_NOTICES_EN[noticeOrKey]) return GUEST_RESTRICTION_NOTICES_EN[noticeOrKey];
+  const match = Object.entries(GUEST_RESTRICTION_NOTICES).find(([, text]) => text === noticeOrKey);
+  if (match && GUEST_RESTRICTION_NOTICES_EN[match[0]]) return GUEST_RESTRICTION_NOTICES_EN[match[0]];
+  return noticeOrKey;
+}
+
+export function openGuestRestrictionModal(noticeText) {
+  if (!noticeText) return;
+  const existing = document.querySelector(".guest-restriction-overlay");
+  if (existing) existing.remove();
+
+  const isEn = getLanguage() === "en";
+  const resolvedNotice = getGuestRestrictionNotice(noticeText, isEn);
+  const overlay = element("div", "guest-restriction-overlay");
+  const card = element("div", "guest-restriction-modal");
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-modal", "true");
+  card.setAttribute("aria-labelledby", "guestRestrictionTitle");
+
+  const iconWrap = element("div", "guest-restriction-icon");
+  iconWrap.innerHTML = `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+
+  const header = element("div", "guest-restriction-header");
+  const title = element("h2", "guest-restriction-title", isEn ? "Registration Required" : "Qeydiyyat Tələb Olunur");
+  title.id = "guestRestrictionTitle";
+
+  const closeBtn = button("✕", "guest-restriction-close", () => overlay.remove());
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", isEn ? "Close" : "Bağla");
+  header.append(title, closeBtn);
+
+  const desc = element("p", "guest-restriction-text", resolvedNotice);
+
+  const actions = element("div", "guest-restriction-actions");
+  const cancelBtn = button(isEn ? "Dismiss" : "Bağla", "guest-restriction-cancel", () => overlay.remove());
+  cancelBtn.type = "button";
+
+  const returnPath = encodeURIComponent(`${location.pathname}${location.search}${location.hash}`);
+  const signupBtn = element("a", "guest-restriction-confirm", isEn ? "Sign Up" : "Qeydiyyatdan keç");
+  signupBtn.href = `/signup?returnTo=${returnPath}`;
+  signupBtn.addEventListener("click", () => {
+    overlay.remove();
+  });
+
+  actions.append(cancelBtn, signupBtn);
+  card.append(iconWrap, header, desc, actions);
+  overlay.appendChild(card);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  const onKey = (e) => {
+    if (e.key === "Escape") {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+    }
+  };
+  document.addEventListener("keydown", onKey);
+
+  document.body.appendChild(overlay);
+  setTimeout(() => signupBtn.focus(), 50);
+}
+
 export function createAskContextSuggestions(isEn, selectedStrategy, selectedTask, onSelect) {
   const container = element("div", "ask-context-suggestions");
   container.setAttribute("role", "toolbar");
@@ -3994,12 +4468,16 @@ function renderIntake() {
   textarea.name = "brief";
   textarea.rows = 1;
   textarea.maxLength = 8000;
-  textarea.placeholder = isEn ? "Ask Helmer to Build" : "Helmer ilə strategiya qur";
+  const isBuildExhausted = !state.currentUser && state.remainingGuestBriefs === 0;
+  textarea.placeholder = isBuildExhausted
+    ? (isEn ? "Guest brief limit reached. Sign up to continue…" : "Qonaq brif limitiniz bitdi. Davam etmək üçün qeydiyyatdan keçin…")
+    : (isEn ? "Ask Helmer to Build" : "Helmer ilə strategiya qur");
+  textarea.disabled = isBuildExhausted;
   textarea.value = state.brief;
 
   const submit = button("", "ask-submit");
   submit.type = "submit";
-  submit.disabled = state.brief.trim().length < 8;
+  submit.disabled = isBuildExhausted || state.brief.trim().length < 8;
   submit.setAttribute("aria-label", isEn ? "Build strategy" : "Strategiyanı qur");
   submit.appendChild(createAskSendIcon());
 
@@ -4108,6 +4586,11 @@ function renderIntake() {
   const disclaimer = element("p", "ask-disclaimer", t("common.disclaimer"));
   helper.appendChild(disclaimer);
 
+  const guestLimitCard = createBuildGuestLimitCard(isEn);
+  if (guestLimitCard) {
+    composerArea.append(guestLimitCard);
+  }
+
   const isStrategySelected = Boolean(state.strategy || state.askStrategyId || state.askTaskId);
   const guideCards = !isStrategySelected ? createHomeGuideCards(isEn, "build") : null;
   if (guideCards) {
@@ -4118,7 +4601,8 @@ function renderIntake() {
 
   const resizeInput = () => {
     state.brief = textarea.value;
-    submit.disabled = textarea.value.trim().length < 8;
+    const isExhausted = !state.currentUser && state.remainingGuestBriefs === 0;
+    submit.disabled = isExhausted || textarea.value.trim().length < 8;
     textarea.style.height = "auto";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
     shell.classList.toggle("has-input", Boolean(textarea.value.trim()));
@@ -4132,6 +4616,10 @@ function renderIntake() {
   });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (!state.currentUser && state.remainingGuestBriefs === 0) {
+      openGuestRestrictionModal(isEn ? GUEST_BUILD_EXHAUSTED_MESSAGE_EN : GUEST_BUILD_EXHAUSTED_MESSAGE);
+      return;
+    }
     state.brief = textarea.value.trim();
     if (state.brief.length >= 8) startAssessment();
   });
@@ -4925,6 +5413,16 @@ function renderAsk() {
             const chips = renderAskSourceChips(message.groundingMetadata);
             if (chips) content.appendChild(chips);
           }
+          if (
+            Object.values(GUEST_RESTRICTION_NOTICES).includes(message.content) ||
+            (typeof GUEST_RESTRICTION_NOTICES_EN !== "undefined" && Object.values(GUEST_RESTRICTION_NOTICES_EN).includes(message.content))
+          ) {
+            const ctaWrap = element("div", "ask-restriction-cta-wrap");
+            const ctaBtn = element("a", "ask-restriction-cta-btn", isEn ? "Sign Up" : "Qeydiyyatdan keç");
+            ctaBtn.href = `/signup?returnTo=${encodeURIComponent(location.pathname + location.search + location.hash)}`;
+            ctaWrap.appendChild(ctaBtn);
+            content.appendChild(ctaWrap);
+          }
         }
 
         if (!isStreamingMsg) appendArtifactCards(content, message);
@@ -4964,27 +5462,43 @@ function renderAsk() {
   }
 
   if (state.askError) {
-    const error = element("div", "ask-error");
-    const errorBody = element("div", "ask-error-body");
-    errorBody.append(
-      element("strong", "", state.askError),
-      element("span", "", navigator.onLine ? (isEn ? "Please try again in a few seconds." : "Bir neçə saniyə sonra yenidən yoxla.") : (isEn ? "Check your internet connection." : "İnternet bağlantını yoxla.")),
-    );
-    const dismissBtn = button("", "ask-error-dismiss", (e) => {
-      e.preventDefault();
+    const isGuestLimit = state.askError.includes("Qonaq mesaj limitiniz bitdi") || state.askError.includes("GUEST_DAILY_LIMIT");
+    if (isGuestLimit) {
+      state.guestQuotaVersion += 1;
+      state.remainingGuestMessages = 0;
       state.askError = "";
-      error.remove();
-    });
-    dismissBtn.type = "button";
-    dismissBtn.title = isEn ? "Dismiss" : "Bağla";
-    dismissBtn.setAttribute("aria-label", isEn ? "Dismiss" : "Bağla");
-    dismissBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-    if (state.askRetry) {
-      const retry = button(isEn ? "Retry" : "Yenidən cəhd et", "ask-artifact-action", retryAskRequest);
-      retry.type = "button"; errorBody.append(retry);
+    } else {
+      const error = element("div", "ask-error");
+      error.setAttribute("role", "alert");
+
+      const iconWrap = element("div", "ask-error-icon");
+      iconWrap.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+
+      const errorBody = element("div", "ask-error-body");
+      const title = element("div", "ask-error-title", state.askError);
+      const hint = element("div", "ask-error-hint", navigator.onLine ? (isEn ? "Please try again in a few seconds." : "Bir neçə saniyə sonra yenidən yoxla.") : (isEn ? "Check your internet connection." : "İnternet bağlantını yoxla."));
+      errorBody.append(title, hint);
+
+      if (state.askRetry) {
+        const retryBtn = button("", "ask-error-retry-btn", retryAskRequest);
+        retryBtn.type = "button";
+        retryBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg><span>${isEn ? "Retry" : "Yenidən cəhd et"}</span>`;
+        errorBody.appendChild(retryBtn);
+      }
+
+      const dismissBtn = button("", "ask-error-dismiss", (e) => {
+        e.preventDefault();
+        state.askError = "";
+        error.remove();
+      });
+      dismissBtn.type = "button";
+      dismissBtn.title = isEn ? "Dismiss" : "Bağla";
+      dismissBtn.setAttribute("aria-label", isEn ? "Dismiss" : "Bağla");
+      dismissBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+      error.append(iconWrap, errorBody, dismissBtn);
+      thread.appendChild(error);
     }
-    error.append(errorBody, dismissBtn);
-    thread.appendChild(error);
   }
 
   const composerArea = element("div", "ask-composer-area");
@@ -4996,6 +5510,16 @@ function renderAsk() {
 
   const handleFileSelection = async (file) => {
     if (!file) return;
+    if (!state.currentUser) {
+      if (fileInput) {
+        try { fileInput.value = ""; } catch { }
+      }
+      if (imageFileInput) {
+        try { imageFileInput.value = ""; } catch { }
+      }
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.file);
+      return;
+    }
     if (input && typeof input.value === "string") {
       state.askDraft = input.value;
     }
@@ -5109,6 +5633,10 @@ function renderAsk() {
         event.preventDefault();
         event.stopPropagation();
         contextMenu.open = false;
+        if (!state.currentUser) {
+          openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.file);
+          return;
+        }
         fileInput.click();
       });
       fileOption.type = "button";
@@ -5116,18 +5644,35 @@ function renderAsk() {
       const fileLeading = element("span", "ask-context-menu-option-icon");
       fileLeading.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
       const fileCopy = element("span", "ask-context-menu-option-copy");
+      const fileTitle = element("strong", "");
+      fileTitle.append(element("span", "", isEn ? "Attach file" : "Fayl əlavə et"));
+      if (!state.currentUser) {
+        const lock = element("span", "guest-inline-lock");
+        lock.innerHTML = getGuestLockIconSvg(12);
+        fileTitle.appendChild(lock);
+      }
       fileCopy.append(
-        element("strong", "", isEn ? "Attach file" : "Fayl əlavə et"),
+        fileTitle,
         element("small", "", isEn ? "Upload PDF, image or document" : "PDF, şəkil və ya sənəd yüklə")
       );
       fileMain.append(fileLeading, fileCopy);
       fileOption.appendChild(fileMain);
       contextPopover.appendChild(fileOption);
 
-      const addSubmenuOption = (title, description, pane, iconSvg) => {
+      const addSubmenuOption = (title, description, pane, iconSvg, isLocked = false) => {
         const btn = button("", "ask-context-menu-option group", (event) => {
           event.preventDefault();
           event.stopPropagation();
+          if (pane === "strategies" && !state.currentUser) {
+            contextMenu.open = false;
+            openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.strategy);
+            return;
+          }
+          if (pane === "tasks" && !state.currentUser) {
+            contextMenu.open = false;
+            openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.planner);
+            return;
+          }
           contextMenu.open = true;
           contextPane = pane;
           drawContextMenu();
@@ -5137,8 +5682,15 @@ function renderAsk() {
         const icon = element("span", "ask-context-menu-option-icon");
         icon.innerHTML = iconSvg;
         const copy = element("span", "ask-context-menu-option-copy");
+        const titleEl = element("strong", "");
+        titleEl.append(element("span", "", title));
+        if (isLocked) {
+          const lock = element("span", "guest-inline-lock");
+          lock.innerHTML = getGuestLockIconSvg(12);
+          titleEl.appendChild(lock);
+        }
         copy.append(
-          element("strong", "", title),
+          titleEl,
           element("small", "", description)
         );
         main.append(icon, copy);
@@ -5155,7 +5707,8 @@ function renderAsk() {
         isEn ? "My Strategies" : "Strategiyalarım",
         isEn ? "Discuss a saved strategy" : "Yadda saxlanılan strategiyanı müzakirə et",
         "strategies",
-        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>'
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>',
+        !state.currentUser
       );
 
       // 3. Planlaşdırılanlar (CheckSquare)
@@ -5163,7 +5716,8 @@ function renderAsk() {
         isEn ? "Planner Tasks" : "Planlaşdırılanlar",
         isEn ? "Discuss an active task" : "Aktiv taskı kontekst kimi seç",
         "tasks",
-        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
+        '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+        !state.currentUser
       );
 
       // 4. Hazır sual (MessageSquareText)
@@ -5313,6 +5867,14 @@ function renderAsk() {
   }
 
   const updateAskPlaceholder = () => {
+    if (!state.currentUser && state.remainingGuestMessages === 0) {
+      input.placeholder = isEn ? "Guest limit reached. Sign up to continue…" : "Qonaq mesaj limitiniz bitdi. Davam etmək üçün qeydiyyatdan keçin…";
+      return;
+    }
+    if (!state.currentUser) {
+      input.placeholder = isEn ? "Ask Helmer anything" : "Helmer-dən soruş";
+      return;
+    }
     input.placeholder = state.askPendingFile ? (isEn ? "Ask a question about this file…" : "Fayl haqqında sualını yaz…") : (isEn ? "Ask Helmer anything or @ to mention" : "Helmer-dən soruş və ya @ işarələ");
   };
   updateAskPlaceholder();
@@ -5397,7 +5959,9 @@ function renderAsk() {
     composerBody.appendChild(contextChip);
   }
   composerBody.append(label, input);
-  window.HelmerArtifacts?.attachComposer({ input, body: composerBody, getSelection: () => state.askPluginIds || [], setSelection: ids => { state.askPluginIds = ids; }, disabled: state.askLoading });
+  if (state.currentUser) {
+    window.HelmerArtifacts?.attachComposer({ input, body: composerBody, getSelection: () => state.askPluginIds || [], setSelection: ids => { state.askPluginIds = ids; }, disabled: state.askLoading });
+  }
   if (state.askArtifactId) {
     const editContext = element("div", "ask-artifact-edit-context", `${isEn ? "Editing latest version" : "Son versiyanı redaktə et"}: ${state.askArtifactName}`);
     const remove = button("×", "ask-plugin-token-remove", () => { state.askArtifactId = null; state.askArtifactName = ""; render(); });
@@ -5449,6 +6013,10 @@ function renderAsk() {
   const suggestionBtn = button("", "ask-thinking-suggestion-btn", (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!state.currentUser) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.thinking);
+      return;
+    }
     state.askThinkingLevel = "high";
     currentAskThinking = "high";
     state.askThinkingEnabled = true;
@@ -5464,6 +6032,11 @@ function renderAsk() {
 
   const disclaimer = element("p", "ask-disclaimer", isEn ? "Helmer can make mistakes." : "Helmer səhv edə bilər.");
   helper.append(suggestionWrap, disclaimer);
+
+  const guestLimitCard = createAskGuestLimitCard(isEn);
+  if (guestLimitCard) {
+    composerArea.append(guestLimitCard);
+  }
 
   const guideCards = (!isChatActive && !selectedStrategy && !selectedTask) ? createHomeGuideCards(isEn, "ask") : null;
   if (guideCards) {
@@ -5770,9 +6343,64 @@ function extractGroundingWebChunks(groundingMetadata) {
   return webChunks;
 }
 
+function extractGroundingSearchSuggestions(groundingMetadata) {
+  if (!groundingMetadata || typeof groundingMetadata !== "object") return [];
+  const suggestions = [];
+  const seen = new Set();
+  const addSuggestion = (rawQuery, rawUrl) => {
+    const query = String(rawQuery || "").replace(/\s+/g, " ").trim().slice(0, 160);
+    if (!query) return;
+    let url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+    if (typeof rawUrl === "string" && rawUrl.trim()) {
+      try {
+        const parsed = new URL(rawUrl.trim());
+        const host = parsed.hostname.toLowerCase();
+        if (
+          (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+          (host === "www.google.com" || host === "google.com" || host.endsWith(".google.com") || host.endsWith(".cloud.google.com"))
+        ) {
+          url = parsed.href;
+        }
+      } catch {}
+    }
+    const key = query.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    suggestions.push({ query, url });
+  };
+
+  if (Array.isArray(groundingMetadata.searchSuggestions)) {
+    for (const item of groundingMetadata.searchSuggestions) {
+      if (suggestions.length >= 8) break;
+      if (item && typeof item === "object") addSuggestion(item.query || item.label, item.url);
+    }
+  }
+
+  const rendered = groundingMetadata?.searchEntryPoint?.renderedContent;
+  if (typeof rendered === "string" && rendered.trim()) {
+    const anchorRegex = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let match;
+    while ((match = anchorRegex.exec(rendered)) !== null && suggestions.length < 8) {
+      const href = match[1].replace(/&amp;/g, "&");
+      const label = match[2].replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").trim();
+      if (label) addSuggestion(label, href);
+    }
+  }
+
+  if (Array.isArray(groundingMetadata.webSearchQueries)) {
+    for (const q of groundingMetadata.webSearchQueries) {
+      if (suggestions.length >= 8) break;
+      if (typeof q === "string" && q.trim()) addSuggestion(q, null);
+    }
+  }
+
+  return suggestions;
+}
+
 function renderAskSourceChips(groundingMetadata) {
   const webChunks = extractGroundingWebChunks(groundingMetadata);
-  if (!webChunks.length) return null;
+  const searchSuggestions = extractGroundingSearchSuggestions(groundingMetadata);
+  if (!webChunks.length && !searchSuggestions.length) return null;
 
   const isEn = getLanguage() === "en";
   const container = element("div", "ask-grounding-container");
@@ -5838,7 +6466,32 @@ function renderAskSourceChips(groundingMetadata) {
     list.appendChild(moreBtn);
   }
 
-  container.appendChild(list);
+  if (webChunks.length > 0) {
+    container.appendChild(list);
+  }
+
+  if (searchSuggestions.length > 0) {
+    const suggestionsBar = element("div", "ask-search-suggestions");
+    suggestionsBar.setAttribute("aria-label", "Google Search Suggestions");
+    const gBadge = element("span", "ask-search-suggestions-badge");
+    gBadge.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+    gBadge.appendChild(element("span", "ask-search-suggestions-label", "Google Search"));
+    suggestionsBar.appendChild(gBadge);
+
+    const suggestionsList = element("div", "ask-search-suggestions-list");
+    searchSuggestions.slice(0, 4).forEach((suggestion) => {
+      const sugChip = document.createElement("a");
+      sugChip.className = "ask-search-suggestion-chip";
+      sugChip.href = suggestion.url;
+      sugChip.target = "_blank";
+      sugChip.rel = "noopener noreferrer";
+      sugChip.appendChild(element("span", "ask-search-suggestion-text", suggestion.query));
+      suggestionsList.appendChild(sugChip);
+    });
+    suggestionsBar.appendChild(suggestionsList);
+    container.appendChild(suggestionsBar);
+  }
+
   return container;
 }
 
@@ -6156,6 +6809,7 @@ function connectToResearchJobStream(message) {
             message.status = data.status || message.status;
             if (data.steps?.length) message.steps = data.steps;
             if (data.sources?.length) message.sources = data.sources;
+            if (data.groundingMetadata) message.groundingMetadata = data.groundingMetadata;
             if (data.reply) message.content = data.reply;
             if (data.error) message.error = data.error;
             if (data.artifacts?.length) message.artifacts = data.artifacts;
@@ -6182,7 +6836,7 @@ function connectToResearchJobStream(message) {
             activeResearchStreams.delete(message.jobId);
             render();
           } else if (data.type === "failed") {
-            message.status = "failed";
+            message.status = data.status || "failed";
             message.error = data.error || "Araşdırma xətası";
             if (data.steps?.length) message.steps = data.steps;
             message.generatingArtifacts = false;
@@ -6245,6 +6899,7 @@ async function pollResearchJob(message) {
         message.status = data.job.status || message.status;
         if (data.job.steps?.length) message.steps = data.job.steps;
         if (data.job.sources?.length) message.sources = data.job.sources;
+        if (data.job.groundingMetadata) message.groundingMetadata = data.job.groundingMetadata;
         if (data.job.content) message.content = data.job.content;
         if (data.job.error) message.error = data.job.error;
         if (data.job.artifacts?.length) message.artifacts = data.job.artifacts;
@@ -6276,9 +6931,7 @@ function openGroundingSourcesModal(groundingMetadata) {
       }
     });
 
-  const searchQueries = Array.isArray(groundingMetadata.webSearchQueries)
-    ? groundingMetadata.webSearchQueries.filter((q) => typeof q === "string" && q.trim())
-    : [];
+  const searchSuggestions = extractGroundingSearchSuggestions(groundingMetadata);
 
   const existing = document.querySelector(".ask-sources-drawer-overlay");
   if (existing) existing.remove();
@@ -6328,12 +6981,18 @@ function openGroundingSourcesModal(groundingMetadata) {
 
   const body = element("div", "ask-sources-drawer-body");
 
-  if (searchQueries.length > 0) {
+  if (searchSuggestions.length > 0) {
     const queriesBox = element("div", "ask-sources-queries-box");
-    const queriesLabel = element("div", "ask-sources-queries-label", isEn ? "Search queries:" : "Axtarış sorğuları:");
+    const queriesLabel = element("div", "ask-sources-queries-label", isEn ? "Google Search suggestions:" : "Google Search axtarış sorğuları:");
     const queriesTags = element("div", "ask-sources-queries-tags");
-    searchQueries.forEach((query) => {
-      queriesTags.appendChild(element("span", "ask-sources-query-tag", query));
+    searchSuggestions.forEach((suggestion) => {
+      const tagLink = document.createElement("a");
+      tagLink.className = "ask-sources-query-tag";
+      tagLink.href = suggestion.url;
+      tagLink.target = "_blank";
+      tagLink.rel = "noopener noreferrer";
+      tagLink.textContent = suggestion.query;
+      queriesTags.appendChild(tagLink);
     });
     queriesBox.append(queriesLabel, queriesTags);
     body.appendChild(queriesBox);
@@ -6613,6 +7272,10 @@ function rememberSavedAskChat(chat) {
 }
 
 async function thinkDeeperWithHigh(messageIndex) {
+  if (!state.currentUser) {
+    openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.thinking);
+    return;
+  }
   if (state.askLoading) return;
   const assistantMsg = state.askMessages[messageIndex];
   if (!assistantMsg || assistantMsg.role !== "assistant") return;
@@ -6696,6 +7359,13 @@ async function thinkDeeperWithHigh(messageIndex) {
       if (response.status === 409 && errData.code === "REVISION_CONFLICT" && state.askChatId && errData.revision) {
         window.helmerSecurity?.revisions.set(state.askChatId, errData.revision);
       }
+      if (errData.code === "GUEST_DAILY_LIMIT" || (response.status === 429 && errData.error?.includes("Qonaq"))) {
+        state.guestQuotaVersion += 1;
+        state.remainingGuestMessages = 0;
+        state.askError = "";
+        render();
+        return;
+      }
       throw new Error(errData.error || (getLanguage() === "en" ? "Failed to regenerate with deeper thinking." : "Daha dərin düşünmə ilə yenidən generasiya etmək mümkün olmadı."));
     }
 
@@ -6756,6 +7426,11 @@ async function thinkDeeperWithHigh(messageIndex) {
             typewriter.finish(finalReply);
             assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
             rememberSavedAskChat(data.chat);
+            if (typeof data.remainingGuestMessages === "number") {
+              state.guestQuotaVersion += 1;
+              state.remainingGuestMessages = data.remainingGuestMessages;
+              state.guestQuotaCheckedAt = Date.now();
+            }
           }
         } catch (parseErr) {
           if (parseErr.message && !parseErr.message.includes("JSON")) {
@@ -6801,11 +7476,23 @@ async function thinkDeeperWithHigh(messageIndex) {
       assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
       assistantMsg.isStreaming = false;
       rememberSavedAskChat(data.chat);
+      if (typeof data.remainingGuestMessages === "number") {
+        state.guestQuotaVersion += 1;
+        state.remainingGuestMessages = data.remainingGuestMessages;
+        state.guestQuotaCheckedAt = Date.now();
+      }
     }
   } catch (error) {
     const isAborted = error?.name === "AbortError" || currentAskAbortController?.signal?.aborted;
     if (!isAborted) {
-      state.askError = error.message;
+      const isGuestLimit = error.message?.includes("Qonaq mesaj limitiniz bitdi") || error.message?.includes("GUEST_DAILY_LIMIT");
+      if (isGuestLimit) {
+        state.guestQuotaVersion += 1;
+        state.remainingGuestMessages = 0;
+        state.askError = "";
+      } else {
+        state.askError = error.message;
+      }
     }
   } finally {
     clearAskWaitStages(assistantMsg);
@@ -6829,6 +7516,26 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   const selectedTask = state.plannerTasks.find((task) => task.id === state.askTaskId) || null;
   const fileToAttach = attachedFile || state.askPendingFile || null;
   state.askPendingFile = null;
+
+  if (!state.currentUser) {
+    if (fileToAttach) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.file);
+      return;
+    }
+    if (selectedStrategy || state.askStrategyId) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.strategy);
+      return;
+    }
+    if (selectedTask || state.askTaskId) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.planner);
+      return;
+    }
+    if (state.askThinkingEnabled && (currentAskThinking === "high" || currentAskThinking === "medium")) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.thinking);
+      return;
+    }
+  }
+
   const pluginIds = [...(state.askPluginIds || [])];
   const artifactId = state.askArtifactId || undefined;
   const messageIndex = state.askMessages.length;
@@ -7024,6 +7731,18 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       if (response.status === 409 && errData.code === "REVISION_CONFLICT" && state.askChatId && errData.revision) {
         window.helmerSecurity?.revisions.set(state.askChatId, errData.revision);
       }
+      if (errData.code === "GUEST_DAILY_LIMIT" || (response.status === 429 && errData.error?.includes("Qonaq"))) {
+        state.guestQuotaVersion += 1;
+        state.remainingGuestMessages = 0;
+        state.askError = "";
+        state.askRetry = null;
+        if (!assistantMsg.content) {
+          const idx = state.askMessages.indexOf(assistantMsg);
+          if (idx !== -1) state.askMessages.splice(idx, 1);
+        }
+        render();
+        return;
+      }
       throw new Error(errData.error || "Cavabı hazırlamaq mümkün olmadı.");
     }
 
@@ -7093,6 +7812,14 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
             typewriter.finish(finalReply);
             assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
             rememberSavedAskChat(data.chat);
+            if (typeof data.remainingGuestMessages === "number") {
+              state.guestQuotaVersion += 1;
+              state.remainingGuestMessages = data.remainingGuestMessages;
+              state.guestQuotaCheckedAt = Date.now();
+            }
+            if (data.restrictedFeature) {
+              openGuestRestrictionModal(data.reply);
+            }
           }
         } catch (parseErr) {
           if (parseErr.message && !parseErr.message.includes("JSON")) {
@@ -7145,12 +7872,25 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       }
       assistantMsg.isStreaming = false;
       rememberSavedAskChat(data.chat);
+      if (typeof data.remainingGuestMessages === "number") {
+        state.guestQuotaVersion += 1;
+        state.remainingGuestMessages = data.remainingGuestMessages;
+        state.guestQuotaCheckedAt = Date.now();
+      }
     }
   } catch (error) {
     const isAborted = error?.name === "AbortError" || currentAskAbortController?.signal?.aborted;
     if (!isAborted) {
-      state.askError = error.message;
-      state.askRetry = { message: contentText, file: fileToAttach, pluginIds, artifactId, messageIndex };
+      const isGuestLimit = error.message?.includes("Qonaq mesaj limitiniz bitdi") || error.message?.includes("GUEST_DAILY_LIMIT");
+      if (isGuestLimit) {
+        state.guestQuotaVersion += 1;
+        state.remainingGuestMessages = 0;
+        state.askError = "";
+        state.askRetry = null;
+      } else {
+        state.askError = error.message;
+        state.askRetry = { message: contentText, file: fileToAttach, pluginIds, artifactId, messageIndex };
+      }
     }
     if (!assistantMsg.content && !accumulatedFullText) {
       const idx = state.askMessages.indexOf(assistantMsg);
@@ -8110,6 +8850,11 @@ function showLoadingAskModal(initialQuery) {
 }
 
 async function startAssessment() {
+  if (!state.currentUser && state.remainingGuestBriefs === 0) {
+    const isEn = getLanguage() === "en";
+    openGuestRestrictionModal(isEn ? GUEST_BUILD_EXHAUSTED_MESSAGE_EN : GUEST_BUILD_EXHAUSTED_MESSAGE);
+    return;
+  }
   if (state.round === 0 && state.answers.length === 0) trackEvent("strategy_started");
   clearError();
   currentAbortController?.abort();
@@ -8128,6 +8873,9 @@ async function startAssessment() {
       }),
     });
     currentAbortController = null;
+    if (typeof data?.remainingGuestBriefs === "number") {
+      state.remainingGuestBriefs = data.remainingGuestBriefs;
+    }
     const assessment = data.assessment;
     state.understanding = assessment.understanding;
     state.assumptions = assessment.assumptions || [];
@@ -8143,6 +8891,14 @@ async function startAssessment() {
     await startGeneration();
   } catch (error) {
     if (error.name === "AbortError" || currentAbortController?.signal?.aborted) {
+      return;
+    }
+    if (error.code === "GUEST_DAILY_LIMIT") {
+      state.remainingGuestBriefs = 0;
+      const isEn = getLanguage() === "en";
+      openGuestRestrictionModal(isEn ? GUEST_BUILD_EXHAUSTED_MESSAGE_EN : GUEST_BUILD_EXHAUSTED_MESSAGE);
+      setStatus("draft");
+      render();
       return;
     }
     setError(error, startAssessment, state.answers.length ? "needs_clarification" : "draft");
@@ -8362,6 +9118,9 @@ async function startGeneration() {
                 finalStrategy = evt.strategy;
                 if (evt.savedId) savedId = evt.savedId;
                 if (evt.savedStrategy) savedStrategy = evt.savedStrategy;
+                if (typeof evt.remainingGuestBriefs === "number") {
+                  state.remainingGuestBriefs = evt.remainingGuestBriefs;
+                }
               }
             } catch (pErr) {
               if (pErr.code || (pErr.message && !pErr.message.includes("JSON"))) throw pErr;
@@ -8373,6 +9132,9 @@ async function startGeneration() {
         finalStrategy = data.strategy;
         if (data.savedId) savedId = data.savedId;
         if (data.savedStrategy) savedStrategy = data.savedStrategy;
+        if (typeof data.remainingGuestBriefs === "number") {
+          state.remainingGuestBriefs = data.remainingGuestBriefs;
+        }
       }
     } catch (streamFetchErr) {
       if (streamFetchErr.name === "AbortError" || currentAbortController?.signal?.aborted) throw streamFetchErr;
@@ -8394,6 +9156,9 @@ async function startGeneration() {
       finalStrategy = data.strategy;
       if (data.savedId) savedId = data.savedId;
       if (data.savedStrategy) savedStrategy = data.savedStrategy;
+      if (typeof data.remainingGuestBriefs === "number") {
+        state.remainingGuestBriefs = data.remainingGuestBriefs;
+      }
     }
 
     if (!finalStrategy) {
@@ -8479,6 +9244,14 @@ async function startGeneration() {
     }
   } catch (error) {
     if (error.name === "AbortError" || currentAbortController?.signal?.aborted) {
+      return;
+    }
+    if (error.code === "GUEST_DAILY_LIMIT") {
+      state.remainingGuestBriefs = 0;
+      const isEn = getLanguage() === "en";
+      openGuestRestrictionModal(isEn ? GUEST_BUILD_EXHAUSTED_MESSAGE_EN : GUEST_BUILD_EXHAUSTED_MESSAGE);
+      setStatus("draft");
+      render();
       return;
     }
     // Check if this generation was moved to background
@@ -9390,6 +10163,10 @@ function buildOrchestrationMetaPanel(strategy, isEn) {
     ? strategy.orchestration.sources.filter((source) => source?.url && /^https?:\/\//i.test(source.url))
     : [];
   if (!sources.length) return null;
+  const searchSuggestions = extractGroundingSearchSuggestions({
+    webSearchQueries: strategy?.orchestration?.searchQueries,
+    searchEntryPoint: strategy?.orchestration?.searchEntryPoint,
+  });
 
   const panel = element("section", "strategy-sources-card");
   panel.setAttribute("aria-label", isEn ? "Research sources" : "Araşdırma mənbələri");
@@ -9416,6 +10193,25 @@ function buildOrchestrationMetaPanel(strategy, isEn) {
     list.appendChild(link);
   }
   panel.appendChild(list);
+  if (searchSuggestions.length > 0) {
+    const suggestionsBar = element("div", "ask-search-suggestions strategy-search-suggestions");
+    suggestionsBar.setAttribute("aria-label", "Google Search Suggestions");
+    const gBadge = element("span", "ask-search-suggestions-badge");
+    gBadge.appendChild(element("span", "ask-search-suggestions-label", "Google Search"));
+    suggestionsBar.appendChild(gBadge);
+    const suggestionsList = element("div", "ask-search-suggestions-list");
+    searchSuggestions.slice(0, 4).forEach((suggestion) => {
+      const sugChip = document.createElement("a");
+      sugChip.className = "ask-search-suggestion-chip";
+      sugChip.href = suggestion.url;
+      sugChip.target = "_blank";
+      sugChip.rel = "noopener noreferrer";
+      sugChip.appendChild(element("span", "ask-search-suggestion-text", suggestion.query));
+      suggestionsList.appendChild(sugChip);
+    });
+    suggestionsBar.appendChild(suggestionsList);
+    panel.appendChild(suggestionsBar);
+  }
   return panel;
 }
 
@@ -10024,13 +10820,19 @@ function buildStrategyAskAssistant() {
   }
   const composerBody = element("div", "strategy-artifact-composer-body");
   composerBody.append(input);
-  window.HelmerArtifacts?.attachComposer({ input, body: composerBody, getSelection: () => state.askPluginIds || [], setSelection: ids => { state.askPluginIds = ids; }, disabled: state.askLoading });
+  if (state.currentUser) {
+    window.HelmerArtifacts?.attachComposer({ input, body: composerBody, getSelection: () => state.askPluginIds || [], setSelection: ids => { state.askPluginIds = ids; }, disabled: state.askLoading });
+  }
   form.append(composerBody, send);
 
   const suggestionWrap = element("div", "ask-thinking-suggestion-wrap strategy-ask-thinking-suggestion-wrap");
   const suggestionBtn = button("", "ask-thinking-suggestion-btn", (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!state.currentUser) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.thinking);
+      return;
+    }
     state.askThinkingLevel = "high";
     currentAskThinking = "high";
     state.askThinkingEnabled = true;
@@ -10114,6 +10916,10 @@ function renderStrategyWorkspace() {
   // Toolbar - Clean Top Navigation with Breadcrumb and Format Switcher
   const toolbar = element("div", "strategy-toolbar");
   const crumb = button(`${isEn ? "Archive" : "Arxiv"} / ${strategy.title}`, "strategy-breadcrumb", () => {
+    if (!state.currentUser) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.strategy);
+      return;
+    }
     state.view = "list";
     render();
   });
@@ -10127,6 +10933,11 @@ function renderStrategyWorkspace() {
   // Canvas
   const documentCanvas = element("main", "strategy-document-canvas");
   documentCanvas.appendChild(header);
+
+  if (!state.currentUser) {
+    const guestLimitCard = createBuildGuestLimitCard(isEn);
+    if (guestLimitCard) documentCanvas.appendChild(guestLimitCard);
+  }
 
   let tocItems = [];
   if (state.strategyFormat === "faq") {
@@ -10254,6 +11065,10 @@ function buildRefinementPanel() {
 
   const refineToggle = button("", "dock-action-btn dock-refine-toggle", (e) => {
     e.preventDefault();
+    if (!state.currentUser) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.strategy);
+      return;
+    }
     state.refinementOpen = !state.refinementOpen;
     refineToggle.setAttribute("aria-expanded", String(state.refinementOpen));
     refineToggle.title = state.refinementOpen ? (isEn ? "Close" : "Bağla") : (isEn ? "Request edit" : "Düzəliş istə");
@@ -10324,7 +11139,13 @@ function buildRefinementPanel() {
   toolbarSeparator.setAttribute("aria-hidden", "true");
 
   // 3. Save button with minimalist bookmark/check icon
-  const saveBtn = button("", `dock-action-btn dock-save-btn${state.savedId ? " is-saved" : ""}`, saveStrategy);
+  const saveBtn = button("", `dock-action-btn dock-save-btn${state.savedId ? " is-saved" : ""}`, () => {
+    if (!state.currentUser) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.strategy);
+      return;
+    }
+    saveStrategy();
+  });
   saveBtn.disabled = Boolean(state.savedId) || state.status === "refining";
   const saveIconSvg = state.savedId
     ? `<svg class="dock-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="8 12 10.7 14.7 16.5 9"/></svg>`
@@ -10339,6 +11160,10 @@ function buildRefinementPanel() {
 
   const askBtn = button("", "dock-action-btn dock-ask-btn", (e) => {
     e.preventDefault();
+    if (!state.currentUser) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.strategy);
+      return;
+    }
     state.askModel = "gemini-3.8-flash";
     if (state.savedId) resetAskForStrategy(state.savedId);
     else resetAskForStrategy("", true);
@@ -10606,10 +11431,23 @@ function downloadExport(file) {
 }
 
 async function loadSavedStrategies() {
+  if (!state.currentUser) {
+    state.savedStrategies = [];
+    if (strategyCount) strategyCount.style.display = "none";
+    renderRecentList();
+    return;
+  }
   try {
     const data = await api("/api/strategy");
     state.savedStrategies = data.strategies;
-    strategyCount.textContent = String(data.strategies.length);
+    if (strategyCount) {
+      if (!state.currentUser) {
+        strategyCount.style.display = "none";
+      } else {
+        strategyCount.style.display = "";
+        strategyCount.textContent = String(data.strategies.length);
+      }
+    }
     renderRecentList();
     if (state.view === "list") renderStrategyList();
     const railPopover = document.querySelector("#railArchivePopover");
@@ -10765,6 +11603,11 @@ function renderRecentList() {
 }
 
 function updateWorkspaceIdentity(user) {
+  if (state.currentUser?.id !== user?.id) {
+    state.remainingGuestMessages = null;
+    state.guestQuotaCheckedAt = 0;
+    state.guestQuotaVersion += 1;
+  }
   state.currentUser = user;
   const isEn = getLanguage() === "en";
   const supportTooltip = document.querySelector(".support-chat-tooltip-text");
@@ -12089,13 +12932,16 @@ function renderSettings() {
     modelToggle.setAttribute("role", "switch");
     modelToggle.setAttribute("aria-label", t("settings.security.modelImprovementTitle"));
     modelToggle.setAttribute("aria-checked", String(isModelActive));
+    modelToggle.disabled = !isPersonalIntelligenceActive();
     modelToggle.appendChild(element("span", "settings-toggle-thumb"));
 
     modelToggle.addEventListener("click", async () => {
       const nextState = !isModelImprovementActive();
-      modelToggle.classList.toggle("is-active", nextState);
-      modelToggle.setAttribute("aria-checked", String(nextState));
+      modelToggle.disabled = true;
       await toggleModelImprovement(nextState);
+      modelToggle.classList.toggle("is-active", isModelImprovementActive());
+      modelToggle.setAttribute("aria-checked", String(isModelImprovementActive()));
+      modelToggle.disabled = !isPersonalIntelligenceActive();
     });
 
     modelRow.append(modelCopy, modelToggle);
@@ -12837,6 +13683,10 @@ function renderArchivePlannerSwitch(activeView = "archive") {
   switchWrap.setAttribute("aria-label", isEn ? "Workspace views" : "İş sahələri");
 
   const archiveBtn = button("", `archive-planner-option${activeView === "archive" ? " is-active" : ""}`, () => {
+    if (!state.currentUser) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.strategy);
+      return;
+    }
     if (state.view !== "list") {
       state.view = "list";
       syncNav();
@@ -12848,8 +13698,17 @@ function renderArchivePlannerSwitch(activeView = "archive") {
   archiveBtn.setAttribute("role", "tab");
   archiveBtn.setAttribute("aria-selected", String(activeView === "archive"));
   archiveBtn.append(element("span", "", isEn ? "Archive" : "Arxiv"));
+  if (!state.currentUser) {
+    const lock = element("span", "guest-inline-lock");
+    lock.innerHTML = getGuestLockIconSvg(11);
+    archiveBtn.appendChild(lock);
+  }
 
   const plannerBtn = button("", `archive-planner-option${activeView === "planner" ? " is-active" : ""}`, () => {
+    if (!state.currentUser) {
+      openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.planner);
+      return;
+    }
     if (state.view !== "planner") {
       state.view = "planner";
       syncNav();
@@ -12862,6 +13721,11 @@ function renderArchivePlannerSwitch(activeView = "archive") {
   plannerBtn.setAttribute("role", "tab");
   plannerBtn.setAttribute("aria-selected", String(activeView === "planner"));
   plannerBtn.append(element("span", "", isEn ? "Planner" : "Planlaşdırılanlar"));
+  if (!state.currentUser) {
+    const lock = element("span", "guest-inline-lock");
+    lock.innerHTML = getGuestLockIconSvg(11);
+    plannerBtn.appendChild(lock);
+  }
 
   switchWrap.append(archiveBtn, plannerBtn);
   return switchWrap;
@@ -12882,6 +13746,21 @@ function renderStrategyList() {
   const switchEl = renderArchivePlannerSwitch("archive");
   heading.append(copy, switchEl);
   view.appendChild(heading);
+
+  if (!state.currentUser) {
+    const locked = element("div", "archive-guest-locked-card");
+    locked.innerHTML = `
+      <div class="archive-guest-locked-icon">
+        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h2 class="archive-guest-locked-title">${isEn ? "Registration Required" : "Qeydiyyat Tələb Olunur"}</h2>
+      <p class="archive-guest-locked-text">${escapeHtml(getGuestRestrictionNotice(GUEST_RESTRICTION_NOTICES.strategy, isEn))}</p>
+      <a href="/signup?returnTo=${encodeURIComponent(location.pathname + location.search + location.hash)}" class="archive-guest-locked-btn">${isEn ? "Sign Up" : "Qeydiyyatdan keç"}</a>
+    `;
+    view.appendChild(locked);
+    workspace.appendChild(view);
+    return;
+  }
 
   const researchCard = renderArchiveResearchCard(isEn);
   if (researchCard) {
@@ -13211,6 +14090,11 @@ async function openSavedStrategy(id) {
 }
 
 async function loadPlannerTasks() {
+  if (!state.currentUser) {
+    state.plannerTasks = [];
+    updatePlannerBadge();
+    return;
+  }
   try {
     const data = await authRequest("/api/planner");
     state.plannerTasks = Array.isArray(data.tasks) ? data.tasks : [];
@@ -13224,6 +14108,11 @@ async function loadPlannerTasks() {
 
 function updatePlannerBadge() {
   if (plannerCount) {
+    if (!state.currentUser) {
+      plannerCount.style.display = "none";
+      return;
+    }
+    plannerCount.style.display = "";
     const activeCount = state.plannerTasks.filter((t) => !t.completed).length;
     plannerCount.textContent = String(activeCount);
   }
@@ -13815,6 +14704,21 @@ function renderPlannerView() {
 
   headerRow.append(headerText, headerActions);
   view.appendChild(headerRow);
+
+  if (!state.currentUser) {
+    const locked = element("div", "archive-guest-locked-card");
+    locked.innerHTML = `
+      <div class="archive-guest-locked-icon">
+        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </div>
+      <h2 class="archive-guest-locked-title">${isEn ? "Registration Required" : "Qeydiyyat Tələb Olunur"}</h2>
+      <p class="archive-guest-locked-text">${escapeHtml(getGuestRestrictionNotice(GUEST_RESTRICTION_NOTICES.planner, isEn))}</p>
+      <a href="/signup?returnTo=${encodeURIComponent(location.pathname + location.search + location.hash)}" class="archive-guest-locked-btn">${isEn ? "Sign Up" : "Qeydiyyatdan keç"}</a>
+    `;
+    view.appendChild(locked);
+    workspace.appendChild(view);
+    return;
+  }
 
   // Persistent task composer
   const composer = element("form", "planner-composer-card");
@@ -14646,15 +15550,17 @@ function renderPlannerView() {
 /* ===== USAGE LIMITS VIEW & STATS ===== */
 
 async function loadUsageStats() {
-  try {
-    const tzOffset = new Date().getTimezoneOffset();
-    const data = await authRequest(`/api/usage/stats?tzOffset=${tzOffset}`);
-    if (data && data.statsByPeriod) {
-      state.usageStats = data;
-      return data;
+  if (state.currentUser) {
+    try {
+      const tzOffset = new Date().getTimezoneOffset();
+      const data = await authRequest(`/api/usage/stats?tzOffset=${tzOffset}`);
+      if (data && data.statsByPeriod) {
+        state.usageStats = data;
+        return data;
+      }
+    } catch (err) {
+      console.warn("Could not fetch remote usage stats, computing locally:", err);
     }
-  } catch (err) {
-    console.warn("Could not fetch remote usage stats, computing locally:", err);
   }
 
   // Local fallback computation
@@ -16779,6 +17685,11 @@ mobileMenuButton.addEventListener("click", () => (sidebar.classList.contains("is
 railMenuButton.addEventListener("click", () => (sidebar.classList.contains("is-open") ? closeSidebar() : openSidebar()));
 railHomeButton.addEventListener("click", navigateHome);
 railStrategiesButton.addEventListener("click", () => {
+  if (!state.currentUser) {
+    closeSidebar();
+    openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.strategy);
+    return;
+  }
   hideRailArchivePopover(true);
   state.view = "list";
   syncNav();
@@ -16802,26 +17713,19 @@ for (const id of ["aiHubNav", "railAiHubButton"]) document.getElementById(id)?.a
   workspace.focus();
 });
 railPlannerButton?.addEventListener("click", () => {
+  if (!state.currentUser) {
+    closeSidebar();
+    openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.planner);
+    return;
+  }
   state.view = "planner";
   syncNav();
   render();
   closeSidebar();
   loadPlannerTasks();
 });
-railLimitsButton?.addEventListener("click", () => {
-  state.view = "limits";
-  syncNav();
-  render();
-  closeSidebar();
-});
 railSearchButton?.addEventListener("click", () => {
   openSearchModal();
-});
-railSettingsButton?.addEventListener("click", () => {
-  state.view = "settings";
-  syncNav();
-  render();
-  closeSidebar();
 });
 railInstallAppButton?.addEventListener("click", () => {
   handleInstallAppClick();
@@ -16878,36 +17782,31 @@ homeNav.addEventListener("click", () => {
   closeSidebar();
 });
 strategiesNav.addEventListener("click", () => {
+  if (!state.currentUser) {
+    closeSidebar();
+    openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.strategy);
+    return;
+  }
   state.view = "list";
   syncNav();
   render();
   closeSidebar();
 });
 plannerNav?.addEventListener("click", () => {
+  if (!state.currentUser) {
+    closeSidebar();
+    openGuestRestrictionModal(GUEST_RESTRICTION_NOTICES.planner);
+    return;
+  }
   state.view = "planner";
   syncNav();
   render();
   closeSidebar();
   loadPlannerTasks();
 });
-limitsNav?.addEventListener("click", () => {
-  state.view = "limits";
-  syncNav();
-  render();
-  closeSidebar();
-});
 installAppNav?.addEventListener("click", () => {
   closeSidebar();
   handleInstallAppClick();
-});
-settingsNav.addEventListener("click", () => {
-  if (state.view !== "settings") {
-    state.previousView = state.view;
-  }
-  state.view = "settings";
-  syncNav();
-  render();
-  closeSidebar();
 });
 whatsNewNav?.addEventListener("click", () => {
   openChangelogModal();
@@ -17112,7 +18011,7 @@ function handleKeyboardShortcut(event) {
     "1": () => homeNav?.click(),
     "2": () => strategiesNav?.click(),
     "3": () => plannerNav?.click(),
-    ",": () => settingsNav?.click(),
+    ",": () => openSettings(),
   };
 
   if (actions[key]) {
@@ -17137,7 +18036,8 @@ window.addEventListener("drop", (e) => {
 });
 
 export function showV35ReleaseToast() {
-  const STORAGE_KEY = "helmer_v3_5_release_toast_dismissed";
+  const STORAGE_KEY = "helmer_v4_release_toast_dismissed";
+  const LEGACY_STORAGE_KEY = "helmer_v3_5_release_toast_dismissed";
   try {
     if (localStorage.getItem(STORAGE_KEY) === "dismissed") return;
   } catch { }
@@ -17283,8 +18183,10 @@ initializeAuthentication(async (user) => {
   if (lastActiveChatId && state.mode === "ask" && !state.askMessages.length) {
     openSavedChat(lastActiveChatId).catch(() => { });
   }
-  resumeBackgroundJobs();
-  checkAndShowPlannerVisitNotification();
+  if (user) {
+    resumeBackgroundJobs();
+    checkAndShowPlannerVisitNotification();
+  }
   if (window.location.hash === "#terms" || window.location.pathname === "/terms") {
     openLegalModal("terms");
   } else if (window.location.hash === "#privacy" || window.location.pathname === "/privacy") {

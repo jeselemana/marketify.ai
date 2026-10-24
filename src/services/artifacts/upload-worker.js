@@ -12,21 +12,22 @@ async function extract() {
   const contents = new Map();
   let inflatedBytes = 0;
   for (const entry of entries) {
-    // Only decompress XML and relationship parts needed for validation and text extraction
-    if (!/\.(?:xml|rels)$/i.test(entry.name)) continue;
+    // Bound every entry: ExcelJS also inflates non-XML media and binary parts.
     const chunks = [];
     await new Promise((resolve, reject) => {
       const stream = entry.nodeStream('nodebuffer');
       stream.on('data', chunk => {
         inflatedBytes += chunk.length;
         if (inflatedBytes > MAX_TOTAL_INFLATED) {
-          stream.destroy(new Error('Office upload decompression limit exceeded'));
+          reject(new Error('Office upload decompression limit exceeded'));
+          stream.pause();
           return;
         }
         chunks.push(chunk);
       });
       stream.once('error', reject); stream.once('end', resolve);
     });
+    if (!/\.(?:xml|rels)$/i.test(entry.name)) continue;
     const text = Buffer.concat(chunks).toString('utf8');
     if (/<!DOCTYPE|<!ENTITY/i.test(text) || XMLValidator.validate(text) !== true) throw new Error("Unsafe Office upload");
     contents.set(entry.name, text);

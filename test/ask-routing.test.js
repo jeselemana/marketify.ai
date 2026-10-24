@@ -231,17 +231,20 @@ test("askRequestSchema strictly accepts follow-up messages containing assistant 
   assert.ok(scriptContent.includes("messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi)"), "script.js must map outgoing messages through sanitizeAskMessageForApi");
 });
 
-test("personal-context caches tenant context in memory and invalidates on mutation", async () => {
+test("personal-context caches tenant indexes, revalidates content and invalidates on mutation", async () => {
   const { getRelevantUserContext, invalidateUserContextCache } = await import("../src/services/ai/personal-context.js");
   let chatReadCount = 0;
   let stratReadCount = 0;
+  let revalidations = 0;
   const mockChatRepo = {
+    async getById(id, ownerId) { revalidations++; return { id, ownerId, title: 'Kofe', messages: [{ role: 'user', content: 'Kofe brendi üçün strategiya' }] }; },
     async readAll() {
       chatReadCount += 1;
       return [{ id: "c1", ownerId: "tenant_perf_1", title: "Kofe brendi satışı", updatedAt: new Date().toISOString(), messages: [{ role: "user", content: "Kofe brendi üçün strategiya" }] }];
     },
   };
   const mockStrategyRepo = {
+    async getById(id, ownerId) { revalidations++; return { id, ownerId, title: 'Kofe Bazar Strategiyası', brief: 'Bakıda premium kofe' }; },
     async readAll() {
       stratReadCount += 1;
       return [{ id: "s1", ownerId: "tenant_perf_1", title: "Kofe Bazar Strategiyası", updatedAt: new Date().toISOString(), brief: "Bakıda premium kofe" }];
@@ -254,11 +257,12 @@ test("personal-context caches tenant context in memory and invalidates on mutati
   assert.equal(chatReadCount, 1);
   assert.equal(stratReadCount, 1);
 
-  // Second call within TTL uses in-memory cache without re-reading repositories
+  // Cached indexes avoid list scans but content is checked against authoritative records.
   const ctx2 = await getRelevantUserContext({ ownerId: "tenant_perf_1", userMessage: "kofe satışı", chatRepository: mockChatRepo, strategyRepository: mockStrategyRepo });
   assert.ok(ctx2.includes("Kofe"));
   assert.equal(chatReadCount, 1);
   assert.equal(stratReadCount, 1);
+  assert.equal(revalidations, 2);
 
   // Invalidation forces fresh repository read
   invalidateUserContextCache("tenant_perf_1");

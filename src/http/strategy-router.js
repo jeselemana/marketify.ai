@@ -1,3 +1,4 @@
+import { assertExecutionAuthorized, createExecutionController } from '../services/security/execution-control.js';
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import express from "express";
@@ -17,7 +18,7 @@ import {
   refineStrategy,
 } from "../services/ai/strategy-service.js";
 import { buildStrategyPersonalizationContext } from "../services/ai/personal-context.js";
-import { detectTargetMarket } from "../services/ai/prompts.js";
+import { detectTargetMarket, getGuestBuildCtaNotice, GUEST_BUILD_EXHAUSTED_MESSAGE } from "../services/ai/prompts.js";
 import { aiConfig } from "../services/ai/config.js";
 import { logWithoutBlocking } from "../services/learning/learning-loop-service.js";
 import { isModelImprovementEnabled } from "./auth-middleware.js";
@@ -178,6 +179,7 @@ async function runTrackedBuild({
   const isRestricted = onlyNecessaryData || modelImprovement === false;
   try {
     const result = await execute((meta) => { providerMeta = { ...providerMeta, ...meta }; });
+    const groundingActive = Boolean(result?.orchestration?.searchGrounded || providerMeta?.searchGrounded);
     if (learningLoop) {
       logWithoutBlocking(learningLoop.recordInteraction({
         id: interactionId,
@@ -192,6 +194,7 @@ async function runTrackedBuild({
         usage: providerMeta.usage,
         latencyMs: Date.now() - startedAt,
         requestStatus: "success",
+        groundingActive,
         onlyNecessaryData: isRestricted,
         modelImprovement: !isRestricted,
         privacySnapshot,
@@ -261,7 +264,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
     "/assess",
     asyncRoute(async (req, res) => {
       const payload = parse(AssessRequestSchema, req.body);
-      const abortController = new AbortController();
+      const abortController = createExecutionController();
       const onReqClose = () => {
         if (!req.complete && !res.writableEnded) abortController.abort();
       };
@@ -288,7 +291,13 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         });
         const assessment = tracked.result;
         if (!res.writableEnded) {
-          res.json({ assessment });
+          res.json({
+            assessment,
+            ...(req.user ? {} : {
+              remainingGuestBriefs: req.remainingGuestBriefs,
+              isGuest: true,
+            }),
+          });
         }
       } finally {
         if (typeof req?.off === "function") req.off("close", onReqClose);
@@ -404,7 +413,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
     }
 
     // 4. Create in-flight generation with subscriber tracking
-    const masterAbortController = new AbortController();
+    const masterAbortController = createExecutionController();
     const generationSignal = AbortSignal.any([masterAbortController.signal, distLock.signal]);
     const subscribers = new Set([subscriberId]);
     const onChunkListeners = new Map();
@@ -463,6 +472,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
 
         generationSignal.throwIfAborted();
         await distLock.assertOwned();
+        await assertExecutionAuthorized(generationSignal);
         const strategy = tracked.result;
         const shouldAutoSave = payload.autoSave !== undefined
           ? payload.autoSave
@@ -471,6 +481,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         let savedRecord = null;
         if (shouldAutoSave) {
           const now = new Date().toISOString();
+          req?.securityContext?.markMutationPending?.();
           savedRecord = await repository.create(
             {
               clientSaveId: payload.idempotencyKey,
@@ -498,6 +509,11 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           }
         }
         const completedResult = { ...tracked, result: savedRecord?.strategy || tracked.result, savedRecord };
+        req?.securityContext?.recordIdempotentResult?.(200, {
+          strategy: completedResult.result,
+          savedStrategy: savedRecord ? publicRecord(savedRecord) : null,
+          savedId: savedRecord ? savedRecord.id : null,
+        });
         if (!shouldAutoSave) await distLock.saveResult({ fingerprint, tracked: completedResult });
         return completedResult;
       } finally {
@@ -550,6 +566,11 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
             strategy: tracked.result,
             savedStrategy: savedRecord ? publicRecord(savedRecord) : null,
             savedId: savedRecord ? savedRecord.id : null,
+            ...(req.user ? {} : {
+              remainingGuestBriefs: req.remainingGuestBriefs,
+              isGuest: true,
+              guestCtaNotice: req.remainingGuestBriefs !== undefined ? getGuestBuildCtaNotice(req.remainingGuestBriefs, req.headers["accept-language"]?.includes("en")) : undefined,
+            }),
           });
         }
       } finally {
@@ -619,6 +640,11 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           strategy,
           savedStrategy: savedRecord ? publicRecord(savedRecord) : null,
           savedId: savedRecord ? savedRecord.id : null,
+          ...(req.user ? {} : {
+            remainingGuestBriefs: req.remainingGuestBriefs,
+            isGuest: true,
+            guestCtaNotice: req.remainingGuestBriefs !== undefined ? getGuestBuildCtaNotice(req.remainingGuestBriefs, req.headers["accept-language"]?.includes("en")) : undefined,
+          }),
         });
         res.write("data: [DONE]\n\n");
         res.end();
@@ -655,7 +681,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
     "/refine",
     asyncRoute(async (req, res) => {
       const payload = parse(RefineRequestSchema, req.body);
-      const abortController = new AbortController();
+      const abortController = createExecutionController();
       const onReqClose = () => {
         if (!req.complete && !res.writableEnded) abortController.abort();
       };
@@ -801,7 +827,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         return;
       }
 
-      const abortController = new AbortController();
+      const abortController = createExecutionController();
       const onReqClose = () => {
         if (!req.complete && !res.writableEnded) abortController.abort();
       };
@@ -828,6 +854,8 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           });
           const strategy = tracked.result;
           const changeRequest = payload.action === "custom" ? payload.request : payload.action;
+          await assertExecutionAuthorized(abortController.signal);
+          req.securityContext?.markMutationPending?.();
           const updated = await repository.appendVersion(
             req.params.id,
             req.ownerId,
@@ -835,6 +863,8 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
             changeRequest,
             { clientSaveId: payload.idempotencyKey || null, payloadFingerprint: fingerprint }
           );
+          const responsePayload = { strategy: publicRecord(updated) };
+          req.securityContext?.recordIdempotentResult?.(200, responsePayload);
           if (modelImprovement && learningLoop && existing.learningInteractionId) {
             logWithoutBlocking(
               learningLoop.recordIteration({
@@ -846,7 +876,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
               "Build iteration logging",
             );
           }
-          return { strategy: publicRecord(updated) };
+          return responsePayload;
         };
 
         const refinePromise = executeRefine();

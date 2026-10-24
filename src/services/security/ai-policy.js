@@ -1,6 +1,9 @@
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 import net from 'node:net';
-import { executionContext } from './privacy-policy.js';
+import { guestDailyLimit, guestBuildDailyLimit } from './config.js';
+import { GUEST_EXHAUSTED_MESSAGE, GUEST_BUILD_EXHAUSTED_MESSAGE, GUEST_RESTRICTION_NOTICES, detectGuestFunctionalRestriction } from '../ai/prompts.js';
+import { resolveAskThinkingLevel } from '../ai/ask-routing.js';
+import { requestFingerprint } from './request-fingerprint.js';
 
 const fail = (code, status = 503) => Object.assign(new Error(code), { code, status });
 
@@ -16,18 +19,41 @@ export const DEFAULT_MODEL_PRICING = Object.freeze({
   'default': { input: 2.50, output: 10.00, search: 0.035 },
 });
 
+// The available balance includes this reserved message; remaining is the post-request balance.
+export function guestMessageBalance(req) {
+  const available = req.guestMessagesAvailable;
+  const remaining = req.remainingGuestMessages;
+  if (!Number.isSafeInteger(available) || available <= 0 || !Number.isSafeInteger(remaining) || remaining < 0 || available !== remaining + 1) {
+    throw fail('EXECUTION_UNAVAILABLE');
+  }
+  return { available, remaining };
+}
+
+export function guestBriefBalance(req) {
+  const available = req.guestBriefsAvailable;
+  const remaining = req.remainingGuestBriefs;
+  if (!Number.isSafeInteger(available) || available <= 0 || !Number.isSafeInteger(remaining) || remaining < 0 || (available !== remaining + 1 && available !== remaining)) {
+    throw fail('EXECUTION_UNAVAILABLE');
+  }
+  return { available, remaining };
+}
+
 export function isAiRequest(req) {
   return req.method === 'POST' && (
     /^\/api\/ask(?:\/research)?\/?$/i.test(req.path) ||
     /^\/api\/strategy\/(?:assess|generate|generate-stream|refine|[^/]+\/refine)\/?$/i.test(req.path) ||
     /^\/api\/planner\/(?:summarize|prioritize)\/?$/i.test(req.path) ||
-    /^\/api\/up\/challenges\/?$/i.test(req.path)
+    /^\/api\/up\/challenges(?:\/[0-9a-f-]{36}\/(?:submit|retry))?\/?$/i.test(req.path)
   );
 }
 export class AiPolicy {
   constructor({ redis, env = process.env, fetcher = fetch }) { this.redis = redis; this.env = env; this.fetcher = fetcher; }
+  async assertEnabled() {
+    this.ready();
+    if (this.env.AI_EXECUTION_DISABLED === 'true' || (this.redis?.isReady && this.redis.get && await this.redis.get('security:ai-paused') === '1')) throw fail('EXECUTION_DISABLED');
+  }
   ready() {
-    if (this.env.NODE_ENV === 'production' && (this.env.REDIS_URL || this.env.REQUIRE_REDIS === 'true') && !this.redis?.isReady) throw fail('EXECUTION_UNAVAILABLE');
+    if (this.env.NODE_ENV === 'production' && !this.redis?.isReady) throw fail('EXECUTION_UNAVAILABLE');
     if (this.redis && !this.redis.isReady) throw fail('EXECUTION_UNAVAILABLE');
   }
   async turnstile(req) {
@@ -54,33 +80,135 @@ export class AiPolicy {
   middleware() {
     return async (req, res, next) => {
       if (!/^\/api\/(?:ask|strategy|planner|up|user|artifacts)(?:\/|$)/i.test(req.path)) return next();
+      if (req.user?.status && req.user.status !== 'active') return res.status(403).json({ code: 'ACCOUNT_UNAVAILABLE', error: 'Hesab aktiv deyil.' });
       if (req.user && !req.user.emailVerifiedAt) return res.status(403).json({ code: 'EMAIL_VERIFICATION_REQUIRED', error: 'E-poçtunu təsdiqlə.' });
+      const previousAuthorization = req.securityContext?.assertAuthorized;
+      if (req.securityContext) req.securityContext.assertAuthorized = async () => { await this.assertEnabled(); await req.securityContext.assertLease?.(); await previousAuthorization?.(); };
       const guest = !req.user;
       if (guest && (/^\/api\/(?:up|user|artifacts)(?:\/|$)/i.test(req.path) || /^\/api\/ask\/research(?:\/|$)/i.test(req.path))) return res.status(401).json({ code: 'AUTH_REQUIRED' });
+      if (guest) {
+        let notice;
+        if (/^\/api\/planner(?:\/|$)/i.test(req.path)) notice = GUEST_RESTRICTION_NOTICES.planner;
+        if (/^\/api\/strategy(?:\/|$)/i.test(req.path) && !(req.method === 'POST' && /^\/api\/strategy\/(?:assess|generate|generate-stream)\/?$/i.test(req.path))) notice = GUEST_RESTRICTION_NOTICES.strategy;
+        if (req.method === 'POST' && /^\/api\/ask\/?$/i.test(req.path)) {
+          const body = req.body || {};
+          if (body.thinkingLevel !== undefined && (typeof body.thinkingLevel !== 'string' || !['low', 'medium', 'high', 'off', 'auto'].includes(body.thinkingLevel))) {
+            return res.status(400).json({ code: 'VALIDATION_ERROR', error: 'Düşünmə səviyyəsi düzgün deyil.' });
+          }
+          const messages = Array.isArray(body.messages) ? body.messages : [];
+          const lastUserMsg = typeof messages.at(-1)?.content === 'string' ? messages.at(-1).content : '';
+          notice = detectGuestFunctionalRestriction({
+            lastUserMsg,
+            hasAttachment: messages.some(message => Boolean(message?.file)),
+            hasStrategyContext: Boolean(body.strategyId), hasTaskContext: Boolean(body.taskId),
+            rawThinkingLevel: resolveAskThinkingLevel({ requestedThinkingLevel: body.thinkingLevel, lastUserMsg }),
+          }) || notice;
+        }
+        if (notice) return res.status(401).json({ code: 'AUTH_REQUIRED', error: notice, reply: notice });
+      }
       if (!isAiRequest(req)) return next();
+      try { await this.assertEnabled(); }
+      catch (error) { return res.status(503).json({ code: error.code === 'EXECUTION_DISABLED' ? 'EXECUTION_DISABLED' : 'EXECUTION_UNAVAILABLE', error: 'Sorğu icra edilə bilmədi.' }); }
       let controller;
       if (!this.redis?.isReady) {
-        if (this.env.NODE_ENV === 'production' && (this.env.REDIS_URL || this.env.REQUIRE_REDIS === 'true')) {
+        if (this.env.NODE_ENV === 'production') {
           return res.status(503).json({ code: 'EXECUTION_UNAVAILABLE', error: 'Sorğu icra edilə bilmədi.' });
         }
         controller = new AbortController();
         req.securityContext.route = req.path;
         req.securityContext.controller = controller;
         req.securityContext.signal = controller.signal;
+        if (!guest) {
+          res.once('finish', () => controller.abort());
+          res.once('close', () => controller.abort());
+        }
+        if (guest) {
+          try {
+            const isBuildRequest = /^\/api\/strategy\/(?:assess|generate|generate-stream)\/?$/i.test(req.path);
+            const isBuildGenerate = /^\/api\/strategy\/(?:generate|generate-stream)\/?$/i.test(req.path);
+            if (isBuildRequest) {
+              const dailyLimit = guestBuildDailyLimit(this.env);
+              if (isBuildGenerate) {
+                const used = this._trackInMemoryGuestUsage(req, dailyLimit, true);
+                req.guestBuildUsageCount = used;
+                req.guestBuildDailyLimit = dailyLimit;
+                req.remainingGuestBriefs = Math.max(0, dailyLimit - used);
+                req.guestBriefsAvailable = req.remainingGuestBriefs + 1;
+              } else {
+                const used = this._getInMemoryGuestUsage(req, true);
+                if (used >= dailyLimit) throw fail('GUEST_DAILY_LIMIT', 429);
+                req.guestBuildUsageCount = used;
+                req.guestBuildDailyLimit = dailyLimit;
+                req.remainingGuestBriefs = Math.max(0, dailyLimit - used);
+                req.guestBriefsAvailable = req.remainingGuestBriefs;
+              }
+            } else {
+              const dailyLimit = guestDailyLimit(this.env);
+              const used = this._trackInMemoryGuestUsage(req, dailyLimit, false);
+              req.guestUsageCount = used;
+              req.guestDailyLimit = dailyLimit;
+              req.remainingGuestMessages = Math.max(0, dailyLimit - used);
+              req.guestMessagesAvailable = req.remainingGuestMessages + 1;
+            }
+            let released = false;
+            const release = () => {
+              if (released) return;
+              released = true;
+              controller.abort();
+              if (!req.securityContext?.providerStarted && req.guestMemoryQuotaKeys) for (const key of req.guestMemoryQuotaKeys) {
+                this.inMemoryGuestUsage.set(key, Math.max(0, (this.inMemoryGuestUsage.get(key) || 0) - 1));
+              }
+            };
+            res.once('finish', release);
+            res.once('close', release);
+          } catch (error) {
+            const isBuildRequest = /^\/api\/strategy\/(?:assess|generate|generate-stream)\/?$/i.test(req.path);
+            const exhaustedMsg = isBuildRequest ? GUEST_BUILD_EXHAUSTED_MESSAGE : GUEST_EXHAUSTED_MESSAGE;
+            return res.status(error.status || 429).json({ code: error.code || 'GUEST_DAILY_LIMIT', error: exhaustedMsg, reply: exhaustedMsg });
+          }
+        }
         return next();
       }
-      let quotaKeys = [], requestKey, lock;
+      let quotaKeys = [], requestKey, requestRecord, previousRequest, lock, fingerprint;
+      let replayResult;
+      const isUpRequest = /^\/api\/up\/challenges(?:\/|$)/i.test(req.path);
+      const isDurableStrategyRequest = /^\/api\/strategy\/(?:generate|[0-9a-f-]{36}\/refine)\/?$/i.test(req.path);
       const token = randomUUID();
-      let finished = false;
+      let finished = false, handlerEntered = false;
+      if (req.securityContext) {
+        req.securityContext.markMutationPending = () => {
+          req.securityContext.mutationPending = true;
+        };
+        req.securityContext.recordIdempotentResult = (first, second = 200) => {
+          const isStatusFirst = typeof first === 'number';
+          const status = isStatusFirst ? first : (typeof second === 'number' ? second : 200);
+          const body = isStatusFirst ? second : first;
+          replayResult = { status, body };
+          req.securityContext.mutationCommitted = true;
+          req.securityContext.mutationPending = false;
+        };
+      }
       const finish = async () => {
         if (finished) return; finished = true;
         clearTimeout(timer);
-        if (!req.securityContext?.isBackgroundJob) {
-          controller?.abort();
-        }
-        if (lock) await this.redis.eval("if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end; return 0", { keys: [lock], arguments: [token] }).catch(() => {});
+        controller?.abort();
         if (!req.securityContext?.providerStarted && quotaKeys.length) await this.redis.eval("for _,k in ipairs(KEYS) do local n = tonumber(redis.call('get', k) or '0'); if n > 0 then redis.call('decr',k) end end; return 1", { keys: quotaKeys }).catch(() => {});
-        if (requestKey) await this.redis.set(requestKey, JSON.stringify({ state: req.securityContext?.providerStarted ? 'started' : 'rejected' }), { EX: 900 }).catch(() => {});
+        const canRetryAfterPreCommitFailure =
+          handlerEntered &&
+          !replayResult &&
+          res.statusCode >= 500 &&
+          !req.securityContext?.mutationPending &&
+          !req.securityContext?.mutationCommitted &&
+          !req.securityContext?.isBackgroundJob;
+        const finalState = replayResult
+          ? 'completed'
+          : !handlerEntered
+            ? 'rejected'
+            : canRetryAfterPreCommitFailure
+              ? 'retryable'
+              : 'started';
+        if (requestKey && requestRecord) await this.redis.eval("if redis.call('get',KEYS[1]) ~= ARGV[1] then return 0 end; redis.call('set',KEYS[1],ARGV[2],'EX',900); return 1", { keys: [requestKey], arguments: [requestRecord, JSON.stringify({ state: finalState, fingerprint, result: replayResult })] }).catch(() => {});
+        if (lock) await this.redis.eval("if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end; return 0", { keys: [lock], arguments: [token] }).catch(() => {});
       };
       let timer;
       try {
@@ -89,19 +217,81 @@ export class AiPolicy {
         const id = req.get('Idempotency-Key');
         if (!id || !/^[A-Za-z0-9_-]{16,100}$/.test(id)) throw fail('IDEMPOTENCY_KEY_REQUIRED', 400);
         requestKey = `security:request:${createHash('sha256').update(`${req.ownerId}:${req.path}:${id}`).digest('hex')}`;
-        if (!await this.redis.set(requestKey, JSON.stringify({ state: 'reserved' }), { NX: true, EX: 900 })) { requestKey = null; throw fail('REQUEST_ALREADY_SUBMITTED', 409); }
+        fingerprint = requestFingerprint(req.body);
+        const candidate = JSON.stringify({ state: 'reserved', fingerprint, token });
+        if (await this.redis.set(requestKey, candidate, { NX: true, EX: 900 })) requestRecord = candidate;
+        else {
+          previousRequest = await this.redis.get(requestKey);
+          const existing = JSON.parse(previousRequest || 'null');
+          if (!existing || existing.fingerprint !== fingerprint) { requestKey = null; throw fail('IDEMPOTENCY_CONFLICT', 409); }
+          if (existing.state === 'completed' && existing.result) { requestKey = null; return res.status(existing.result.status).json(existing.result.body); }
+          // UP and durable strategy routes can reconcile ambiguous 'started' state against durable repository state.
+          // Pre-commit failures ('rejected' or 'retryable') may be retried safely once the owner lock is acquired.
+          // Generic operations with ambiguous in-flight or post-mutation 'started' state remain blocked.
+          const canProceed = existing.state === 'rejected' || existing.state === 'retryable' || (existing.state === 'started' && (isUpRequest || isDurableStrategyRequest));
+          if (!canProceed) { requestKey = null; throw fail('REQUEST_ALREADY_SUBMITTED', 409); }
+        }
+        req.securityContext.operationKey = requestKey;
+        req.securityContext.operationFingerprint = fingerprint;
+        const json = res.json.bind(res);
+        res.json = body => {
+          if (res.statusCode >= 200 && res.statusCode < 300 && !replayResult) replayResult = { status: res.statusCode, body };
+          return json(body);
+        };
         const actor = req.ownerId, ip = this.ipKey(req), day = new Date().toISOString().slice(0, 10);
         const keys = [`security:rate:${actor}`, `security:rate-ip:${ip}`];
         const allowed = await this.redis.eval("for _,k in ipairs(KEYS) do if tonumber(redis.call('get',k) or '0') >= tonumber(ARGV[1]) then return 0 end end; for _,k in ipairs(KEYS) do local n = redis.call('incr',k); if n == 1 then redis.call('expire',k,600) end end; return 1", { keys, arguments: ['60'] });
         if (!allowed) throw fail('RATE_LIMITED', 429);
         if (guest) {
-          quotaKeys = [`security:guest-day:${day}:${actor}`, `security:guest-ip-day:${day}:${ip}`];
-          const admitted = await this.redis.eval("for _,k in ipairs(KEYS) do if tonumber(redis.call('get',k) or '0') >= 2 then return 0 end end; for _,k in ipairs(KEYS) do redis.call('incr',k); redis.call('expire',k,172800) end; return 1", { keys: quotaKeys });
-          if (!admitted) { quotaKeys = []; throw fail('GUEST_DAILY_LIMIT', 429); }
+          const isBuildRequest = /^\/api\/strategy\/(?:assess|generate|generate-stream)\/?$/i.test(req.path);
+          const isBuildGenerate = /^\/api\/strategy\/(?:generate|generate-stream)\/?$/i.test(req.path);
+          if (isBuildRequest) {
+            const dailyLimit = guestBuildDailyLimit(this.env);
+            quotaKeys = [`security:guest-build-day:${day}:${actor}`, `security:guest-build-ip-day:${day}:${ip}`];
+            if (isBuildGenerate) {
+              const admitted = await this.redis.eval(
+                "for _,k in ipairs(KEYS) do if tonumber(redis.call('get',k) or '0') >= tonumber(ARGV[1]) then return 0 end end; local res = 0; for _,k in ipairs(KEYS) do local n = redis.call('incr',k); redis.call('expire',k,172800); if n > res then res = n end end; return res",
+                { keys: quotaKeys, arguments: [String(dailyLimit)] }
+              );
+              if (!admitted) { quotaKeys = []; throw fail('GUEST_DAILY_LIMIT', 429); }
+              req.guestBuildUsageCount = admitted;
+              req.guestBuildDailyLimit = dailyLimit;
+              req.remainingGuestBriefs = Math.max(0, dailyLimit - admitted);
+              req.guestBriefsAvailable = req.remainingGuestBriefs + 1;
+            } else {
+              const vals = await this.redis.mGet(quotaKeys);
+              const used = Math.max(0, ...vals.map(v => Number(v || 0)));
+              if (used >= dailyLimit) { quotaKeys = []; throw fail('GUEST_DAILY_LIMIT', 429); }
+              quotaKeys = [];
+              req.guestBuildUsageCount = used;
+              req.guestBuildDailyLimit = dailyLimit;
+              req.remainingGuestBriefs = Math.max(0, dailyLimit - used);
+              req.guestBriefsAvailable = req.remainingGuestBriefs;
+            }
+          } else {
+            const dailyLimit = guestDailyLimit(this.env);
+            quotaKeys = [`security:guest-day:${day}:${actor}`, `security:guest-ip-day:${day}:${ip}`];
+            const admitted = await this.redis.eval(
+              "for _,k in ipairs(KEYS) do if tonumber(redis.call('get',k) or '0') >= tonumber(ARGV[1]) then return 0 end end; local res = 0; for _,k in ipairs(KEYS) do local n = redis.call('incr',k); redis.call('expire',k,172800); if n > res then res = n end end; return res",
+              { keys: quotaKeys, arguments: [String(dailyLimit)] }
+            );
+            if (!admitted) { quotaKeys = []; throw fail('GUEST_DAILY_LIMIT', 429); }
+            req.guestUsageCount = admitted;
+            req.guestDailyLimit = dailyLimit;
+            req.remainingGuestMessages = Math.max(0, dailyLimit - admitted);
+            req.guestMessagesAvailable = req.remainingGuestMessages + 1;
+          }
         }
         lock = `security:owner-execution:${actor}`;
         if (!await this.redis.set(lock, token, { NX: true, PX: 180000 })) { lock = null; throw fail('EXECUTION_BUSY', 429); }
+        if (previousRequest) {
+          const candidate = JSON.stringify({ state: 'reserved', fingerprint, token });
+          const claimed = await this.redis.eval("if redis.call('get',KEYS[1]) ~= ARGV[1] then return 0 end; redis.call('set',KEYS[1],ARGV[2],'EX',900); return 1", { keys: [requestKey], arguments: [previousRequest, candidate] });
+          if (!claimed) throw fail('REQUEST_ALREADY_SUBMITTED', 409);
+          requestRecord = candidate;
+        }
         controller = new AbortController();
+        req.securityContext.assertLease = async () => { if (!this.redis.isReady || await this.redis.get(lock) !== token) throw fail('EXECUTION_LOCK_LOST'); };
         req.securityContext.route = req.path;
         req.securityContext.controller = controller; req.securityContext.signal = controller.signal;
         const renewal = setInterval(async () => {
@@ -111,18 +301,32 @@ export class AiPolicy {
           } catch { controller.abort(fail('EXECUTION_UNAVAILABLE')); }
         }, 30000); renewal.unref();
         timer = setTimeout(() => { clearInterval(renewal); controller.abort(fail('EXECUTION_TIMEOUT')); if (!res.headersSent) res.status(504).json({ code: 'EXECUTION_TIMEOUT' }); else res.end(); }, 180000);
-        res.once('finish', () => { clearInterval(renewal); void finish(); });
-        res.once('close', () => { clearInterval(renewal); void finish(); });
+        req.securityContext.transferToBackground = () => {
+          req.securityContext.isBackgroundJob = true;
+          clearTimeout(timer);
+          timer = setTimeout(() => controller.abort(fail('EXECUTION_TIMEOUT')), 10 * 60 * 1000);
+          timer.unref();
+          return { signal: controller.signal, assertOwned: req.securityContext.assertLease, release: async () => { clearInterval(renewal); await finish(); } };
+        };
+        const finishRequest = () => {
+          if (!req.securityContext.isBackgroundJob) { clearInterval(renewal); void finish(); }
+        };
+        res.once('finish', finishRequest);
+        res.once('close', finishRequest);
+        handlerEntered = true;
         next();
       } catch (error) {
         await finish();
-        res.status(error.status || 503).json({ code: error.code || 'EXECUTION_UNAVAILABLE', error: 'Sorğu başlana bilmədi.' });
+        const isBuild = /^\/api\/strategy\/(?:assess|generate|generate-stream)\/?$/i.test(req.path);
+        const exhaustedMsg = isBuild ? GUEST_BUILD_EXHAUSTED_MESSAGE : GUEST_EXHAUSTED_MESSAGE;
+        res.status(error.status || 503).json({ code: error.code || 'EXECUTION_UNAVAILABLE', error: error.code === 'GUEST_DAILY_LIMIT' ? exhaustedMsg : 'Sorğu başlana bilmədi.', ...(error.code === 'GUEST_DAILY_LIMIT' ? { reply: exhaustedMsg } : {}) });
       }
     };
   }
   async reserveProvider(context, params) {
+    await this.assertEnabled();
     if (!this.redis?.isReady) {
-      if (this.env.NODE_ENV === 'production' && (this.env.REDIS_URL || this.env.REQUIRE_REDIS === 'true')) throw fail('EXECUTION_UNAVAILABLE', 503);
+      if (this.env.NODE_ENV === 'production') throw fail('EXECUTION_UNAVAILABLE', 503);
       return async () => {};
     }
     this.ready();
@@ -154,17 +358,120 @@ export class AiPolicy {
       return value;
     });
     const input = Buffer.byteLength(serialized || '') + Math.ceil(inlineBase64Chars / 750), output = Math.min(params.max_output_tokens || params.max_completion_tokens || params.max_tokens || params.config?.maxOutputTokens || 16384, 16384);
-    const micros = Math.ceil(input * price.input + output * price.output + (searching ? searchPrice * 1000000 : 0));
+    const searchCalls = searching ? (Number.isSafeInteger(params.max_tool_calls) && params.max_tool_calls > 0 ? params.max_tool_calls : 1) : 0;
+    const micros = Math.ceil(input * price.input + output * price.output + searchCalls * searchPrice * 1000000);
     const day = new Date().toISOString().slice(0, 10), keys = [`security:budget:${day}:${context.ownerId}`, `security:budget:${day}:global`];
     const userLimit = Number(this.env.AI_USER_DAILY_USD || 5), globalLimit = Number(this.env.AI_PLATFORM_DAILY_USD || 100);
-    if (!(userLimit > 0 && globalLimit > 0)) throw fail('BUDGET_CONFIGURATION_INVALID');
+    if (!(Number.isFinite(userLimit) && Number.isFinite(globalLimit) && userLimit > 0 && globalLimit > 0)) throw fail('BUDGET_CONFIGURATION_INVALID');
     const token = randomUUID(), now = Date.now();
     const accepted = await this.redis.eval("redis.call('zremrangebyscore',KEYS[3],'-inf',ARGV[4]); if redis.call('zcard',KEYS[3]) >= 8 then return -1 end; if tonumber(redis.call('get',KEYS[1]) or '0') + tonumber(ARGV[1]) > tonumber(ARGV[2]) or tonumber(redis.call('get',KEYS[2]) or '0') + tonumber(ARGV[1]) > tonumber(ARGV[3]) then return 0 end; for i=1,2 do redis.call('incrby',KEYS[i],ARGV[1]); redis.call('expire',KEYS[i],172800) end; redis.call('zadd',KEYS[3],ARGV[5],ARGV[6]); return 1", { keys: [...keys, 'security:provider-slots'], arguments: [String(micros), String(Math.floor(userLimit * 1000000)), String(Math.floor(globalLimit * 1000000)), String(now), String(now + 180000), token] });
     if (accepted !== 1) throw fail(accepted === -1 ? 'EXECUTION_BUSY' : 'DAILY_BUDGET_EXCEEDED', 429);
     const heartbeat = setInterval(async () => {
-      try { if (!this.redis.isReady || !await this.redis.zScore('security:provider-slots', token)) throw fail('EXECUTION_LOCK_LOST'); await this.redis.zAdd('security:provider-slots', { score: Date.now() + 180000, value: token }); }
+      try {
+        await this.assertEnabled();
+        if (!this.redis.isReady || !await this.redis.eval("local expiry = redis.call('zscore',KEYS[1],ARGV[1]); if not expiry or tonumber(expiry) <= tonumber(ARGV[2]) then return 0 end; redis.call('zadd',KEYS[1],ARGV[3],ARGV[1]); return 1", { keys: ['security:provider-slots'], arguments: [token, String(Date.now()), String(Date.now() + 180000)] })) throw fail('EXECUTION_LOCK_LOST');
+      }
       catch (error) { context.controller?.abort(error); }
     }, 30000); heartbeat.unref();
-    return async () => { clearInterval(heartbeat); await this.redis.zRem('security:provider-slots', token).catch(() => {}); };
+    let recorded = false, released = false;
+    const release = async () => { if (released) return; released = true; clearInterval(heartbeat); await this.redis.zRem('security:provider-slots', token).catch(() => {}); };
+    release.recordUsage = async usage => {
+      if (recorded) return;
+      recorded = true;
+      const observedMicros = Math.ceil(usage.inputTokens * price.input + usage.outputTokens * price.output + (usage.searchUsageKnown === false ? Math.max(searchCalls, usage.searchCalls) : usage.searchCalls) * searchPrice * 1000000);
+      const modelHash = createHash('sha256').update(modelKey).digest('hex');
+      const usageKeys = keys.map(key => `${key}:usage:${modelHash}`);
+      // Settle reported usage once; retain reserved search spend when the provider does not report billable search units. Missing usage keeps the full reservation.
+      await this.redis.eval("if redis.call('exists',KEYS[5]) == 1 then return 0 end; redis.call('set',KEYS[5],1,'EX',172800); for i=1,2 do local cur = tonumber(redis.call('get',KEYS[i])); local delta = tonumber(ARGV[1]) or 0; local floor = math.max(0, tonumber(ARGV[5]) or 0); local next = cur and math.max(floor, cur + delta) or floor; redis.call('set',KEYS[i],tostring(next),'EX',172800) end; for i=3,4 do redis.call('hincrby',KEYS[i],'inputTokens',ARGV[2]); redis.call('hincrby',KEYS[i],'outputTokens',ARGV[3]); redis.call('hincrby',KEYS[i],'searchCalls',ARGV[4]); redis.call('hincrby',KEYS[i],'estimatedMicros',ARGV[5]); redis.call('hincrby',KEYS[i],'calls',1); redis.call('expire',KEYS[i],172800) end; return 1", { keys: [...keys, ...usageKeys, `security:usage-record:${token}`], arguments: [String(observedMicros - micros), String(usage.inputTokens), String(usage.outputTokens), String(usage.searchCalls), String(observedMicros)] });
+    };
+    return release;
+  }
+  _trackInMemoryGuestUsage(req, limit, isBuild = false) {
+    if (!this.inMemoryGuestUsage) this.inMemoryGuestUsage = new Map();
+    const actor = req.ownerId || 'guest_unknown';
+    const day = new Date().toISOString().slice(0, 10);
+    const prefix = isBuild ? `${day}:build` : day;
+    const keys = [`${prefix}:owner:${actor}`, `${prefix}:ip:${this.ipKey(req)}`];
+    const prev = Math.max(...keys.map(key => this.inMemoryGuestUsage.get(key) || 0));
+    if (prev >= limit) throw fail('GUEST_DAILY_LIMIT', 429);
+    for (const key of keys) this.inMemoryGuestUsage.set(key, (this.inMemoryGuestUsage.get(key) || 0) + 1);
+    req.guestMemoryQuotaKeys = keys;
+    const next = prev + 1;
+    if (this.inMemoryGuestUsage.size > 10000) {
+      for (const [k] of this.inMemoryGuestUsage) {
+        if (!k.startsWith(day)) this.inMemoryGuestUsage.delete(k);
+      }
+    }
+    return next;
+  }
+  _getInMemoryGuestUsage(req, isBuild = false) {
+    if (!this.inMemoryGuestUsage) return 0;
+    const actor = req.ownerId || 'guest_unknown';
+    const day = new Date().toISOString().slice(0, 10);
+    const prefix = isBuild ? `${day}:build` : day;
+    const keys = [`${prefix}:owner:${actor}`, `${prefix}:ip:${this.ipKey(req)}`];
+    return Math.max(...keys.map(key => this.inMemoryGuestUsage.get(key) || 0));
+  }
+  guestQuotaHandler() {
+    return async (req, res) => {
+      res.set('Cache-Control', 'no-store');
+      try {
+        res.json(await this.getGuestQuota(req));
+      } catch (error) {
+        console.error('Guest quota unavailable', error.code || error.name);
+        res.status(503).json({ code: 'EXECUTION_UNAVAILABLE', error: 'Mesaj limitini yoxlamaq mümkün olmadı.' });
+      }
+    };
+  }
+  async getGuestQuota(req) {
+    const isGuest = !req.user;
+    const limit = guestDailyLimit(this.env);
+    const buildLimit = guestBuildDailyLimit(this.env);
+    if (!isGuest) {
+      return {
+        isGuest: false,
+        limit: null,
+        used: 0,
+        remaining: null,
+        buildLimit: null,
+        buildUsed: 0,
+        buildRemaining: null,
+      };
+    }
+    this.ready();
+    const actor = req.ownerId || 'guest_unknown';
+    const day = new Date().toISOString().slice(0, 10);
+    let used = 0;
+    let buildUsed = 0;
+    if (this.redis?.isReady) {
+      const ip = this.ipKey(req);
+      const keys = [
+        `security:guest-day:${day}:${actor}`,
+        `security:guest-ip-day:${day}:${ip}`,
+        `security:guest-build-day:${day}:${actor}`,
+        `security:guest-build-ip-day:${day}:${ip}`,
+      ];
+      try {
+        const vals = await this.redis.mGet(keys);
+        if ((vals.length !== 2 && vals.length !== 4) || vals.some(value => value !== null && (!/^\d+$/.test(String(value)) || !Number.isSafeInteger(Number(value))))) throw fail('EXECUTION_UNAVAILABLE');
+        used = Math.max(0, ...vals.slice(0, 2).map(value => Number(value || 0)));
+        if (vals.length === 4) {
+          buildUsed = Math.max(0, ...vals.slice(2, 4).map(value => Number(value || 0)));
+        }
+      } catch { throw fail('EXECUTION_UNAVAILABLE'); }
+    } else if (this.inMemoryGuestUsage) {
+      used = Math.max(this.inMemoryGuestUsage.get(`${day}:owner:${actor}`) || 0, this.inMemoryGuestUsage.get(`${day}:ip:${this.ipKey(req)}`) || 0);
+      buildUsed = Math.max(this.inMemoryGuestUsage.get(`${day}:build:owner:${actor}`) || 0, this.inMemoryGuestUsage.get(`${day}:build:ip:${this.ipKey(req)}`) || 0);
+    }
+    return {
+      isGuest: true,
+      limit,
+      used,
+      remaining: Math.max(0, limit - used),
+      buildLimit,
+      buildUsed,
+      buildRemaining: Math.max(0, buildLimit - buildUsed),
+      resetsAt: new Date(`${day}T00:00:00.000Z`).getTime() + 86400000,
+    };
   }
 }

@@ -48,6 +48,9 @@ export const SignupSchema = z.object({
   email: z.string().trim().email("Düzgün e-poçt ünvanı daxil et.").max(254).transform(normalizeEmail),
   password: PasswordSchema,
   language: z.enum(["az", "en"]).optional(),
+  ageConfirmed: z.literal(true, {
+    errorMap: () => ({ message: "Qeydiyyat üçün 18 yaşınızı və İstifadə Şərtlərini təsdiqləməlisiniz." }),
+  }).optional(),
 }).strict();
 
 export const LoginSchema = z.object({

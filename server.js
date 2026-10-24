@@ -1,3 +1,4 @@
+import { assertExecutionActive, assertExecutionAuthorized, createExecutionController } from './src/services/security/execution-control.js';
 import { readTenantObject } from "./src/http/r2-storage.js";
 import { z } from "zod";
 import { isR2Configured, loadJSONFromR2, saveJSONToR2, testR2Connection } from "./src/http/r2-storage.js";
@@ -33,8 +34,19 @@ import { httpStatusOf, publicErrorMessage } from "./src/http/error-response.js";
 import { resolveAskModelRoute, isComplexAskQuery, resolveAskThinkingLevel } from "./src/services/ai/ask-routing.js";
 import { geminiFileCache } from "./src/services/ai/gemini-file-cache.js";
 import { evaluateSearchRoute } from "./src/services/ai/search-router.js";
+import { ungroundedFallbackConfig } from './src/services/ai/grounding-fallback.js';
+import { assertCachedFileReference, prepareUploadedContext } from './src/services/artifacts/upload-context.js';
 import { buildPersonalizationContext } from "./src/services/ai/personal-context.js";
-import { ASK_INSTRUCTIONS, buildAskPrompt, EPISTEMIC_HUMILITY_RULES } from "./src/services/ai/prompts.js";
+import {
+  ASK_INSTRUCTIONS,
+  buildAskPrompt,
+  EPISTEMIC_HUMILITY_RULES,
+  GUEST_EXHAUSTED_MESSAGE,
+  GUEST_RESTRICTION_NOTICES,
+  detectGuestFunctionalRestriction,
+  formatGuestAnswerWithCta,
+  createGuestAnswerStream
+} from "./src/services/ai/prompts.js";
 import { FileAiLearningRepository } from "./src/repositories/file-ai-learning-repository.js";
 import { LearningLoopService, logWithoutBlocking } from "./src/services/learning/learning-loop-service.js";
 import { createAiLearningAdminRouter, createAiLearningSignalRouter } from "./src/http/ai-learning-router.js";
@@ -42,8 +54,8 @@ import { FileTelemetryRepository } from "./src/repositories/file-telemetry-repos
 import { TelemetryService } from "./src/services/telemetry/telemetry-service.js";
 import { createTelemetryAdminRouter, createTelemetryClientRouter } from "./src/http/telemetry-router.js";
 import { createAdminMfaRouter } from "./src/auth/admin-mfa.js";
-import { validateSecurityConfig } from "./src/services/security/config.js";
-import { AiPolicy } from "./src/services/security/ai-policy.js";
+import { validateSecurityConfig, guestDailyLimit, guestBuildDailyLimit } from "./src/services/security/config.js";
+import { AiPolicy, guestMessageBalance } from "./src/services/security/ai-policy.js";
 import { configureProviderPolicy } from "./src/services/security/provider-policy.js";
 import { CleanupQueue } from "./src/services/security/cleanup-queue.js";
 import { DurableStore } from "./src/services/security/durable-store.js";
@@ -321,13 +333,13 @@ async function syncAllStores() {
   }
 
   await refreshAdminIdentities();
-  userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
+  userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, telemetryRepository, authStore }).catch(() => {});
   guestRetention.prune().catch(() => {});
 }
 
 // Periodic background check for expired account deletion (every 1 hour)
 setInterval(() => {
-  userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
+  userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, telemetryRepository, authStore }).catch(() => {});
   guestRetention.prune().catch(() => {});
 }, 60 * 60 * 1000).unref();
 
@@ -339,14 +351,20 @@ configureProviderPolicy(aiPolicy);
 app.use(guestSession);
 app.use(createIdentityMiddleware({ authStore, userRepository }));
 app.use(privacyPolicy.middleware());
-app.use(aiPolicy.middleware());
 app.use('/api/auth', express.json({ limit: '64kb' }));
 const askGuestJsonParser = express.json({ limit: '512kb' });
 const askAuthJsonParser = express.json({ limit: '25mb' });
 app.use('/api/ask', (req, res, next) => (req.user ? askAuthJsonParser(req, res, next) : askGuestJsonParser(req, res, next)));
 app.use(express.json({ limit: '256kb' }));
 app.use(express.urlencoded({ limit: '64kb', extended: false }));
-app.get('/api/security/config', (req, res) => { res.set('Cache-Control', 'no-store'); res.json({ guest: !req.user, turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || null, guestAiDailyLimit: 2, guestRetentionDays: 7 }); });
+app.use(aiPolicy.middleware());
+app.get('/api/security/config', (req, res) => {
+  const guestLimit = guestDailyLimit();
+  const guestBuildLimit = guestBuildDailyLimit();
+  res.set('Cache-Control', 'no-store');
+  res.json({ guest: !req.user, turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || null, guestAiDailyLimit: guestLimit, guestBuildDailyLimit: guestBuildLimit, guestRetentionDays: 7 });
+});
+app.get('/api/auth/guest-status', aiPolicy.guestQuotaHandler());
 app.use("/api/auth", createAuthRouter({
   userRepository,
   authStore,
@@ -797,6 +815,7 @@ async function generateOpenAIAskStreamResponse({
     }
     if (accumulated.trim()) return { text: accumulated.trim(), usage, model, provider: "openai" };
   } catch (responsesErr) {
+    assertExecutionActive(responsesErr);
     // Once a response has started, switching providers would duplicate text in
     // the user's live bubble. Surface the interrupted stream instead.
     if (accumulated.trim() || signal?.aborted || responsesErr?.name === "AbortError") throw responsesErr;
@@ -855,6 +874,7 @@ async function generateOpenAIAskResponse({
     const text = response.output_text?.trim();
     if (text) return { text, usage: response.usage || null, model, provider: "openai" };
   } catch (respErr) {
+    assertExecutionActive(respErr);
     if (signal?.aborted || respErr?.name === "AbortError") {
       throw respErr;
     }
@@ -973,6 +993,66 @@ function sanitizeGroundingMetadata(metadata) {
       }
     });
   }
+  if (Array.isArray(sanitized.webSearchQueries)) {
+    sanitized.webSearchQueries = sanitized.webSearchQueries
+      .map((q) => (typeof q === "string" ? q.trim().slice(0, 160) : ""))
+      .filter(Boolean)
+      .slice(0, 10);
+  }
+  if (sanitized.searchEntryPoint && typeof sanitized.searchEntryPoint === "object") {
+    const renderedContent = typeof sanitized.searchEntryPoint.renderedContent === "string"
+      ? sanitized.searchEntryPoint.renderedContent.slice(0, 50000)
+      : undefined;
+    sanitized.searchEntryPoint = renderedContent ? { renderedContent } : undefined;
+  }
+  const suggestions = [];
+  const seenSuggestions = new Set();
+  const addSuggestion = (query, rawUrl) => {
+    const cleanQuery = String(query || "").replace(/\s+/g, " ").trim().slice(0, 160);
+    if (!cleanQuery) return;
+    let url = `https://www.google.com/search?q=${encodeURIComponent(cleanQuery)}`;
+    if (typeof rawUrl === "string" && rawUrl.trim()) {
+      try {
+        const parsed = new URL(rawUrl.trim());
+        const host = parsed.hostname.toLowerCase();
+        if (
+          (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+          (host === "www.google.com" || host === "google.com" || host.endsWith(".google.com") || host.endsWith(".cloud.google.com"))
+        ) {
+          url = parsed.href;
+        }
+      } catch {}
+    }
+    const key = cleanQuery.toLowerCase();
+    if (seenSuggestions.has(key)) return;
+    seenSuggestions.add(key);
+    suggestions.push({ query: cleanQuery, url });
+  };
+  const rendered = sanitized?.searchEntryPoint?.renderedContent;
+  if (typeof rendered === "string" && rendered.trim()) {
+    const anchorRegex = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let match;
+    while ((match = anchorRegex.exec(rendered)) !== null && suggestions.length < 10) {
+      const href = match[1].replace(/&amp;/g, "&");
+      const label = match[2].replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").trim();
+      if (label) addSuggestion(label, href);
+    }
+  }
+  if (Array.isArray(sanitized.webSearchQueries)) {
+    for (const q of sanitized.webSearchQueries) {
+      if (suggestions.length >= 10) break;
+      if (typeof q === "string" && q.trim()) addSuggestion(q, null);
+    }
+  }
+  if (Array.isArray(sanitized.searchSuggestions)) {
+    for (const item of sanitized.searchSuggestions) {
+      if (suggestions.length >= 10) break;
+      if (item && typeof item === "object") addSuggestion(item.query || item.label, item.url);
+    }
+  }
+  if (suggestions.length > 0) {
+    sanitized.searchSuggestions = suggestions;
+  }
   return sanitized;
 }
 
@@ -982,6 +1062,7 @@ async function generateGeminiAskStreamResponse({
   messages = [],
   thinkingLevel = "low",
   enableSearch = false,
+  requireGrounding = false,
   onChunk = () => {},
   signal,
   ownerId = null,
@@ -1134,10 +1215,12 @@ Google Search Grounding tool is actively configured and available for this conve
       }
       const delta = chunk.text || "";
       if (chunk.usageMetadata) {
+        const completionTokens = (chunk.usageMetadata.candidatesTokenCount || 0) + (chunk.usageMetadata.thoughtsTokenCount || 0);
         usage = {
           prompt_tokens: chunk.usageMetadata.promptTokenCount || null,
-          completion_tokens: chunk.usageMetadata.candidatesTokenCount || null,
-          total_tokens: chunk.usageMetadata.totalTokenCount || null,
+          completion_tokens: completionTokens || null,
+          thoughts_tokens: chunk.usageMetadata.thoughtsTokenCount || 0,
+          total_tokens: chunk.usageMetadata.totalTokenCount || ((chunk.usageMetadata.promptTokenCount || 0) + completionTokens) || null,
         };
       }
       const chunkGrounding = candidate?.groundingMetadata || chunk.groundingMetadata;
@@ -1150,7 +1233,7 @@ Google Search Grounding tool is actively configured and available for this conve
       }
       if (delta) {
         accumulated += delta;
-        onChunk(delta);
+        if (!requireGrounding) onChunk(delta);
       }
     }
   };
@@ -1159,10 +1242,13 @@ Google Search Grounding tool is actively configured and available for this conve
     try {
       await runStream(config);
     } catch (searchOrStreamError) {
-      if (config.tools && !accumulated.trim() && !signal?.aborted) {
+      assertExecutionActive(searchOrStreamError, signal);
+      if (config.tools && !config.cachedContent && !requireGrounding && !accumulated.trim() && !signal?.aborted) {
         console.warn("⚠️ [Gemini Search Grounding Xətası]:", searchOrStreamError?.message || searchOrStreamError);
-        const fallbackConfig = { ...config };
-        delete fallbackConfig.tools;
+        const fallbackConfig = ungroundedFallbackConfig(config, instructions || ASK_INSTRUCTIONS, fileGuidance);
+        groundingMetadata = null;
+        streamFinishReason = null;
+        streamBlockReason = null;
         await runStream(fallbackConfig);
       } else {
         throw searchOrStreamError;
@@ -1186,6 +1272,11 @@ Google Search Grounding tool is actively configured and available for this conve
       throw new Error("Gemini boş cavab qaytardı.");
     }
 
+    if (requireGrounding) {
+      if (!sanitizeGroundingMetadata(groundingMetadata)?.groundingChunks?.length) throw Object.assign(new Error('Grounding unavailable'), { code: 'GROUNDING_UNAVAILABLE', status: 503 });
+      await assertExecutionAuthorized(signal);
+      onChunk(accumulated);
+    }
     return {
       text: accumulated.trim(),
       usage,
@@ -1195,7 +1286,7 @@ Google Search Grounding tool is actively configured and available for this conve
     };
   } catch (error) {
     if (error instanceof LLMProviderError) throw error;
-    if (error.name === "AbortError" || signal?.aborted) throw error;
+    assertExecutionActive(error, signal);
     const status = error?.status || 503;
     const cleanMsg = formatGeminiErrorMessage(error);
     throw new LLMProviderError(
@@ -1354,10 +1445,10 @@ Google Search Grounding tool is actively configured and available for this conve
         signal ? { signal } : undefined,
       );
     } catch (searchError) {
-      if (config.tools && !requireGrounding && !signal?.aborted) {
+      assertExecutionActive(searchError, signal);
+      if (config.tools && !config.cachedContent && !requireGrounding && !signal?.aborted) {
         console.warn("Gemini Search Grounding error in generateGeminiAskResponse, falling back to standard generation:", searchError?.message || searchError);
-        const fallbackConfig = { ...config };
-        delete fallbackConfig.tools;
+        const fallbackConfig = ungroundedFallbackConfig(config, instructions || ASK_INSTRUCTIONS, fileGuidance);
         response = await gemini.models.generateContent(
           {
             model,
@@ -1394,16 +1485,19 @@ Google Search Grounding tool is actively configured and available for this conve
     }
 
     const usageMetadata = response.usageMetadata;
+    const completionTokens = usageMetadata ? (usageMetadata.candidatesTokenCount || 0) + (usageMetadata.thoughtsTokenCount || 0) : 0;
     const usage = usageMetadata
       ? {
           prompt_tokens: usageMetadata.promptTokenCount || null,
-          completion_tokens: usageMetadata.candidatesTokenCount || null,
-          total_tokens: usageMetadata.totalTokenCount || null,
+          completion_tokens: completionTokens || null,
+          thoughts_tokens: usageMetadata.thoughtsTokenCount || 0,
+          total_tokens: usageMetadata.totalTokenCount || ((usageMetadata.promptTokenCount || 0) + completionTokens) || null,
         }
       : null;
 
     const rawGrounding = candidate?.groundingMetadata || response.groundingMetadata || null;
     const groundingMetadata = sanitizeGroundingMetadata(rawGrounding) || null;
+    if (requireGrounding && !groundingMetadata?.groundingChunks?.length) throw Object.assign(new Error('Grounding unavailable'), { code: 'GROUNDING_UNAVAILABLE', status: 503 });
 
     return {
       text,
@@ -1414,6 +1508,7 @@ Google Search Grounding tool is actively configured and available for this conve
     };
   } catch (error) {
     if (error instanceof LLMProviderError) throw error;
+    assertExecutionActive(error, signal);
     const status = error?.status || 503;
     const cleanMsg = formatGeminiErrorMessage(error);
     throw new LLMProviderError(
@@ -1435,7 +1530,7 @@ const capabilityWorkflow = new CapabilityWorkflow({
     geminiResearch: ({ messages, instructions, signal, onChunk }) => {
       const researchInstructions = `${ASK_INSTRUCTIONS}\nResearch the user's request with live Google Search. Cite sources; never fabricate unavailable statistics.\nReference context: ${instructions}`;
       if (typeof onChunk === "function") {
-        return generateGeminiAskStreamResponse({ messages, instructions: researchInstructions, enableSearch: true, onChunk, signal });
+        return generateGeminiAskStreamResponse({ messages, instructions: researchInstructions, enableSearch: true, requireGrounding: true, onChunk, signal });
       }
       return generateGeminiAskResponse({ messages, instructions: researchInstructions, enableSearch: true, requireGrounding: true, signal });
     },
@@ -1496,20 +1591,6 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           .filter((message) => message.content || (message.file && (message.file.data || message.file.textContent || message.file.name || message.file.fileId)))
       : [];
 
-    for (const message of messages) {
-      if (message.file) {
-        const resolved = geminiFileCache.resolveFile(message.file, req.ownerId);
-        if (resolved) {
-          message.file = {
-            ...message.file,
-            fileId: resolved.fileId || message.file.fileId,
-            data: resolved.data || message.file.data,
-            textContent: resolved.textContent || message.file.textContent,
-            ownerId: req.ownerId,
-          };
-        }
-      }
-    }
 
     if (!messages.length || messages.at(-1)?.role !== "user") {
       return res.status(400).json({ error: "Mesaj daxil edilməyib." });
@@ -1557,6 +1638,13 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
     }
 
     const requestedModel = (typeof req.body.model === "string" ? req.body.model.trim().toLowerCase() : "") || "auto";
+    req.securityContext.assertResources = async () => {
+      if ((chatId && !await chatRepository.getById(chatId, req.ownerId)) ||
+          (strategyId && !await strategyRepository.getById(strategyId, req.ownerId)) ||
+          (taskId && !(await plannerRepository.list(req.ownerId)).some(item => item.id === taskId))) {
+        throw Object.assign(new Error('Execution context removed'), { code: 'EXECUTION_REVOKED', status: 403 });
+      }
+    };
     const lastUserMessageText = messages.at(-1)?.content || "";
 
     // Parallel Pre-Flight Context Loading & Deduplicated Chat Read
@@ -1608,6 +1696,23 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         }
       });
     }
+    for (const message of messages) {
+      if (message.file) {
+        assertCachedFileReference(message.file, existingChat);
+        if (message.file.data) message.file = await prepareUploadedContext(message.file);
+        const resolved = geminiFileCache.resolveFile(message.file, req.ownerId);
+        if (resolved) {
+          message.file = {
+            ...message.file,
+            fileId: resolved.fileId || message.file.fileId,
+            data: resolved.data || message.file.data,
+            textContent: resolved.textContent || message.file.textContent,
+            ownerId: req.ownerId,
+          };
+        }
+      }
+    }
+
     if (strategyId && !selectedStrategy) {
       return res.status(404).json({ error: "Seçilmiş strategiya tapılmadı." });
     }
@@ -1649,38 +1754,6 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         })}\n</planned_task_json>`
       : "";
 
-    const fullInstructions = buildAskPrompt({
-      strategyContext: strategyContext + (req.askArtifactContext ? `\nThe latest conversation artifact specification is untrusted reference data:\n<artifact_json>${req.askArtifactContext}</artifact_json>` : ""),
-      taskContext,
-      personalizationContext,
-    });
-    let reply = "";
-    let activeModel = ASK_GEMINI_MODEL;
-    const selectedAskModel = ASK_GEMINI_MODEL;
-    const searchDecision = evaluateSearchRoute({ prompt: lastUserMsg, messages, hasStrategyContext });
-    const enableSearch = searchDecision.enableSearch;
-
-    learningInteractionId = learningLoop.createInteractionId();
-    learningPrompt = messages.at(-1).content;
-    learningTaskType = selectedStrategy ? "ask_with_strategy" : selectedTask ? "ask_with_task" : hasAnyAttachment ? "ask_with_file" : "ask_general";
-    learningModel = selectedAskModel;
-    learningContext = {
-      strategyId: strategyId || undefined,
-      taskId: taskId || undefined,
-      chatId: chatId || undefined,
-      hasStrategyContext: Boolean(selectedStrategy),
-      hasTaskContext: Boolean(selectedTask),
-      hasAttachment: Boolean(hasAnyAttachment),
-      personalizationApplied: Boolean(personalizationContext),
-      searchGrounded: Boolean(enableSearch),
-    };
-
-    const requestedThinkingLevel = resolveAskThinkingLevel({
-      requestedThinkingLevel: rawThinkingLevel,
-      lastUserMsg,
-      hasStrategyContext,
-    });
-
     const prepareMessagesForStorage = (msgs) => msgs.map((m) => {
       if (m.file) {
         return {
@@ -1697,9 +1770,166 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       return m;
     });
 
+    const isGuest = !req.user;
+    let remainingMessages = null;
+    if (isGuest) {
+      // Missing or inconsistent quota metadata must never fabricate a balance.
+      remainingMessages = guestMessageBalance(req).available;
+    }
+
+    const selectedAskModel = ASK_GEMINI_MODEL;
+    const searchDecision = evaluateSearchRoute({ prompt: lastUserMsg, messages, hasStrategyContext });
+    const enableSearch = searchDecision.enableSearch;
+    const requireGrounding = Boolean(searchDecision.requireGrounding);
+    const requestedThinkingLevel = resolveAskThinkingLevel({
+      requestedThinkingLevel: rawThinkingLevel,
+      lastUserMsg,
+      hasStrategyContext,
+    });
+
+    learningInteractionId = learningLoop.createInteractionId();
+    learningPrompt = messages.at(-1).content;
+    learningTaskType = selectedStrategy ? "ask_with_strategy" : selectedTask ? "ask_with_task" : hasAnyAttachment ? "ask_with_file" : "ask_general";
+    learningModel = selectedAskModel;
+    learningContext = {
+      strategyId: strategyId || undefined,
+      taskId: taskId || undefined,
+      chatId: chatId || undefined,
+      hasStrategyContext: Boolean(selectedStrategy),
+      hasTaskContext: Boolean(selectedTask),
+      hasAttachment: Boolean(hasAnyAttachment),
+      personalizationApplied: Boolean(personalizationContext),
+      searchGrounded: Boolean(enableSearch),
+    };
+
+    if (isGuest) {
+      const restrictionNotice = detectGuestFunctionalRestriction({
+        lastUserMsg,
+        hasAttachment: Boolean(hasAnyAttachment),
+        hasStrategyContext: Boolean(selectedStrategy || strategyId),
+        hasTaskContext: Boolean(selectedTask || taskId),
+        rawThinkingLevel: requestedThinkingLevel,
+      });
+
+      if (restrictionNotice) {
+        const updatedMessages = [
+          ...messages,
+          {
+            role: "assistant",
+            content: restrictionNotice,
+            model: selectedAskModel,
+            interactionId: learningInteractionId,
+            createdAt: new Date().toISOString(),
+          },
+        ];
+
+        await assertExecutionAuthorized();
+        const savedChat = await chatRepository.saveChat({
+          id: chatId || undefined,
+          mustExist: Boolean(chatId),
+          expectedRevision: existingChat?.revision || (chatId ? 1 : null),
+          ownerId: req.ownerId,
+          messages: prepareMessagesForStorage(updatedMessages),
+          strategyId: strategyId || null,
+          taskId: taskId || null,
+        });
+
+        if (isStreamingRequest) {
+          res.write(`data: ${JSON.stringify({ chunk: restrictionNotice, model: selectedAskModel })}\n\n`);
+          res.write(`data: ${JSON.stringify({
+            done: true,
+            model: selectedAskModel,
+            reply: restrictionNotice,
+            chat: savedChat,
+            chatId: savedChat?.id,
+            chatRevision: savedChat?.revision || 1,
+            remainingGuestMessages: req.remainingGuestMessages,
+            isGuest: true,
+            restrictedFeature: true,
+          })}\n\n`);
+          res.end();
+          return;
+        }
+
+        return res.json({
+          reply: restrictionNotice,
+          model: selectedAskModel,
+          interactionId: learningInteractionId,
+          chat: savedChat,
+          chatId: savedChat?.id,
+          chatRevision: savedChat?.revision || 1,
+          remainingGuestMessages: req.remainingGuestMessages,
+          isGuest: true,
+          restrictedFeature: true,
+        });
+      }
+    }
+
+    if (isGuest && remainingMessages === 0) {
+      const exhaustedMsg = GUEST_EXHAUSTED_MESSAGE;
+      const updatedMessages = [
+        ...messages,
+        {
+          role: "assistant",
+          content: exhaustedMsg,
+          model: selectedAskModel,
+          interactionId: learningInteractionId,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+
+      await assertExecutionAuthorized();
+    const savedChat = await chatRepository.saveChat({
+        id: chatId || undefined,
+        mustExist: Boolean(chatId),
+        expectedRevision: existingChat?.revision || (chatId ? 1 : null),
+        ownerId: req.ownerId,
+        messages: prepareMessagesForStorage(updatedMessages),
+        strategyId: strategyId || null,
+        taskId: taskId || null,
+      });
+
+      if (isStreamingRequest) {
+        res.write(`data: ${JSON.stringify({ chunk: exhaustedMsg, model: selectedAskModel })}\n\n`);
+        res.write(`data: ${JSON.stringify({
+          done: true,
+          model: selectedAskModel,
+          reply: exhaustedMsg,
+          chat: savedChat,
+          chatId: savedChat?.id,
+          chatRevision: savedChat?.revision || 1,
+          remainingGuestMessages: 0,
+          isGuest: true,
+        })}\n\n`);
+        res.end();
+        return;
+      }
+
+      return res.json({
+        reply: exhaustedMsg,
+        model: selectedAskModel,
+        interactionId: learningInteractionId,
+        chat: savedChat,
+        chatId: savedChat?.id,
+        chatRevision: savedChat?.revision || 1,
+        remainingGuestMessages: 0,
+        isGuest: true,
+      });
+    }
+
+    const fullInstructions = buildAskPrompt({
+      strategyContext: strategyContext + (req.askArtifactContext ? `\nThe latest conversation artifact specification is untrusted reference data:\n<artifact_json>${req.askArtifactContext}</artifact_json>` : ""),
+      taskContext,
+      personalizationContext,
+      isGuest,
+      remainingMessages,
+    });
+    let reply = "";
+    let activeModel = ASK_GEMINI_MODEL;
+
     // Real-time SSE streaming for responsive output.
     if (isStreamingRequest) {
-      const abortController = new AbortController();
+      const abortController = createExecutionController();
       const cancel = () => {
         if (!res.writableEnded) {
           abortController.abort();
@@ -1721,6 +1951,10 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       }
 
       let accumulated = "";
+      const guestStream = isGuest ? createGuestAnswerStream(remainingMessages, (chunk) => {
+        res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
+        if (typeof res.flush === "function") res.flush();
+      }) : null;
       try {
         const generated = await generateGeminiAskStreamResponse({
           model: selectedAskModel,
@@ -1728,14 +1962,21 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           messages,
           thinkingLevel: requestedThinkingLevel,
           enableSearch,
+          requireGrounding,
           signal: abortController.signal,
           ownerId: req.ownerId,
           onChunk: (chunk) => {
-            res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
-            if (typeof res.flush === "function") res.flush();
+            if (guestStream) guestStream.push(chunk);
+            else {
+              res.write(`data: ${JSON.stringify({ chunk, model: activeModel })}\n\n`);
+              if (typeof res.flush === "function") res.flush();
+            }
           },
         });
         accumulated = generated.text;
+        if (isGuest && typeof remainingMessages === "number") {
+          accumulated = guestStream.finish(accumulated);
+        }
         const sanitizedGrounding = sanitizeGroundingMetadata(generated.groundingMetadata) || undefined;
 
         const updatedMessages = [
@@ -1750,6 +1991,8 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           },
         ];
 
+        await assertExecutionAuthorized();
+        req.securityContext?.markMutationPending?.();
         const savedChat = await chatRepository.saveChat({
           id: chatId || undefined,
           mustExist: Boolean(chatId), expectedRevision: existingChat?.revision || (chatId ? 1 : null),
@@ -1757,6 +2000,17 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           messages: prepareMessagesForStorage(updatedMessages),
           strategyId: strategyId || null,
           taskId: taskId || null,
+        });
+        req.securityContext?.recordIdempotentResult?.(200, {
+          reply: accumulated,
+          model: activeModel,
+          interactionId: learningInteractionId,
+          chat: savedChat,
+          chatId: savedChat?.id,
+          chatRevision: savedChat?.revision || 1,
+          groundingMetadata: sanitizedGrounding,
+          remainingGuestMessages: isGuest ? req.remainingGuestMessages : null,
+          isGuest: Boolean(isGuest),
         });
 
         // Emit done immediately to the client before background learning/telemetry work
@@ -1769,6 +2023,8 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           chatId: savedChat?.id,
           chatRevision: savedChat?.revision || 1,
           groundingMetadata: sanitizedGrounding,
+          remainingGuestMessages: isGuest ? req.remainingGuestMessages : null,
+          isGuest: Boolean(isGuest),
         })}\n\n`);
         if (typeof res.flush === "function") res.flush();
         res.end();
@@ -1776,6 +2032,8 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         const modelImprovementActive = isModelImprovementEnabled(req);
         const isRestricted = !modelImprovementActive;
         const hasPriorAssistant = messages.some((message) => message.role === "assistant");
+        const hasGroundedHistory = messages.some((m) => Boolean(m?.groundingMetadata || m?.type === "research" || m?.pluginIds?.includes("web")))
+          || Boolean(selectedStrategy?.strategy?.orchestration?.searchGrounded);
         const logging = learningLoop.recordInteraction({
           id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
           mode: "ask", taskType: learningTaskType,
@@ -1784,6 +2042,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           modelProvider: generated.provider, modelName: generated.model,
           modelResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : accumulated,
           usage: generated.usage, latencyMs: Date.now() - learningStartedAt, requestStatus: "success",
+          groundingActive: Boolean(enableSearch || sanitizedGrounding?.groundingChunks?.length || hasGroundedHistory),
           onlyNecessaryData: isRestricted,
           modelImprovement: modelImprovementActive,
           privacySnapshot: getReqPrivacySnapshot(req),
@@ -1817,6 +2076,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           modelResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : accumulated,
           latencyMs: Date.now() - learningStartedAt, requestStatus: "error",
           errorType: streamErr?.code || streamErr?.name || "ASK_STREAM_ERROR",
+          groundingActive: Boolean(enableSearch),
           onlyNecessaryData: isRestricted,
           modelImprovement: modelImprovementActive,
           privacySnapshot: getReqPrivacySnapshot(req),
@@ -1840,7 +2100,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
           const userFriendlyError = streamErr?.message === "Request was aborted."
             ? (isEn ? "Request was canceled." : "Sorğu dayandırıldı.")
             : (isEn ? "The request could not be completed." : "Sorğunu tamamlamaq mümkün olmadı.");
-          res.write(`data: ${JSON.stringify({ error: userFriendlyError })}\n\n`);
+          res.write(`data: ${JSON.stringify({ error: userFriendlyError, ...(streamErr?.code ? { code: streamErr.code } : {}) })}\n\n`);
           return res.end();
         }
         return;
@@ -1852,7 +2112,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       return;
     }
 
-    const abortController = new AbortController();
+    const abortController = createExecutionController();
     const cancel = () => {
       if (!res.writableEnded) {
         abortController.abort();
@@ -1869,6 +2129,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         messages,
         thinkingLevel: requestedThinkingLevel,
         enableSearch,
+        requireGrounding,
         ownerId: req.ownerId,
         signal: abortController.signal,
       });
@@ -1883,6 +2144,11 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       res.off("close", cancel);
     }
 
+    if (isGuest && typeof remainingMessages === "number") {
+      reply = formatGuestAnswerWithCta(reply, remainingMessages);
+    }
+
+    const sanitizedGrounding = sanitizeGroundingMetadata(generated.groundingMetadata) || undefined;
     const updatedMessages = [
       ...messages,
       {
@@ -1890,10 +2156,12 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
         content: reply,
         model: activeModel,
         interactionId: learningInteractionId,
-        groundingMetadata: sanitizeGroundingMetadata(generated.groundingMetadata) || undefined,
+        groundingMetadata: sanitizedGrounding,
         createdAt: new Date().toISOString(),
       },
     ];
+    await assertExecutionAuthorized();
+    req.securityContext?.markMutationPending?.();
     const savedChat = await chatRepository.saveChat({
       id: chatId || undefined,
       mustExist: Boolean(chatId), expectedRevision: existingChat?.revision || (chatId ? 1 : null),
@@ -1902,10 +2170,24 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       strategyId: strategyId || null,
       taskId: taskId || null,
     });
+    const responsePayload = {
+      reply,
+      model: activeModel,
+      interactionId: learningInteractionId,
+      chat: savedChat,
+      chatId: savedChat?.id,
+      chatRevision: savedChat?.revision || 1,
+      groundingMetadata: sanitizedGrounding,
+      remainingGuestMessages: isGuest ? req.remainingGuestMessages : null,
+      isGuest: Boolean(isGuest),
+    };
+    req.securityContext?.recordIdempotentResult?.(200, responsePayload);
 
     const modelImprovementActive = isModelImprovementEnabled(req);
     const isRestricted = !modelImprovementActive;
     const hasPriorAssistant = messages.some((message) => message.role === "assistant");
+    const hasGroundedHistory = messages.some((m) => Boolean(m?.groundingMetadata || m?.type === "research" || m?.pluginIds?.includes("web")))
+      || Boolean(selectedStrategy?.strategy?.orchestration?.searchGrounded);
     const logging = learningLoop.recordInteraction({
       id: learningInteractionId, ownerId: req.ownerId, sessionId: req.guestOwnerId,
       mode: "ask", taskType: learningTaskType,
@@ -1914,6 +2196,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       modelProvider: generated.provider, modelName: generated.model,
       modelResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : reply,
       usage: generated.usage, latencyMs: Date.now() - learningStartedAt, requestStatus: "success",
+      groundingActive: Boolean(enableSearch || sanitizedGrounding?.groundingChunks?.length || hasGroundedHistory),
       onlyNecessaryData: isRestricted,
       modelImprovement: modelImprovementActive,
       privacySnapshot: getReqPrivacySnapshot(req),
@@ -1933,15 +2216,7 @@ app.post("/api/ask", askRateLimit(60), async (req, res) => {
       modelImprovement: modelImprovementActive,
     }).catch(() => {});
 
-    return res.json({
-      reply,
-      model: activeModel,
-      interactionId: learningInteractionId,
-      chat: savedChat,
-      chatId: savedChat?.id,
-      chatRevision: savedChat?.revision || 1,
-      groundingMetadata: sanitizeGroundingMetadata(generated.groundingMetadata) || undefined,
-    });
+    return res.json(responsePayload);
   } catch (error) {
     if (res.headersSent || res.writableEnded || res.destroyed) {
       return;
@@ -2122,7 +2397,9 @@ async function startServer() {
     shuttingDown = true;
     console.log(`🛑 ${signal} received, draining connections...`);
     clearInterval(keepAlive);
+    const researchShutdown = researchService.shutdown().catch(error => console.error('Research shutdown failed', { code: error.code }));
     server.close(async () => {
+      await researchShutdown;
       if (redis?.isOpen) await redis.quit().catch(() => {});
       process.exit(0);
     });

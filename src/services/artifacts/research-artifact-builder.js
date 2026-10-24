@@ -1,3 +1,4 @@
+import { assertExecutionActive, assertExecutionAuthorized } from '../security/execution-control.js';
 import { renderArtifact } from "./render.js";
 import { createPluginRegistry } from "../plugins/registry.js";
 import { renderWord, renderExcel, renderPowerPoint, renderPDF } from "./renderers.js";
@@ -505,6 +506,7 @@ export async function generateSelectiveResearchArtifacts({ job, text, artifactRe
         const title = spec.title || (isEn ? meta.defaultTitleEn : meta.defaultTitleAz);
 
         signal?.throwIfAborted();
+        await assertExecutionAuthorized(signal);
         const saved = await artifactRepository.save({
           ownerId: job.ownerId,
           chatId: job.chatId,
@@ -535,7 +537,7 @@ export async function generateSelectiveResearchArtifacts({ job, text, artifactRe
           version: saved.artifact.version,
         });
       } catch (err) {
-        if (signal?.aborted) throw err;
+        assertExecutionActive(err, signal);
         console.warn(`[Research Artifacts] Failed to generate ${format} artifact:`, err?.message || err);
       }
     }
@@ -543,7 +545,7 @@ export async function generateSelectiveResearchArtifacts({ job, text, artifactRe
     for (const art of generated.reverse()) {
       await artifactRepository.rollback?.(art, job.ownerId).catch(() => {});
     }
-    if (signal?.aborted) throw err;
+    assertExecutionActive(err, signal);
     return [];
   }
 

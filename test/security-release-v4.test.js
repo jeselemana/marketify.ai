@@ -63,6 +63,7 @@ test('release: production config validation flags missing secrets and invalid MF
     AUTH_SECRET: 'valid-secret-12345678901234567890',
     ADMIN_MFA_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'),
     APP_URL: 'https://helmer.example.com',
+    REDIS_URL: 'redis://127.0.0.1:6379',
   }));
 });
 

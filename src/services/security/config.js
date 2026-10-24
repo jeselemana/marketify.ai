@@ -1,8 +1,27 @@
+export function guestDailyLimit(env = process.env) {
+  const raw = env.GUEST_AI_DAILY_LIMIT ?? '5';
+  if (!/^[1-9][0-9]*$/.test(String(raw)) || !Number.isSafeInteger(Number(raw))) {
+    throw new Error('GUEST_AI_DAILY_LIMIT must be a positive safe integer');
+  }
+  return Number(raw);
+}
+
+export function guestBuildDailyLimit(env = process.env) {
+  const raw = env.GUEST_BUILD_DAILY_LIMIT ?? '3';
+  if (!/^[1-9][0-9]*$/.test(String(raw)) || !Number.isSafeInteger(Number(raw))) {
+    throw new Error('GUEST_BUILD_DAILY_LIMIT must be a positive safe integer');
+  }
+  return Number(raw);
+}
+
 export function validateSecurityConfig(env = process.env) {
+  guestDailyLimit(env);
+  guestBuildDailyLimit(env);
   if (env.NODE_ENV !== 'production') return;
   const missing = [];
   if (!env.SESSION_SECRET?.trim()) missing.push('SESSION_SECRET');
   if (!env.AUTH_SECRET?.trim()) missing.push('AUTH_SECRET');
+  if (!env.REDIS_URL?.trim()) missing.push('REDIS_URL');
   if (env.ADMIN_MFA_ENCRYPTION_KEY) {
     const key = Buffer.from(env.ADMIN_MFA_ENCRYPTION_KEY, 'base64');
     if (key.length !== 32) throw new Error('ADMIN_MFA_ENCRYPTION_KEY must be a 32-byte base64-encoded string');

@@ -588,7 +588,22 @@ function renderSignup() {
   username.querySelector(".auth-input-wrap").prepend(usernamePrefix);
   const email = field({ label: t("auth.signup.emailLabel"), name: "email", type: "email", autocomplete: "email", placeholder: isEn ? "name@company.com" : "ad@sirket.az" });
   const password = field({ label: t("auth.signup.passwordLabel"), name: "password", type: "password", autocomplete: "new-password", placeholder: isEn ? "At least 10 characters" : "Ən azı 10 simvol" });
-  form.append(fullName, username, email, password, submit);
+
+  const ageConsentRow = document.createElement("label");
+  ageConsentRow.className = "auth-age-consent";
+  ageConsentRow.style.cssText = "display:flex;align-items:flex-start;gap:10px;margin:6px 0 4px;font-size:12.5px;line-height:1.45;color:var(--text-secondary,#475569);cursor:pointer;user-select:none;";
+  const ageCheckbox = document.createElement("input");
+  ageCheckbox.type = "checkbox";
+  ageCheckbox.name = "ageConfirmed";
+  ageCheckbox.required = true;
+  ageCheckbox.style.cssText = "margin-top:2px;width:15px;height:15px;flex-shrink:0;accent-color:var(--accent,#4f6ee8);cursor:pointer;";
+  const ageText = document.createElement("span");
+  ageText.textContent = isEn
+    ? "I confirm that I am at least 18 years old and agree to the Terms of Service and Privacy Policy."
+    : "Ən azı 18 yaşımın olduğunu təsdiqləyirəm, İstifadə Şərtləri və Məxfilik Siyasəti ilə razıyam.";
+  ageConsentRow.append(ageCheckbox, ageText);
+
+  form.append(fullName, username, email, password, ageConsentRow, submit);
 
   const divider = authDivider(isEn ? "or" : "və ya");
 
@@ -640,6 +655,15 @@ function renderSignup() {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!ageCheckbox.checked) {
+      setFormError(
+        form,
+        isEn
+          ? "You must confirm that you are at least 18 years old and accept the Terms of Service."
+          : "Qeydiyyat üçün ən azı 18 yaşınızın olduğunu və İstifadə Şərtlərini təsdiqləməlisiniz.",
+      );
+      return;
+    }
     if (isUsernameAvailable === false) {
       setFormError(form, isEn ? "This username is already taken. Please choose another." : "Bu istifadəçi adı artıq götürülüb. Başqa ad seç.", "username");
       return;
@@ -651,6 +675,7 @@ function renderSignup() {
       const formData = Object.fromEntries(new FormData(form));
       formData.username = String(formData.username || "").trim().replace(/^@+/, "");
       formData.language = getLanguage();
+      formData.ageConfirmed = true;
       const data = await request("/api/auth/signup", {
         method: "POST",
         body: JSON.stringify(formData),

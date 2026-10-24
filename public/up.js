@@ -1,5 +1,26 @@
 // UP is an interactive strategic decision and business test surface.
-export function createUpView({ request, getUser, getLanguage, onLogin }) {
+export function createUpView({ request: transport, getUser, getLanguage, onLogin }) {
+  const pendingIdempotencyKeys = new Map();
+  const request = async (path, options = {}) => {
+    const isChallengeMutation = options.method === 'POST' && /^\/api\/up\/challenges(?:\/|$)/.test(path);
+    const opSignature = isChallengeMutation ? `${path}:${options.body || ''}` : null;
+    const explicitKey = options.headers?.['Idempotency-Key'];
+    const idempotencyKey = isChallengeMutation
+      ? (explicitKey || pendingIdempotencyKeys.get(opSignature) || crypto.randomUUID())
+      : null;
+    if (opSignature && !explicitKey) {
+      pendingIdempotencyKeys.set(opSignature, idempotencyKey);
+    }
+    const response = await transport(path, {
+      ...options,
+      ...(isChallengeMutation
+        ? { headers: { 'Idempotency-Key': idempotencyKey, ...options.headers } } : {}),
+    });
+    if (opSignature && path === '/api/up/challenges') {
+      pendingIdempotencyKeys.delete(opSignature);
+    }
+    return response;
+  };
   const copy = (en, az) => getLanguage() === 'en' ? en : az;
   function node(tag, className = '', text = '') {
     const n = document.createElement(tag);

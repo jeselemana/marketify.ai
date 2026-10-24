@@ -24,8 +24,8 @@ test("Fix 1: isAiRequest is case-insensitive", () => {
   assert.equal(isAiRequest({ method: "POST", path: "/API/ASK/RESEARCH" }), true);
   assert.equal(isAiRequest({ method: "POST", path: "/api/up/challenges" }), true);
   assert.equal(isAiRequest({ method: "POST", path: "/API/UP/CHALLENGES" }), true);
-  assert.equal(isAiRequest({ method: "POST", path: "/api/up/challenges/4716143a-a2ba-479a-a17f-f0f1e444f162/submit" }), false);
-  assert.equal(isAiRequest({ method: "POST", path: "/api/up/challenges/4716143a-a2ba-479a-a17f-f0f1e444f162/retry" }), false);
+  assert.equal(isAiRequest({ method: "POST", path: "/api/up/challenges/4716143a-a2ba-479a-a17f-f0f1e444f162/submit" }), true);
+  assert.equal(isAiRequest({ method: "POST", path: "/api/up/challenges/4716143a-a2ba-479a-a17f-f0f1e444f162/retry" }), true);
   assert.equal(isAiRequest({ method: "GET", path: "/api/strategy/generate" }), false);
   assert.equal(isAiRequest({ method: "POST", path: "/api/unknown" }), false);
 });
@@ -131,7 +131,7 @@ test("Fix 6: DistributedResearchService cancelJob prevents cross-tenant cancella
     jobStore: {
       read: async (key) => {
         if (key === "research:job_123") {
-          return { id: "job_123", ownerId: "usr_victim" };
+          return { id: "job_123", ownerId: "usr_victim", chatId: 'fixture-chat', status: 'running' };
         }
         return null;
       },
@@ -139,6 +139,7 @@ test("Fix 6: DistributedResearchService cancelJob prevents cross-tenant cancella
     },
     chatRepository: {
       readAll: async () => [],
+      getById: async () => ({ id: 'fixture-chat', ownerId: 'usr_victim' }),
     },
     userRepository: null,
   });

@@ -594,10 +594,23 @@ export class FileChatRepository {
    * @param {string} ownerId
    * @returns {Promise<boolean>}
    */
-  async patchResearchMessage(id, ownerId, jobId, message) {
+  async claimResearchMessage(id, ownerId, jobId, executionFence) {
+    return this.mutateTenant(ownerId, async records => {
+      const chat = records.find(record => record.id === id && !record.deleted && record.ownerId === ownerId);
+      if (!chat || !chat.messages.some(item => item.jobId === jobId)) throw Object.assign(new Error('Research removed'), { code: 'EXECUTION_REVOKED' });
+      const previous = chat.researchFences?.[jobId] || 0;
+      if (!Number.isSafeInteger(executionFence) || executionFence <= previous) throw Object.assign(new Error('Research ownership lost'), { code: 'EXECUTION_LOCK_LOST' });
+      chat.researchFences = { ...chat.researchFences, [jobId]: executionFence };
+      return { updated: records, result: executionFence };
+    });
+  }
+
+  async patchResearchMessage(id, ownerId, jobId, message, { executionFence, assertOwned } = {}) {
     return this.mutateTenant(ownerId, async records => {
       const chat = records.find(record => record.id === id && !record.deleted && record.ownerId === ownerId);
       if (!chat) throw Object.assign(new Error('Conversation removed'), { code: 'NOT_FOUND', status: 404 });
+      await assertOwned?.();
+      if (chat.researchFences?.[jobId] !== undefined && chat.researchFences[jobId] !== executionFence) throw Object.assign(new Error('Research ownership lost'), { code: 'EXECUTION_LOCK_LOST' });
       const index = chat.messages.findIndex(item => item.jobId === jobId);
       if (index < 0) throw new Error('Research message removed');
       chat.messages[index] = { ...chat.messages[index], ...message };

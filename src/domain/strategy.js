@@ -115,6 +115,10 @@ export const StrategySchema = z.object({
           }
         }, "URL must be http or https"),
       }).strict()).max(20).nullable().optional(),
+      searchQueries: z.array(z.string().trim().max(160)).max(10).nullable().optional(),
+      searchEntryPoint: z.object({
+        renderedContent: z.string().max(50000).nullable().optional(),
+      }).strict().nullable().optional(),
     })
     .strict()
     .nullable()

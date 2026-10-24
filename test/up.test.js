@@ -118,6 +118,18 @@ test('UP evaluation failure preserves answer, rejects replacement and retries wi
   assert.equal((await f.repository.read(f.owner)).transactions.length, 1);
 });
 
+test('UP expired evaluation lease cannot commit points; a fresh retry still rewards once', async t => {
+  let f;
+  f = await fixture(t, { evaluate: async () => { f.setTime('2026-10-01T09:03:00Z'); return evaluation(); } });
+  await f.service.preferences(f.owner, prefs, true);
+  const challenge = await f.service.start(f.owner, 'en');
+  await assert.rejects(f.service.submit(f.owner, challenge.id, answer, 'en'), { code: 'EVALUATION_SUPERSEDED' });
+  assert.equal((await f.repository.read(f.owner)).transactions.length, 0);
+  await f.service.submit(f.owner, challenge.id, undefined, 'en');
+  await f.service.submit(f.owner, challenge.id, undefined, 'en');
+  assert.equal((await f.repository.read(f.owner)).transactions.length, 1);
+});
+
 test('UP expired evaluation lease recovers; stale model results cannot commit', async t => {
   let release; const wait = new Promise(resolve => release = resolve); let calls = 0;
   const f = await fixture(t, { evaluate: async () => { calls++; if (calls === 1) await wait; return evaluation(calls === 1 ? 4 : 2); } });
@@ -334,7 +346,7 @@ test('UP analytics cover milestones, never include the answer and survive delive
   assert.deepEqual((await f.repository.read(f.owner)).events, []);
 });
 
-test('UP challenge answer submission passes through production AI security middleware without 503 error when Redis is not ready', async t => {
+test('UP generation and answer submission fail closed when production Redis is unavailable', async t => {
   const f = await fixture(t);
   const users = new FileUserRepository(path.join(f.directory, 'users.json'));
   const auth = new FileAuthStore(path.join(f.directory, 'auth.json'));
@@ -384,10 +396,24 @@ test('UP challenge answer submission passes through production AI security middl
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify({ selectedOption: 'A', language: 'en' }),
   });
-  assert.equal(submitRes.status, 200);
+  assert.equal(submitRes.status, 503);
   const submitBody = await submitRes.json();
-  assert.equal(submitBody.status, 'completed');
-  assert.equal(submitBody.result.points, 40);
-  assert.equal(submitBody.result.isOptimal, true);
+  assert.equal(submitBody.code, 'EXECUTION_UNAVAILABLE');
+  assert.equal((await f.repository.read(user.id)).transactions.length, 0);
 });
 
+
+test('UP generation replay after a post-commit failure returns the original challenge even after completion', async t => {
+  const { executionContext } = await import('../src/services/security/privacy-policy.js');
+  const f = await fixture(t); await f.service.preferences(f.owner, prefs, true);
+  const context = { operationKey: 'fixture-durable-generation-operation', operationFingerprint: 'same-payload', assertAuthorized: async () => {} };
+  const flush = f.service.flush.bind(f.service); let failAfterCommit = true;
+  f.service.flush = async (...args) => { if (failAfterCommit) { failAfterCommit = false; throw new Error('Post-commit failure'); } return flush(...args); };
+  await assert.rejects(executionContext.run(context, () => f.service.start(f.owner, 'en')), /Post-commit failure/);
+  const first = (await f.repository.read(f.owner)).challenges[0];
+  await f.service.submit(f.owner, first.id, answer, 'en');
+  const replay = await executionContext.run(context, () => f.service.start(f.owner, 'en'));
+  assert.equal(replay.id, first.id); assert.equal(replay.status, 'completed');
+  assert.equal(f.counts().generations, 1); assert.equal((await f.repository.read(f.owner)).transactions.length, 1);
+  await assert.rejects(executionContext.run({ ...context, operationFingerprint: 'changed' }, () => f.service.start(f.owner, 'en')), { code: 'IDEMPOTENCY_CONFLICT' });
+});

@@ -1,3 +1,4 @@
+import { assertExecutionActive } from '../security/execution-control.js';
 import { createHash } from "node:crypto";
 import { zodTextFormat, zodResponseFormat } from "openai/helpers/zod";
 import { getGeminiClient, getOpenAIClient } from "./client.js";
@@ -274,6 +275,15 @@ export function normalizeStructuredOutput(parsed, name) {
                 url: s.url,
               }))
           : null,
+        searchQueries: Array.isArray(parsed.orchestration.searchQueries)
+          ? parsed.orchestration.searchQueries
+              .map((q) => (typeof q === "string" ? q.trim().slice(0, 160) : ""))
+              .filter(Boolean)
+              .slice(0, 10)
+          : undefined,
+        searchEntryPoint: parsed.orchestration.searchEntryPoint && typeof parsed.orchestration.searchEntryPoint.renderedContent === "string"
+          ? { renderedContent: parsed.orchestration.searchEntryPoint.renderedContent.slice(0, 50000) }
+          : undefined,
       };
     }
 
@@ -350,12 +360,12 @@ export async function streamOpenAIContent({ model = aiConfig.strategyFallbackMod
     onUsage?.({ usage, model, provider: "openai" });
     return { text, finishReason: finishReason || "STOP", model, provider: "openai", usage };
   } catch (error) {
-    if (error.name === "AbortError" || signal?.aborted) throw error;
+    assertExecutionActive(error, signal);
     throw new LLMProviderError(`OpenAI xidməti ilə əlaqə qurmaq mümkün olmadı: ${error.message}`, { code: "AI_PROVIDER_ERROR", status: error.status || 503, model, provider: "openai", details: error });
   }
 }
 
-export async function routeStructuredGeneration({ schema, name, instructions, input, maxOutputTokens, reasoning = "medium", ownerId, signal, onChunk, onUsage, askRoute = null, attachments = [] }) {
+export async function routeStructuredGeneration({ schema, name, instructions, input, fallbackInput = null, maxOutputTokens, reasoning = "medium", ownerId, signal, onChunk, onUsage, askRoute = null, attachments = [] }) {
   const primaryModel = askRoute ? aiConfig.askGeminiModel : aiConfig.strategyModel;
   const fallbackModel = askRoute ? null : aiConfig.strategyFallbackModel;
   if (attachments.length && !hasGeminiConfiguration()) {
@@ -426,10 +436,15 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
 
       let usage = null;
       if (response.usageMetadata) {
+        const promptTokens = response.usageMetadata.promptTokenCount || 0;
+        const candidateTokens = response.usageMetadata.candidatesTokenCount || 0;
+        const thoughtsTokens = response.usageMetadata.thoughtsTokenCount || 0;
+        const completionTokens = candidateTokens + thoughtsTokens;
         usage = {
-          prompt_tokens: response.usageMetadata.promptTokenCount || null,
-          completion_tokens: response.usageMetadata.candidatesTokenCount || null,
-          total_tokens: response.usageMetadata.totalTokenCount || null,
+          prompt_tokens: promptTokens || null,
+          completion_tokens: completionTokens || null,
+          thoughts_tokens: thoughtsTokens || 0,
+          total_tokens: response.usageMetadata.totalTokenCount || (promptTokens + completionTokens) || null,
         };
       }
 
@@ -445,7 +460,7 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
         rawText: finalRawText,
       };
     } catch (geminiError) {
-      if (geminiError.name === "AbortError" || signal?.aborted) throw geminiError;
+      assertExecutionActive(geminiError, signal);
       if (askRoute) {
         // Ask mode must never fall back to GPT models.
         throw geminiError;
@@ -481,7 +496,7 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
       {
         model: fallbackModel,
         instructions,
-        input,
+        input: fallbackInput || input,
         text: { format: zodTextFormat(schema, name) },
         reasoning: { effort: reasoning || "medium" },
         max_output_tokens: maxOutputTokens || aiConfig.strategyMaxOutputTokens,
@@ -515,7 +530,7 @@ export async function routeStructuredGeneration({ schema, name, instructions, in
     };
   } catch (error) {
     if (error instanceof LLMProviderError) throw error;
-    if (error.name === "AbortError" || signal?.aborted) throw error;
+    assertExecutionActive(error, signal);
 
     if (error.name === "ZodError") throw new LLMProviderError("Model output did not match the artifact schema.", { code: "AI_INVALID_OUTPUT", status: 502, model: fallbackModel, provider: "openai", details: error.issues });
 

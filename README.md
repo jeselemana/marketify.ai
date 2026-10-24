@@ -22,7 +22,10 @@ For local development, use `npm run dev` so changes to imported server modules r
 - `PORT` — defaults to `8080`.
 - `APP_URL` — the canonical public origin, for example `https://helmerworkspace.com`.
 - `TRUSTED_ORIGINS` — optional comma-separated additional browser origins.
-- `REDIS_URL` — recommended in production; used as the primary session, password-reset-token, rate-limit, and repository cache store.
+- `REDIS_URL` — required in production; used as the primary session, password-reset-token, rate-limit, and repository cache store.
+- `SESSION_SECRET`, `AUTH_SECRET` — required in production. Missing Redis or secrets prevents startup; unavailable Redis blocks AI admission, quota reads and provider reservations.
+- `GUEST_AI_DAILY_LIMIT` — positive integer, defaults to `5`; shared owner/IP quota resets at 00:00 UTC (04:00 Asia/Baku). Five allows five full answers; the response metadata reports the balance after the current reservation. The prompt and CTA use the balance available when the current request was accepted, including that request. Rejections before a provider call refund the reservation. Development without Redis uses process memory only; production always requires Redis.
+- Guest Thinking (including automatic Medium/High routing), uploads, saved strategy access and Planner APIs require registration.
 - `RESEND_API_KEY`, `EMAIL_FROM` — Resend HTTP API ilə e-poçt təsdiq kodu və şifrə bərpası göndərişi. `EMAIL_FROM` Resend-də təsdiqlənmiş domenə aid olmalıdır. SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`) alternativ olaraq dəstəklənir.
 - `ADMIN_USERNAMES` — comma-separated usernames allowed to access the admin dashboard (`/admin`).
 

@@ -2,7 +2,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, Ta
 import ExcelJS from "exceljs";
 import PptxGenJS from "pptxgenjs";
 import PDFDocument from "pdfkit";
-import { PDFDocument as PDFReader } from "pdf-lib";
+import { PDFDocument as PDFReader, PDFDict, PDFArray, PDFName } from "pdf-lib";
 import JSZip from "jszip";
 import { XMLValidator, XMLParser } from "fast-xml-parser";
 import { fileURLToPath } from "node:url";
@@ -223,6 +223,21 @@ export async function validateRenderedFile(buffer, kind) {
     if (buffer.subarray(0, 5).toString() !== "%PDF-") throw new Error("Invalid PDF signature");
     const pdf = await PDFReader.load(buffer);
     if (!pdf.getPageCount()) throw new Error("Empty PDF");
+    const visited = new Set();
+    const inspect = object => {
+      if (!object || visited.has(object)) return;
+      visited.add(object);
+      if (visited.size > 100000) throw new Error('PDF object limit exceeded');
+      if (object instanceof PDFDict) for (const [key, value] of object.entries()) {
+        const name = key.decodeText();
+        if (['JS', 'JavaScript', 'AA', 'OpenAction', 'EmbeddedFiles', 'EF', 'XFA', 'RichMedia', 'Launch'].includes(name)) throw new Error('Unsafe PDF content');
+        if (name === 'S' && value instanceof PDFName && ['JavaScript', 'Launch', 'SubmitForm', 'ImportData', 'GoToR', 'GoToE'].includes(value.decodeText())) throw new Error('Unsafe PDF action');
+        if (name === 'URI' && (typeof value.decodeText !== 'function' || !/^https:\/\//i.test(value.decodeText()))) throw new Error('Unsafe PDF relationship');
+        inspect(value);
+      }
+      else if (object instanceof PDFArray) for (const value of object.asArray()) inspect(value);
+    };
+    for (const [, object] of pdf.context.enumerateIndirectObjects()) inspect(object);
     return;
   }
   const zip = await JSZip.loadAsync(buffer, { checkCRC32: true });
@@ -236,7 +251,7 @@ export async function validateRenderedFile(buffer, kind) {
       if (file.name.endsWith(".rels")) {
         const relationships = new XMLParser({ ignoreAttributes: false }).parse(content).Relationships?.Relationship || [];
         for (const relation of Array.isArray(relationships) ? relationships : [relationships]) {
-          if (relation["@_TargetMode"] === "External" && !/^https?:\/\//i.test(relation["@_Target"])) throw new Error("Unsafe external relationship");
+          if (relation["@_TargetMode"] === "External" && !/^https:\/\//i.test(relation["@_Target"])) throw new Error("Unsafe external relationship");
         }
       }
     }

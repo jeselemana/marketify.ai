@@ -118,6 +118,7 @@ async function startSession(req, res, authStore, user) {
 }
 
 export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, aiLearningRepository, upRepository, appUrl, telemetryService }) {
+  const telemetryRepository = telemetryService?.repository;
   // server.js loads dotenv after ESM imports have been evaluated. Resolve this
   // value when the router is created so the configured client ID is available.
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -286,7 +287,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       if (user.scheduledDeletionAt) {
         const scheduledTime = new Date(user.scheduledDeletionAt).getTime();
         if (!isNaN(scheduledTime) && scheduledTime <= Date.now()) {
-          await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
+          await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, telemetryRepository, authStore }).catch(() => {});
           return res.status(401).json({
             error: "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
             code: "ACCOUNT_EXPIRED_DELETED",
@@ -410,7 +411,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     limit(authStore, "email-verification-confirm", 20, 15 * 60, (req) => normalizeEmail(req.body?.email), { perAccount: true }),
     asyncRoute(async (req, res) => {
     const payload = parseBody(EmailVerificationConfirmSchema, req.body);
-    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
+    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, telemetryRepository, authStore }).catch(() => {});
     const user = await verificationUser(payload.email);
     const purpose = user?.pendingEmail === payload.email ? 'email-change' : 'signup';
     const tokenId = user ? hashOpaqueToken(`${user.id}:${payload.email}:${user.authVersion || 1}:${purpose}:${payload.code}`) : hashOpaqueToken(`missing:${payload.code}`);
@@ -432,7 +433,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     limit(authStore, "login", 12, 15 * 60, (req) => normalizeIdentifier(req.body?.identifier)),
     limit(authStore, "login", 50, 15 * 60, (req) => normalizeIdentifier(req.body?.identifier), { perAccount: true }),
     asyncRoute(async (req, res) => {
-    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
+    await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, telemetryRepository, authStore }).catch(() => {});
 
     const payload = parseBody(LoginSchema, req.body);
     const user = await userRepository.findByIdentifier(payload.identifier);
@@ -475,7 +476,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     if (user.scheduledDeletionAt) {
       const scheduledTime = new Date(user.scheduledDeletionAt).getTime();
       if (!isNaN(scheduledTime) && scheduledTime <= Date.now()) {
-        await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, authStore }).catch(() => {});
+        await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, telemetryRepository, authStore }).catch(() => {});
         return res.status(401).json({
           error: "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
           code: "ACCOUNT_EXPIRED_DELETED",
@@ -536,6 +537,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
         return res.status(403).json({ code: 'REAUTH_REQUIRED', error: 'Hesabı silmək üçün təsdiq tələb olunur.' });
       }
       const updated = await userRepository.scheduleDeletion(req.user.id, 14);
+      await telemetryService?.repository?.scrubOwner?.(req.user.id);
       if (authStore?.invalidateUserSessions) {
         await authStore.invalidateUserSessions(req.user.id);
       } else if (req.auth?.sessionId) {
@@ -591,12 +593,10 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
       const updateData = {
         settings: payload,
       };
-      if (payload.modelImprovement === false) {
-        updateData.privacyEpoch = (req.user.privacyEpoch || 0) + 1;
-      }
       const updated = await userRepository.update(req.user.id, updateData, { allowSystemFields: true });
+      if (updated?.settings?.modelImprovement === false) await telemetryService?.repository?.scrubOwner?.(req.user.id);
 
-      if (payload.modelImprovement === false && aiLearningRepository?.update) {
+      if (updated?.settings?.modelImprovement === false && aiLearningRepository?.update) {
         await aiLearningRepository.update((store) => {
           const ownerInteractionIds = new Set(
             store.interactions.filter((i) => i.ownerId === req.user.id).map((i) => i.id)

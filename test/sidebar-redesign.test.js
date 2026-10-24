@@ -154,8 +154,8 @@ test("index.html and style.css: sidebar navigation icons use smooth rounded ~20p
   assert.ok(html.includes('id="homeNav"'), "homeNav exists");
   assert.ok(html.includes('id="strategiesNav"'), "strategiesNav exists");
   assert.ok(html.includes('id="plannerNav"'), "plannerNav exists");
-  assert.ok(html.includes('id="limitsNav"'), "limitsNav exists");
-  assert.ok(html.includes('id="settingsNav"'), "settingsNav exists");
+  assert.ok(!html.includes('id="settingsNav"'), "settingsNav removed from primary nav (accessible via profile)");
+  assert.ok(!html.includes('id="railSettingsButton"'), "railSettingsButton removed from rail (accessible via profile)");
 
   // New Strategy / Chat uses slanted cut-nib pen icon
   assert.ok(
@@ -182,18 +182,6 @@ test("index.html and style.css: sidebar navigation icons use smooth rounded ~20p
     html.includes('<rect width="18" height="18" x="3" y="4" rx="2"/>'),
     "plannerNav uses unified CalendarDays icon"
   );
-  // Usage uses unified Activity spark/line icon
-  assert.ok(
-    html.includes('d="M22 12h-4l-3 9L9 3l-3 9H2"'),
-    "limitsNav uses unified Activity icon"
-  );
-  // Settings uses smooth rounded gear (both rail and sidebar match)
-  const railSettingsMatch = html.match(/<button[^>]*id="railSettingsButton"[^>]*>([\s\S]*?)<\/button>/);
-  const settingsNavMatch = html.match(/<button[^>]*id="settingsNav"[^>]*>([\s\S]*?)<\/button>/);
-  assert.ok(railSettingsMatch && settingsNavMatch, "Both railSettingsButton and settingsNav found");
-  const gearPath = 'd="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"';
-  assert.ok(railSettingsMatch[1].includes(gearPath), "railSettingsButton uses full gear SVG path");
-  assert.ok(settingsNavMatch[1].includes(gearPath), "settingsNav uses full gear SVG path");
   // Sidebar close uses minimalist PanelLeftClose on desktop and clean X icon on mobile
   assert.ok(
     html.includes('d="m16 15-3-3 3-3"'),
@@ -233,18 +221,15 @@ test("Search modal, nav deduplication, and selection handlers are correct and fu
   const js = await fs.readFile(path.join(process.cwd(), "public/script.js"), "utf8");
   const i18n = await fs.readFile(path.join(process.cwd(), "public/i18n.js"), "utf8");
 
-  // In primary-nav, homeNav is before searchNav
-  const homeNavIndex = html.indexOf('id="homeNav"');
+  // In sidebar-top, searchNav is before sidebarClose
   const searchNavIndex = html.indexOf('id="searchNav"');
-  assert.ok(homeNavIndex !== -1 && searchNavIndex !== -1, "Both homeNav and searchNav exist");
-  assert.ok(homeNavIndex < searchNavIndex, "homeNav comes before searchNav in primary navigation");
+  const sidebarCloseIndex = html.indexOf('id="sidebarClose"');
+  assert.ok(searchNavIndex !== -1 && sidebarCloseIndex !== -1, "Both searchNav and sidebarClose exist");
+  assert.ok(searchNavIndex < sidebarCloseIndex, "searchNav comes before sidebarClose in sidebar-top actions");
 
   // Search translations say 'Search' rather than 'Search chats'
   assert.ok(i18n.includes('searchChats: "Search",'), "EN searchChats is 'Search'");
   assert.ok(i18n.includes('searchPlaceholder: "Search...",'), "EN searchPlaceholder is 'Search...'");
-
-  // In syncNav, searchLabel says Search
-  assert.ok(js.includes('searchLabel.textContent = isEn ? "Search" : "Axtarış";'), "searchLabel displays Search");
 
   // Both Build and Ask modes hide newStrategyButton, keeping only Home (Başlanğıc / Chat)
   assert.ok(html.includes('id="newStrategyButton" type="button" style="display: none;"'), "newStrategyButton is hidden in HTML");

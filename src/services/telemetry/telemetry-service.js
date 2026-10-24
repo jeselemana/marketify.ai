@@ -3,10 +3,64 @@ import { anonymizeIp, categorizeBrief, maskIdentifier, redactPayload, redactSens
 import { calculateEstimatedCost } from "./pricing.js";
 import { detectTargetMarket } from "../ai/prompts.js";
 
+function resolveTelemetryTokens(usage) {
+  if (!usage || typeof usage !== "object") {
+    return { promptTokens: null, completionTokens: null };
+  }
+  const src = usage.usage && typeof usage.usage === "object" ? usage.usage : usage;
+  const promptRaw =
+    src.prompt_tokens ??
+    src.input_tokens ??
+    src.inputTokens ??
+    src.promptTokenCount ??
+    null;
+  const thoughtsRaw = Number(
+    src.thoughts_tokens ??
+    src.thoughtsTokenCount ??
+    src.output_tokens_details?.reasoning_tokens ??
+    src.completion_tokens_details?.reasoning_tokens ??
+    0
+  ) || 0;
+  let completionRaw =
+    src.completion_tokens ??
+    src.output_tokens ??
+    src.outputTokens ??
+    null;
+  if (completionRaw === null && src.candidatesTokenCount !== undefined) {
+    completionRaw = (Number(src.candidatesTokenCount) || 0) + thoughtsRaw;
+  } else if (
+    completionRaw !== null &&
+    thoughtsRaw > 0 &&
+    src.candidatesTokenCount !== undefined &&
+    Number(completionRaw) === Number(src.candidatesTokenCount)
+  ) {
+    completionRaw = Number(completionRaw) + thoughtsRaw;
+  } else if (
+    completionRaw !== null &&
+    thoughtsRaw > 0 &&
+    src.total_tokens !== undefined &&
+    Number(src.total_tokens) >= (Number(promptRaw) || 0) + Number(completionRaw) + thoughtsRaw
+  ) {
+    completionRaw = Number(completionRaw) + thoughtsRaw;
+  }
+  return {
+    promptTokens: promptRaw !== null && promptRaw !== undefined ? Number(promptRaw) : null,
+    completionTokens: completionRaw !== null && completionRaw !== undefined ? Number(completionRaw) : null,
+  };
+}
+
 export class TelemetryService {
   constructor(repository, privacyPolicy = null) {
     this.repository = repository;
     this.privacyPolicy = privacyPolicy;
+  }
+
+  persistEvent(event, ownerId) {
+    return this.repository.recordEvent(event, { ownerId, prepare: async current => {
+      if (current.modelImprovement === undefined || !this.privacyPolicy || await this.privacyPolicy.allows(ownerId)) return current;
+      return { ...current, onlyNecessaryData: true, modelImprovement: false, summary: '[Zəruri əməliyyat qeydi - Məzmun ötürülmür]', category: 'Zəruri Əməliyyat', marketMode: 'GLOBAL_MODE', qualityScore: null,
+        metadata: { onlyNecessaryData: true, dataRestricted: true, model: current.model, tokens: current.tokens?.total, latencyMs: current.latencyMs } };
+    } });
   }
 
   async trackUp(ownerId, event) {
@@ -16,7 +70,7 @@ export class TelemetryService {
       model: null, status: event.type === "evaluation_failed" ? "error" : "success",
       tokens: null, costUsd: 0, costAzn: 0, marketMode: null, category: "Business practice",
       summary: `Helmer UP: ${event.type}`, metadata: { eventType: event.type }, timestamp: event.timestamp,
-    });
+    }, { ownerId });
   }
 
   async trackBuildStrategy({
@@ -39,7 +93,8 @@ export class TelemetryService {
     const rawMarket = isRestricted ? "global" : detectTargetMarket({ brief, answers, strategy });
     const marketMode = rawMarket === "azerbaijan" ? "LOCAL_AZ_MODE" : "GLOBAL_MODE";
     const category = isRestricted ? "Zəruri Əməliyyat" : categorizeBrief(brief || strategy?.title || "");
-    const cost = calculateEstimatedCost(model, usage?.prompt_tokens, usage?.completion_tokens);
+    const resolvedTokens = resolveTelemetryTokens(usage);
+    const cost = calculateEstimatedCost(model, resolvedTokens.promptTokens, resolvedTokens.completionTokens);
     const summary = isRestricted
       ? "[Zəruri məlumat] Model inkişafına töhfə deaktivdir - Məzmun ötürülmür"
       : redactSensitiveText(brief || strategy?.title || "Strategiya generasiyası", 80);
@@ -87,7 +142,7 @@ export class TelemetryService {
       timestamp: new Date().toISOString(),
     };
 
-    return this.repository.recordEvent(event).catch((err) => {
+    return this.persistEvent(event, ownerId).catch((err) => {
       console.warn("⚠️ Telemetry build event logging error:", err.message);
       return null;
     });
@@ -99,6 +154,7 @@ export class TelemetryService {
     model = "gpt-5.6-luna",
     latencyMs = null,
     usage = null,
+    providerUsage = null,
     groundingActive = false,
     status = "success",
     querySnippet = "",
@@ -107,7 +163,8 @@ export class TelemetryService {
     modelImprovement = true,
   } = {}) {
     const isRestricted = onlyNecessaryData === true || modelImprovement === false || (this.privacyPolicy && !await this.privacyPolicy.allows(ownerId));
-    const cost = calculateEstimatedCost(model, usage?.prompt_tokens, usage?.completion_tokens);
+    const resolvedAskTokens = resolveTelemetryTokens(usage);
+    const cost = providerUsage?.length ? providerUsage.map(item => calculateEstimatedCost(item.model, item.inputTokens, item.outputTokens)).reduce((sum, item) => ({ costUsd: sum.costUsd + item.costUsd, costAzn: sum.costAzn + item.costAzn, inputTokens: sum.inputTokens + item.inputTokens, outputTokens: sum.outputTokens + item.outputTokens, totalTokens: sum.totalTokens + item.totalTokens }), { costUsd: 0, costAzn: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 }) : calculateEstimatedCost(model, resolvedAskTokens.promptTokens, resolvedAskTokens.completionTokens);
     const rawMarket = isRestricted ? "global" : detectTargetMarket({ brief: querySnippet });
     const marketMode = rawMarket === "azerbaijan" ? "LOCAL_AZ_MODE" : "GLOBAL_MODE";
     const summary = isRestricted
@@ -155,7 +212,7 @@ export class TelemetryService {
       timestamp: new Date().toISOString(),
     };
 
-    return this.repository.recordEvent(event).catch((err) => {
+    return this.persistEvent(event, ownerId).catch((err) => {
       console.warn("⚠️ Telemetry ask event logging error:", err.message);
       return null;
     });
@@ -173,7 +230,8 @@ export class TelemetryService {
     modelImprovement = true,
   } = {}) {
     const isRestricted = onlyNecessaryData === true || modelImprovement === false || (this.privacyPolicy && !await this.privacyPolicy.allows(ownerId));
-    const cost = calculateEstimatedCost(model, usage?.prompt_tokens, usage?.completion_tokens);
+    const resolvedSummaryTokens = resolveTelemetryTokens(usage);
+    const cost = calculateEstimatedCost(model, resolvedSummaryTokens.promptTokens, resolvedSummaryTokens.completionTokens);
 
     const event = {
       id: `evt_sum_${randomUUID()}`,
@@ -215,7 +273,7 @@ export class TelemetryService {
       timestamp: new Date().toISOString(),
     };
 
-    return this.repository.recordEvent(event).catch((err) => {
+    return this.persistEvent(event, ownerId).catch((err) => {
       console.warn("⚠️ Telemetry summary event logging error:", err.message);
       return null;
     });
@@ -267,7 +325,7 @@ export class TelemetryService {
       timestamp: new Date().toISOString(),
     };
 
-    return this.repository.recordEvent(event).catch((err) => {
+    return this.persistEvent(event, ownerId).catch((err) => {
       console.warn("⚠️ Telemetry export event logging error:", err.message);
       return null;
     });
@@ -308,7 +366,7 @@ export class TelemetryService {
       timestamp: new Date().toISOString(),
     };
 
-    return this.repository.recordEvent(event).catch((err) => {
+    return this.persistEvent(event, ownerId).catch((err) => {
       console.warn("⚠️ Telemetry auth event logging error:", err.message);
       return null;
     });
@@ -347,7 +405,7 @@ export class TelemetryService {
       timestamp: new Date().toISOString(),
     };
 
-    return this.repository.recordEvent(event).catch((err) => {
+    return this.persistEvent(event, ownerId).catch((err) => {
       console.warn("⚠️ Telemetry system error logging error:", err.message);
       return null;
     });
@@ -427,7 +485,7 @@ export class TelemetryService {
       timestamp: new Date().toISOString(),
     };
 
-    return this.repository.recordEvent(event).catch((err) => {
+    return this.persistEvent(event, ownerId).catch((err) => {
       console.warn("⚠️ Telemetry task feedback logging error:", err.message);
       return null;
     });
@@ -450,6 +508,7 @@ export class TelemetryService {
             const marketMode = rawMarket === "azerbaijan" ? "LOCAL_AZ_MODE" : "GLOBAL_MODE";
             const cost = calculateEstimatedCost(item.modelName, item.inputTokens, item.outputTokens);
             backfillEvents.push({
+              ownerId: item.ownerId || item.sessionId,
               id: `evt_hst_${item.id || randomUUID()}`,
               eventType: item.mode === "build" ? (item.taskType || "build_strategy") : "ask_query",
               mode: item.mode || "build",
@@ -499,21 +558,21 @@ export class TelemetryService {
           const isRestricted = Boolean(this.privacyPolicy && !await this.privacyPolicy.allows(strat.ownerId));
           const rawMarket = isRestricted ? "global" : detectTargetMarket({ brief: strat.brief, answers: strat.answers, strategy: strat.strategy });
           const marketMode = rawMarket === "azerbaijan" ? "LOCAL_AZ_MODE" : "GLOBAL_MODE";
-          const cost = calculateEstimatedCost("gemini-3.8-flash", 1200, 3200);
           backfillEvents.push({
+            ownerId: strat.ownerId,
             id: `evt_hst_st_${strat.id || randomUUID()}`,
             eventType: "build_strategy",
             mode: "build",
             maskedUserId: maskIdentifier(strat.ownerId),
             marketMode,
             category: isRestricted ? "Zəruri Əməliyyat" : categorizeBrief(strat.brief || strat.title || ""),
-            model: "gemini-3.8-flash",
-            latencyMs: 1450,
-            tokens: { prompt: 1200, completion: 3200, total: 4400 },
-            costUsd: cost.costUsd,
-            costAzn: cost.costAzn,
+            model: null,
+            latencyMs: null,
+            tokens: null,
+            costUsd: null,
+            costAzn: null,
             status: "success",
-            qualityScore: isRestricted ? null : 0.88,
+            qualityScore: null,
             onlyNecessaryData: isRestricted,
             modelImprovement: !isRestricted,
             summary: isRestricted
@@ -521,13 +580,13 @@ export class TelemetryService {
               : redactSensitiveText(strat.brief || strat.title || "Tarixi strategiya", 80),
             metadata: isRestricted
               ? {
-                  model: "gemini-3.8-flash",
+                  usageUnavailable: true,
                   onlyNecessaryData: true,
                   dataRestricted: true,
                 }
               : redactPayload({
                   title: redactSensitiveText(strat.title, 40),
-                  model: "gemini-3.8-flash",
+                  usageUnavailable: true,
                   marketMode,
                 }),
             timestamp: strat.createdAt || new Date().toISOString(),
@@ -538,7 +597,7 @@ export class TelemetryService {
       if (backfillEvents.length > 0) {
         // Sort descending by timestamp
         backfillEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        await this.repository.recordEventsBatch(backfillEvents);
+        for (const { ownerId, ...event } of backfillEvents) await this.persistEvent(event, ownerId);
       }
     } catch (err) {
       console.warn("⚠️ Historical telemetry sync skipped:", err.message);

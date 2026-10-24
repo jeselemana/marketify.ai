@@ -1,4 +1,9 @@
 import { Worker } from 'node:worker_threads';
+export function assertCachedFileReference(file, chat) {
+  if (file?.fileId && !file.data && !file.textContent && !chat?.messages?.some(message => message.file?.fileId === file.fileId)) {
+    throw Object.assign(new Error('Cached file is not referenced by this conversation'), { code: 'VALIDATION_ERROR', status: 400 });
+  }
+}
 import { executionContext } from '../security/privacy-policy.js';
 import { MIME_TYPE_MAP, TEXT_LIKE_EXTENSIONS } from "../../../public/file-utils.js";
 

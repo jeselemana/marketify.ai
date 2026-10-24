@@ -50,7 +50,7 @@ export function createUpRouter(service) {
     try { return res.json(await fn(req)); }
     catch (error) {
       const invalid = error.name === 'ZodError' && !error.status;
-      const domain = domainCodes.has(error.code);
+      const domain = domainCodes.has(error.code) || ['EXECUTION_REVOKED', 'EXECUTION_DISABLED', 'EXECUTION_BUSY', 'DAILY_BUDGET_EXCEEDED', 'IDEMPOTENCY_CONFLICT', 'IDEMPOTENCY_KEY_REQUIRED'].includes(error.code);
       const unavailable = error.code === 'model_not_found' || !domain && [403, 404].includes(error.status);
       const code = invalid ? 'VALIDATION_ERROR' : unavailable ? 'MODEL_UNAVAILABLE' : error.code === 'AI_NOT_CONFIGURED' ? error.code : domain ? error.code : 'UP_UNAVAILABLE';
       const status = invalid ? 400 : unavailable || error.code === 'AI_NOT_CONFIGURED' ? 503 : domain ? error.status : 503;

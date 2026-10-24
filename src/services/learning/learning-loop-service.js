@@ -32,6 +32,15 @@ function ratio(numerator, denominator) {
   return denominator ? Number((numerator / denominator).toFixed(4)) : 0;
 }
 
+function isGroundedInteraction(item) {
+  if (!item) return false;
+  return Boolean(
+    item.groundingActive === true ||
+    item.mode === "ask_research" ||
+    item.taskType === "deep_research"
+  );
+}
+
 export class LearningLoopService {
   constructor(repository, config = learningConfig, privacyPolicy = null) {
     this.repository = repository;
@@ -41,7 +50,16 @@ export class LearningLoopService {
 
   async readVisibleStore() {
     const store = structuredClone(await this.repository.readStore());
-    if (!this.privacyPolicy) return store;
+    const groundedIds = new Set(
+      store.interactions.filter((item) => isGroundedInteraction(item)).map((item) => item.id),
+    );
+    if (!this.privacyPolicy) {
+      if (groundedIds.size > 0) {
+        store.candidates = store.candidates.filter((item) => !groundedIds.has(item.sourceInteractionId));
+        store.iterations = store.iterations.filter((item) => !groundedIds.has(item.parentInteractionId));
+      }
+      return store;
+    }
     const owners = new Map();
     for (const item of store.interactions) {
       if (!owners.has(item.ownerId)) owners.set(item.ownerId, await this.privacyPolicy.allows(item.ownerId));
@@ -52,8 +70,12 @@ export class LearningLoopService {
       }
     }
     const restricted = new Set(store.interactions.filter(item => item.onlyNecessaryData).map(item => item.id));
-    store.candidates = store.candidates.filter(item => !restricted.has(item.sourceInteractionId));
-    store.iterations = store.iterations.filter(item => !restricted.has(item.parentInteractionId));
+    store.candidates = store.candidates.filter(
+      (item) => !restricted.has(item.sourceInteractionId) && !groundedIds.has(item.sourceInteractionId),
+    );
+    store.iterations = store.iterations.filter(
+      (item) => !restricted.has(item.parentInteractionId) && !groundedIds.has(item.parentInteractionId),
+    );
     store.signals = store.signals.filter(item => !restricted.has(item.interactionId));
     return store;
   }
@@ -64,6 +86,7 @@ export class LearningLoopService {
 
   async recordInteraction(input) {
     const isRestricted = input.onlyNecessaryData === true || input.modelImprovement === false || (this.privacyPolicy && !await this.privacyPolicy.allows(input.ownerId, input.privacySnapshot));
+    const groundingActive = isGroundedInteraction(input);
     const now = input.createdAt || new Date().toISOString();
     const tokens = usageFields(input.usage);
     const cost = estimateCost(input.modelName, tokens.inputTokens, tokens.outputTokens);
@@ -86,6 +109,7 @@ export class LearningLoopService {
       errorType: input.errorType || null,
       qualityScore: this.config.weights.baseline,
       qualityBreakdown: [{ label: "Neutral baseline", value: this.config.weights.baseline, source: "system", strength: "neutral" }],
+      groundingActive,
       onlyNecessaryData: isRestricted,
       modelImprovement: !isRestricted,
       createdAt: now,
@@ -134,7 +158,8 @@ export class LearningLoopService {
       if (this.privacyPolicy && !await this.privacyPolicy.allows(input.ownerId, input.privacySnapshot)) return null;
       const parent = store.interactions.find((item) => item.id === input.parentInteractionId);
       if (!parent || (input.ownerId && parent.ownerId !== input.ownerId)
-        || parent.onlyNecessaryData === true || parent.modelImprovement === false) return null;
+        || parent.onlyNecessaryData === true || parent.modelImprovement === false
+        || isGroundedInteraction(parent) || isGroundedInteraction(input.response?.orchestration ? { groundingActive: input.response.orchestration.searchGrounded } : input)) return null;
       const siblings = store.iterations.filter((item) => item.parentInteractionId === parent.id);
       const iteration = {
         id: randomUUID(),
@@ -163,7 +188,7 @@ export class LearningLoopService {
       }
       return;
     }
-    if (interaction.onlyNecessaryData === true || interaction.modelImprovement === false) {
+    if (interaction.onlyNecessaryData === true || interaction.modelImprovement === false || isGroundedInteraction(interaction)) {
       const existingCandidate = store.candidates.find((item) => item.sourceInteractionId === interaction.id);
       if (existingCandidate) {
         store.candidates = store.candidates.filter((item) => item.id !== existingCandidate.id);
@@ -356,7 +381,10 @@ export class LearningLoopService {
       userPrompt: item.onlyNecessaryData ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : item.userPrompt.slice(0, 160),
       modelResponse: item.onlyNecessaryData ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : item.modelResponse.slice(0, 180),
       onlyNecessaryData: Boolean(item.onlyNecessaryData),
-      trainingStatus: item.onlyNecessaryData ? "restricted" : (store.candidates.find((candidate) => candidate.sourceInteractionId === item.id)?.status || null),
+      groundingActive: isGroundedInteraction(item),
+      trainingStatus: (item.onlyNecessaryData || isGroundedInteraction(item))
+        ? "restricted"
+        : (store.candidates.find((candidate) => candidate.sourceInteractionId === item.id)?.status || null),
     }));
     return { items: slice, page: safePage, pageSize: safeSize, total: items.length, totalPages: Math.ceil(items.length / safeSize) };
   }
@@ -412,7 +440,7 @@ export class LearningLoopService {
     for (const item of store.candidates) {
       if (item.status !== "approved") continue;
       const source = store.interactions.find((i) => i.id === item.sourceInteractionId);
-      if (source?.onlyNecessaryData === true || source?.modelImprovement === false) continue;
+      if (source?.onlyNecessaryData === true || source?.modelImprovement === false || isGroundedInteraction(source)) continue;
       if (source?.ownerId && this.privacyPolicy) {
         const allowed = await this.privacyPolicy.allows(source.ownerId);
         if (!allowed) continue;

@@ -326,14 +326,21 @@ export class FileUserRepository {
         throw new UserConflictError("email");
       }
 
-      if (effectiveChanges.settings?.modelImprovement === false && current.settings?.modelImprovement !== false) {
-        effectiveChanges.privacyEpoch = (current.privacyEpoch || 0) + 1;
-      }
       if (effectiveChanges.email && email !== normalizeEmail(current.email)) {
         effectiveChanges.authVersion = (current.authVersion || 1) + 1;
       }
       if (effectiveChanges.pendingEmail && store.users.some((user, i) => i !== index && (normalizeEmail(user.email) === normalizeEmail(effectiveChanges.pendingEmail) || (user.pendingEmailExpiresAt > Date.now() && normalizeEmail(user.pendingEmail) === normalizeEmail(effectiveChanges.pendingEmail))))) throw new UserConflictError('email');
-      if (effectiveChanges.settings) effectiveChanges.settings = { ...(current.settings || {}), ...effectiveChanges.settings };
+      if (effectiveChanges.settings) {
+        const settings = { ...(current.settings || {}), ...effectiveChanges.settings };
+        if (settings.personalIntelligence === false) settings.modelImprovement = false;
+        const contextFields = ['personalIntelligence', 'modelImprovement', 'memories', 'autoContext', 'strategyPersonalization', 'autoSaveStrategies', 'customInstructions', 'brandName', 'industry', 'primaryMarket', 'targetAudience'];
+        if (contextFields.some(key => JSON.stringify(settings[key]) !== JSON.stringify(current.settings?.[key]))) {
+          effectiveChanges.privacyEpoch = (current.privacyEpoch || 0) + 1;
+        }
+        effectiveChanges.settings = settings;
+      }
+      if ((effectiveChanges.status !== undefined && effectiveChanges.status !== current.status) ||
+          (effectiveChanges.scheduledDeletionAt !== undefined && effectiveChanges.scheduledDeletionAt !== current.scheduledDeletionAt)) effectiveChanges.privacyEpoch = (current.privacyEpoch || 0) + 1;
       // SEC-08: If email is changed, reset emailVerifiedAt to null
       let emailVerifiedAt = allowSystemFields && changes.emailVerifiedAt !== undefined
         ? changes.emailVerifiedAt
@@ -410,7 +417,7 @@ export class FileUserRepository {
     });
   }
 
-  deleteUser(id, { strategyRepository = null, chatRepository = null, plannerRepository = null, upRepository = null, aiLearningRepository = null, authStore = null } = {}) {
+  deleteUser(id, { strategyRepository = null, chatRepository = null, plannerRepository = null, upRepository = null, aiLearningRepository = null, telemetryRepository = null, authStore = null } = {}) {
     return this.mutateUsers(async (store) => {
       const userExists = store.users.some((user) => user.id === id);
       if (!userExists) {
@@ -422,6 +429,7 @@ export class FileUserRepository {
       if (plannerRepository?.deleteAllByOwner) await plannerRepository.deleteAllByOwner(id);
       if (upRepository?.deleteAllByOwner) await upRepository.deleteAllByOwner(id);
       if (aiLearningRepository?.deleteAllByOwner) await aiLearningRepository.deleteAllByOwner(id);
+      if (telemetryRepository?.deleteAllByOwner) await telemetryRepository.deleteAllByOwner(id);
       if (authStore?.invalidateUserSessions) await authStore.invalidateUserSessions(id);
 
       store.users = store.users.filter((user) => user.id !== id);
@@ -429,7 +437,7 @@ export class FileUserRepository {
     });
   }
 
-  async purgeExpiredAccounts({ strategyRepository = null, chatRepository = null, plannerRepository = null, upRepository = null, aiLearningRepository = null, authStore = null } = {}) {
+  async purgeExpiredAccounts({ strategyRepository = null, chatRepository = null, plannerRepository = null, upRepository = null, aiLearningRepository = null, telemetryRepository = null, authStore = null } = {}) {
     return this.mutateUsers(async (store) => {
       const now = new Date();
       const expiredUsers = store.users.filter((user) => {
@@ -456,6 +464,7 @@ export class FileUserRepository {
           if (plannerRepository?.deleteAllByOwner) await plannerRepository.deleteAllByOwner(userId);
           if (upRepository?.deleteAllByOwner) await upRepository.deleteAllByOwner(userId);
           if (aiLearningRepository?.deleteAllByOwner) await aiLearningRepository.deleteAllByOwner(userId);
+          if (telemetryRepository?.deleteAllByOwner) await telemetryRepository.deleteAllByOwner(userId);
           if (authStore?.invalidateUserSessions) await authStore.invalidateUserSessions(userId);
           successfullyPurgedIds.add(userId);
         } catch (err) {

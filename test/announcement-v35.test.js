@@ -34,19 +34,20 @@ test("script.js: technical support card is removed and replaced with clean v3.5 
   assert.ok(!scriptContent.includes("v35-toast-badge"), "Badges are removed from card");
 });
 
-test("i18n.js: v3.5 release card translations have general subtext and full parity", () => {
+test("i18n.js: release card translations have general subtext and full parity for Helmer 4", () => {
   // Azerbaijani
-  assert.equal(t("announcement.title", {}, "az"), "Helmer v3.5 istifadənizdədir");
-  assert.ok(t("announcement.body", {}, "az").includes("İnterfeys dəyişiklikləri"));
-  assert.ok(t("announcement.body", {}, "az").includes("sabitliyi"));
+  assert.equal(t("announcement.title", {}, "az"), "Helmer 4 istifadənizdədir");
+  assert.equal(
+    t("announcement.body", {}, "az"),
+    "Yüksək təhlükəsizlik standartlarına cavab verən tamamilə yenilənmiş müasir təməl arxitektura, yeni funksiyalar və daha çoxu. Ətraflı Yeniliklər bölməsində."
+  );
   assert.equal(t("announcement.dontShow", {}, "az"), "Bir daha göstərmə");
   assert.equal(t("announcement.cta", {}, "az"), "Anladım");
   assert.equal(t("announcement.closeAria", {}, "az"), "Bağla");
 
   // English
-  assert.equal(t("announcement.title", {}, "en"), "Helmer v3.5 is now available");
-  assert.ok(t("announcement.body", {}, "en").includes("UI enhancements"));
-  assert.ok(t("announcement.body", {}, "en").includes("stabilization"));
+  assert.equal(t("announcement.title", {}, "en"), "Helmer 4 is now available");
+  assert.ok(t("announcement.body", {}, "en").includes("foundational architecture"));
   assert.equal(t("announcement.dontShow", {}, "en"), "Don't show again");
   assert.equal(t("announcement.cta", {}, "en"), "Got it");
   assert.equal(t("announcement.closeAria", {}, "en"), "Close");

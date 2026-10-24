@@ -1,11 +1,13 @@
+import { createExecutionController } from '../services/security/execution-control.js';
 import express from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { uuid } from "../services/artifacts/schemas.js";
 import { resolveCapabilityIntent } from "../services/plugins/registry.js";
 import { publicArtifact } from "../repositories/artifact-repository.js";
+import { GUEST_RESTRICTION_NOTICES } from "../services/ai/prompts.js";
 import { requireAuth } from "./auth-middleware.js";
-import { prepareUploadedContext, validUploadMetadata } from "../services/artifacts/upload-context.js";
+import { prepareUploadedContext, validUploadMetadata, assertCachedFileReference } from "../services/artifacts/upload-context.js";
 
 const upload = z.object({
   fileId: z.string().max(100).optional(), name: z.string().min(1).max(255).refine(name => !/[\/\\\x00-\x1f]/.test(name)),
@@ -49,11 +51,20 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
       const parsed = askRequestSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "Sorğu parametrləri düzgün deyil.", code: "VALIDATION_ERROR" });
       const payload = parsed.data;
-      if (!req.user && (payload.mode === 'research' || payload.artifactId || payload.messages.some(message => message.file) || (payload.pluginIds || []).some(id => id !== 'web'))) return res.status(401).json({ code: 'AUTH_REQUIRED' });
+      if (!req.user && (payload.mode === 'research' || payload.artifactId || payload.messages.some(message => message.file) || (payload.pluginIds || []).some(id => id !== 'web'))) {
+        const errorMsg = payload.messages.some(message => message.file)
+          ? "Fayl yükləmək və sənədlərinizi analiz etmək üçün qeydiyyatdan keçməlisiniz."
+          : "Davam etmək üçün qeydiyyatdan keçməlisiniz.";
+        return res.status(401).json({ code: 'AUTH_REQUIRED', error: errorMsg, reply: errorMsg });
+      }
       const prompt = payload.messages.at(-1)?.content || "";
       if (payload.messages.at(-1)?.role !== "user" || (!prompt.trim() && !payload.messages.at(-1)?.file)) return res.status(400).json({ error: "Mesaj daxil edilməyib.", code: "VALIDATION_ERROR" });
       const chat = payload.chatId ? await chats.getById(payload.chatId, req.ownerId) : null;
       if (payload.chatId && !chat) return res.status(404).json({ error: "Söhbət tapılmadı.", code: "NOT_FOUND" });
+      if (!req.user && (chat?.strategyId || chat?.taskId || chat?.messages.some(message => message.file))) {
+        const notice = chat.strategyId ? GUEST_RESTRICTION_NOTICES.strategy : chat.taskId ? GUEST_RESTRICTION_NOTICES.planner : GUEST_RESTRICTION_NOTICES.file;
+        return res.status(401).json({ code: 'AUTH_REQUIRED', error: notice, reply: notice });
+      }
       const expectedRevision = chat ? (chat.revision || 1) : 1;
       const clientRevision = payload.chatRevision !== undefined && payload.chatRevision !== null
         ? Number(payload.chatRevision)
@@ -90,6 +101,7 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
       if (isRetry && incoming.file) history.at(-1).file = incoming.file;
       history.at(-1).pluginIds = selection.plugins.map(plugin => plugin.id);
       for (const message of history) if (message.file) {
+        assertCachedFileReference(message.file, chat);
         message.file = await prepareUploadedContext(hydrateFile ? await hydrateFile(message.file, req.ownerId) : message.file);
         if (!message.file.data && !message.file.textContent) throw new Error("Uploaded context expired; attach the file again");
       }
@@ -97,8 +109,15 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
       // Establish an owner-scoped chat before artifact persistence; failed runs stay retryable.
       const safeHistory = history.map((message, index) => chat && index < chat.messages.length ? chat.messages[index] : { ...storedMessage(message), pluginIds: message.pluginIds });
       initialChat = await chats.saveChat({ id: allocatedChatId, ownerId: req.ownerId, messages: safeHistory, strategyId, taskId, mustExist: Boolean(chat), expectedRevision: chat ? expectedRevision : null });
+      if (req.securityContext) req.securityContext.assertResources = async () => {
+        if (!await chats.getById(allocatedChatId, req.ownerId) ||
+            (strategyId && !await strategies.getById(strategyId, req.ownerId)) ||
+            (taskId && !(await planner.list(req.ownerId)).some(item => item.id === taskId))) {
+          throw Object.assign(new Error('Execution context removed'), { code: 'EXECUTION_REVOKED', status: 403 });
+        }
+      };
       streaming = payload.stream === true || req.headers.accept?.includes("text/event-stream");
-      controller = new AbortController();
+      controller = createExecutionController();
       res.on("close", () => { if (!res.writableEnded) controller.abort(); });
       if (streaming) {
         res.set({ "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", "Connection": "keep-alive", "X-Accel-Buffering": "no", "Content-Encoding": "identity" });
@@ -115,10 +134,13 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
         onChunk: streaming && isWebResearchOnly ? (chunk) => emit({ chunk, model: "gemini-3.8-flash" }) : undefined,
       });
       const assistant = { role: "assistant", content: result.reply, artifacts: result.artifacts, execution: result.execution, model: result.model, groundingMetadata: result.groundingMetadata, createdAt: new Date().toISOString() };
+      await req.securityContext?.assertAuthorized?.();
+      req.securityContext?.markMutationPending?.();
       const savedChat = await chats.saveChat({ id: allocatedChatId, ownerId: req.ownerId, messages: [...safeHistory, assistant], strategyId, taskId, mustExist: true, expectedRevision: initialChat.revision || 1 });
       committed = true;
-      onComplete?.({ req, result });
       const response = { done: true, reply: result.reply, artifacts: result.artifacts, execution: result.execution, model: result.model, chat: savedChat, chatId: savedChat.id, chatRevision: savedChat.revision, groundingMetadata: result.groundingMetadata };
+      req.securityContext?.recordIdempotentResult?.(200, response);
+      onComplete?.({ req, result });
       if (streaming) { emit(response); return res.end(); }
       return res.json(response);
     } catch (error) {

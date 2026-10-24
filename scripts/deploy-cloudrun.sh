@@ -10,6 +10,7 @@ set -euo pipefail
 
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT:-$(gcloud config get-value project 2>/dev/null || true)}"
 REGION="${GOOGLE_CLOUD_REGION:-europe-west3}"
+LOCATION="${GOOGLE_CLOUD_LOCATION:-global}"
 SERVICE_NAME="${SERVICE_NAME:-marketify-ai}"
 COMMIT_TAG="$(git rev-parse --short HEAD 2>/dev/null || echo 'latest')"
 IMAGE_NAME="gcr.io/${PROJECT_ID}/${SERVICE_NAME}:${COMMIT_TAG}"
@@ -49,6 +50,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --memory 1Gi \
   --cpu 1 \
   --min-instances 0 \
-  --max-instances 10
+  --max-instances 10 \
+  --update-env-vars "^##^NODE_ENV=production##GEMINI_USE_VERTEX=true##GOOGLE_CLOUD_PROJECT=${PROJECT_ID}##GOOGLE_CLOUD_LOCATION=${LOCATION}"
 
 echo "✅ Deploy uğurla tamamlandı!"

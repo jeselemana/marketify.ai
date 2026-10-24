@@ -1,4 +1,8 @@
 import { AtomicJsonStore, storageCorruption } from "./atomic-json-store.js";
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { listTenantObjects } from '../http/r2-storage.js';
 
 export const EMPTY_TELEMETRY_STORE = Object.freeze({
   schemaVersion: 1,
@@ -13,6 +17,7 @@ function normalizeStore(value) {
   return {
     schemaVersion: 1,
     events: Array.isArray(source.events) ? source.events : [],
+    ...(source.deleted === true ? { deleted: true } : {}),
   };
 }
 
@@ -24,6 +29,52 @@ export class FileTelemetryRepository extends AtomicJsonStore {
       empty: EMPTY_TELEMETRY_STORE,
       normalize: normalizeStore,
     });
+    this.shardsDirectory = `${filePath}.tenants`;
+    this.shardOptions = { cloud: this.cloud, mirrorToR2: this.mirrorToR2 };
+    this.readShard = options.readShard;
+    this.writeShard = options.writeShard;
+    this.listShards = options.listShards || (() => listTenantObjects('telemetry-v2/'));
+  }
+
+  tenantKey(ownerId) { return createHash('sha256').update(ownerId || 'system').digest('hex'); }
+
+  shardByKey(key) {
+    if (!/^[a-f0-9]{64}$/.test(key)) throw new Error('Invalid telemetry tenant');
+    const options = { ...this.shardOptions, ...(this.readShard ? { readCloud: () => this.readShard(key) } : {}), ...(this.writeShard ? { writeCloud: (store, etag) => this.writeShard(key, store, etag) } : {}) };
+    return new AtomicJsonStore(path.join(this.shardsDirectory, `${key}.json`), this.redis, options, {
+      redisKey: `helmer:store:telemetry:v2:${key}`, r2FileName: `telemetry-v2/${key}.json`, empty: EMPTY_TELEMETRY_STORE, normalize: normalizeStore,
+    });
+  }
+
+  async readOwner(ownerId) { return this.shardByKey(this.tenantKey(ownerId)).readStore(); }
+
+  async readStore() {
+    // Legacy records remain readable to admins; never guess their tenant from a short masked ID.
+    const legacy = await super.readStore();
+    let names;
+    if (this.cloud) names = (await this.listShards()).map(key => key.split('/').at(-1));
+    else {
+      try { names = await fs.readdir(this.shardsDirectory); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; names = []; }
+    }
+    const events = new Map(legacy.events.map(event => [event.id, event]));
+    for (const name of names.filter(name => /^[a-f0-9]{64}\.json$/.test(name))) {
+      for (const event of (await this.shardByKey(name.slice(0, -5)).readStore()).events) events.set(event.id, event);
+    }
+    return { schemaVersion: 1, events: [...events.values()].sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || ''))).slice(0, MAX_STORED_EVENTS) };
+  }
+
+  async scrubOwner(ownerId) {
+    await this.shardByKey(this.tenantKey(ownerId)).update(store => {
+      for (const event of store.events) if (event.modelImprovement !== undefined) Object.assign(event, {
+        modelImprovement: false, onlyNecessaryData: true, summary: '[Zəruri əməliyyat qeydi - Məzmun ötürülmür]', category: 'Zəruri Əməliyyat', marketMode: 'GLOBAL_MODE', qualityScore: null,
+        metadata: { onlyNecessaryData: true, model: event.model, tokens: event.tokens?.total, latencyMs: event.latencyMs },
+      });
+    });
+  }
+
+  async deleteAllByOwner(ownerId) {
+    await this.shardByKey(this.tenantKey(ownerId)).update(store => { store.events = []; store.deleted = true; });
   }
 
   async update(updater) {
@@ -34,26 +85,28 @@ export class FileTelemetryRepository extends AtomicJsonStore {
     });
   }
 
-  async recordEvent(event) {
-    return this.update((store) => {
-      store.events.unshift(event);
-      return event;
+  async recordEvent(event, { prepare, ownerId = null, once = false } = {}) {
+    return this.shardByKey(this.tenantKey(ownerId)).update(async (store) => {
+      if (store.deleted) return null;
+      const permitted = prepare ? await prepare(event) : event;
+      if (!once || !store.events.some(existing => existing.id === permitted.id)) store.events.unshift(permitted);
+      if (store.events.length > MAX_STORED_EVENTS) store.events = store.events.slice(0, MAX_STORED_EVENTS);
+      return permitted;
     });
   }
 
-  async recordEventOnce(event) {
-    return this.update((store) => {
-      if (!store.events.some(existing => existing.id === event.id)) store.events.unshift(event);
-      return event;
-    });
+  async recordEventOnce(event, options = {}) {
+    return this.recordEvent(event, { ...options, once: true });
   }
 
   async recordEventsBatch(events) {
     if (!Array.isArray(events) || events.length === 0) return [];
-    return this.update((store) => {
-      store.events.unshift(...events);
-      return events;
-    });
+    const result = [];
+    for (const event of events) {
+      const { ownerId, ...safeEvent } = event;
+      result.push(await this.recordEvent(safeEvent, { ownerId }));
+    }
+    return result;
   }
 
   async getEventById(id) {

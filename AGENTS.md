@@ -100,3 +100,33 @@ These directives are MANDATORY and NON-NEGOTIABLE across all coding, refactoring
 - **Zero Temporary Memory / No Session Clutter**: Never use `sessionStorage` or transient in-memory flags for dismissible UI cards or promotional teasers that cause them to reappear upon reload, opening a new tab, or starting a new session.
 - **Cross-Mode Cleanliness**: Dismissing starter or guide cards must permanently dismiss all related starter guide cards across all modes (Ask and Build) so the interface remains clean and the user is never repeatedly interrupted.
 - **Interaction & Action Dismissal**: When the user acts on a promotional or informational card (e.g., clicking 'Try it' / 'Yoxla' or navigating to the featured destination), the card must be marked permanently dismissed so future visits to that page remain decluttered.
+
+---
+
+### 11. Guest User Status & Message Limit Rules (Qeydiyyatsız İstifadəçi və Mesaj Limiti Qaydaları)
+- **Guest Identification**: When `!req.user` (anonymous guest session), the user is strictly treated as Unregistered (Guest).
+- **Remaining Messages Tracking**: The system configuration must dynamically calculate and provide the exact `{remaining_messages}` value to the AI context. Never fabricate or guess remaining message counts out of thin air.
+- **End-of-Response CTA Rules**:
+  - When `{remaining_messages} > 2`: Provide full response, followed by an empty line and strictly:
+    `"Qeyd: Qonaq rejimində qalan mesaj haqqınız: {remaining_messages}. Bütün analizlərin yaddaşda qalması və limitsiz istifadə üçün qeydiyyatdan keçin."`
+  - When `{remaining_messages} == 2` or `1`: Provide full response, followed by an emphasized last line:
+    `"Diqqət: Cəmi {remaining_messages} mesaj haqqınız qaldı! Söhbətin yarımçıq qalmaması və sessiyanın itməməsi üçün indi qeydiyyatdan keçin."`
+  - When `{remaining_messages} == 0`: Do NOT answer the user's query. Return exclusively:
+    `"Qonaq mesaj limitiniz bitdi. Helmer-dən limitsiz istifadə etmək və söhbəti davam etdirmək üçün qeydiyyatdan keçin."`
+- **Defense-in-Depth Enforcement**: These directives must be embedded in the AI prompt instructions (`buildGuestMessageLimitInstructions`) and validated server-side (`formatGuestAnswerWithCta` / early exit on exhaustion) across all streaming and non-streaming Ask generation endpoints.
+
+---
+
+### 12. Guest Functional Restriction Rules (Qeydiyyatsız İstifadəçi üçün Giriş və Funksional Məhdudiyyət Qaydaları)
+When `!req.user` (anonymous guest session), the user is strictly treated as Unregistered (Guest). When any of the following 4 features are requested or attempted, execution MUST be blocked immediately with zero exceptions, returning strictly and exclusively the designated registration requirement notice:
+1. **Ask "Thinking" (Düşünmə / Dərin Təhlil)**:
+   - Notice: `"Ask rejimində 'Thinking' funksiyasından istifadə etmək üçün qeydiyyatdan keçməlisiniz. Hesab yaradaraq dərin strateji təhlilləri aktivləşdirin."`
+2. **File Upload & Analysis ("Attach file")**:
+   - Notice: `"Fayl yükləmək və sənədlərinizi analiz etmək üçün qeydiyyatdan keçməlisiniz."`
+3. **Saved Strategies ("My Strategies" & "Discuss a saved strategy")**:
+   - Notice: `"Saxlanılmış strategiyalarınıza daxil olmaq və onlar üzərində işləmək üçün qeydiyyatdan keçməlisiniz."`
+4. **Planner Tasks ("Planner Tasks")**:
+   - Notice: `"'Planner Tasks' bölməsindən istifadə etmək və tapşırıqlarınızı idarə etmək üçün qeydiyyatdan keçməlisiniz."`
+- **Zero Additional Fluff**: In all 4 cases, never provide additional explanations, workarounds, or alternative advice. Return exclusively the exact specified notice and direct the user to sign up.
+
+

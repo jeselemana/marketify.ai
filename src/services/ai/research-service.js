@@ -1,8 +1,9 @@
+import { assertExecutionActive } from '../security/execution-control.js';
 import { privacySnapshot, executionContext } from "../security/privacy-policy.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { aiConfig, hasGeminiConfiguration, hasOpenAIConfiguration } from "./config.js";
-import { getGeminiClient, getOpenAIClient } from "./client.js";
+import { aiConfig, hasGeminiConfiguration } from "./config.js";
+import { getGeminiClient } from "./client.js";
 import { extractGroundingSources } from "./strategy-service.js";
 import { logWithoutBlocking } from "../learning/learning-loop-service.js";
 import { generateSelectiveResearchArtifacts } from "../artifacts/research-artifact-builder.js";
@@ -163,12 +164,13 @@ export function buildResearchPrompt({
   strategyContext = "",
   taskContext = "",
   gatheredEvidence = "",
+  enableSearch = true,
 }) {
   const isEn = language === "en";
   if (isEn) {
     return {
       systemInstruction: `You are Helmer's Deep Research Engine, a Principal Technology & Financial Strategist operating at CSO / Senior Research Director caliber.
-You have real-time access to live Google Search Grounding to inspect current official filings, technical architectures, and financial disclosures.
+${enableSearch ? 'You have real-time access to live Google Search Grounding to inspect current official filings, technical architectures, and financial disclosures.' : 'Live search is unavailable in this synthesis step. Use only the supplied research evidence, identify missing facts, and never claim to have performed a new search.'}
 
 YOUR MISSION:
 Deliver a comprehensive, rigorous, deeply reasoned, and quantitative strategic research report grounded in verified web data.
@@ -219,7 +221,7 @@ REPORT STRUCTURE (PROFESSIONAL MARKDOWN):
 
   return {
     systemInstruction: `Sən Helmer-in Dərin Araşdırma (Deep Research) mühərrikisən — strateji təhlil və texnoloji-maliyyə araşdırmaları üzrə Baş Strateq (CSO / Principal Analyst) səviyyəsində işləyirsən.
-Canlı veb axtarış və Google Search Grounding vasitəsilə ən son rəsmi hesabatlara, texniki arxitekturalara və maliyyə disclosures-ə çıxışın var.
+${enableSearch ? 'Canlı veb axtarış və Google Search Grounding vasitəsilə ən son rəsmi hesabatlara, texniki arxitekturalara və maliyyə disclosures-ə çıxışın var.' : 'Bu sintez mərhələsində canlı axtarış əlçatan deyil. Yalnız təqdim edilmiş araşdırma sübutlarından istifadə et, çatışmayan faktları göstər və yeni axtarış apardığını iddia etmə.'}
 
 SƏNİN MİSSİYAN:
 İstifadəçinin mövzusu üzrə dərindən, hərtərəfli, dəqiq rəqəmlərə və yoxlanılmış mənbələrə əsaslanan yüksək intellektli strateji hesabat hazırlamaq.
@@ -398,18 +400,6 @@ YALNIZ bu formatda JSON array qaytar:
         abortSignal ? { signal: abortSignal } : undefined,
       );
       responseText = res?.text?.trim() || "";
-    } else if (hasOpenAIConfiguration()) {
-      const openai = getOpenAIClient();
-      const res = await openai.chat.completions.create(
-        {
-          model: "gpt-6.1-sol",
-          reasoning_effort: "medium",
-          messages: [{ role: "user", content: decompositionPrompt }],
-          max_completion_tokens: 1024,
-        },
-        abortSignal ? { signal: abortSignal } : undefined,
-      );
-      responseText = res.choices?.[0]?.message?.content?.trim() || "";
     }
 
     if (responseText) {
@@ -424,7 +414,8 @@ YALNIZ bu formatda JSON array qaytar:
         }
       }
     }
-  } catch {
+  } catch (error) {
+    assertExecutionActive(error, abortSignal);
     // Fallback on error
   }
 
@@ -436,6 +427,7 @@ export async function executeTargetedSearch({
   geminiClient = null,
   abortSignal = null,
 }) {
+  abortSignal?.throwIfAborted();
   let text = "";
   let sources = [];
   let metadata = null;
@@ -463,48 +455,29 @@ export async function executeTargetedSearch({
       metadata = res?.candidates?.[0]?.groundingMetadata || res?.groundingMetadata;
       const extractedSources = extractGroundingSources(metadata);
       sources = enrichSourcesFromText(extractedSources, text);
-      return { text, sources, metadata };
+      return { text, sources, metadata, ok: true };
     } catch (err) {
-      if (abortSignal?.aborted) throw err;
+      assertExecutionActive(err, abortSignal);
       console.warn("[Deep Research] Gemini targeted search failed", { code: err?.code || "PROVIDER_ERROR" });
+      return {
+        text: "",
+        sources: [],
+        metadata: null,
+        ok: false,
+        failed: true,
+        errorCode: err?.code || "PROVIDER_ERROR",
+      };
     }
   }
 
-  if (hasOpenAIConfiguration()) {
-    try {
-      const openai = getOpenAIClient();
-      const res = await openai.responses.create(
-        {
-          model: "gpt-6.1-sol",
-          reasoning: { effort: "medium" },
-          instructions: "Search the web for verified facts, numbers, and authoritative sources. Exclude low-credibility domains like teamazing.com, random blogs, or SEO content farms.",
-          input: query,
-          tools: [{ type: "web_search" }],
-          tool_choice: "required",
-          max_output_tokens: 4096,
-        },
-        abortSignal ? { signal: abortSignal } : undefined,
-      );
-      text = res.output_text?.trim() || "";
-      const rawSources = [];
-      for (const output of res.output || []) {
-        if (output.type === "web_search_call") {
-          for (const s of output.action?.sources || []) {
-            if (s.url) {
-              rawSources.push({ title: s.title, url: s.url });
-            }
-          }
-        }
-      }
-      sources = enrichSourcesFromText(rawSources, text);
-      return { text, sources, metadata: null };
-    } catch (err) {
-      if (abortSignal?.aborted) throw err;
-      console.warn("[Deep Research] OpenAI search failed", { code: err?.code || "PROVIDER_ERROR" });
-    }
-  }
-
-  return { text: "", sources: [], metadata: null };
+  return {
+    text: "",
+    sources: [],
+    metadata: null,
+    ok: false,
+    failed: true,
+    errorCode: "PROVIDER_UNCONFIGURED",
+  };
 }
 
 export async function analyzeResearchGaps({
@@ -550,18 +523,6 @@ Return ONLY a JSON object:
         abortSignal ? { signal: abortSignal } : undefined,
       );
       responseText = res?.text?.trim() || "";
-    } else if (hasOpenAIConfiguration()) {
-      const openai = getOpenAIClient();
-      const res = await openai.chat.completions.create(
-        {
-          model: "gpt-6.1-sol",
-          reasoning_effort: "medium",
-          messages: [{ role: "user", content: gapPrompt }],
-          max_completion_tokens: 512,
-        },
-        abortSignal ? { signal: abortSignal } : undefined,
-      );
-      responseText = res.choices?.[0]?.message?.content?.trim() || "";
     }
 
     if (responseText) {
@@ -580,7 +541,8 @@ Return ONLY a JSON object:
         }
       }
     }
-  } catch {
+  } catch (error) {
+    assertExecutionActive(error, abortSignal);
     // Fallback on error
   }
 
@@ -610,6 +572,14 @@ export class ResearchService {
 
   async waitForAllJobs() {
     await Promise.allSettled(Array.from(this.runningJobPromises));
+  }
+
+  async recordProviderUsage(job, usage) {
+    job.usageByModel ||= [];
+    let entry = job.usageByModel.find(item => item.provider === usage.provider && item.model === usage.model);
+    if (!entry) { entry = { provider: usage.provider, model: usage.model, inputTokens: 0, outputTokens: 0, searchCalls: 0, calls: 0 }; job.usageByModel.push(entry); }
+    entry.inputTokens += usage.inputTokens; entry.outputTokens += usage.outputTokens; entry.searchCalls += usage.searchCalls; entry.calls++;
+    await this.persistCheckpoint?.(job.id, { ownerId: job.ownerId, executionFence: job.executionFence, usageByModel: structuredClone(job.usageByModel) });
   }
 
   createInitialSteps(language = "az") {
@@ -646,6 +616,7 @@ export class ResearchService {
     taskId = null,
     language = "az",
     user = null,
+    executionLease = null,
   }) {
     if (this.hasActiveJobForOwner(ownerId)) {
       const busyErr = new Error("Active research job already running for owner");
@@ -703,9 +674,16 @@ export class ResearchService {
       updatedAt: now,
     };
 
+    const intendedChatId = chatId || randomUUID();
+    const startedAt = Date.now();
+    const intent = { id: jobId, messageId, ownerId, chatId: intendedChatId, prompt: researchPrompt, language, strategyContext, taskContext, strategyId, taskId, privacySnapshot: privacySnapshot(user), status: 'pending', steps, sources: [], artifacts: [], content: '', createdAt: now, deadlineAt: startedAt + 10 * 60 * 1000, checkpoint: {} };
+    executionLease?.lease.signal?.throwIfAborted();
+    executionLease?.controller?.signal.throwIfAborted();
+    if (executionLease) executionLease.intent = intent;
+    await this.prepareIntent?.(intent);
     const savedChat = await this.chatRepository.saveChat({
       mustExist: Boolean(chatId),
-      id: chatId || undefined,
+      id: intendedChatId,
       ownerId,
       title: !chatId ? (researchPrompt.length > 50 ? `${researchPrompt.slice(0, 48)}…` : researchPrompt) : undefined,
       appendMessages: [userMessage, assistantMessage],
@@ -724,6 +702,8 @@ export class ResearchService {
       language,
       strategyContext,
       taskContext,
+      strategyId,
+      taskId,
       modelImprovement,
       privacySnapshot: privacySnapshot(user),
       status: "pending",
@@ -735,10 +715,20 @@ export class ResearchService {
       error: null,
       createdAt: now,
       updatedAt: now,
-      startedAt: Date.now(),
+      startedAt,
+      deadlineAt: intent.deadlineAt,
+      checkpoint: {},
+      executionLease,
       subscribers: new Set(),
       abortController: new AbortController(),
     };
+
+    if (executionLease) {
+      const signals = [executionLease.lease.signal, executionLease.controller?.signal].filter(Boolean);
+      const abort = () => job.abortController.abort(signals.find(signal => signal.aborted)?.reason);
+      for (const signal of signals) { signal.addEventListener('abort', abort, { once: true }); if (signal.aborted) abort(); }
+      job.detachLease = () => { for (const signal of signals) signal.removeEventListener('abort', abort); };
+    }
 
     this.activeJobs.set(jobId, job);
 
@@ -758,8 +748,11 @@ export class ResearchService {
           providerStarted: false,
           guest: typeof job.ownerId === 'string' && job.ownerId.startsWith('guest_'),
           signal: job.abortController.signal,
+          controller: job.abortController,
           isBackgroundJob: true,
         };
+        bgContext.assertAuthorized = () => this.assertJobAuthorized?.(job);
+        bgContext.onProviderUsage = usage => this.recordProviderUsage(job, usage);
         await executionContext.run(bgContext, () => this.executeJob(jobId));
       } catch (err) {
         console.error(`[Deep Research] Unhandled worker error for job ${jobId}:`, err);
@@ -788,6 +781,7 @@ export class ResearchService {
 
     if (this.redis?.isReady) {
       leaseToken = randomUUID();
+      job.researchLeaseToken = leaseToken;
       const acquired = await this.redis.set(leaseKey, leaseToken, { NX: true, PX: 60000 });
       if (!acquired) {
         console.warn(`[Deep Research] Job ${jobId} already leased by another replica.`);
@@ -811,17 +805,33 @@ export class ResearchService {
     }
 
     const isEn = job.language === "en";
-    job.abortController.signal.throwIfAborted();
     job.status = "running";
     job.updatedAt = new Date().toISOString();
 
+    if (!job.deadlineAt) {
+      job.deadlineAt = (job.startedAt || Date.now()) + 10 * 60 * 1000;
+    }
+    const assertWithinDeadline = () => {
+      job.abortController.signal.throwIfAborted();
+      if (job.deadlineAt && Date.now() >= job.deadlineAt) {
+        const timeoutErr = Object.assign(new Error("Research deadline exceeded"), {
+          code: "EXECUTION_TIMEOUT",
+          status: 504,
+        });
+        job.abortController.abort(timeoutErr);
+        throw timeoutErr;
+      }
+    };
+
     const maxTimeout = setTimeout(() => {
       job.abortController?.abort(Object.assign(new Error("RESEARCH_TIMEOUT"), { code: "EXECUTION_TIMEOUT" }));
-    }, 10 * 60 * 1000);
+    }, Math.max(1, job.deadlineAt - Date.now()));
     maxTimeout.unref();
 
     const persistAndBroadcast = async (extraData = {}) => {
+      assertWithinDeadline();
       job.updatedAt = new Date().toISOString();
+      await this.persistJobMessage(job);
       this.broadcast(jobId, {
         type: "step",
         status: job.status,
@@ -829,10 +839,44 @@ export class ResearchService {
         sources: job.sources,
         ...extraData,
       });
-      await this.persistJobMessage(job);
+    };
+
+    const MAX_SEARCH_ATTEMPTS = 2;
+    const runBoundedSearch = async ({ query, stepKey, getCached, setCached, getAttempts, setAttempts }) => {
+      const cached = getCached();
+      if (cached && !cached.failed && cached.ok !== false) {
+        return cached;
+      }
+      let attempts = Number(getAttempts() || 0);
+      let lastResult = null;
+      while (attempts < MAX_SEARCH_ATTEMPTS) {
+        assertWithinDeadline();
+        attempts += 1;
+        setAttempts(attempts);
+        const candidate = await executeTargetedSearch({
+          query,
+          geminiClient: this.geminiClient,
+          abortSignal: job.abortController.signal,
+        });
+        if (!candidate.failed && candidate.ok !== false) {
+          setCached(candidate);
+          return candidate;
+        }
+        lastResult = candidate;
+        await persistAndBroadcast({ currentStep: stepKey, stepStatus: "running" });
+      }
+      return lastResult || {
+        text: "",
+        sources: [],
+        metadata: null,
+        ok: false,
+        failed: true,
+        errorCode: "RETRY_LIMIT_EXCEEDED",
+      };
     };
 
     try {
+      assertWithinDeadline();
       // ----------------------------------------------------
       // STEP 1: Research Planning & Query Decomposition
       // ----------------------------------------------------
@@ -843,12 +887,14 @@ export class ResearchService {
       }
       await persistAndBroadcast({ currentStep: "plan", stepStatus: "running" });
 
-      const subqueries = await decomposeResearchTopic({
+      job.checkpoint ||= {};
+      const subqueries = job.checkpoint.subqueries || await decomposeResearchTopic({
         prompt: job.prompt,
         language: job.language,
         geminiClient: this.geminiClient,
         abortSignal: job.abortController.signal,
       });
+      job.checkpoint.subqueries = subqueries;
 
       if (planStep) {
         planStep.status = "completed";
@@ -898,28 +944,42 @@ export class ResearchService {
         subqueries.map(async (sq, idx) => {
           const stepKey = `subsearch_${idx}`;
           const currentSubStep = job.steps.find((s) => s.key === stepKey);
-          if (currentSubStep) {
-            currentSubStep.status = "running";
-            currentSubStep.timestamp = new Date().toISOString();
+          const cachedSearch = job.checkpoint.searches?.[idx];
+          const isCachedCompleted = Boolean(cachedSearch && !cachedSearch.failed && cachedSearch.ok !== false);
+          if (!isCachedCompleted) {
+            if (currentSubStep) {
+              currentSubStep.status = "running";
+              currentSubStep.timestamp = new Date().toISOString();
+            }
+            await persistAndBroadcast({ currentStep: stepKey, stepStatus: "running" });
           }
-          await persistAndBroadcast({ currentStep: stepKey, stepStatus: "running" });
 
-          const result = await executeTargetedSearch({
+          const result = await runBoundedSearch({
             query: sq.query,
-            geminiClient: this.geminiClient,
-            abortSignal: job.abortController.signal,
+            stepKey,
+            getCached: () => job.checkpoint.searches?.[idx],
+            setCached: (val) => {
+              (job.checkpoint.searches ||= {})[idx] = val;
+            },
+            getAttempts: () => job.checkpoint.searchAttempts?.[idx] || 0,
+            setAttempts: (val) => {
+              (job.checkpoint.searchAttempts ||= {})[idx] = val;
+            },
           });
 
+          const searchSucceeded = !result.failed && result.ok !== false;
           if (currentSubStep) {
-            currentSubStep.status = "completed";
+            currentSubStep.status = searchSucceeded ? "completed" : "failed";
             currentSubStep.timestamp = new Date().toISOString();
             const count = result.sources?.length || 0;
-            currentSubStep.detail = count > 0
-              ? `${count} ${isEn ? "sources verified" : "mənbə tapıldı"}`
-              : (isEn ? "Searched" : "Yoxlanıldı");
+            currentSubStep.detail = searchSucceeded
+              ? (count > 0
+                ? `${count} ${isEn ? "sources verified" : "mənbə tapıldı"}`
+                : (isEn ? "Searched" : "Yoxlanıldı"))
+              : (isEn ? "Search failed" : "Axtarış uğursuz oldu");
           }
 
-          if (result.sources?.length) {
+          if (searchSucceeded && result.sources?.length) {
             const seen = new Set(job.sources.map((s) => s.url));
             for (const s of result.sources) {
               if (!seen.has(s.url)) {
@@ -931,14 +991,18 @@ export class ResearchService {
             this.broadcast(jobId, { type: "sources", sources: job.sources, count: job.sources.length });
           }
 
-          await persistAndBroadcast({ currentStep: stepKey, stepStatus: "completed" });
+          await persistAndBroadcast({
+            currentStep: stepKey,
+            stepStatus: searchSucceeded ? "completed" : "failed",
+          });
           return result;
         }),
       );
+      assertWithinDeadline();
 
       // Collect findings text from all parallel searches
       let collectedEvidence = searchResults
-        .filter((r) => r.status === "fulfilled" && r.value?.text)
+        .filter((r) => r.status === "fulfilled" && !r.value?.failed && r.value?.ok !== false && r.value?.text)
         .map((r, i) => `### Sub-Research Dimension ${i + 1} (${subqueries[i]?.label}):\n${r.value.text}`)
         .join("\n\n");
 
@@ -952,27 +1016,38 @@ export class ResearchService {
       }
       await persistAndBroadcast({ currentStep: "gap_analysis", stepStatus: "running" });
 
-      const gapResult = await analyzeResearchGaps({
+      const gapResult = job.checkpoint.gapResult || await analyzeResearchGaps({
         prompt: job.prompt,
         gatheredEvidence: collectedEvidence,
         language: job.language,
         geminiClient: this.geminiClient,
         abortSignal: job.abortController.signal,
       });
+      job.checkpoint.gapResult = gapResult;
+      await persistAndBroadcast();
 
+      let gapSearchSucceeded = true;
       if (gapResult.hasGap && gapResult.query) {
         if (gapStep) {
           gapStep.detail = gapResult.label || (isEn ? "Closing data gap…" : "Çatışmayan rəqəmlər axtarılır…");
         }
         await persistAndBroadcast({ currentStep: "gap_analysis", stepStatus: "running" });
 
-        const gapSearch = await executeTargetedSearch({
+        const gapSearch = await runBoundedSearch({
           query: gapResult.query,
-          geminiClient: this.geminiClient,
-          abortSignal: job.abortController.signal,
+          stepKey: "gap_analysis",
+          getCached: () => job.checkpoint.gapSearch,
+          setCached: (val) => {
+            job.checkpoint.gapSearch = val;
+          },
+          getAttempts: () => job.checkpoint.gapSearchAttempts || 0,
+          setAttempts: (val) => {
+            job.checkpoint.gapSearchAttempts = val;
+          },
         });
+        gapSearchSucceeded = !gapSearch.failed && gapSearch.ok !== false;
 
-        if (gapSearch.sources?.length) {
+        if (gapSearchSucceeded && gapSearch.sources?.length) {
           const seen = new Set(job.sources.map((s) => s.url));
           for (const s of gapSearch.sources) {
             if (!seen.has(s.url)) {
@@ -984,19 +1059,24 @@ export class ResearchService {
           this.broadcast(jobId, { type: "sources", sources: job.sources, count: job.sources.length });
         }
 
-        if (gapSearch.text) {
+        if (gapSearchSucceeded && gapSearch.text) {
           collectedEvidence += `\n\n### Gap Analysis Findings (${gapResult.label}):\n${gapSearch.text}`;
         }
       }
 
       if (gapStep) {
-        gapStep.status = "completed";
+        gapStep.status = gapSearchSucceeded ? "completed" : "failed";
         gapStep.timestamp = new Date().toISOString();
-        gapStep.detail = isEn
-          ? "Critical metrics and data gaps verified"
-          : "Faktlar və ziddiyyətli arqumentlər çarpaz yoxlanıldı";
+        gapStep.detail = gapSearchSucceeded
+          ? (isEn
+            ? "Critical metrics and data gaps verified"
+            : "Faktlar və ziddiyyətli arqumentlər çarpaz yoxlanıldı")
+          : (isEn ? "Follow-up search failed" : "Əlavə axtarış uğursuz oldu");
       }
-      await persistAndBroadcast({ currentStep: "gap_analysis", stepStatus: "completed" });
+      await persistAndBroadcast({
+        currentStep: "gap_analysis",
+        stepStatus: gapSearchSucceeded ? "completed" : "failed",
+      });
 
       // ----------------------------------------------------
       // STEP 4: Deep Strategic Synthesis (Gemini 3.8 Flash High)
@@ -1021,7 +1101,10 @@ export class ResearchService {
       let primarySucceeded = false;
       let response = null;
 
-      if (hasGeminiConfiguration() || this.geminiClient) {
+      if (job.checkpoint.synthesis) {
+        ({ rawText, metadata, response } = job.checkpoint.synthesis);
+        primarySucceeded = true;
+      } else if (hasGeminiConfiguration() || this.geminiClient) {
         try {
           const gemini = this.geminiClient || getGeminiClient();
           response = await gemini.models.generateContent(
@@ -1043,6 +1126,7 @@ export class ResearchService {
           );
 
           rawText = response?.text?.trim() || "";
+          job.provider = 'google'; job.model = aiConfig.strategyModel;
           metadata = response?.candidates?.[0]?.groundingMetadata || response?.groundingMetadata;
           const extractedSources = extractGroundingSources(metadata);
           const finalSources = enrichSourcesFromText(extractedSources, rawText);
@@ -1057,66 +1141,94 @@ export class ResearchService {
           job.sources.sort((a, b) => (b.score || 0) - (a.score || 0));
           if (rawText) primarySucceeded = true;
         } catch (geminiError) {
-          if (job.abortController?.signal?.aborted) throw geminiError;
+          assertExecutionActive(geminiError, job.abortController?.signal);
           console.warn("[Deep Research] Gemini 3.8 Flash High synthesis error, falling back:", geminiError?.message || geminiError);
         }
       }
 
       if (!primarySucceeded) {
-        if (!hasOpenAIConfiguration()) {
-          throw new Error(isEn ? "Research provider is currently unavailable." : "Araşdırma xidməti hazırda əlçatmazdır.");
+        if (!collectedEvidence.trim() || !job.sources.length || (!hasGeminiConfiguration() && !this.geminiClient)) {
+          throw Object.assign(new Error('Google Search Grounding unavailable'), { code: 'GROUNDING_UNAVAILABLE', status: 503 });
         }
-        const openai = getOpenAIClient();
-        response = await openai.responses.create({
-          model: "gpt-6.1-sol",
-          reasoning: { effort: "medium" },
-          instructions: systemInstruction,
-          input: userContent,
-          tools: [{ type: "web_search" }],
-          tool_choice: "required",
-          max_output_tokens: 8192,
-        }, job.abortController ? { signal: job.abortController.signal } : undefined);
-
-        rawText = response.output_text?.trim() || "";
-        const seen = new Set(job.sources.map((s) => s.url));
-        for (const output of response.output || []) {
-          if (output.type === "web_search_call") {
-            for (const s of output.action?.sources || []) {
-              if (s.url && !seen.has(s.url)) {
-                try {
-                  const parsed = new URL(String(s.url).trim());
-                  if (!["http:", "https:"].includes(parsed.protocol)) continue;
-                } catch {
-                  continue;
-                }
-                seen.add(s.url);
-                const domain = extractCleanDomain(s.url);
-                if (!isLowQualityDomain(domain)) {
-                  job.sources.push({
-                    title: s.title || domain || "Source",
-                    url: s.url,
-                    domain,
-                    isHighSignal: isHighSignalDomain(domain),
-                    score: scoreDomain(domain),
-                  });
-                }
-              }
+        try {
+          const gemini = this.geminiClient || getGeminiClient();
+          const fallback = buildResearchPrompt({
+            prompt: job.prompt,
+            language: job.language,
+            strategyContext: job.strategyContext,
+            taskContext: job.taskContext,
+            gatheredEvidence: collectedEvidence,
+            enableSearch: false,
+          });
+          response = await gemini.models.generateContent(
+            {
+              model: aiConfig.strategyModel || "gemini-3.8-flash",
+              contents: fallback.userContent,
+              config: {
+                systemInstruction: fallback.systemInstruction,
+                maxOutputTokens: 8192,
+                abortSignal: job.abortController.signal,
+              },
+            },
+            job.abortController ? { signal: job.abortController.signal } : undefined,
+          );
+          rawText = response?.text?.trim() || "";
+          job.provider = 'google';
+          job.model = aiConfig.strategyModel || 'gemini-3.8-flash';
+          const textSources = enrichSourcesFromText([], rawText);
+          const seen = new Set(job.sources.map((s) => s.url));
+          for (const s of textSources) {
+            if (!seen.has(s.url)) {
+              seen.add(s.url);
+              job.sources.push(s);
             }
           }
+          job.sources.sort((a, b) => (b.score || 0) - (a.score || 0));
+        } catch (fallbackErr) {
+          assertExecutionActive(fallbackErr, job.abortController?.signal);
+          throw Object.assign(new Error('Google Search Grounding unavailable'), { code: 'GROUNDING_UNAVAILABLE', status: 503 });
         }
-        const textSources = enrichSourcesFromText([], rawText);
-        for (const s of textSources) {
-          if (!seen.has(s.url)) {
-            seen.add(s.url);
-            job.sources.push(s);
-          }
-        }
-        job.sources.sort((a, b) => (b.score || 0) - (a.score || 0));
       }
 
       if (!rawText) {
         throw new Error(isEn ? "Research engine returned an empty response." : "Araşdırma mühərriki boş cavab qaytardı.");
       }
+      const collectedQueries = new Set();
+      let renderedEntryPoint = metadata?.searchEntryPoint?.renderedContent || null;
+      for (const r of searchResults) {
+        if (r.status === "fulfilled" && r.value?.metadata) {
+          for (const q of r.value.metadata.webSearchQueries || []) {
+            if (typeof q === "string" && q.trim()) collectedQueries.add(q.trim().slice(0, 160));
+          }
+          if (!renderedEntryPoint && typeof r.value.metadata.searchEntryPoint?.renderedContent === "string") {
+            renderedEntryPoint = r.value.metadata.searchEntryPoint.renderedContent;
+          }
+        }
+      }
+      if (job.checkpoint?.gapSearch?.metadata) {
+        for (const q of job.checkpoint.gapSearch.metadata.webSearchQueries || []) {
+          if (typeof q === "string" && q.trim()) collectedQueries.add(q.trim().slice(0, 160));
+        }
+        if (!renderedEntryPoint && typeof job.checkpoint.gapSearch.metadata.searchEntryPoint?.renderedContent === "string") {
+          renderedEntryPoint = job.checkpoint.gapSearch.metadata.searchEntryPoint.renderedContent;
+        }
+      }
+      for (const q of metadata?.webSearchQueries || []) {
+        if (typeof q === "string" && q.trim()) collectedQueries.add(q.trim().slice(0, 160));
+      }
+      for (const sq of subqueries || []) {
+        if (collectedQueries.size >= 10) break;
+        if (typeof sq?.query === "string" && sq.query.trim()) collectedQueries.add(sq.query.trim().slice(0, 160));
+      }
+      const mergedGroundingMetadata = {
+        ...(metadata && typeof metadata === "object" ? metadata : {}),
+        groundingChunks: job.sources.slice(0, 30).map((s) => ({ web: { uri: s.url, title: s.title || s.domain || "Source" } })),
+        webSearchQueries: Array.from(collectedQueries).slice(0, 10),
+        ...(renderedEntryPoint ? { searchEntryPoint: { renderedContent: String(renderedEntryPoint).slice(0, 50000) } } : {}),
+      };
+      metadata = mergedGroundingMetadata;
+      job.checkpoint.synthesis = { rawText, metadata, response: response ? { usageMetadata: response.usageMetadata, usage: response.usage } : null };
+      await persistAndBroadcast();
 
       if (synthStep) {
         synthStep.status = "completed";
@@ -1124,12 +1236,13 @@ export class ResearchService {
         synthStep.detail = isEn ? "Executive report ready" : "Yekun analitik hesabat hazırdır";
       }
 
-      // Mark all steps completed
+      // Mark non-failed steps completed
       for (const step of job.steps) {
-        step.status = "completed";
+        if (step.status !== "failed") {
+          step.status = "completed";
+        }
       }
 
-      job.status = "completed";
       job.content = rawText;
       job.groundingMetadata = metadata || undefined;
       job.updatedAt = new Date().toISOString();
@@ -1144,14 +1257,18 @@ export class ResearchService {
           });
           job.artifacts = generatedArtifacts || [];
         } catch (artifactErr) {
+          assertExecutionActive(artifactErr, job.abortController?.signal);
           console.warn("[Deep Research] Error generating selective artifacts:", artifactErr?.message || artifactErr);
           job.artifacts = [];
         }
       }
 
+      job.abortController.signal.throwIfAborted();
+      await this.assertJobAuthorized?.(job);
+      job.status = "completed";
       await this.persistJobMessage(job);
 
-      this.broadcast(jobId, {
+      await this.broadcast(jobId, {
         type: "done",
         status: "completed",
         reply: rawText,
@@ -1163,22 +1280,30 @@ export class ResearchService {
 
       this.recordCompletion(job, response);
     } catch (error) {
-      const isAborted = job.abortController?.signal?.aborted;
-      job.status = isAborted ? "cancelled" : "failed";
-      job.error = isAborted
-        ? (isEn ? "Research was canceled." : "Araşdırma dayandırıldı.")
-        : (isEn ? "Research failed." : "Araşdırma zamanı xəta baş verdi.");
+      const abortReason = job.abortController?.signal?.reason || error;
+      const isRestart = abortReason?.code === "RESEARCH_RESTART";
+      const isAborted = Boolean(job.abortController?.signal?.aborted);
+      job.status = isRestart ? "pending" : isAborted ? "cancelled" : "failed";
+      job.error = isRestart
+        ? null
+        : isAborted
+          ? (isEn ? "Research was canceled." : "Araşdırma dayandırıldı.")
+          : (isEn ? "Research failed." : "Araşdırma zamanı xəta baş verdi.");
 
-      await this.rollbackJobArtifacts(job);
+      if (!isRestart) {
+        await this.rollbackJobArtifacts(job);
+      }
 
       const currentRunning = job.steps.find((s) => s.status === "running");
-      if (currentRunning) currentRunning.status = "failed";
+      if (currentRunning) {
+        currentRunning.status = isRestart ? "pending" : "failed";
+      }
 
       await this.persistJobMessage(job).catch(() => {});
 
-      this.broadcast(jobId, {
-        type: "failed",
-        status: "failed",
+      await this.broadcast(jobId, {
+        type: isRestart ? "step" : "failed",
+        status: job.status,
         error: job.error,
         steps: job.steps,
       });
@@ -1228,6 +1353,7 @@ export class ResearchService {
       if (memoryJob.chatId && this.chatRepository) {
         const chat = await this.chatRepository.getById(memoryJob.chatId, ownerId).catch(() => null);
         if (!chat || chat.deleted) {
+          memoryJob.abortController?.abort(Object.assign(new Error('Conversation removed'), { code: 'EXECUTION_REVOKED' }));
           this.activeJobs.delete(jobId);
           return null;
         }
@@ -1239,6 +1365,7 @@ export class ResearchService {
         steps: memoryJob.steps,
         sources: memoryJob.sources,
         artifacts: memoryJob.artifacts || [],
+        groundingMetadata: memoryJob.groundingMetadata || null,
         content: memoryJob.content,
         error: memoryJob.error,
         createdAt: memoryJob.createdAt,
@@ -1261,6 +1388,7 @@ export class ResearchService {
       steps: msg.steps || [],
       sources: msg.sources || [],
       artifacts: msg.artifacts || [],
+      groundingMetadata: msg.groundingMetadata || null,
       content: msg.content || "",
       error: msg.error || null,
       createdAt: msg.createdAt || matchingChat.createdAt,
@@ -1286,7 +1414,7 @@ export class ResearchService {
 
   async cancelJob(jobId, ownerId) {
     const job = this.activeJobs.get(jobId);
-    if (!job || job.ownerId !== ownerId) return false;
+    if (!job || job.ownerId !== ownerId || !['pending', 'running'].includes(job.status)) return false;
     job.abortController.abort();
     await this.rollbackJobArtifacts(job);
     return true;
@@ -1299,6 +1427,7 @@ export class ResearchService {
       await this.rollbackJobArtifacts(job);
     }
     try {
+      if (!isFailed) await this.assertJobAuthorized?.(job);
       const chat = await this.chatRepository.getById(job.chatId, job.ownerId);
       if (!chat) { job.abortController.abort(); throw new Error("Conversation removed"); }
 
@@ -1321,7 +1450,7 @@ export class ResearchService {
           updatedAt: job.updatedAt,
         };
 
-        if (this.chatRepository.patchResearchMessage) await this.chatRepository.patchResearchMessage(chat.id, job.ownerId, job.id, chat.messages[msgIdx]);
+        if (this.chatRepository.patchResearchMessage) await this.chatRepository.patchResearchMessage(chat.id, job.ownerId, job.id, chat.messages[msgIdx], { executionFence: job.executionFence, assertOwned: () => this.assertJobOwned?.(job) });
         else {
         await this.chatRepository.saveChat({
           id: chat.id,
@@ -1347,11 +1476,20 @@ export class ResearchService {
     const latencyMs = Date.now() - (job.startedAt || Date.now());
     let usage = null;
     if (response?.usageMetadata) {
+      const promptTokens = response.usageMetadata.promptTokenCount || 0;
+      const candidateTokens = response.usageMetadata.candidatesTokenCount || 0;
+      const thoughtsTokens = response.usageMetadata.thoughtsTokenCount || 0;
+      const completionTokens = candidateTokens + thoughtsTokens;
       usage = {
-        prompt_tokens: response.usageMetadata.promptTokenCount || null,
-        completion_tokens: response.usageMetadata.candidatesTokenCount || null,
-        total_tokens: response.usageMetadata.totalTokenCount || null,
+        prompt_tokens: promptTokens || null,
+        completion_tokens: completionTokens || null,
+        thoughts_tokens: thoughtsTokens || 0,
+        total_tokens: response.usageMetadata.totalTokenCount || (promptTokens + completionTokens) || null,
       };
+    }
+    if (job.usageByModel?.length) {
+      usage = { prompt_tokens: job.usageByModel.reduce((sum, item) => sum + item.inputTokens, 0), completion_tokens: job.usageByModel.reduce((sum, item) => sum + item.outputTokens, 0) };
+      usage.total_tokens = usage.prompt_tokens + usage.completion_tokens;
     }
 
     const isModelImprovement = job.modelImprovement === true;
@@ -1367,12 +1505,13 @@ export class ResearchService {
           taskType: "deep_research",
           userPrompt: isRestricted ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : job.prompt,
           relevantContext: isRestricted ? null : { sourcesCount: job.sources?.length || 0 },
-          modelProvider: "google",
-          modelName: "gemini-3.8-flash",
+          modelProvider: job.provider || 'google',
+          modelName: job.model || "gemini-3.8-flash",
           modelResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : job.content,
           usage,
           latencyMs,
           requestStatus: "success",
+          groundingActive: true,
           onlyNecessaryData: isRestricted,
           modelImprovement: isModelImprovement,
           privacySnapshot: job.privacySnapshot,
@@ -1385,9 +1524,10 @@ export class ResearchService {
       this.telemetryService
         .trackAskQuery({
           ownerId: job.ownerId,
-          model: "gemini-3.8-flash-high",
+          model: job.model || "gemini-3.8-flash-high",
           latencyMs,
           usage,
+          providerUsage: job.usageByModel,
           groundingActive: true,
           status: "success",
           querySnippet: isRestricted ? "" : job.prompt,

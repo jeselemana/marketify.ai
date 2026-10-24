@@ -1,3 +1,4 @@
+import { assertExecutionActive } from '../security/execution-control.js';
 import {
   StrategyAssessmentSchema,
   StrategySchema,
@@ -283,17 +284,31 @@ Provide concise, purely factual findings (2-3 short bullet points, no corporate 
     const text = response?.text?.trim() || "";
     let usage = null;
     if (response?.usageMetadata) {
+      const promptTokens = response.usageMetadata.promptTokenCount || 0;
+      const candidateTokens = response.usageMetadata.candidatesTokenCount || 0;
+      const thoughtsTokens = response.usageMetadata.thoughtsTokenCount || 0;
+      const completionTokens = candidateTokens + thoughtsTokens;
       usage = {
-        prompt_tokens: response.usageMetadata.promptTokenCount || null,
-        completion_tokens: response.usageMetadata.candidatesTokenCount || null,
-        total_tokens: response.usageMetadata.totalTokenCount || null,
+        prompt_tokens: promptTokens || null,
+        completion_tokens: completionTokens || null,
+        thoughts_tokens: thoughtsTokens || 0,
+        total_tokens: response.usageMetadata.totalTokenCount || (promptTokens + completionTokens) || null,
       };
     }
     const metadata = response?.candidates?.[0]?.groundingMetadata || response?.groundingMetadata;
     const sources = extractGroundingSources(metadata);
-    return text ? { text, usage, sources } : null;
+    const searchQueries = Array.isArray(metadata?.webSearchQueries)
+      ? metadata.webSearchQueries
+          .map((q) => (typeof q === "string" ? q.trim().slice(0, 160) : ""))
+          .filter(Boolean)
+          .slice(0, 10)
+      : [];
+    const searchEntryPoint = typeof metadata?.searchEntryPoint?.renderedContent === "string"
+      ? { renderedContent: metadata.searchEntryPoint.renderedContent.slice(0, 50000) }
+      : null;
+    return text ? { text, usage, sources, searchQueries, searchEntryPoint } : null;
   } catch (error) {
-    if (error.name === "AbortError" || signal?.aborted) throw error;
+    assertExecutionActive(error, signal);
     console.warn("⚠️ [Build Grounding Xətası]:", error?.message || error);
     return null;
   }
@@ -332,7 +347,7 @@ export async function generateStrategy({
         onUsage?.({ usage: groundedResearch.usage, model: aiConfig.strategyModel, provider: "google" });
       }
     } catch (groundingErr) {
-      if (groundingErr.name === "AbortError" || signal?.aborted) throw groundingErr;
+      assertExecutionActive(groundingErr, signal);
       console.warn("⚠️ [Build Grounding Xətası]:", groundingErr?.message || groundingErr);
     }
   }
@@ -340,6 +355,10 @@ export async function generateStrategy({
   const factualContext = groundedResearch?.text
     ? `\n\n[REAL-TIME FACTUAL GROUNDING & MARKET INTELLIGENCE]:\n${groundedResearch.text}`
     : "";
+
+  const fallbackInput = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
+    assumptions.length ? assumptions.join("\n- ") : "None supplied."
+  }${languageDirective}`;
 
   const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
     assumptions.length ? assumptions.join("\n- ") : "None supplied."
@@ -351,6 +370,7 @@ export async function generateStrategy({
     name: "helmer_strategy",
     instructions,
     input,
+    fallbackInput,
     maxOutputTokens: aiConfig.strategyMaxOutputTokens,
     reasoning: "medium",
     ownerId,
@@ -365,11 +385,14 @@ export async function generateStrategy({
     strategyData.nextSteps = alignNextStepsLogic(strategyData.nextSteps, language);
   }
 
-  // Grounding metadata for source attribution.
+  // Grounding metadata for source attribution (only if synthesized by Google Gemini, never on OpenAI fallback).
+  const usedGoogleGrounding = Boolean(geminiResult.provider === "google" && groundedResearch?.sources?.length);
   strategyData.orchestration = {
     models: [geminiResult.model],
-    searchGrounded: Boolean(groundedResearch?.sources?.length),
-    sources: groundedResearch?.sources || [],
+    searchGrounded: usedGoogleGrounding,
+    sources: usedGoogleGrounding ? (groundedResearch?.sources || []) : [],
+    ...(usedGoogleGrounding && groundedResearch?.searchQueries?.length ? { searchQueries: groundedResearch.searchQueries } : {}),
+    ...(usedGoogleGrounding && groundedResearch?.searchEntryPoint ? { searchEntryPoint: groundedResearch.searchEntryPoint } : {}),
   };
 
   return strategyData;
@@ -407,10 +430,17 @@ export async function refineStrategy(payload, ownerId, signal, personalizationCo
     strategyData.nextSteps = alignNextStepsLogic(strategyData.nextSteps, payload.language || "az");
   }
 
+  const keepGrounding = Boolean(result.provider === "google" && payload.strategy?.orchestration?.sources?.length);
   strategyData.orchestration = {
     models: [result.model],
-    searchGrounded: Boolean(payload.strategy?.orchestration?.sources?.length),
-    sources: payload.strategy?.orchestration?.sources || [],
+    searchGrounded: keepGrounding,
+    sources: keepGrounding ? (payload.strategy?.orchestration?.sources || []) : [],
+    ...(keepGrounding && Array.isArray(payload.strategy?.orchestration?.searchQueries) && payload.strategy.orchestration.searchQueries.length
+      ? { searchQueries: payload.strategy.orchestration.searchQueries }
+      : {}),
+    ...(keepGrounding && payload.strategy?.orchestration?.searchEntryPoint
+      ? { searchEntryPoint: payload.strategy.orchestration.searchEntryPoint }
+      : {}),
   };
 
   return strategyData;
@@ -492,17 +522,24 @@ CİDDİ TƏLƏBLƏR:
     ? `Generate an incisive, high-impact executive summary for this strategy:\n\n${strategyContext}`
     : `Aşağıdakı strategiya üçün kəsərli, dolğun və konkret icraçı xülasəsini tərtib et:\n\n${strategyContext}`;
 
-  const completion = await openaiClient.chat.completions.create(
-    {
-      model: modelName,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-      response_format: { type: "json_object" },
-    },
-    signal ? { signal } : undefined,
-  );
+  signal?.throwIfAborted();
+  let completion;
+  try {
+    completion = await openaiClient.chat.completions.create(
+      {
+        model: modelName,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        response_format: { type: "json_object" },
+      },
+      signal ? { signal } : undefined,
+    );
+  } catch (error) {
+    assertExecutionActive(error, signal);
+    throw error;
+  }
 
   if (typeof onUsage === "function" && completion.usage) {
     onUsage({
@@ -659,17 +696,24 @@ CİDDİ TƏLƏBLƏR:
     ? `Strategy: ${strategyTitle || "Business Strategy"}\n\nRaw Action Steps to optimize into planner tasks:\n${taskLines}`
     : `Strategiya: ${strategyTitle || "Biznes Strategiyası"}\n\nPlanner üçün optimallaşdırılmalı olan növbəti addımlar:\n${taskLines}`;
 
-  const completion = await openaiClient.chat.completions.create(
-    {
-      model: modelName,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-      response_format: { type: "json_object" },
-    },
-    signal ? { signal } : undefined,
-  );
+  signal?.throwIfAborted();
+  let completion;
+  try {
+    completion = await openaiClient.chat.completions.create(
+      {
+        model: modelName,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        response_format: { type: "json_object" },
+      },
+      signal ? { signal } : undefined,
+    );
+  } catch (error) {
+    assertExecutionActive(error, signal);
+    throw error;
+  }
 
   if (typeof onUsage === "function" && completion.usage) {
     onUsage({
@@ -832,17 +876,24 @@ CİDDİ TƏLƏBLƏR:
     ? `Task list to prioritize:\n${taskLines}`
     : `Prioritetlərə ayrılmalı olan tapşırıqlar siyahısı:\n${taskLines}`;
 
-  const completion = await openaiClient.chat.completions.create(
-    {
-      model: modelName,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-      response_format: { type: "json_object" },
-    },
-    signal ? { signal } : undefined,
-  );
+  signal?.throwIfAborted();
+  let completion;
+  try {
+    completion = await openaiClient.chat.completions.create(
+      {
+        model: modelName,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        response_format: { type: "json_object" },
+      },
+      signal ? { signal } : undefined,
+    );
+  } catch (error) {
+    assertExecutionActive(error, signal);
+    throw error;
+  }
 
   if (typeof onUsage === "function" && completion.usage) {
     onUsage({

@@ -23,10 +23,11 @@ test("index.html: whatsNewNav exists in sidebar with sparkle icon, label, and v4
   assert.ok(html.includes('class="changelog-modal-overlay"'), "changelog-modal-overlay class exists");
 
   // Preserves existing layout constraints
-  const settingsIndex = html.indexOf('id="settingsNav"');
+  const installIndex = html.indexOf('id="installAppNav"');
   const whatsNewIndex = html.indexOf('id="whatsNewNav"');
-  assert.ok(settingsIndex !== -1 && whatsNewIndex !== -1, "Both settingsNav and whatsNewNav exist");
-  assert.ok(settingsIndex < whatsNewIndex, "settingsNav precedes whatsNewNav in primary navigation");
+  assert.ok(installIndex !== -1 && whatsNewIndex !== -1, "Both installAppNav and whatsNewNav exist");
+  assert.ok(installIndex < whatsNewIndex, "installAppNav precedes whatsNewNav in primary navigation");
+  assert.ok(!html.includes('id="settingsNav"'), "settingsNav is removed from primary navigation");
 });
 
 test("i18n.js: changelog translations have 100% key parity and contain complete timeline v1.0 to v4.0", () => {

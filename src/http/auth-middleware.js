@@ -80,13 +80,13 @@ export function createIdentityMiddleware({ authStore, userRepository }) {
 }
 
 export function requireAuth(req, res, next) {
-  if (req.auth?.user?.emailVerifiedAt && req.auth.user.status !== "deleted") return next();
+  if (req.auth?.user?.emailVerifiedAt && (!req.auth.user.status || req.auth.user.status === 'active')) return next();
   return res.status(401).json({ error: "Davam etmək üçün hesabına daxil ol.", code: "AUTH_REQUIRED" });
 }
 
 export function isModelImprovementEnabled(req) {
   if (req?.user?.settings) {
-    return req.user.settings.modelImprovement === true;
+    return req.user.settings.modelImprovement === true && req.user.settings.personalIntelligence !== false;
   }
   return false;
 }

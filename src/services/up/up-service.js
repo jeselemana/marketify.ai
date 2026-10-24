@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { UpAI, upLog } from './ai.js';
 import { OnboardingSchema, PreferencesSchema, addEvent, calendar, completeChallenge, dashboard, duplicate, fail, maximumPoints, publicChallenge, scoreAnswer, selectChallenge, validateChallenge } from './domain.js';
+import { executionContext } from '../security/privacy-policy.js';
 
 const LEASE_MS = 125000;
 export class UpService {
@@ -60,11 +61,25 @@ export class UpService {
   }
 
   async start(ownerId, language) {
+    const context = executionContext.getStore();
+    context?.signal?.throwIfAborted();
+    await context?.assertAuthorized?.();
     const token = randomUUID();
     const reservation = await this.repository.mutate(ownerId, state => {
       this.ready(state);
+      const operationKey = context?.operationKey, fingerprint = context?.operationFingerprint;
+      const replay = operationKey && state.operationResults?.[operationKey];
+      if (replay) {
+        if (replay.fingerprint !== fingerprint) fail('IDEMPOTENCY_CONFLICT', 409);
+        const prior = state.challenges.find(c => c.id === replay.challengeId);
+        if (!prior) fail('GENERATION_SUPERSEDED', 409);
+        return { existing: publicChallenge(prior) };
+      }
       const active = state.challenges.find(c => c.status !== 'completed');
-      if (active) return { existing: publicChallenge(active) };
+      if (active) {
+        if (operationKey) (state.operationResults ||= {})[operationKey] = { challengeId: active.id, fingerprint };
+        return { existing: publicChallenge(active) };
+      }
       const now = this.now();
       if (state.generation?.until > now) fail('GENERATION_BUSY', 409);
       const day = calendar(now, state.preferences.timezone).day;
@@ -86,6 +101,7 @@ export class UpService {
 
     if (reservation.existing) {
       upLog('challenge_reused');
+      context?.recordIdempotentResult?.(200, reservation.existing);
       return reservation.existing;
     }
 
@@ -93,7 +109,9 @@ export class UpService {
       let generated;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          generated = validateChallenge(await this.ai.generate({ language, ...reservation, attempt }), reservation.selection);
+          context?.signal?.throwIfAborted();
+          await context?.assertAuthorized?.();
+          generated = validateChallenge(await this.ai.generate({ language, ...reservation, attempt }, { signal: context?.signal }), reservation.selection);
           const state = await this.repository.read(ownerId);
           if (duplicate(generated, state.challenges.slice(-50))) fail('DUPLICATE_GENERATION', 502);
           break;
@@ -103,9 +121,13 @@ export class UpService {
         }
       }
 
+      context?.signal?.throwIfAborted();
+      await context?.assertAuthorized?.();
+      context?.markMutationPending?.();
       const challenge = await this.repository.mutate(ownerId, state => {
         this.ready(state);
         if (state.generation?.token !== token) fail('GENERATION_SUPERSEDED', 409);
+        if (state.generation.until <= this.now()) fail('GENERATION_SUPERSEDED', 409);
         if (state.challenges.some(c => c.status !== 'completed')) fail('GENERATION_SUPERSEDED', 409);
         const maxFromOptions = Array.isArray(generated.options) && generated.options.length
           ? Math.max(...generated.options.map(o => o.score))
@@ -123,10 +145,12 @@ export class UpService {
           attempts: 0,
         };
         state.challenges.push(item);
+        if (context?.operationKey) (state.operationResults ||= {})[context.operationKey] = { challengeId: item.id, fingerprint: context.operationFingerprint };
         state.generation = null;
         addEvent(state, 'challenge_started', this.now(), { challengeId: item.id, category: item.category, difficulty: item.difficulty });
         return publicChallenge(item);
       });
+      context?.recordIdempotentResult?.(200, challenge);
 
       await this.flush(ownerId);
       return challenge;
@@ -139,13 +163,24 @@ export class UpService {
   }
 
   async submit(ownerId, id, answer, language) {
+    const context = executionContext.getStore();
+    context?.signal?.throwIfAborted();
+    await context?.assertAuthorized?.();
     const token = randomUUID();
     const reserved = await this.repository.mutate(ownerId, state => {
       this.ready(state);
+      const operationKey = context?.operationKey, fingerprint = context?.operationFingerprint;
+      const replay = operationKey && state.operationResults?.[operationKey];
       const challenge = state.challenges.find(c => c.id === id);
       if (!challenge) fail('NOT_FOUND', 404);
+      if (replay && (replay.challengeId !== id || (replay.fingerprint && replay.fingerprint !== fingerprint))) {
+        fail('IDEMPOTENCY_CONFLICT', 409);
+      }
       if (challenge.answer !== null && answer !== undefined && challenge.answer !== answer) fail('ANSWER_IMMUTABLE', 409);
-      if (challenge.status === 'completed') return { completed: publicChallenge(challenge) };
+      if (challenge.status === 'completed') {
+        if (operationKey && !replay) (state.operationResults ||= {})[operationKey] = { challengeId: challenge.id, fingerprint };
+        return { completed: publicChallenge(challenge) };
+      }
 
       // Interactive Decision Test with options -> Instant evaluation without LLM latency
       if (Array.isArray(challenge.options) && challenge.options.length > 0) {
@@ -179,6 +214,7 @@ export class UpService {
         challenge.answer = selectedOption.id;
         challenge.submittedAt = new Date(this.now()).toISOString();
         completeChallenge(state, challenge, scored, this.now());
+        if (operationKey) (state.operationResults ||= {})[operationKey] = { challengeId: challenge.id, fingerprint };
         return { completed: publicChallenge(challenge) };
       }
 
@@ -204,6 +240,7 @@ export class UpService {
 
     if (reserved.completed) {
       upLog('duplicate_submission_prevented', { challengeId: id });
+      context?.recordIdempotentResult?.(200, reserved.completed);
       await this.flush(ownerId);
       return reserved.completed;
     }
@@ -212,7 +249,9 @@ export class UpService {
       let scored;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          scored = scoreAnswer(reserved.challenge, await this.ai.evaluate(reserved.challenge, language));
+          context?.signal?.throwIfAborted();
+          await context?.assertAuthorized?.();
+          scored = scoreAnswer(reserved.challenge, await this.ai.evaluate(reserved.challenge, language, { signal: context?.signal }));
           break;
         } catch (error) {
           if (attempt === 1 || !(error.name === 'ZodError' || ['INVALID_EVALUATION', 'MODEL_OUTPUT_INVALID'].includes(error.code))) throw error;
@@ -222,15 +261,21 @@ export class UpService {
 
       let result;
       try {
+        context?.signal?.throwIfAborted();
+        await context?.assertAuthorized?.();
+        context?.markMutationPending?.();
         result = await this.repository.mutate(ownerId, state => {
           this.ready(state);
           const challenge = state.challenges.find(c => c.id === id);
           if (!challenge) fail('NOT_FOUND', 404);
           if (challenge.status === 'completed') return publicChallenge(challenge);
           if (challenge.leaseToken !== token) fail('EVALUATION_SUPERSEDED', 409);
+          if (challenge.leaseUntil <= this.now()) fail('EVALUATION_SUPERSEDED', 409);
           completeChallenge(state, challenge, scored, this.now());
+          if (context?.operationKey) (state.operationResults ||= {})[context.operationKey] = { challengeId: challenge.id, fingerprint: context.operationFingerprint };
           return publicChallenge(challenge);
         });
+        context?.recordIdempotentResult?.(200, result);
       } catch (error) {
         upLog('points_transaction_failed', { challengeId: id, code: error.code || error.name });
         throw error;

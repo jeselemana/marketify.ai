@@ -277,15 +277,14 @@ test("uploaded DOCX and XLSX become source context without executing file conten
   await assert.rejects(prepareUploadedContext({ name: "report.pdf", size: 3, type: "application/pdf", data: "YWJj" }), /Invalid PDF/);
 });
 
-test("Web fallback requires an executed search and verified safe source annotations", async () => {
+test("Web research enforces Google-only grounding and does not fall back to another search provider", async () => {
   let parameters;
   const client = { responses: { create: async params => { parameters = params; return { output_text: "Grounded facts.", model: "test", output: [{ type: "web_search_call", status: "completed", action: { sources: [{ url: "https://example.com/report", title: "Report" }, { url: "javascript:alert(1)" }] } }, { type: "message", content: [{ type: "output_text", text: "Grounded facts.", annotations: [{ type: "url_citation", url: "https://example.com/report", title: "Report" }] }] }] }; } } };
   const research = createWebResearch({ geminiResearch: async () => { throw new Error("Permission denied"); }, openAIClient: client });
-  const output = await research({ messages: [{ role: "user", content: "Research market" }], instructions: "Build context" });
-  assert.equal(output.groundingMetadata.groundingChunks.length, 1);
-  assert.equal(parameters.max_tool_calls, 4); assert.equal(parameters.tool_choice, "required");
+  await assert.rejects(research({ messages: [{ role: "user", content: "Research market" }], instructions: "Build context" }), /Permission denied/);
+  assert.equal(parameters, undefined);
   const missing = createWebResearch({ openAIClient: { responses: { create: async () => ({ output_text: "Invented citation", output: [{ type: "message", content: [] }] }) } } });
-  await assert.rejects(missing({ messages: [], instructions: "" }), /did not complete/);
+  await assert.rejects(missing({ messages: [], instructions: "" }), { code: 'GROUNDING_UNAVAILABLE' });
 });
 
 test("storage failure rolls back previously saved outputs; stale versions cannot overwrite newer ones", async t => {

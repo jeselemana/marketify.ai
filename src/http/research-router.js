@@ -1,4 +1,5 @@
 import express from "express";
+import { z } from 'zod';
 import { CreateResearchJobSchema } from "../services/ai/research-service.js";
 import { hasGeminiConfiguration } from "../services/ai/config.js";
 import { requireAuth } from "./auth-middleware.js";
@@ -183,6 +184,7 @@ export function createResearchRouter({ researchService, chatRepository, rateLimi
 
   // POST /api/ask/research/jobs/:jobId/cancel — Cancel active job
   router.post("/jobs/:jobId/cancel", async (req, res) => {
+    if (!z.object({}).strict().safeParse(req.body || {}).success) return res.status(400).json({ code: 'VALIDATION_ERROR', error: 'Sorğu parametrləri düzgün deyil.' });
     const { jobId } = req.params;
     if (!/^[0-9a-f-]{36}$/i.test(jobId)) {
       return res.status(400).json({

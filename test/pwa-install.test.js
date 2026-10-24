@@ -4,35 +4,36 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { t, TRANSLATIONS } from "../public/i18n.js";
 
-test("index.html: installAppNav is placed immediately after limitsNav in sidebar navigation", async () => {
+test("index.html: installAppNav is placed immediately after aiHubNav in sidebar navigation", async () => {
   const indexHtml = await fs.readFile(path.join(process.cwd(), "public/index.html"), "utf8");
 
   assert.ok(indexHtml.includes('id="installAppNav"'), "installAppNav element exists");
-  assert.ok(indexHtml.includes('id="limitsNav"'), "limitsNav element exists");
+  assert.ok(indexHtml.includes('id="aiHubNav"'), "aiHubNav element exists");
 
-  const limitsIndex = indexHtml.indexOf('id="limitsNav"');
+  const aiHubIndex = indexHtml.indexOf('id="aiHubNav"');
   const installIndex = indexHtml.indexOf('id="installAppNav"');
-  const settingsIndex = indexHtml.indexOf('id="settingsNav"');
+  const whatsNewIndex = indexHtml.indexOf('id="whatsNewNav"');
 
-  assert.ok(limitsIndex !== -1, "limitsNav found");
+  assert.ok(aiHubIndex !== -1, "aiHubNav found");
   assert.ok(installIndex !== -1, "installAppNav found");
-  assert.ok(settingsIndex !== -1, "settingsNav found");
-  assert.ok(limitsIndex < installIndex, "limitsNav precedes installAppNav");
-  assert.ok(installIndex < settingsIndex, "installAppNav precedes settingsNav (directly under Usage)");
+  assert.ok(whatsNewIndex !== -1, "whatsNewNav found");
+  assert.ok(aiHubIndex < installIndex, "aiHubNav precedes installAppNav");
+  assert.ok(installIndex < whatsNewIndex, "installAppNav precedes whatsNewNav (directly under AI Hub)");
+  assert.ok(!indexHtml.includes('id="settingsNav"'), "settingsNav removed from primary navigation");
 
   assert.ok(indexHtml.includes("Tətbiqi yüklə"), "installAppNav contains Azerbaijani default text 'Tətbiqi yüklə'");
 });
 
-test("index.html: railInstallAppButton is placed immediately after railLimitsButton in rail navigation", async () => {
+test("index.html: railInstallAppButton is placed immediately before railThemeToggleButton in rail navigation", async () => {
   const indexHtml = await fs.readFile(path.join(process.cwd(), "public/index.html"), "utf8");
 
   assert.ok(indexHtml.includes('id="railInstallAppButton"'), "railInstallAppButton exists");
-  assert.ok(indexHtml.includes('id="railLimitsButton"'), "railLimitsButton exists");
+  assert.ok(indexHtml.includes('id="railThemeToggleButton"'), "railThemeToggleButton exists");
 
-  const railLimitsIndex = indexHtml.indexOf('id="railLimitsButton"');
   const railInstallIndex = indexHtml.indexOf('id="railInstallAppButton"');
+  const railThemeIndex = indexHtml.indexOf('id="railThemeToggleButton"');
 
-  assert.ok(railLimitsIndex < railInstallIndex, "railLimitsButton precedes railInstallAppButton");
+  assert.ok(railInstallIndex < railThemeIndex, "railInstallAppButton precedes railThemeToggleButton");
 });
 
 test("index.html: installAppModalOverlay is declared alongside modal overlays", async () => {

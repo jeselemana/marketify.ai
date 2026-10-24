@@ -263,7 +263,7 @@ test("9. Deactivating modelImprovement immediately scrubs existing learning inte
 
   // Enable modelImprovement initially
   let currentUser = await userRepo.update(user.id, {
-    settings: { ...user.settings, modelImprovement: true },
+    settings: { ...user.settings, personalIntelligence: true, modelImprovement: true },
   });
   assert.equal(currentUser.settings.modelImprovement, true);
   const initialEpoch = currentUser.privacyEpoch || 0;

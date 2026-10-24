@@ -1,7 +1,9 @@
 import { parseResponse } from "openai/lib/ResponsesParser.mjs";
 import { executionContext } from './privacy-policy.js';
+import { providerUsage } from './provider-usage.js';
 let policy;
 export function configureProviderPolicy(value) { policy = value; }
+export async function assertPlatformEnabled() { await policy?.assertEnabled?.(); }
 export function wrapProvider(client, kind) {
   if (client.__helmerProtected) return client;
   function protect(target, method, type) {
@@ -12,9 +14,39 @@ export function wrapProvider(client, kind) {
       const context = executionContext.getStore();
       if (!context?.ownerId) throw Object.assign(new Error('Missing execution identity'), { code: 'EXECUTION_UNAVAILABLE', status: 503 });
       context.signal?.throwIfAborted();
+      await assertPlatformEnabled();
+      await context.assertAuthorized?.();
       const release = await policy.reserveProvider(context, params);
+      let checking = false;
+      const authorizationTimer = setInterval(async () => {
+        if (checking) return;
+        checking = true;
+        try { await assertPlatformEnabled(); await context.assertAuthorized?.(); }
+        catch (error) { context.controller?.abort(error); }
+        finally { checking = false; }
+      }, 1000);
+      authorizationTimer?.unref();
+      let lastUsage, released = false;
+      const observe = value => { lastUsage = providerUsage(value) || lastUsage; };
+      const finish = async () => {
+        if (released) return;
+        released = true;
+        clearInterval(authorizationTimer);
+        try {
+          if (lastUsage) {
+            await release.recordUsage?.({ ...lastUsage, searchUsageKnown: type !== 'gemini' });
+            await context.onProviderUsage?.({ provider: kind, model: params.model, ...lastUsage });
+          }
+        } catch (error) {
+          const failure = /^EXECUTION_/.test(error.code || '') ? error : Object.assign(new Error('Usage settlement unavailable'), { code: 'EXECUTION_UNAVAILABLE', status: 503 });
+          context.controller?.abort(failure);
+          throw failure;
+        } finally { await release(); }
+      };
       try {
         context.signal?.throwIfAborted();
+        await assertPlatformEnabled();
+        await context.assertAuthorized?.();
         const signals = [context.signal, type === 'gemini' ? params.config?.abortSignal : options?.signal].filter(Boolean);
         const signal = signals.length ? AbortSignal.any(signals) : undefined;
         let payload;
@@ -23,12 +55,27 @@ export function wrapProvider(client, kind) {
         else payload = { ...params, store: false, max_output_tokens: Math.min(params.max_output_tokens || 16384, 16384), ...(context.guest ? { max_tool_calls: 1 } : {}) };
         context.providerStarted = true;
         const value = await original(payload, type === 'gemini' ? undefined : { ...options, signal });
+        observe(value);
         if (value?.[Symbol.asyncIterator]) return (async function* () {
-          try { for await (const event of value) { signal?.throwIfAborted(); yield event; } }
-          finally { await release(); }
+          try {
+            for await (const event of value) {
+              observe(event);
+              signal?.throwIfAborted();
+              await assertPlatformEnabled();
+              await context.assertAuthorized?.();
+              yield event;
+            }
+          }
+          finally { await finish(); }
         })();
-        await release(); return value;
-      } catch (error) { await release(); throw error; }
+        await assertPlatformEnabled();
+        await context.assertAuthorized?.();
+        await finish(); return value;
+      } catch (error) {
+        if (/^EXECUTION_/.test(error.code || '')) context.controller?.abort(error);
+        try { await finish(); } catch {}
+        throw error;
+      }
     };
   }
   if (kind === 'gemini') {
