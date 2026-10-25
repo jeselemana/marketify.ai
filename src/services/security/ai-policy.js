@@ -41,10 +41,15 @@ export function guestBriefBalance(req) {
 export function isAiRequest(req) {
   return req.method === 'POST' && (
     /^\/api\/ask(?:\/research)?\/?$/i.test(req.path) ||
-    /^\/api\/strategy\/(?:assess|generate|generate-stream|refine|[^/]+\/refine)\/?$/i.test(req.path) ||
+    /^\/api\/strategy\/(?:estimate|assess|generate|generate-stream|refine|[^/]+\/refine)\/?$/i.test(req.path) ||
     /^\/api\/planner\/(?:summarize|prioritize)\/?$/i.test(req.path) ||
     /^\/api\/up\/challenges(?:\/[0-9a-f-]{36}\/(?:submit|retry))?\/?$/i.test(req.path)
   );
+}
+
+export function aiRequestTimeoutMs(req) {
+  return req.method === 'POST' && /^\/api\/strategy\/(?:estimate|assess|generate|generate-stream|refine|[0-9a-f-]{36}\/refine)\/?$/i.test(req.path)
+    ? null : 180000;
 }
 export class AiPolicy {
   constructor({ redis, env = process.env, fetcher = fetch }) { this.redis = redis; this.env = env; this.fetcher = fetcher; }
@@ -91,7 +96,7 @@ export class AiPolicy {
       if (guest) {
         let notice;
         if (/^\/api\/planner(?:\/|$)/i.test(req.path)) notice = GUEST_RESTRICTION_NOTICES.planner;
-        if (/^\/api\/strategy(?:\/|$)/i.test(req.path) && !(req.method === 'POST' && /^\/api\/strategy\/(?:assess|generate|generate-stream)\/?$/i.test(req.path))) notice = GUEST_RESTRICTION_NOTICES.strategy;
+        if (/^\/api\/strategy(?:\/|$)/i.test(req.path) && !(req.method === 'POST' && /^\/api\/strategy\/(?:estimate|assess|generate|generate-stream)\/?$/i.test(req.path))) notice = GUEST_RESTRICTION_NOTICES.strategy;
         if (req.method === 'POST' && /^\/api\/ask\/?$/i.test(req.path)) {
           const body = req.body || {};
           if (body.thinkingLevel !== undefined && (typeof body.thinkingLevel !== 'string' || !['low', 'medium', 'high', 'off', 'auto'].includes(body.thinkingLevel))) {
@@ -137,7 +142,7 @@ export class AiPolicy {
         }
         if (guest) {
           try {
-            const isBuildRequest = /^\/api\/strategy\/(?:assess|generate|generate-stream)\/?$/i.test(req.path);
+            const isBuildRequest = /^\/api\/strategy\/(?:estimate|assess|generate|generate-stream)\/?$/i.test(req.path);
             const isBuildGenerate = /^\/api\/strategy\/(?:generate|generate-stream)\/?$/i.test(req.path);
             if (isBuildRequest) {
               const dailyLimit = guestBuildDailyLimit(this.env);
@@ -175,7 +180,7 @@ export class AiPolicy {
             res.once('finish', release);
             res.once('close', release);
           } catch (error) {
-            const isBuildRequest = /^\/api\/strategy\/(?:assess|generate|generate-stream)\/?$/i.test(req.path);
+            const isBuildRequest = /^\/api\/strategy\/(?:estimate|assess|generate|generate-stream)\/?$/i.test(req.path);
             const exhaustedMsg = isBuildRequest ? GUEST_BUILD_EXHAUSTED_MESSAGE : GUEST_EXHAUSTED_MESSAGE;
             return res.status(error.status || 429).json({ code: error.code || 'GUEST_DAILY_LIMIT', error: exhaustedMsg, reply: exhaustedMsg });
           }
@@ -199,6 +204,18 @@ export class AiPolicy {
           replayResult = { status, body };
           req.securityContext.mutationCommitted = true;
           req.securityContext.mutationPending = false;
+        };
+        if (/^\/api\/ask\/?$/i.test(req.path)) req.securityContext.persistIdempotentResult = async () => {
+          controller.signal.throwIfAborted();
+          if (!requestKey || !requestRecord || !replayResult) throw fail('EXECUTION_UNAVAILABLE');
+          const completed = JSON.stringify({ state: 'completed', fingerprint, result: replayResult });
+          try {
+            const saved = await this.redis.eval("if redis.call('get',KEYS[1]) ~= ARGV[1] then return 0 end; redis.call('set',KEYS[1],ARGV[2],'EX',900); return 1", {
+              keys: [requestKey], arguments: [requestRecord, completed],
+            });
+            if (saved !== 1) throw fail('EXECUTION_UNAVAILABLE');
+            requestRecord = completed;
+          } catch { throw fail('EXECUTION_UNAVAILABLE'); }
         };
       }
       const finish = async () => {
@@ -256,7 +273,7 @@ export class AiPolicy {
         const allowed = await this.redis.eval("for _,k in ipairs(KEYS) do if tonumber(redis.call('get',k) or '0') >= tonumber(ARGV[1]) then return 0 end end; for _,k in ipairs(KEYS) do local n = redis.call('incr',k); if n == 1 then redis.call('expire',k,600) end end; return 1", { keys, arguments: ['60'] });
         if (!allowed) throw fail('RATE_LIMITED', 429);
         if (guest) {
-          const isBuildRequest = /^\/api\/strategy\/(?:assess|generate|generate-stream)\/?$/i.test(req.path);
+          const isBuildRequest = /^\/api\/strategy\/(?:estimate|assess|generate|generate-stream)\/?$/i.test(req.path);
           const isBuildGenerate = /^\/api\/strategy\/(?:generate|generate-stream)\/?$/i.test(req.path);
           if (isBuildRequest) {
             const dailyLimit = guestBuildDailyLimit(this.env);
@@ -313,7 +330,8 @@ export class AiPolicy {
             if (!ok) controller.abort(fail('EXECUTION_LOCK_LOST'));
           } catch { controller.abort(fail('EXECUTION_UNAVAILABLE')); }
         }, 30000); renewal.unref();
-        timer = setTimeout(() => { clearInterval(renewal); controller.abort(fail('EXECUTION_TIMEOUT')); if (!res.headersSent) res.status(504).json({ code: 'EXECUTION_TIMEOUT' }); else res.end(); }, 180000);
+        const requestTimeout = aiRequestTimeoutMs(req);
+        if (requestTimeout !== null) timer = setTimeout(() => { clearInterval(renewal); controller.abort(fail('EXECUTION_TIMEOUT')); if (!res.headersSent) res.status(504).json({ code: 'EXECUTION_TIMEOUT' }); else res.end(); }, requestTimeout);
         req.securityContext.transferToBackground = () => {
           req.securityContext.isBackgroundJob = true;
           clearTimeout(timer);
@@ -330,7 +348,7 @@ export class AiPolicy {
         next();
       } catch (error) {
         await finish();
-        const isBuild = /^\/api\/strategy\/(?:assess|generate|generate-stream)\/?$/i.test(req.path);
+        const isBuild = /^\/api\/strategy\/(?:estimate|assess|generate|generate-stream)\/?$/i.test(req.path);
         const exhaustedMsg = isBuild ? GUEST_BUILD_EXHAUSTED_MESSAGE : GUEST_EXHAUSTED_MESSAGE;
         res.status(error.status || 503).json({ code: error.code || 'EXECUTION_UNAVAILABLE', error: error.code === 'GUEST_DAILY_LIMIT' ? exhaustedMsg : 'Sorğu başlana bilmədi.', ...(error.code === 'GUEST_DAILY_LIMIT' ? { reply: exhaustedMsg } : {}) });
       }
@@ -376,8 +394,9 @@ export class AiPolicy {
     const day = new Date().toISOString().slice(0, 10), keys = [`security:budget:${day}:${context.ownerId}`, `security:budget:${day}:global`];
     const userLimit = Number(this.env.AI_USER_DAILY_USD || 5), globalLimit = Number(this.env.AI_PLATFORM_DAILY_USD || 100);
     if (!(Number.isFinite(userLimit) && Number.isFinite(globalLimit) && userLimit > 0 && globalLimit > 0)) throw fail('BUDGET_CONFIGURATION_INVALID');
+    const maxSlots = Math.max(8, Number.parseInt(this.env.AI_MAX_PROVIDER_SLOTS || '64', 10) || 64);
     const token = randomUUID(), now = Date.now();
-    const accepted = await this.redis.eval("redis.call('zremrangebyscore',KEYS[3],'-inf',ARGV[4]); if redis.call('zcard',KEYS[3]) >= 8 then return -1 end; if tonumber(redis.call('get',KEYS[1]) or '0') + tonumber(ARGV[1]) > tonumber(ARGV[2]) or tonumber(redis.call('get',KEYS[2]) or '0') + tonumber(ARGV[1]) > tonumber(ARGV[3]) then return 0 end; for i=1,2 do redis.call('incrby',KEYS[i],ARGV[1]); redis.call('expire',KEYS[i],172800) end; redis.call('zadd',KEYS[3],ARGV[5],ARGV[6]); return 1", { keys: [...keys, 'security:provider-slots'], arguments: [String(micros), String(Math.floor(userLimit * 1000000)), String(Math.floor(globalLimit * 1000000)), String(now), String(now + 180000), token] });
+    const accepted = await this.redis.eval(`redis.call('zremrangebyscore',KEYS[3],'-inf',ARGV[4]); if redis.call('zcard',KEYS[3]) >= ${maxSlots} then return -1 end; if tonumber(redis.call('get',KEYS[1]) or '0') + tonumber(ARGV[1]) > tonumber(ARGV[2]) or tonumber(redis.call('get',KEYS[2]) or '0') + tonumber(ARGV[1]) > tonumber(ARGV[3]) then return 0 end; for i=1,2 do redis.call('incrby',KEYS[i],ARGV[1]); redis.call('expire',KEYS[i],172800) end; redis.call('zadd',KEYS[3],ARGV[5],ARGV[6]); return 1`, { keys: [...keys, 'security:provider-slots'], arguments: [String(micros), String(Math.floor(userLimit * 1000000)), String(Math.floor(globalLimit * 1000000)), String(now), String(now + 180000), token] });
     if (accepted !== 1) throw fail(accepted === -1 ? 'EXECUTION_BUSY' : 'DAILY_BUDGET_EXCEEDED', 429);
     const heartbeat = setInterval(async () => {
       try {

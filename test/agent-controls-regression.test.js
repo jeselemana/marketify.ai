@@ -109,6 +109,19 @@ test('cached personalization revalidates authoritative records after another rep
   invalidateUserContextCache(ownerId);
 });
 
+test('managed shard caches cannot bypass authoritative personalization revalidation', async () => {
+  const ownerId = randomUUID(), id = randomUUID();
+  let records = [{ id, ownerId, messages: [{ role: 'user', content: 'confidential subscription retention plan' }] }];
+  const chats = { syncedShardTags: new Map(), readAll: async () => structuredClone(records), getById: async recordId => structuredClone(records.find(item => item.id === recordId) || null) };
+  const strategies = { syncedShardTags: new Map(), readAll: async () => [], getById: async () => null };
+  const args = { ownerId, userMessage: 'subscription retention', chatRepository: chats, strategyRepository: strategies };
+  try {
+    assert.match(await getRelevantUserContext(args), /confidential/);
+    records = [];
+    assert.equal(await getRelevantUserContext(args), '');
+  } finally { invalidateUserContextCache(ownerId); }
+});
+
 test('provider revocation is checked before admission and before returning an in-flight result', async t => {
   let allowed = true, calls = 0, releases = 0;
   configureProviderPolicy({ reserveProvider: async () => async () => { releases++; } });
@@ -443,14 +456,9 @@ test('Research callers never turn terminal failures into a plan, empty search, o
 });
 
 test('Ask streaming and non-streaming callers do not fall back after revoke; required grounding never leaks ungrounded chunks', async () => {
-  const vm = await import('node:vm');
-  const { assertExecutionActive, assertExecutionAuthorized } = await import('../src/services/security/execution-control.js');
-  const source = await fs.readFile(new URL('../server.js', import.meta.url), 'utf8');
-  const load = (name, end, client) => vm.runInNewContext(`(${source.slice(source.indexOf(`async function ${name}`), source.indexOf(end, source.indexOf(`async function ${name}`))).trim()})`, {
-    getGeminiClient: () => client, ASK_GEMINI_MODEL: 'fixture', ASK_INSTRUCTIONS: 'fixture', aiConfig: {}, GEMINI_SAFETY_SETTINGS: [],
-    sanitizeGroundingMetadata: value => value, ungroundedFallbackConfig, assertExecutionActive, assertExecutionAuthorized,
-    LLMProviderError: class extends Error { constructor(message, fields) { super(message); Object.assign(this, fields); } },
-    formatGeminiErrorMessage: () => 'provider error', console: { warn() {} },
+  const { createAskService } = await import('../src/services/ai/ask-service.js');
+  const load = (name, _end, client) => options => createAskService({ getClient: () => client })({
+    ...options, ...(name.includes('Stream') ? { onChunk: options.onChunk || (() => {}) } : {}),
   });
   for (const streaming of [true, false]) {
     let calls = 0;
@@ -655,18 +663,12 @@ test('active Research kill switch stops downstream search and persists cancellat
 });
 
 test('Priority 1: primary /api/ask HTTP route enforces requireGrounding on streaming and non-streaming paths and blocks ungrounded answers', async t => {
-  const vm = await import('node:vm');
   const express = (await import('express')).default;
   const { evaluateSearchRoute } = await import('../src/services/ai/search-router.js');
   const { resolveAskModelRoute, resolveAskThinkingLevel } = await import('../src/services/ai/ask-routing.js');
   const { buildAskPrompt, formatGuestAnswerWithCta, createGuestAnswerStream, detectGuestFunctionalRestriction, GUEST_EXHAUSTED_MESSAGE } = await import('../src/services/ai/prompts.js');
   const { assertExecutionActive, assertExecutionAuthorized, createExecutionController } = await import('../src/services/security/execution-control.js');
   const { httpStatusOf, publicErrorMessage } = await import('../src/http/error-response.js');
-  const source = await fs.readFile(new URL('../server.js', import.meta.url), 'utf8');
-  const genStart = source.indexOf('async function generateGeminiAskStreamResponse');
-  const genEnd = source.indexOf('const capabilityWorkflow', genStart);
-  const routeStart = source.indexOf('app.post("/api/ask", askRateLimit(60), async (req, res) => {');
-  const routeEnd = source.indexOf('// 🧠 ADMIN PANEL', routeStart);
   let activeClient = null;
   const savedChats = [];
   const app = express();
@@ -731,7 +733,12 @@ test('Priority 1: primary /api/ask HTTP route enforces requireGrounding on strea
     researchService: {},
     console: { warn() {}, error() {}, log() {} },
   };
-  vm.runInNewContext(`${source.slice(genStart, genEnd)}\n${source.slice(routeStart, routeEnd)}`, sandbox);
+  const { createAskHandler } = await import('../src/http/ask-handler.js');
+  const { createAskService } = await import('../src/services/ai/ask-service.js');
+  app.post('/api/ask', createAskHandler({
+    ...sandbox, configured: () => true,
+    generateAsk: createAskService({ getClient: () => activeClient, sanitizeGroundingMetadata: sandbox.sanitizeGroundingMetadata }),
+  }));
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
@@ -750,7 +757,7 @@ test('Priority 1: primary /api/ask HTTP route enforces requireGrounding on strea
   };
   const ungroundedJsonRes = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() },
     body: JSON.stringify({ stream: false, messages: [{ role: 'user', content: mandatorySearchPrompt }] }),
   });
   assert.equal(ungroundedJsonRes.status, 503);
@@ -773,7 +780,7 @@ test('Priority 1: primary /api/ask HTTP route enforces requireGrounding on strea
   };
   const ungroundedStreamRes = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() },
     body: JSON.stringify({ stream: true, messages: [{ role: 'user', content: mandatorySearchPrompt }] }),
   });
   assert.equal(ungroundedStreamRes.status, 200);
@@ -804,7 +811,7 @@ test('Priority 1: primary /api/ask HTTP route enforces requireGrounding on strea
   };
   const okJsonRes = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() },
     body: JSON.stringify({ stream: false, messages: [{ role: 'user', content: mandatorySearchPrompt }] }),
   });
   assert.equal(okJsonRes.status, 200);
@@ -825,7 +832,7 @@ test('Priority 1: primary /api/ask HTTP route enforces requireGrounding on strea
   })();
   try {
     const response = await fetch(url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() },
       signal: AbortSignal.timeout(5000),
       body: JSON.stringify({ stream: true, messages: [{ role: 'user', content: mandatorySearchPrompt }] }),
     });

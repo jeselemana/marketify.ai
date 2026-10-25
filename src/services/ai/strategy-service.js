@@ -11,12 +11,10 @@ import {
 } from "../../domain/strategy.js";
 import { aiConfig, hasOpenAIConfiguration, hasGeminiConfiguration } from "./config.js";
 import { getOpenAIClient, getGeminiClient } from "./client.js";
-import { LLMProviderError, routeStructuredGeneration, extractJsonFromText } from "./llm-router.js";
-import { shouldEnableSearch } from "./search-router.js";
+import { LLMProviderError, extractJsonFromText } from "./llm-router.js";
+import { runBuildOrchestration } from "./build-orchestrator.js";
+import { buildRoutingInput } from "./build-estimate.js";
 import {
-  ASSESSOR_PROMPT,
-  REFINEMENT_PROMPT,
-  STRATEGY_PROMPT,
   IMMEDIATE_ACTION_ITEMS_RULES,
   buildAssessorPrompt,
   buildRefinementInput,
@@ -161,6 +159,14 @@ export function alignNextStepsLogic(nextSteps = [], language = "az") {
   });
 }
 
+export async function estimateBuildPreparation({ brief, ownerId, signal }) {
+  const routingInput = buildRoutingInput({ brief });
+  return runBuildOrchestration({
+    schema: StrategyAssessmentSchema, assessment: true, estimateOnly: true,
+    name: "build_estimate", instructions: "", input: routingInput, routingInput, ownerId, signal,
+  });
+}
+
 export async function assessBrief({
   brief,
   answers = [],
@@ -171,6 +177,7 @@ export async function assessBrief({
   personalizationContext = "",
   onChunk,
   onUsage,
+  onEstimate,
 }) {
   const isEn = language === "en";
   const signals = analyzeBriefSignals(brief);
@@ -189,22 +196,16 @@ export async function assessBrief({
           : "Decide whether a targeted clarification round is materially useful.")
   }\n\n${languageDirective}`;
 
-  const instructions = buildAssessorPrompt({ brief, answers, personalizationContext });
+  const instructions = buildAssessorPrompt({ brief, answers });
 
-  const result = await routeStructuredGeneration({
-    schema: StrategyAssessmentSchema,
-    name: "strategy_assessment",
-    instructions,
-    input,
-    maxOutputTokens: aiConfig.assessmentMaxOutputTokens,
-    reasoning: "low",
-    ownerId,
-    signal,
-    onChunk,
-    onUsage,
+  const data = await runBuildOrchestration({
+    schema: StrategyAssessmentSchema, name: "strategy_assessment",
+    instructions, input, personalizationContext, ownerId, signal, onChunk, onUsage,
+    routingInput: buildRoutingInput({ brief, answers }), onEstimate,
+    assessment: true,
   });
 
-  const assessment = validateAssessment(result.data);
+  const assessment = validateAssessment(data);
   if (forceDecision && assessment.status === "needs_clarification") {
     return {
       status: "ready",
@@ -215,10 +216,9 @@ export async function assessBrief({
           ? "Some intake details were not provided, so the strategy proceeds with clearly labeled working assumptions."
           : "Bəzi ilkin detallar təqdim edilmədiyi üçün strategiya aydın qeyd edilmiş işçi fərziyyələrlə davam edir.",
       ],
-      model: result.model,
     };
   }
-  return { ...assessment, model: result.model };
+  return assessment;
 }
 
 export function extractGroundingSources(metadata) {
@@ -330,119 +330,37 @@ export async function generateStrategy({
     ? "\n\nLanguage Directive: The user has selected English. Generate the entire strategy in clear, professional English."
     : "\n\nLanguage Directive: Strategiyanı təmiz, peşəkar Azərbaycan dilində hazırla.";
 
-  // 1. Google Search Grounding for factual/market intelligence when required
-  const searchCandidates = `${brief} ${answers.map((a) => a.answer || "").join(" ")}`;
-  const needsGrounding = aiConfig.enableBuildSearchGrounding && shouldEnableSearch(searchCandidates);
-  let groundedResearch = null;
-
-  if (needsGrounding && hasGeminiConfiguration()) {
-    try {
-      groundedResearch = await conductGeminiGroundedResearch({
-        brief,
-        answers,
-        language,
-        signal,
-      });
-      if (groundedResearch?.usage) {
-        onUsage?.({ usage: groundedResearch.usage, model: aiConfig.strategyModel, provider: "google" });
-      }
-    } catch (groundingErr) {
-      assertExecutionActive(groundingErr, signal);
-      console.warn("⚠️ [Build Grounding Xətası]:", groundingErr?.message || groundingErr);
-    }
-  }
-
-  const factualContext = groundedResearch?.text
-    ? `\n\n[REAL-TIME FACTUAL GROUNDING & MARKET INTELLIGENCE]:\n${groundedResearch.text}`
-    : "";
-
-  const fallbackInput = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
-    assumptions.length ? assumptions.join("\n- ") : "None supplied."
-  }${languageDirective}`;
-
-  const input = `Original brief:\n${brief}\n\nClarification answers:\n${clarificationContext(answers)}\n\nIntake assumptions:\n${
-    assumptions.length ? assumptions.join("\n- ") : "None supplied."
-  }${factualContext}${languageDirective}`;
-
-  const instructions = buildStrategyPrompt({ brief, answers, personalizationContext });
-  const geminiResult = await routeStructuredGeneration({
-    schema: StrategySchema,
-    name: "helmer_strategy",
-    instructions,
-    input,
-    fallbackInput,
-    maxOutputTokens: aiConfig.strategyMaxOutputTokens,
-    reasoning: "medium",
-    ownerId,
-    signal,
-    onChunk,
-    onUsage,
+  const input = JSON.stringify({ brief, answers, assumptions, languageDirective });
+  const instructions = buildStrategyPrompt({ brief, answers });
+  const strategyData = await runBuildOrchestration({
+    schema: StrategySchema, name: "helmer_strategy", instructions, input,
+    personalizationContext, ownerId, signal, onChunk, onUsage,
+    routingInput: buildRoutingInput({ brief, answers, assumptions }),
+    onEstimate: preparationEstimate => onChunk?.({ preparationEstimate }),
   });
-
-  let strategyData = geminiResult.data;
 
   if (Array.isArray(strategyData?.nextSteps)) {
     strategyData.nextSteps = alignNextStepsLogic(strategyData.nextSteps, language);
   }
 
-  // Grounding metadata for source attribution (only if synthesized by Google Gemini, never on OpenAI fallback).
-  const usedGoogleGrounding = Boolean(geminiResult.provider === "google" && groundedResearch?.sources?.length);
-  strategyData.orchestration = {
-    models: [geminiResult.model],
-    searchGrounded: usedGoogleGrounding,
-    sources: usedGoogleGrounding ? (groundedResearch?.sources || []) : [],
-    ...(usedGoogleGrounding && groundedResearch?.searchQueries?.length ? { searchQueries: groundedResearch.searchQueries } : {}),
-    ...(usedGoogleGrounding && groundedResearch?.searchEntryPoint ? { searchEntryPoint: groundedResearch.searchEntryPoint } : {}),
-  };
-
   return strategyData;
 }
 
 export async function refineStrategy(payload, ownerId, signal, personalizationContext = "", onChunk, onUsage) {
-  const isEn = payload.language === "en";
-  const languageDirective = isEn
-    ? "\n\nLanguage Directive: The user has selected English. Maintain and output the refined strategy in professional English."
-    : "";
-
-  const instructions = buildRefinementPrompt({
-    brief: payload.brief,
-    answers: payload.answers,
-    strategy: payload.strategy,
-    personalizationContext,
+  const languageDirective = payload.language === "en"
+    ? "Generate the refined strategy in professional English."
+    : "Strategiyanı peşəkar Azərbaycan dilində hazırla.";
+  const instructions = buildRefinementPrompt({ brief: payload.brief, answers: payload.answers, strategy: payload.strategy });
+  const strategyData = await runBuildOrchestration({
+    schema: StrategySchema, name: "helmer_refined_strategy", instructions,
+    input: `${buildRefinementInput(payload)}\n${languageDirective}`,
+    routingInput: JSON.stringify({ brief: payload.brief, answers: payload.answers, action: payload.action, request: payload.request,
+      summary: payload.strategy?.summary, objective: payload.strategy?.context?.objective }),
+    personalizationContext, ownerId, signal, onChunk, onUsage,
   });
-
-  const result = await routeStructuredGeneration({
-    schema: StrategySchema,
-    name: "helmer_refined_strategy",
-    instructions,
-    input: `${buildRefinementInput(payload)}${languageDirective}`,
-    maxOutputTokens: aiConfig.refinementMaxOutputTokens,
-    reasoning: payload.action === "think_deeper" ? "high" : "medium",
-    ownerId,
-    signal,
-    onChunk,
-    onUsage,
-  });
-
-  let strategyData = result.data;
-
   if (Array.isArray(strategyData?.nextSteps)) {
     strategyData.nextSteps = alignNextStepsLogic(strategyData.nextSteps, payload.language || "az");
   }
-
-  const keepGrounding = Boolean(result.provider === "google" && payload.strategy?.orchestration?.sources?.length);
-  strategyData.orchestration = {
-    models: [result.model],
-    searchGrounded: keepGrounding,
-    sources: keepGrounding ? (payload.strategy?.orchestration?.sources || []) : [],
-    ...(keepGrounding && Array.isArray(payload.strategy?.orchestration?.searchQueries) && payload.strategy.orchestration.searchQueries.length
-      ? { searchQueries: payload.strategy.orchestration.searchQueries }
-      : {}),
-    ...(keepGrounding && payload.strategy?.orchestration?.searchEntryPoint
-      ? { searchEntryPoint: payload.strategy.orchestration.searchEntryPoint }
-      : {}),
-  };
-
   return strategyData;
 }
 

@@ -121,20 +121,21 @@ test("7. Ask Mode: ASK_INSTRUCTIONS and buildAskPrompt integrate epistemic humil
   assert.match(promptWithContext, /EPISTEMIC HUMILITY/i);
 });
 
-test("8. server.js imports ASK_INSTRUCTIONS, buildAskPrompt and wires epistemic humility into search guidance", async () => {
+test("8. Ask handler and service wire calibrated prompts and search guidance", async () => {
   const serverCode = await fs.readFile(path.join(process.cwd(), "server.js"), "utf8");
 
   // Imports calibration utilities
   assert.match(serverCode, /import\s*\{[^}]*ASK_INSTRUCTIONS[^}]*\}\s*from\s*"\.\/src\/services\/ai\/prompts\.js"/);
-  assert.match(serverCode, /import\s*\{[^}]*buildAskPrompt[^}]*\}\s*from\s*"\.\/src\/services\/ai\/prompts\.js"/);
 
   // Wires buildAskPrompt in request handling
-  assert.match(serverCode, /buildAskPrompt\(\{/);
+  const askHandlerCode = await fs.readFile(path.join(process.cwd(), "src/http/ask-handler.js"), "utf8");
+  assert.match(askHandlerCode, /buildAskPrompt\(\{/);
 
   // Search guidance includes epistemic humility & proactive leadership
-  assert.match(serverCode, /EPISTEMIC HUMILITY, ACCURACY & PROACTIVE LEADERSHIP/);
-  assert.match(serverCode, /NEVER hallucinate an invented number or feign certainty/);
-  assert.match(serverCode, /Never give a dead-end refusal or stop at "bilmirəm"/);
+  const serviceCode = await fs.readFile(path.join(process.cwd(), "src/services/ai/ask-service.js"), "utf8");
+  assert.match(serviceCode, /EPISTEMIC HUMILITY, ACCURACY & PROACTIVE LEADERSHIP/);
+  assert.match(serviceCode, /NEVER hallucinate an invented number or feign certainty/);
+  assert.match(serviceCode, /Never give a dead-end refusal or stop at "bilmirəm"/);
 });
 
 test("9. HELMER_BUILD_ARCHITECT_RULES enforces 2026 temporal reality and bans legacy models", () => {

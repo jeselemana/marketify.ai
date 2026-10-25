@@ -6,15 +6,18 @@ import { requireAuth } from "./auth-middleware.js";
 export function createAskExecutionGuard({
   redis = null,
   allowGuest = false,
+  hasActiveJobForOwner = () => false,
   maxConcurrent = Number.parseInt(process.env.ASK_MAX_CONCURRENT || "100", 10),
+  matchesRequest = req => req.method === "POST" && req.path === "/",
 } = {}) {
   const activeOwners = new Set();
+  const capacity = Number.isSafeInteger(maxConcurrent) && maxConcurrent > 0 ? maxConcurrent : 100;
   return async (req, res, next) => {
-    if (req.method !== "POST" || req.path !== "/") return next();
+    if (!matchesRequest(req)) return next();
     if (!req.auth?.user?.emailVerifiedAt && !(allowGuest && !req.user && req.ownerId?.startsWith("guest_"))) return requireAuth(req, res, next);
 
     // 1. Strict per-tenant lock: prevent concurrent Ask runs for the SAME tenant
-    if (activeOwners.has(req.ownerId)) {
+    if (activeOwners.has(req.ownerId) || hasActiveJobForOwner(req.ownerId)) {
       return res.status(429).json({
         error: "Hazırda başqa tapşırıq icra olunur. Bir az sonra yenidən cəhd edin.",
         code: "EXECUTION_BUSY",
@@ -23,7 +26,7 @@ export function createAskExecutionGuard({
     }
 
     // 2. Platform-wide safety backpressure ceiling (default: 100 concurrent tenants)
-    if (typeof maxConcurrent === "number" && activeOwners.size >= maxConcurrent) {
+    if (activeOwners.size >= capacity) {
       return res.status(429).json({
         error: "Server hazırda yüksək yüklənmə altındadır. Bir az sonra yenidən cəhd edin.",
         code: "EXECUTION_BUSY",

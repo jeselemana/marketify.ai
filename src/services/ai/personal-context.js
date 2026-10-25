@@ -99,7 +99,7 @@ const BUILD_TONE_LABELS = Object.freeze({
 export function buildStrategyPersonalizationContext({ user }) {
   if (!user) return "";
   const settings = user.settings && typeof user.settings === "object" ? user.settings : {};
-  if (settings.personalIntelligence !== true || settings.strategyPersonalization === false) return "";
+  if (settings.personalIntelligence !== true || settings.strategyPersonalization !== true) return "";
 
   const lines = [];
   if (settings.brandName) lines.push(`Brand: ${clip(settings.brandName, 100)}`);
@@ -139,7 +139,8 @@ async function loadTenantContextData(ownerId, chatRepository, strategyRepository
     (!chatRepository || typeof chatRepository.getById === 'function') &&
     (!strategyRepository || typeof strategyRepository.getById === 'function')
   ) {
-    // Cached content is never authoritative across replicas or after deletion.
+    // Local invalidation cannot observe deletion on another replica. Keep the
+    // parallel authoritative reads even for repositories with shard-tag caches.
     const [chats, strategies] = await Promise.all([
       Promise.all(cached.allChats.map(item => chatRepository.getById(item.id, ownerId).catch(() => null))),
       Promise.all(cached.allStrategies.map(item => strategyRepository.getById(item.id, ownerId).catch(() => null))),

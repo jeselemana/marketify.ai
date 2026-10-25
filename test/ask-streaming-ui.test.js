@@ -65,10 +65,14 @@ test('source chips use titles, preserve destinations, collapse queries and rejec
       { web: { uri: 'https://bolt.eu/az-az/support/', title: 'Bolt support' } },
       { web: { uri: 'javascript:alert(1)', title: 'Bad' } },
       { web: { uri: 'https://', title: 'Malformed' } },
+      { web: { uri: 'https://user:secret@example.com/source', title: 'Credentials' } },
+      { web: { uri: 'https://example.com/' + 'x'.repeat(2000), title: 'Overlong' } },
       { web: { uri: 'https://example.com/', title: '<img src=x onerror=alert(1)>' } },
+      { web: { uri: 'https://EXAMPLE.com/', title: 'Canonical duplicate' } },
     ],
     citations: [{ url: 123 }, { url: 'data:text/html,bad' }],
     webSearchQueries: ['Bolt office Baku', 'Bolt driver centre'],
+    searchSuggestions: [{ query: 'Bolt office Baku', url: 'https://user:secret@google.com/search?q=Bolt' }],
   };
   const root = w.askTest.renderAskSourceChips(metadata);
   w.document.querySelector('main').appendChild(root);
@@ -83,6 +87,8 @@ test('source chips use titles, preserve destinations, collapse queries and rejec
   assert.equal(root.querySelectorAll('.ask-search-suggestion-chip').length, 2);
   for (const link of root.querySelectorAll('a')) {
     assert.match(link.href, /^https?:\/\//);
+    assert.equal(new URL(link.href).username, '');
+    assert.equal(new URL(link.href).password, '');
     assert.equal(link.rel, 'noopener noreferrer');
   }
   root.querySelector('.ask-grounding-all-btn').click();
@@ -139,4 +145,43 @@ test('first words paint immediately and same-packet completion preserves a bound
   const reduced = new Typewriter(() => {}, () => {});
   reduced.append('Reduced motion must not animate'); reduced.finish(); await reduced.waitForCompletion();
   assert.equal(reduced.currentText, reduced.targetText); assert.equal(frames.size, 0);
+});
+
+test('compact Ask preserves final source chips and cancels generation when closed', async t => {
+  const w = harness(t);
+  w.AbortController = AbortController;
+  w.TextDecoder = TextDecoder;
+  const data = { done: true, reply: 'Safe **answer**', groundingMetadata: { groundingChunks: [{ web: { uri: 'https://example.com/source', title: 'Official source' } }] } };
+  w.fetch = async () => {
+    let sent = false;
+    return { ok: true, body: { getReader: () => ({
+      read: async () => sent ? { done: true } : (sent = true, { value: new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`), done: false }),
+      cancel: async () => {}, releaseLock() {},
+    }) } };
+  };
+  w.eval(`
+    ${section('function escapeHtml(', 'function isComplexAskQuery(')}
+    const state = { askThinkingEnabled: false };
+    function isModelImprovementActive() { return false; }
+    function sanitizeAskMessageForApi(message) { return message; }
+    function rememberSavedAskChat() { window.saved = true; }
+    ${section('async function consumeAskEventStream(', 'async function submitAskMessage(')}
+    ${section('function showLoadingAskModal(', 'async function startAssessment(')}
+    showLoadingAskModal('Question');
+  `);
+  for (let i = 0; i < 20 && !w.saved; i++) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(w.saved, true);
+  assert.equal(w.document.querySelectorAll('.loading-ask-modal .ask-grounding-chip').length, 1);
+  assert.equal(w.document.querySelector('.loading-ask-modal .ask-grounding-chip-title').textContent, 'Official source');
+  let signal;
+  w.fetch = (_url, options) => new Promise((_resolve, reject) => {
+    signal = options.signal;
+    signal.addEventListener('abort', () => reject(Object.assign(new Error('Stopped'), { name: 'AbortError' })), { once: true });
+  });
+  w.eval("showLoadingAskModal('Pending question')");
+  assert.ok(signal); assert.equal(signal.aborted, false);
+  w.document.querySelector('.loading-ask-modal .analysis-history-close').click();
+  assert.equal(signal.aborted, true);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(w.document.querySelector('.loading-ask-modal-overlay'), null);
 });

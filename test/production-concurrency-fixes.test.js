@@ -1,3 +1,5 @@
+import { installBuildRoutingFixture } from "./helpers/build-routing-fixture.js";
+installBuildRoutingFixture();
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -107,6 +109,7 @@ function createSampleStrategy(title = "Initial Test Strategy") {
       { risk: "Market fatigue", mitigation: "Rotate creatives regularly" },
     ],
     assumptions: ["Stable market conditions"],
+    nextSteps: ["Prepare pilot"],
   };
 }
 
@@ -348,7 +351,7 @@ test("5. Idempotency: Separate router instances with same idempotencyKey produce
     modelCallCount++;
     await new Promise((r) => setTimeout(r, 60)); // Simulate AI latency
     return {
-      text: JSON.stringify(createSampleStrategy("Authoritative Concurrency Strategy")),
+      candidates: [{ finishReason: "STOP" }], text: JSON.stringify(createSampleStrategy("Authoritative Concurrency Strategy")),
       usageMetadata: { totalTokenCount: 200 },
     };
   };
@@ -523,7 +526,7 @@ test("7. Hygiene & Security: Invalid body removes listeners; multi-client SSE di
       modelAbortSignal = options?.signal || _params?.config?.abortSignal;
       await modelFinishPromise;
       return {
-        text: JSON.stringify(createSampleStrategy("Multi-Caller Strategy")),
+        candidates: [{ finishReason: "STOP" }], text: JSON.stringify(createSampleStrategy("Multi-Caller Strategy")),
         usageMetadata: { totalTokenCount: 150 },
       };
     };

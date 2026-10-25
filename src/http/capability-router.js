@@ -80,6 +80,11 @@ export function createCapabilityRouter({ allowGuestChat = false, registry, workf
       const inferredReference = selectedArtifacts.length === 1 ? selectedArtifacts[0] : registry.reference(prompt);
       let target = payload.artifactId ? references.find(artifact => artifact.id === payload.artifactId) : (inferredReference ? references.filter(artifact => artifact.pluginId === inferredReference.id).at(-1) : references.at(-1));
       if (payload.artifactId && !target) return res.status(404).json({ error: "Artifact bu söhbətdə tapılmadı.", code: "NOT_FOUND" });
+      const preliminarySelection = resolveCapabilityIntent({ registry, pluginIds: payload.pluginIds, prompt, previousArtifact: target ? { pluginId: target.pluginId } : null });
+      if (preliminarySelection.intent === "chat" && !target) {
+        if (chat) req.preloadedAskChat = chat;
+        return next();
+      }
       const previous = target ? await artifacts.get(target.id, req.ownerId) : null;
       const latestPublished = target ? references.filter(artifact => artifact.id === target.id).at(-1) : null;
       if (previous && previous.versions.at(-1).version !== latestPublished?.version) throw new Error("Artifact update is still being committed");

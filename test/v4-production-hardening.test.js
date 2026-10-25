@@ -1,3 +1,5 @@
+import { installBuildRoutingFixture } from "./helpers/build-routing-fixture.js";
+installBuildRoutingFixture();
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -224,7 +226,7 @@ test("v4: generation rechecks authority after locking across independent router 
   const client = getGeminiClient(), original = client.models.generateContent;
   t.after(() => { client.models.generateContent = original; });
   let calls = 0;
-  client.models.generateContent = async () => ({ text: JSON.stringify(sampleStrategy(`Result ${++calls}`)) });
+  client.models.generateContent = async () => ({ candidates: [{ finishReason: "STOP" }], text: JSON.stringify(sampleStrategy(`Result ${++calls}`)) });
   const other = await import(`../src/http/strategy-router.js?v4=${randomUUID()}`);
   let rows = [], unblock, readStarted;
   const firstComplete = new Promise(resolve => { unblock = resolve; });
@@ -258,7 +260,7 @@ test("v4: saved refinement respects opt-out and restricted iterations never pers
   process.env.GEMINI_API_KEY = "test-v4-gemini-key";
   const client = getGeminiClient(), original = client.models.generateContent;
   t.after(() => { client.models.generateContent = original; });
-  client.models.generateContent = async () => ({ text: JSON.stringify(sampleStrategy()) });
+  client.models.generateContent = async () => ({ candidates: [{ finishReason: "STOP" }], text: JSON.stringify(sampleStrategy()) });
   const existing = { id: randomUUID(), ownerId: "owner", brief: "Private initial brief", answers: [], strategy: sampleStrategy(), versions: [], learningInteractionId: parent.id };
   const router = createStrategyRouter({ getById: async () => existing, appendVersion: async (_id, _owner, strategy) => ({ ...existing, strategy }) }, learning);
   const answer = await send(router, `/${existing.id}/refine`, { action: "custom", request: "Confidential launch plan", idempotencyKey: randomUUID() });
@@ -278,7 +280,7 @@ test("v4: auto-save disabled still replays across independent instances and reje
   const client = getGeminiClient(), original = client.models.generateContent;
   t.after(() => { client.models.generateContent = original; });
   let calls = 0;
-  client.models.generateContent = async () => ({ text: JSON.stringify(sampleStrategy(`Result ${++calls}`)) });
+  client.models.generateContent = async () => ({ candidates: [{ finishReason: "STOP" }], text: JSON.stringify(sampleStrategy(`Result ${++calls}`)) });
   const other = await import(`../src/http/strategy-router.js?v4=${randomUUID()}`);
   const repository = { strategiesDir: path.join(dir, "strategies"), readTenant: async () => [] };
   const a = createStrategyRouter(repository), b = other.createStrategyRouter(repository);
@@ -334,7 +336,7 @@ test("v4: disconnect before the generation entry exists never starts an orphaned
   const client = getGeminiClient(), original = client.models.generateContent;
   t.after(() => { client.models.generateContent = original; });
   let calls = 0, unblock, started;
-  client.models.generateContent = async () => { calls++; return { text: JSON.stringify(sampleStrategy()) }; };
+  client.models.generateContent = async () => { calls++; return { candidates: [{ finishReason: "STOP" }], text: JSON.stringify(sampleStrategy()) }; };
   const paused = new Promise(resolve => { unblock = resolve; });
   const reading = new Promise(resolve => { started = resolve; });
   const router = createStrategyRouter({ strategiesDir: path.join(dir, "strategies"), readTenant: async () => { started(); await paused; return []; } });

@@ -57,7 +57,7 @@ export class CapabilityWorkflow {
             const research = await bounded(() => this.researchHandler({ messages, instructions: sourceContext, signal: controller.signal, onChunk: streamChunks }), controller.signal);
             check();
             const sources = research.groundingMetadata?.groundingChunks?.filter(chunk => /^https?:\/\//i.test(chunk.web?.uri || "")) || [];
-            if (!research.text?.trim() || !sources.length) throw new Error("Veb mənbələri təsdiqlənmədi. Yenidən cəhd edin.");
+            if (!research.text?.trim() || (!sources.length && !research.ungroundedFallback)) throw new Error("Veb mənbələri təsdiqlənmədi. Yenidən cəhd edin.");
             generatedModel = research.model; usage = research.usage;
             const preservedGroundingMetadata = {
               ...(research.groundingMetadata && typeof research.groundingMetadata === "object" ? research.groundingMetadata : {}),

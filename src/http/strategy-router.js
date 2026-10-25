@@ -2,6 +2,7 @@ import { assertExecutionAuthorized, createExecutionController } from '../service
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import express from "express";
+import { createAskExecutionGuard } from "./ask-execution-guard.js";
 import { acquireIdempotencyLock } from "./execution-lock.js";
 import { httpStatusOf, publicErrorMessage } from "./error-response.js";
 import {
@@ -14,11 +15,13 @@ import {
 } from "../domain/strategy.js";
 import {
   assessBrief,
+  estimateBuildPreparation,
   generateStrategy,
   refineStrategy,
 } from "../services/ai/strategy-service.js";
 import { buildStrategyPersonalizationContext } from "../services/ai/personal-context.js";
 import { detectTargetMarket, getGuestBuildCtaNotice, GUEST_BUILD_EXHAUSTED_MESSAGE } from "../services/ai/prompts.js";
+import { BuildEstimateRequestSchema } from "../services/ai/build-estimate.js";
 import { aiConfig } from "../services/ai/config.js";
 import { logWithoutBlocking } from "../services/learning/learning-loop-service.js";
 import { isModelImprovementEnabled } from "./auth-middleware.js";
@@ -84,6 +87,23 @@ const activeGenerations = new Map();
 const activeRefinements = new Map();
 const requestWindows = new Map();
 
+function publicBuildFailure(error) {
+  const messages = {
+    AI_TIMEOUT: "Strategiyanın hazırlanması vaxt limitinə çatdı. Yenidən cəhd edin.",
+    AI_RATE_LIMITED: "AI xidmətlərində hazırda sorğu sıxlığı var. Bir az sonra yenidən cəhd edin.",
+    AI_INVALID_OUTPUT: "Strategiyanın cavab formatını tamamlamaq mümkün olmadı. Yenidən cəhd edin.",
+    AI_MAX_TOKENS: "Strategiyanın cavab həcmi limitə çatdı. Yenidən cəhd edin.",
+    AI_CONTENT_BLOCKED: "Bu sorğunu tamamlamaq mümkün olmadı. Sorğunu nəzərdən keçirin.",
+  };
+  const code = typeof error.code === "string" ? error.code : "STRATEGY_ERROR";
+  return {
+    error: messages[code] || "Strategiya generasiyası uğursuz oldu. Yenidən cəhd edin.",
+    code, status: httpStatusOf(error),
+    retryable: ["AI_TIMEOUT", "AI_RATE_LIMITED", "AI_INVALID_OUTPUT", "AI_MAX_TOKENS", "AI_PROVIDER_UNAVAILABLE"].includes(code),
+    ...(typeof error.requestId === "string" && /^[a-f0-9-]{36}$/i.test(error.requestId) ? { requestId: error.requestId } : {}),
+  };
+}
+
 // Periodic cleanup for requestWindows to prevent memory leaks
 setInterval(() => {
   const now = Date.now();
@@ -101,12 +121,12 @@ function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || "127.0.0.1";
 }
 
-function rateLimit(limit, windowMs = 10 * 60 * 1000) {
+function rateLimit(limit, windowMs = 10 * 60 * 1000, scope = "generation") {
   return (req, res, next) => {
     const now = Date.now();
     const clientIp = getClientIp(req);
     const identifier = req.user?.id ? `user:${req.user.id}` : `ip:${clientIp}`;
-    const key = `strat:${identifier}:${req.baseUrl || "/api/strategy"}`;
+    const key = `strat:${scope}:${identifier}:${req.baseUrl || "/api/strategy"}`;
     const history = (requestWindows.get(key) || []).filter((timestamp) => now - timestamp < windowMs);
     if (history.length >= limit) {
       return res.status(429).json({
@@ -190,7 +210,7 @@ async function runTrackedBuild({
         relevantContext: isRestricted ? null : relevantContext,
         modelProvider: providerMeta.provider,
         modelName: providerMeta.model,
-        modelResponse: isRestricted ? "[Məzmun gizlədilib - Töhfə deaktivdir]" : result,
+        modelResponse: isRestricted ? "[Zəruri əməliyyat qeydi - Məzmun ötürülmür]" : result,
         usage: providerMeta.usage,
         latencyMs: Date.now() - startedAt,
         requestStatus: "success",
@@ -257,8 +277,51 @@ async function runTrackedBuild({
 export function createStrategyRouter(repository, learningLoop = null, options = {}) {
   const router = express.Router();
   const telemetryService = options?.telemetryService || null;
+  const estimateFingerprints = new Map();
+  const generationServices = options.generationServices || { assessBrief, generateStrategy, refineStrategy };
+  const isGenerationRequest = req => req.method === "POST" && /^\/(?:estimate|assess|generate|generate-stream|refine|[0-9a-f-]{36}\/refine)\/?$/i.test(req.path);
 
-  router.use(rateLimit(30));
+  const estimateRateLimit = rateLimit(20, 10 * 60 * 1000, "estimate");
+  const generationRateLimit = rateLimit(30);
+  router.use((req, res, next) => (req.path === "/estimate" ? estimateRateLimit : generationRateLimit)(req, res, next));
+  router.use((req, res, next) => {
+    if (isGenerationRequest(req) && !/^[A-Za-z0-9_-]{16,100}$/.test(req.get("Idempotency-Key") || "")) {
+      return res.status(400).json({ code: "IDEMPOTENCY_KEY_REQUIRED", error: "Etibarlı sorğu açarı tələb olunur." });
+    }
+    return next();
+  });
+  router.use(createAskExecutionGuard({
+    redis: options.redis, allowGuest: true,
+    hasActiveJobForOwner: options.hasActiveJobForOwner,
+    matchesRequest: isGenerationRequest,
+  }));
+
+  router.post("/estimate", asyncRoute(async (req, res) => {
+    const payload = parse(BuildEstimateRequestSchema, req.body);
+    const fingerprint = computePayloadFingerprint("estimate", payload);
+    const requestKey = createHash("sha256").update(`${req.ownerId}:estimate:${req.get("Idempotency-Key")}`).digest("hex");
+    const now = Date.now();
+    for (const [key, entry] of estimateFingerprints) if (entry.expiresAt <= now) estimateFingerprints.delete(key);
+    const previous = estimateFingerprints.get(requestKey);
+    if (previous && previous.fingerprint !== fingerprint) return res.status(409).json({ code: "IDEMPOTENCY_CONFLICT", error: "Eyni sorğu açarı fərqli parametrlərlə istifadə edilib." });
+    if (!previous && estimateFingerprints.size >= 512) estimateFingerprints.delete(estimateFingerprints.keys().next().value);
+    // Bounded, owner-scoped fingerprints contain neither prompt nor profile.
+    estimateFingerprints.set(requestKey, { fingerprint, expiresAt: now + 15 * 60 * 1000 });
+    const controller = createExecutionController();
+    const onRequestClose = () => { if (!req.complete && !res.writableEnded) controller.abort(); };
+    const onResponseClose = () => { if (!res.writableEnded) controller.abort(); };
+    req.on("close", onRequestClose);
+    res.on("close", onResponseClose);
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const preparationEstimate = await estimateBuildPreparation({ brief: payload.brief, ownerId: req.ownerId, signal: controller.signal });
+      await assertExecutionAuthorized(controller.signal);
+      if (!res.writableEnded) res.json({ preparationEstimate });
+    } finally {
+      req.off("close", onRequestClose);
+      res.off("close", onResponseClose);
+    }
+  }));
 
   router.post(
     "/assess",
@@ -281,10 +344,11 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         });
         const marketMode = detectTargetMarket({ brief: payload.brief, answers: payload.answers });
         const modelImprovement = isModelImprovementEnabled(req);
+        let preparationEstimate;
         const tracked = await runTrackedBuild({
           learningLoop, telemetryService, ownerId: req.ownerId, taskType: "build_assess", userPrompt: payload.brief,
           relevantContext: { personalizationApplied: Boolean(personalizationContext), language, marketMode },
-          execute: (onUsage) => assessBrief({ ...payload, language, ownerId: req.ownerId, personalizationContext, signal: abortController.signal, onUsage }),
+          execute: (onUsage) => generationServices.assessBrief({ ...payload, language, ownerId: req.ownerId, personalizationContext, signal: abortController.signal, onUsage, onEstimate: value => { preparationEstimate = value; } }),
           onlyNecessaryData: !modelImprovement,
           modelImprovement,
           privacySnapshot: getReqPrivacySnapshot(req),
@@ -293,6 +357,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
         if (!res.writableEnded) {
           res.json({
             assessment,
+            preparationEstimate,
             ...(req.user ? {} : {
               remainingGuestBriefs: req.remainingGuestBriefs,
               isGuest: true,
@@ -452,7 +517,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           userPrompt: payload.brief,
           relevantContext: { personalizationApplied: Boolean(personalizationContext), language, marketMode },
           execute: (onUsage) =>
-            generateStrategy({
+            generationServices.generateStrategy({
               ...payload,
               language,
               ownerId,
@@ -630,7 +695,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           req,
           subscriberId,
           onEntry: (entry) => { generationEntry = entry; if (disconnected) onClose(); },
-          onChunk: ({ chunk, finishReason, model }) => sendEvent({ chunk, finishReason, model }),
+          onChunk: ({ chunk, finishReason, preparationEstimate }) => sendEvent({ chunk, finishReason, preparationEstimate }),
         });
         const strategy = tracked.result;
         const savedRecord = tracked.savedRecord || null;
@@ -653,20 +718,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           return res.end();
         }
 
-        const isRateLimit = streamError.status === 429 || streamError.code === "AI_RATE_LIMITED";
-        const isUnavailable = streamError.status === 503 || streamError.code === "AI_PROVIDER_UNAVAILABLE";
-        const isAuth = streamError.status === 401 || streamError.code === "AI_AUTH_ERROR";
-        const isMaxTokens = streamError.status === 422 || streamError.code === "AI_MAX_TOKENS";
-
-        const errPayload = {
-          error: streamError.message || "Strategiya generasiyası uğursuz oldu.",
-          code: streamError.code || (isRateLimit ? "AI_RATE_LIMITED" : isUnavailable ? "AI_PROVIDER_UNAVAILABLE" : isMaxTokens ? "AI_MAX_TOKENS" : isAuth ? "AI_AUTH_ERROR" : "STRATEGY_ERROR"),
-          status: streamError.status || 500,
-          model: streamError.model,
-          partialText: streamError.partialText || undefined,
-        };
-
-        sendEvent(errPayload);
+        sendEvent(publicBuildFailure(streamError));
         res.end();
       } finally {
         clearInterval(heartbeat);
@@ -720,7 +772,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           const tracked = await runTrackedBuild({
             learningLoop, telemetryService, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
             relevantContext: { personalizationApplied: Boolean(personalizationContext), language, marketMode },
-            execute: (onUsage) => refineStrategy({ ...payload, language }, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
+            execute: (onUsage) => generationServices.refineStrategy({ ...payload, language }, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
             onlyNecessaryData: !modelImprovement,
             modelImprovement,
             privacySnapshot: getReqPrivacySnapshot(req),
@@ -847,7 +899,7 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
           const tracked = await runTrackedBuild({
             learningLoop, telemetryService, ownerId: req.ownerId, taskType: `build_refine_${payload.action}`, userPrompt: payload.action === "custom" ? payload.request : payload.action,
             relevantContext: { resourceId: existing.id, personalizationApplied: Boolean(personalizationContext), language },
-            execute: (onUsage) => refineStrategy({ ...payload, language }, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
+            execute: (onUsage) => generationServices.refineStrategy({ ...payload, language }, req.ownerId, abortController.signal, personalizationContext, undefined, onUsage),
             onlyNecessaryData: !modelImprovement,
             modelImprovement,
             privacySnapshot: getReqPrivacySnapshot(req),
@@ -969,6 +1021,16 @@ export function createStrategyRouter(repository, learningLoop = null, options = 
 export function strategyErrorHandler(error, req, res, next) {
   if (res.headersSent) return next(error);
 
+  if (["AI_TIMEOUT", "AI_CONTENT_BLOCKED"].includes(error.code)) {
+    return res.status(httpStatusOf(error)).json(publicBuildFailure(error));
+  }
+
+  if (/^(EXECUTION_|DAILY_BUDGET_|MODEL_PRICING_|TOOL_PRICING_)/.test(error.code || "")) {
+    return res.status(httpStatusOf(error)).json({
+      error: "Sorğunu təhlükəsiz şəkildə tamamlamaq mümkün olmadı. Yenidən cəhd edin.", code: error.code,
+    });
+  }
+
   if (error.code === "VALIDATION_ERROR") {
     return res.status(400).json({
       error: error.details?.[0]?.message || "Göndərilən məlumatları yoxla.",
@@ -979,57 +1041,50 @@ export function strategyErrorHandler(error, req, res, next) {
 
   if (error.code === "IDEMPOTENCY_CONFLICT" || error.status === 409) {
     return res.status(409).json({
-      error: error.message || "Eyni idempotency açarı fərqli parametrlərlə istifadə edilib.",
+      error: "Eyni idempotency açarı fərqli parametrlərlə istifadə edilib.",
       code: "IDEMPOTENCY_CONFLICT",
     });
   }
 
   if (error.code === "AI_NOT_CONFIGURED") {
     return res.status(503).json({
-      error: error.message || "Seçilmiş AI xidməti hələ konfiqurasiya edilməyib.",
+      error: "Seçilmiş AI xidməti hələ konfiqurasiya edilməyib.",
       code: error.code,
-      model: error.model,
     });
   }
 
   if (error.status === 401 || error.code === "invalid_api_key" || error.code === "AI_AUTH_ERROR") {
     return res.status(503).json({
-      error: error.message || "AI bağlantısı doğrulanmadı. Serverdəki API açarını yoxla.",
+      error: "AI bağlantısı doğrulanmadı. Serverdəki API açarını yoxla.",
       code: "AI_AUTH_ERROR",
-      model: error.model,
     });
   }
 
   if (error.status === 429 || error.code === "rate_limit_exceeded" || error.code === "AI_RATE_LIMITED") {
     return res.status(429).json({
-      error: error.message || "AI xidmətində sorğu limiti aşılıb (429). Bir az sonra yenidən yoxla.",
+      error: "AI xidmətində sorğu limiti aşılıb (429). Bir az sonra yenidən yoxla.",
       code: "AI_RATE_LIMITED",
-      model: error.model,
     });
   }
 
   if (error.status === 503 || error.code === "AI_PROVIDER_UNAVAILABLE") {
     return res.status(503).json({
-      error: error.message || "Seçilmiş AI xidməti hazırda yüksək yüklənmə altındadır (503). Zəhmət olmasa bir az sonra yenidən cəhd edin.",
+      error: "Seçilmiş AI xidməti hazırda yüksək yüklənmə altındadır (503). Zəhmət olmasa bir az sonra yenidən cəhd edin.",
       code: "AI_PROVIDER_UNAVAILABLE",
-      model: error.model,
     });
   }
 
   if (error.code === "AI_MAX_TOKENS") {
     return res.status(422).json({
-      error: error.message || "Strategiya generasiyası token limitinə çatdı.",
+      error: "Strategiya generasiyası token limitinə çatdı.",
       code: "AI_MAX_TOKENS",
-      model: error.model,
-      partialText: error.partialText,
     });
   }
 
   if (error.code === "AI_INVALID_OUTPUT") {
     return res.status(502).json({
-      error: error.message || "Strategiya strukturunu tamamlamaq mümkün olmadı. Yenidən cəhd et.",
+      error: "Strategiya strukturunu tamamlamaq mümkün olmadı. Yenidən cəhd et.",
       code: error.code,
-      model: error.model,
     });
   }
 
@@ -1044,6 +1099,5 @@ export function strategyErrorHandler(error, req, res, next) {
   return res.status(httpStatusOf(error)).json({
     error: publicErrorMessage(error, "Helmer hazırda sorğunu tamamlaya bilmədi. Məlumatların qorunub — yenidən cəhd et."),
     code: error.code || "STRATEGY_ERROR",
-    model: error.model,
   });
 }

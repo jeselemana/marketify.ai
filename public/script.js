@@ -38,10 +38,8 @@ const strategiesNav = document.querySelector("#strategiesNav");
 const plannerNav = document.querySelector("#plannerNav");
 const upNav = document.querySelector("#upNav");
 const railUpButton = document.querySelector("#railUpButton");
-const aiHubNav = document.querySelector("#aiHubNav");
 const installAppNav = document.querySelector("#installAppNav");
 const whatsNewNav = document.querySelector("#whatsNewNav");
-const railAiHubButton = document.querySelector("#railAiHubButton");
 const railInstallAppButton = document.querySelector("#railInstallAppButton");
 const railLangToggleButton = document.querySelector("#railLangToggleButton");
 const railLangBadge = document.querySelector("#railLangBadge");
@@ -98,16 +96,6 @@ export const NAV_ITEMS = [
     icon: "Brain",
     svg: `<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/>`
   },
-  {
-    id: "aiHub",
-    sidebarId: "aiHubNav",
-    railId: "railAiHubButton",
-    labelKey: "nav.aiHub",
-    defaultLabelAz: "AI Hub",
-    defaultLabelEn: "AI Hub",
-    icon: "Cpu",
-    svg: `<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>`
-  }
 ];
 const accountButton = document.querySelector("#accountButton");
 const workspaceAvatar = document.querySelector("#workspaceAvatar");
@@ -2499,6 +2487,9 @@ const state = {
   previousView: "home",
   status: "draft",
   brief: "",
+  buildPreparationEstimate: null,
+  buildEstimateBrief: "",
+  buildEstimateUnavailable: false,
   questions: [],
   clarificationIndex: 0,
   clarificationDrafts: {},
@@ -3026,20 +3017,14 @@ function syncLanguageControls() {
 function syncNav() {
   const isBuild = state.mode === "build";
   const isEn = getLanguage() === "en";
-  const nonHomeViews = ["list", "settings", "planner", "limits", "up", "aiHub"];
+  const nonHomeViews = ["list", "settings", "planner", "limits", "up"];
   homeNav.classList.toggle("is-active", !nonHomeViews.includes(state.view));
   strategiesNav.classList.toggle("is-active", state.view === "list");
   plannerNav?.classList.toggle("is-active", state.view === "planner");
   for (const id of ["upNav", "railUpButton"]) document.getElementById(id)?.classList.toggle("is-active", state.view === "up");
-  for (const id of ["aiHubNav", "railAiHubButton"]) document.getElementById(id)?.classList.toggle("is-active", state.view === "aiHub");
   railHomeButton.classList.toggle("is-active", !nonHomeViews.includes(state.view));
   railStrategiesButton.classList.toggle("is-active", state.view === "list");
   railPlannerButton?.classList.toggle("is-active", state.view === "planner");
-  if (railAiHubButton) {
-    const aiHubTooltip = `${t("nav.aiHub") || "AI Hub"} (${isEn ? "Coming soon" : "Tezliklə"})`;
-    railAiHubButton.setAttribute("data-tooltip", aiHubTooltip);
-    railAiHubButton.setAttribute("aria-label", aiHubTooltip);
-  }
 
   railHomeButton.setAttribute("data-tooltip", `${isBuild ? t("nav.home") : t("nav.askChat")}${shortcutSuffix("⌘ 1", "Ctrl 1")}`);
   railHomeButton.setAttribute("aria-label", isBuild ? t("nav.home") : t("nav.askChat"));
@@ -3157,20 +3142,6 @@ function syncNav() {
   }
   if (plannerCount) {
     plannerCount.style.display = isGuest ? "none" : "";
-  }
-
-  const aiHubLabel = aiHubNav?.querySelector(".ai-hub-label");
-  if (aiHubLabel) {
-    aiHubLabel.textContent = t("nav.aiHub") || "AI Hub";
-  }
-  const aiHubBadge = aiHubNav?.querySelector(".ai-hub-badge");
-  if (aiHubBadge) {
-    aiHubBadge.textContent = isEn ? "Coming soon" : "Tezliklə";
-  }
-  if (aiHubNav) {
-    const aiHubTooltip = `${t("nav.aiHub") || "AI Hub"} (${isEn ? "Coming soon" : "Tezliklə"})`;
-    aiHubNav.setAttribute("aria-label", aiHubTooltip);
-    aiHubNav.setAttribute("data-tooltip", aiHubTooltip);
   }
 
   const installAppLabel = installAppNav?.querySelector("span");
@@ -3491,6 +3462,7 @@ function render() {
   clearInterval(progressTimer);
   clearInterval(loadingAskPlaceholderTimer);
   clearTimeout(refinementPlaceholderTimer);
+  if (state.mode !== "build" || state.view !== "home") cancelBuildEstimate();
   syncMode();
   syncNav();
   document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay").forEach((btn) => btn.remove());
@@ -3499,7 +3471,6 @@ function render() {
 
   if (state.view === "settings") return renderSettings();
   if (state.view === "up") return renderUpView(workspace);
-  if (state.view === "aiHub") return renderAiHubView();
   if (state.view === "planner") return renderPlannerView();
   if (state.view === "limits") return renderLimitsView();
   if (state.view === "list") return renderStrategyList();
@@ -4429,6 +4400,91 @@ export function createAskContextSuggestions(isEn, selectedStrategy, selectedTask
   return container;
 }
 
+// Ephemeral estimates: never persist prompts or mix responses from edited briefs.
+let buildEstimateTimer = null;
+let buildEstimateRequest = null;
+let buildEstimateSequence = 0;
+let buildEstimateLastStarted = 0;
+
+function validBuildEstimate(value) {
+  return value && Number.isInteger(value.minMinutes) && Number.isInteger(value.maxMinutes)
+    && value.minMinutes >= 1 && value.maxMinutes > value.minMinutes && value.maxMinutes <= 60
+    && [2, 3].includes(value.bufferMinutes);
+}
+
+function updateBuildEstimate(value, brief = state.brief.trim()) {
+  if (!validBuildEstimate(value)) return;
+  state.buildPreparationEstimate = value;
+  state.buildEstimateBrief = brief;
+  refreshBuildEstimateCards();
+}
+
+function createBuildEstimateCard() {
+  const card = element("div", "build-estimate-card");
+  card.dataset.buildEstimate = "true";
+  card.setAttribute("role", "status");
+  card.setAttribute("aria-live", "polite");
+  const icon = element("span", "build-estimate-clock", "◷");
+  icon.setAttribute("aria-hidden", "true");
+  const content = element("div", "build-estimate-content");
+  content.append(element("span", "build-estimate-label"), element("strong", "build-estimate-range"));
+  card.append(icon, content);
+  return card;
+}
+
+function refreshBuildEstimateCards() {
+  const isEn = getLanguage() === "en";
+  const visible = state.brief.trim().length >= 8;
+  const estimate = state.buildEstimateBrief === state.brief.trim() ? state.buildPreparationEstimate : null;
+  document.querySelectorAll("[data-build-estimate]").forEach(card => {
+    card.hidden = !visible;
+    card.querySelector(".build-estimate-label").textContent = isEn ? "Estimated preparation time:" : "Təxmini hazırlanma vaxtı:";
+    card.querySelector(".build-estimate-range").textContent = validBuildEstimate(estimate)
+      ? `${estimate.minMinutes}–${estimate.maxMinutes} ${isEn ? "minutes" : "dəqiqə"}`
+      : state.buildEstimateUnavailable ? (isEn ? "Currently unavailable" : "Hazırda əlçatan deyil")
+      : (isEn ? "Estimating…" : "Hesablanır…");
+    card.title = isEn ? "An estimate, not a time limit. Preparation may take longer." : "Təxmini müddətdir, vaxt limiti deyil. Hazırlanma daha uzun çəkə bilər.";
+  });
+}
+
+function cancelBuildEstimate() {
+  clearTimeout(buildEstimateTimer);
+  buildEstimateTimer = null;
+  buildEstimateSequence += 1;
+  buildEstimateRequest?.controller.abort();
+  buildEstimateRequest = null;
+}
+
+function scheduleBuildEstimate() {
+  const brief = state.brief.trim();
+  if (buildEstimateRequest?.brief === brief) return;
+  cancelBuildEstimate();
+  state.buildEstimateUnavailable = false;
+  refreshBuildEstimateCards();
+  if (brief.length < 8 || (!state.currentUser && state.remainingGuestBriefs === 0)
+    || (state.buildEstimateBrief === brief && validBuildEstimate(state.buildPreparationEstimate))) return;
+  const sequence = buildEstimateSequence;
+  buildEstimateTimer = setTimeout(() => {
+    buildEstimateTimer = null;
+    if (sequence !== buildEstimateSequence || state.mode !== "build" || state.status !== "draft") return;
+    const controller = new AbortController();
+    buildEstimateLastStarted = Date.now();
+    const request = { brief, controller, promise: null };
+    buildEstimateRequest = request;
+    request.promise = api("/api/strategy/estimate", {
+      method: "POST", signal: controller.signal,
+      headers: { "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ brief }),
+    }).then(data => {
+      if (sequence === buildEstimateSequence && state.brief.trim() === brief) updateBuildEstimate(data.preparationEstimate, brief);
+    }).catch(error => {
+      if (error.name !== "AbortError" && sequence === buildEstimateSequence) {
+        state.buildEstimateUnavailable = true;
+        refreshBuildEstimateCards();
+      }
+    }).finally(() => { if (buildEstimateRequest === request) buildEstimateRequest = null; });
+  }, Math.max(1200, 10000 - (Date.now() - buildEstimateLastStarted)));
+}
+
 function renderIntake() {
   const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-ask", "workspace-intake", "is-empty");
@@ -4444,6 +4500,8 @@ function renderIntake() {
   thread.appendChild(intro);
 
   const composerArea = element("div", "ask-composer-area");
+  composerArea.classList.add("build-estimate-composer");
+  const estimateCard = createBuildEstimateCard();
   const form = element("form", "ask-composer");
   const label = element("label", "sr-only", isEn ? "Strategy brief" : "Strategiya brifi");
   label.htmlFor = "briefInput";
@@ -4579,9 +4637,9 @@ function renderIntake() {
   const isStrategySelected = Boolean(state.strategy || state.askStrategyId || state.askTaskId);
   const guideCards = !isStrategySelected ? createHomeGuideCards(isEn, "build") : null;
   if (guideCards) {
-    composerArea.append(form, helper, guideCards);
+    composerArea.append(form, estimateCard, helper, guideCards);
   } else {
-    composerArea.append(form, helper);
+    composerArea.append(form, estimateCard, helper);
   }
 
   const resizeInput = () => {
@@ -4591,6 +4649,7 @@ function renderIntake() {
     textarea.style.height = "auto";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
     shell.classList.toggle("has-input", Boolean(textarea.value.trim()));
+    scheduleBuildEstimate();
   };
   textarea.addEventListener("input", resizeInput);
   textarea.addEventListener("keydown", (event) => {
@@ -5132,7 +5191,7 @@ function retryAskRequest() {
   state.askMessages = state.askMessages.slice(0, retry.messageIndex);
   state.askPluginIds = retry.pluginIds;
   state.askArtifactId = retry.artifactId;
-  submitAskMessage(retry.message, retry.file);
+  submitAskMessage(retry.message, retry.file, { retryOperation: retry.operation });
 }
 
 function formatArtifactSize(size) {
@@ -6274,14 +6333,16 @@ function extractGroundingWebChunks(groundingMetadata) {
   const seen = new Set();
   const addSource = (rawUri, rawTitle) => {
     if (typeof rawUri !== "string") return;
-    const uri = rawUri.trim();
-    if (!/^https?:\/\//i.test(uri) || seen.has(uri)) return;
+    let uri = rawUri.trim();
+    if (!/^https?:\/\//i.test(uri) || uri.length > 2000) return;
     let hostname;
     try {
       const parsed = new URL(uri);
-      if (!["http:", "https:"].includes(parsed.protocol)) return;
+      if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password || parsed.href.length > 2000) return;
+      uri = parsed.href;
       hostname = parsed.hostname.replace(/^www\./, "");
     } catch { return; }
+    if (seen.has(uri)) return;
     seen.add(uri);
     const title = typeof rawTitle === "string" && rawTitle.trim() ? rawTitle.trim() : hostname;
     webChunks.push({ uri, title, hostname });
@@ -6308,7 +6369,7 @@ function extractGroundingSearchSuggestions(groundingMetadata) {
         const parsed = new URL(rawUrl.trim());
         const host = parsed.hostname.toLowerCase();
         if (
-          (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+          (parsed.protocol === "https:" || parsed.protocol === "http:") && !parsed.username && !parsed.password && parsed.href.length <= 2000 &&
           (host === "www.google.com" || host === "google.com" || host.endsWith(".google.com") || host.endsWith(".cloud.google.com"))
         ) {
           url = parsed.href;
@@ -7331,8 +7392,6 @@ async function thinkDeeperWithHigh(messageIndex) {
     if (contentType.includes("text/event-stream")) {
       const reader = response.body.getReader();
       activeAskReader = reader;
-      const decoder = new TextDecoder();
-      let buffer = "";
 
       typewriter = new LiveTypewriter(
         (text, isComplete) => {
@@ -7345,81 +7404,43 @@ async function thinkDeeperWithHigh(messageIndex) {
       );
       activeAskTypewriter = typewriter;
 
-      let rawBuffer = "";
-      let eventLines = [];
+      await consumeAskEventStream(reader, async data => {
 
-      const dispatchEvent = (lines) => {
-        if (!lines || !lines.length) return;
-        const jsonStr = lines.join("\n").trim();
-        if (!jsonStr || jsonStr === "[DONE]") return;
+        if (data.status) {
+          assistantMsg.status = data.status;
+          assistantMsg.statusText = "";
+          updateActiveAskThinkingStatus(assistantMsg);
+        }
 
-        try {
-          const data = JSON.parse(jsonStr);
-          if (data.error) throw new Error(data.error);
+        if (data.model) assistantMsg.model = data.model;
+        if (data.groundingMetadata) assistantMsg.groundingMetadata = data.groundingMetadata;
 
-          if (data.status) {
-            assistantMsg.status = data.status;
-            assistantMsg.statusText = "";
-            updateActiveAskThinkingStatus(assistantMsg);
+        if (data.chunk) {
+          clearAskWaitStages(assistantMsg);
+          assistantMsg.status = "";
+          assistantMsg.statusText = "";
+          accumulatedFullText += data.chunk;
+          typewriter.append(data.chunk);
+        }
+
+        if (data.done) {
+          clearAskWaitStages(assistantMsg);
+          const finalReply = data.reply || accumulatedFullText;
+          accumulatedFullText = finalReply;
+          if (data.groundingMetadata) {
+            assistantMsg.groundingMetadata = data.groundingMetadata;
           }
-
-          if (data.model) assistantMsg.model = data.model;
-          if (data.groundingMetadata) assistantMsg.groundingMetadata = data.groundingMetadata;
-
-          if (data.chunk) {
-            clearAskWaitStages(assistantMsg);
-            assistantMsg.status = "";
-            assistantMsg.statusText = "";
-            accumulatedFullText += data.chunk;
-            typewriter.append(data.chunk);
-          }
-
-          if (data.done) {
-            clearAskWaitStages(assistantMsg);
-            const finalReply = data.reply || accumulatedFullText;
-            accumulatedFullText = finalReply;
-            if (data.groundingMetadata) {
-              assistantMsg.groundingMetadata = data.groundingMetadata;
-            }
-            freshAskResponses.delete(assistantMsg);
-            typewriter.finish(finalReply);
-            assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
-            rememberSavedAskChat(data.chat);
-            if (typeof data.remainingGuestMessages === "number") {
-              state.guestQuotaVersion += 1;
-              state.remainingGuestMessages = data.remainingGuestMessages;
-              state.guestQuotaCheckedAt = Date.now();
-            }
-          }
-        } catch (parseErr) {
-          if (parseErr.message && !parseErr.message.includes("JSON")) {
-            throw parseErr;
+          freshAskResponses.delete(assistantMsg);
+          typewriter.finish(finalReply);
+          assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
+          rememberSavedAskChat(data.chat);
+          if (typeof data.remainingGuestMessages === "number") {
+            state.guestQuotaVersion += 1;
+            state.remainingGuestMessages = data.remainingGuestMessages;
+            state.guestQuotaCheckedAt = Date.now();
           }
         }
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        rawBuffer += decoder.decode(value, { stream: true });
-        const lines = rawBuffer.split(/\r?\n/);
-        rawBuffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("data:")) {
-            eventLines.push(line.replace(/^data:\s*/, ""));
-          } else if (line.trim() === "" && eventLines.length > 0) {
-            dispatchEvent(eventLines);
-            eventLines = [];
-          }
-        }
-      }
-
-      if (eventLines.length > 0) {
-        dispatchEvent(eventLines);
-        eventLines = [];
-      }
+      });
 
       if (typewriter) {
         typewriter.finish(accumulatedFullText);
@@ -7471,7 +7492,89 @@ async function thinkDeeperWithHigh(messageIndex) {
   }
 }
 
-async function submitAskMessage(message, attachedFile = null, { preserveWhitespace = false } = {}) {
+// Keep identical retries tied to one admitted operation. A revision change is a
+// different payload and therefore must receive a fresh idempotency key.
+function createAskRequestOperation(payload) {
+  const body = JSON.stringify(payload);
+  const key = window.helmerSecurity?.idempotencyKey?.() || crypto.randomUUID();
+  return {
+    send(signal) {
+      return fetch('/api/ask', {
+        method: 'POST', signal,
+        headers: {
+          'Content-Type': 'application/json', Accept: 'text/event-stream',
+          'Idempotency-Key': key,
+          'X-Helmer-Model-Improvement': String(isModelImprovementActive()),
+        },
+        body,
+      });
+    },
+    withRevision(chatRevision) { return createAskRequestOperation({ ...JSON.parse(body), chatRevision }); },
+  };
+}
+
+// Shared by Ask send, Thinking regeneration and the compact Ask conversation.
+// Preserve UTF-8/CRLF boundaries, cap frames, and require a committed done event.
+async function consumeAskEventStream(reader, onEvent, { maxFrameChars = 8 * 1024 * 1024, idleTimeoutMs = 65000 } = {}) {
+  const decoder = new TextDecoder();
+  let buffer = '', lines = [], frameChars = 0, completed = false;
+  const protocolError = () => new Error(getLanguage() === 'en'
+    ? 'The response stream was interrupted or invalid. Please retry.'
+    : 'Cavab axını kəsildi və ya düzgün deyil. Yenidən cəhd edin.');
+  const dispatch = async () => {
+    if (!lines.length) return;
+    const dataText = lines.join('\n');
+    lines = []; frameChars = 0;
+    if (dataText === '[DONE]') return;
+    let data;
+    try { data = JSON.parse(dataText); } catch { throw protocolError(); }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw protocolError();
+    if (data.error) throw new Error(typeof data.error === 'string' ? data.error : protocolError().message);
+    if (data.chunk !== undefined && typeof data.chunk !== 'string') throw protocolError();
+    if (data.reply !== undefined && typeof data.reply !== 'string') throw protocolError();
+    await onEvent(data);
+    if (data.done === true) completed = true;
+  };
+  const processLines = async () => {
+    let end;
+    while (!completed && (end = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, end).replace(/\r$/, '');
+      buffer = buffer.slice(end + 1);
+      if (!line) await dispatch();
+      else if (line.startsWith('data:')) {
+        const value = line.slice(5).replace(/^ /, '');
+        frameChars += value.length;
+        if (frameChars > maxFrameChars) throw protocolError();
+        lines.push(value);
+      }
+    }
+    if (buffer.length + frameChars > maxFrameChars) throw protocolError();
+  };
+  try {
+    while (!completed) {
+      let timer;
+      const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(protocolError()), idleTimeoutMs); });
+      let next;
+      try { next = await Promise.race([reader.read(), timeout]); }
+      finally { clearTimeout(timer); }
+      if (next.done) {
+        buffer += decoder.decode();
+        if (buffer) buffer += '\n';
+        await processLines();
+        if (!completed) await dispatch();
+        break;
+      }
+      buffer += decoder.decode(next.value, { stream: true });
+      await processLines();
+    }
+    if (!completed) throw protocolError();
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
+async function submitAskMessage(message, attachedFile = null, { preserveWhitespace = false, retryOperation = null } = {}) {
   const selectedStrategy = state.savedStrategies.find((strategy) => strategy.id === state.askStrategyId) || null;
   const selectedTask = state.plannerTasks.find((task) => task.id === state.askTaskId) || null;
   const fileToAttach = attachedFile || state.askPendingFile || null;
@@ -7632,82 +7735,33 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     ? currentAskThinking
     : undefined;
 
+  let askOperation = retryOperation || createAskRequestOperation({
+    messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi),
+    model: chosenModel,
+    thinkingLevel: apiThinkingLevel,
+    strategyId: state.askStrategyId || undefined,
+    taskId: state.askTaskId || undefined,
+    chatId: state.askChatId || undefined,
+    chatRevision: state.askChatId ? (window.helmerSecurity?.getRevision(state.askChatId) || 1) : undefined,
+    pluginIds,
+    artifactId,
+    stream: true,
+  });
   try {
-    let response = await fetch("/api/ask", {
-      method: "POST",
-      signal: currentAskAbortController.signal,
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "text/event-stream",
-        "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
-      },
-      body: JSON.stringify({
-        messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi),
-        model: chosenModel,
-        thinkingLevel: apiThinkingLevel,
-        strategyId: state.askStrategyId || undefined,
-        taskId: state.askTaskId || undefined,
-        chatId: state.askChatId || undefined,
-        chatRevision: state.askChatId ? (window.helmerSecurity?.getRevision(state.askChatId) || 1) : undefined,
-        pluginIds,
-        artifactId,
-        stream: true,
-      }),
-    });
+    let response = await askOperation.send(currentAskAbortController.signal);
 
     if (!response.ok && (response.status === 409 || response.status === 429)) {
       const errData = await response.clone().json().catch(() => ({}));
       if (response.status === 429 && errData.code === "EXECUTION_BUSY" && !currentAskAbortController.signal.aborted) {
         await new Promise((resolve) => setTimeout(resolve, 650));
-        if (!currentAskAbortController.signal.aborted) {
-          response = await fetch("/api/ask", {
-            method: "POST",
-            signal: currentAskAbortController.signal,
-            headers: {
-              "Content-Type": "application/json",
-              "Accept": "text/event-stream",
-              "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
-            },
-            body: JSON.stringify({
-              messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi),
-              model: chosenModel,
-              thinkingLevel: apiThinkingLevel,
-              strategyId: state.askStrategyId || undefined,
-              taskId: state.askTaskId || undefined,
-              chatId: state.askChatId || undefined,
-              chatRevision: state.askChatId ? (window.helmerSecurity?.getRevision(state.askChatId) || 1) : undefined,
-              pluginIds,
-              artifactId,
-              stream: true,
-            }),
-          });
-        }
+        if (!currentAskAbortController.signal.aborted) response = await askOperation.send(currentAskAbortController.signal);
       }
       if (!response.ok && response.status === 409) {
         const conflictData = await response.clone().json().catch(() => ({}));
         if (conflictData.code === "REVISION_CONFLICT" && state.askChatId && conflictData.revision) {
           window.helmerSecurity?.revisions.set(state.askChatId, conflictData.revision);
-          response = await fetch("/api/ask", {
-            method: "POST",
-            signal: currentAskAbortController.signal,
-            headers: {
-              "Content-Type": "application/json",
-              "Accept": "text/event-stream",
-              "X-Helmer-Model-Improvement": String(isModelImprovementActive()),
-            },
-            body: JSON.stringify({
-              messages: state.askMessages.slice(0, -1).map(sanitizeAskMessageForApi),
-              model: chosenModel,
-              thinkingLevel: apiThinkingLevel,
-              strategyId: state.askStrategyId || undefined,
-              taskId: state.askTaskId || undefined,
-              chatId: state.askChatId || undefined,
-              chatRevision: conflictData.revision,
-              pluginIds,
-              artifactId,
-              stream: true,
-            }),
-          });
+          askOperation = askOperation.withRevision(conflictData.revision);
+          response = await askOperation.send(currentAskAbortController.signal);
         }
       }
     }
@@ -7739,8 +7793,6 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     if (contentType.includes("text/event-stream")) {
       const reader = response.body.getReader();
       activeAskReader = reader;
-      const decoder = new TextDecoder();
-      let buffer = "";
 
       typewriter = new LiveTypewriter(
         (text, isComplete) => {
@@ -7753,93 +7805,55 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       );
       activeAskTypewriter = typewriter;
 
-      let rawBuffer = "";
-      let eventLines = [];
+      await consumeAskEventStream(reader, async data => {
+        if (data.chatId) {
+          state.askChatId = data.chatId;
+          if (data.chatRevision) window.helmerSecurity?.revisions.set(data.chatId, data.chatRevision);
+          try { sessionStorage.setItem("helmer_active_ask_chat", data.chatId); } catch { }
+        }
 
-      const dispatchEvent = (lines) => {
-        if (!lines || !lines.length) return;
-        const jsonStr = lines.join("\n").trim();
-        if (!jsonStr || jsonStr === "[DONE]") return;
+        if (data.status) {
+          clearAskWaitStages(assistantMsg);
+          assistantMsg.status = data.status;
+          assistantMsg.statusText = data.statusText || "";
+          updateActiveAskThinkingStatus(assistantMsg);
+        }
 
-        try {
-          const data = JSON.parse(jsonStr);
-          if (data.error) throw new Error(data.error);
-          if (data.chatId) {
-            state.askChatId = data.chatId;
-            if (data.chatRevision) window.helmerSecurity?.revisions.set(data.chatId, data.chatRevision);
-            try { sessionStorage.setItem("helmer_active_ask_chat", data.chatId); } catch { }
+        if (data.model) assistantMsg.model = data.model;
+        if (data.groundingMetadata) assistantMsg.groundingMetadata = data.groundingMetadata;
+
+        if (data.chunk) {
+          clearAskWaitStages(assistantMsg);
+          assistantMsg.status = "";
+          assistantMsg.statusText = "";
+          accumulatedFullText += data.chunk;
+          typewriter.append(data.chunk);
+        }
+
+        if (data.done) {
+          finalEventReceived = true;
+          assistantMsg.artifacts = data.artifacts || [];
+          assistantMsg.execution = data.execution;
+          clearAskWaitStages(assistantMsg);
+          const finalReply = data.reply || accumulatedFullText;
+          accumulatedFullText = finalReply;
+          if (data.groundingMetadata) {
+            assistantMsg.groundingMetadata = data.groundingMetadata;
           }
-
-          if (data.status) {
-            clearAskWaitStages(assistantMsg);
-            assistantMsg.status = data.status;
-            assistantMsg.statusText = data.statusText || "";
-            updateActiveAskThinkingStatus(assistantMsg);
+          freshAskResponses.delete(assistantMsg);
+          typewriter.finish(finalReply);
+          assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
+          rememberSavedAskChat(data.chat);
+          if (typeof data.remainingGuestMessages === "number") {
+            state.guestQuotaVersion += 1;
+            state.remainingGuestMessages = data.remainingGuestMessages;
+            state.guestQuotaCheckedAt = Date.now();
           }
-
-          if (data.model) assistantMsg.model = data.model;
-          if (data.groundingMetadata) assistantMsg.groundingMetadata = data.groundingMetadata;
-
-          if (data.chunk) {
-            clearAskWaitStages(assistantMsg);
-            assistantMsg.status = "";
-            assistantMsg.statusText = "";
-            accumulatedFullText += data.chunk;
-            typewriter.append(data.chunk);
-          }
-
-          if (data.done) {
-            finalEventReceived = true;
-            assistantMsg.artifacts = data.artifacts || [];
-            assistantMsg.execution = data.execution;
-            clearAskWaitStages(assistantMsg);
-            const finalReply = data.reply || accumulatedFullText;
-            accumulatedFullText = finalReply;
-            if (data.groundingMetadata) {
-              assistantMsg.groundingMetadata = data.groundingMetadata;
-            }
-            freshAskResponses.delete(assistantMsg);
-            typewriter.finish(finalReply);
-            assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
-            rememberSavedAskChat(data.chat);
-            if (typeof data.remainingGuestMessages === "number") {
-              state.guestQuotaVersion += 1;
-              state.remainingGuestMessages = data.remainingGuestMessages;
-              state.guestQuotaCheckedAt = Date.now();
-            }
-            if (data.restrictedFeature) {
-              openGuestRestrictionModal(data.reply);
-            }
-          }
-        } catch (parseErr) {
-          if (parseErr.message && !parseErr.message.includes("JSON")) {
-            throw parseErr;
+          if (data.restrictedFeature) {
+            openGuestRestrictionModal(data.reply);
           }
         }
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        rawBuffer += decoder.decode(value, { stream: true });
-        const lines = rawBuffer.split(/\r?\n/);
-        rawBuffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("data:")) {
-            eventLines.push(line.replace(/^data:\s*/, ""));
-          } else if (line.trim() === "" && eventLines.length > 0) {
-            dispatchEvent(eventLines);
-            eventLines = [];
-          }
-        }
-      }
-
-      if (eventLines.length > 0) {
-        dispatchEvent(eventLines);
-        eventLines = [];
-      }
+      });
 
       if (!finalEventReceived) throw new Error(getLanguage() === "en" ? "The connection ended before the task completed. Please retry." : "Tapşırıq tamamlanmadan bağlantı kəsildi. Yenidən cəhd edin.");
 
@@ -7879,7 +7893,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         state.askRetry = null;
       } else {
         state.askError = error.message;
-        state.askRetry = { message: contentText, file: fileToAttach, pluginIds, artifactId, messageIndex };
+        state.askRetry = { message: contentText, file: fileToAttach, pluginIds, artifactId, messageIndex, operation: askOperation };
       }
     }
     if (!assistantMsg.content && !accumulatedFullText) {
@@ -8130,8 +8144,9 @@ function renderLoading() {
   secondaryRow.append(cancelBtn, historyBtn);
   cardActions.appendChild(secondaryRow);
 
-  view.append(statusLine, title, intro, activity, timelineWrap, reassurance, cardActions);
+  view.append(statusLine, title, intro, createBuildEstimateCard(), activity, timelineWrap, reassurance, cardActions);
   workspace.appendChild(view);
+  refreshBuildEstimateCards();
   document.body.appendChild(topActions);
 
   progressTimer = setInterval(() => {
@@ -8544,7 +8559,8 @@ function showAnalysisHistoryModal(isAssessment = true) {
 
 function showLoadingAskModal(initialQuery) {
   const existing = document.querySelector(".loading-ask-modal-overlay");
-  if (existing) existing.remove();
+  if (existing) { existing._closeAskModal?.(); existing.remove(); }
+  let modalAskController = null;
   const isEn = getLanguage() === "en";
 
   const overlay = element("div", "loading-ask-modal-overlay");
@@ -8566,10 +8582,13 @@ function showLoadingAskModal(initialQuery) {
   titleGroup.append(titleRow, statusSub);
 
   const closeModal = () => {
+    modalAskController?.abort();
     document.body.style.overflow = "";
     overlay.remove();
     document.removeEventListener("keydown", handleKeydown);
   };
+
+  overlay._closeAskModal = closeModal;
 
   const closeBtn = element("button", "analysis-history-close");
   closeBtn.type = "button";
@@ -8642,6 +8661,10 @@ function showLoadingAskModal(initialQuery) {
   };
 
   const askAssistant = async (queryText) => {
+    if (modalAskController) return;
+    const controller = new AbortController();
+    modalAskController = controller;
+    modalSend.disabled = true;
     const welcome = messagesBody.querySelector(".loading-ask-welcome");
     if (welcome) welcome.remove();
     const suggestionsWrap = messagesBody.querySelector(".loading-ask-suggestions");
@@ -8668,6 +8691,7 @@ function showLoadingAskModal(initialQuery) {
     try {
       let response = await fetch("/api/ask", {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           "Accept": "text/event-stream",
@@ -8691,6 +8715,7 @@ function showLoadingAskModal(initialQuery) {
           window.helmerSecurity?.revisions.set(state.askChatId, errorData.revision);
           response = await fetch("/api/ask", {
             method: "POST",
+        signal: controller.signal,
             headers: {
               "Content-Type": "application/json",
               "Accept": "text/event-stream",
@@ -8720,87 +8745,56 @@ function showLoadingAskModal(initialQuery) {
 
       loadingItem.classList.remove("is-thinking");
       const contentWrap = loadingItem.querySelector(".ask-thread-msg-content");
-      let reply = "";
+      let reply = "", richContent;
       const renderReply = () => {
         if (!contentWrap) return;
-        contentWrap.innerHTML = "";
-        contentWrap.appendChild(renderAskRichText(reply));
+        if (!richContent) {
+          richContent = renderAskRichText('');
+          contentWrap.replaceChildren(richContent);
+        }
+        patchAskRichTextElement(richContent, reply);
       };
       const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let rawBuffer = "";
-      let eventLines = [];
 
-      const dispatchThreadEvent = (lines) => {
-        if (!lines || !lines.length) return;
-        const jsonStr = lines.join("\n").trim();
-        if (!jsonStr || jsonStr === "[DONE]") return;
-
-        try {
-          const data = JSON.parse(jsonStr);
-          if (data.error) throw new Error(data.error);
-          if (data.status === "searching") {
-            const dots = loadingItem.querySelector(".loading-processing-dots");
-            if (dots && !loadingItem.querySelector(".ask-searching-badge")) {
-              const badge = element("div", "ask-searching-badge", isEn ? "Searching the web…" : "Veb axtarışı...");
-              loadingItem.querySelector(".ask-thread-msg-content")?.prepend(badge);
-            }
-          }
-          if (data.chunk) {
-            loadingItem.querySelector(".ask-searching-badge")?.remove();
-            if (contentWrap && !contentWrap.dataset.hasStreamedText) {
-              contentWrap.dataset.hasStreamedText = "true";
-              contentWrap.classList.add("ask-text-glide-in");
-            }
-            reply += data.chunk;
-            renderReply();
-          }
-          if (data.done) {
-            reply = data.reply || reply;
-            renderReply();
-            if (data.groundingMetadata) {
-              const chips = renderAskSourceChips(data.groundingMetadata);
-              if (chips) loadingItem.querySelector(".ask-thread-msg-content")?.appendChild(chips);
-            }
-            rememberSavedAskChat(data.chat);
-          }
-        } catch (parseErr) {
-          if (parseErr.message && !parseErr.message.includes("JSON")) {
-            throw parseErr;
+      await consumeAskEventStream(reader, async data => {
+        if (data.status === "searching") {
+          const dots = loadingItem.querySelector(".loading-processing-dots");
+          if (dots && !loadingItem.querySelector(".ask-searching-badge")) {
+            const badge = element("div", "ask-searching-badge", isEn ? "Searching the web…" : "Veb axtarışı...");
+            loadingItem.querySelector(".ask-thread-msg-content")?.prepend(badge);
           }
         }
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        rawBuffer += decoder.decode(value, { stream: true });
-        const lines = rawBuffer.split(/\r?\n/);
-        rawBuffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("data:")) {
-            eventLines.push(line.replace(/^data:\s*/, ""));
-          } else if (line.trim() === "" && eventLines.length > 0) {
-            dispatchThreadEvent(eventLines);
-            eventLines = [];
+        if (data.chunk) {
+          loadingItem.querySelector(".ask-searching-badge")?.remove();
+          if (contentWrap && !contentWrap.dataset.hasStreamedText) {
+            contentWrap.dataset.hasStreamedText = "true";
+            contentWrap.classList.add("ask-text-glide-in");
           }
+          reply += data.chunk;
+          renderReply();
         }
-      }
-
-      if (eventLines.length > 0) {
-        dispatchThreadEvent(eventLines);
-        eventLines = [];
-      }
+        if (data.done) {
+          reply = data.reply || reply;
+          renderReply();
+          if (data.groundingMetadata) {
+            const chips = renderAskSourceChips(data.groundingMetadata);
+            if (chips) loadingItem.querySelector(".ask-thread-msg-content")?.appendChild(chips);
+          }
+          rememberSavedAskChat(data.chat);
+        }
+      });
 
       if (!reply) throw new Error(isEn ? "AI returned an empty response." : "AI boş cavab qaytardı.");
       renderReply();
       thread.push({ role: "assistant", content: reply });
     } catch (err) {
+      if (controller.signal.aborted) return;
       loadingItem.classList.remove("is-thinking");
       const contentWrap = loadingItem.querySelector(".ask-thread-msg-content");
-      contentWrap.innerHTML = `<p class="ask-thread-error">${escapeHtml(err.message || (isEn ? "Unable to generate response." : "Cavab almaq mümkün olmadı."))}</p>`;
+      contentWrap.replaceChildren(element("p", "ask-thread-error", err.message || (isEn ? "Unable to generate response." : "Cavab almaq mümkün olmadı.")));
     } finally {
+      modalAskController = null;
+      modalSend.disabled = false;
       messagesBody.scrollTop = messagesBody.scrollHeight;
       modalInput.focus();
     }
@@ -8853,6 +8847,15 @@ async function startAssessment() {
   setStatus("analyzing");
   render();
   try {
+    clearTimeout(buildEstimateTimer);
+    const pendingEstimate = buildEstimateRequest;
+    if (pendingEstimate) {
+      const signal = currentAbortController.signal;
+      const cancel = () => pendingEstimate.controller.abort();
+      signal.addEventListener("abort", cancel, { once: true });
+      try { await pendingEstimate.promise; } finally { signal.removeEventListener("abort", cancel); }
+      signal.throwIfAborted();
+    }
     const data = await api("/api/strategy/assess", {
       method: "POST",
       signal: currentAbortController.signal,
@@ -8867,6 +8870,7 @@ async function startAssessment() {
     if (typeof data?.remainingGuestBriefs === "number") {
       state.remainingGuestBriefs = data.remainingGuestBriefs;
     }
+    updateBuildEstimate(data.preparationEstimate);
     const assessment = data.assessment;
     state.understanding = assessment.understanding;
     state.assumptions = assessment.assumptions || [];
@@ -9097,6 +9101,7 @@ async function startGeneration() {
                 throw streamErr;
               }
 
+              if (evt.preparationEstimate) updateBuildEstimate(evt.preparationEstimate);
               if (evt.chunk) {
                 state.buildStreamingText = (state.buildStreamingText || "") + evt.chunk;
               }
@@ -15992,304 +15997,6 @@ function renderLimitsView() {
   workspace.appendChild(view);
 }
 
-function renderAiHubView() {
-  const isEn = getLanguage() === "en";
-  workspace.classList.add("workspace-ai-hub");
-  workspace.replaceChildren();
-
-  const view = element("section", "ai-hub-view");
-
-  // Hero Section
-  const hero = element("header", "ai-hub-hero");
-
-  // Kicker pill
-  const pillBadge = element("div", "ai-hub-pill-badge");
-  const pillDot = element("span", "ai-hub-pill-dot");
-  const pillText = element("span", "ai-hub-pill-text", t("aiHub.kicker") || (isEn ? "Coming soon" : "Tezliklə"));
-  pillBadge.append(pillDot, pillText);
-
-  // Title
-  const title = element("h1", "ai-hub-title", t("aiHub.title") || (isEn ? "Helmer SI Hub" : "Helmer SI Hub"));
-
-  // Subtitle / Lead
-  const lead = element("p", "ai-hub-lead", t("aiHub.lead") || (isEn
-    ? "A next-generation AI playground is coming to Helmer."
-    : "Helmer-ə yeni süni intellekt playground mühiti gəlir."
-  ));
-
-  // Subtext with core thesis
-  const subtext = element("p", "ai-hub-subtext", t("aiHub.subtext") || (isEn
-    ? "Users will soon gain direct access to diverse advanced models with higher limits, initially featuring Google's cutting-edge models."
-    : "İstifadəçilər yaxında müxtəlif modellərə (ilkin mərhələdə Google modellərinə) yüksək limitlərlə çıxış əldə edəcək."
-  ));
-
-  // Tagline under subtext
-  const tagline = element("p", "ai-hub-tagline", t("aiHub.tagline") || (isEn
-    ? "Different use case. Same seamless Helmer experience."
-    : "Fərqli istifadə sahəsi. Eyni rəvan Helmer təcrübəsi."
-  ));
-
-  hero.append(pillBadge, title, lead, subtext, tagline);
-  view.appendChild(hero);
-
-  // Centerpiece: Input Bar (disabled / inactive preview)
-  const inputBarContainer = element("div", "ai-hub-input-bar-container");
-  const inputBar = element("div", "ai-hub-input-bar");
-
-  // Input Bar Header
-  const barHeader = element("div", "ai-hub-input-bar-header");
-
-  const modelSelector = element("div", "ai-hub-model-selector");
-  const modelSpark = document.createElement("span");
-  modelSpark.className = "ai-hub-model-spark";
-  modelSpark.innerHTML = `<svg width="16" height="16" aria-hidden="true" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 65 65"><mask id="ai_hub_gemini_mask" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="65" height="65"><path d="M32.447 0c.68 0 1.273.465 1.439 1.125a38.904 38.904 0 001.999 5.905c2.152 5 5.105 9.376 8.854 13.125 3.751 3.75 8.126 6.703 13.125 8.855a38.98 38.98 0 005.906 1.999c.66.166 1.124.758 1.124 1.438 0 .68-.464 1.273-1.125 1.439a38.902 38.902 0 00-5.905 1.999c-5 2.152-9.375 5.105-13.125 8.854-3.749 3.751-6.702 8.126-8.854 13.125a38.973 38.973 0 00-2 5.906 1.485 1.485 0 01-1.438 1.124c-.68 0-1.272-.464-1.438-1.125a38.913 38.913 0 00-2-5.905c-2.151-5-5.103-9.375-8.854-13.125-3.75-3.749-8.125-6.702-13.125-8.854a38.973 38.973 0 00-5.905-2A1.485 1.485 0 010 32.448c0-.68.465-1.272 1.125-1.438a38.903 38.903 0 005.905-2c5-2.151 9.376-5.104 13.125-8.854 3.75-3.749 6.703-8.125 8.855-13.125a38.972 38.972 0 001.999-5.905A1.485 1.485 0 0132.447 0z" fill="#000"/><path d="M32.447 0c.68 0 1.273.465 1.439 1.125a38.904 38.904 0 001.999 5.905c2.152 5 5.105 9.376 8.854 13.125 3.751 3.75 8.126 6.703 13.125 8.855a38.98 38.98 0 005.906 1.999c.66.166 1.124.758 1.124 1.438 0 .68-.464 1.273-1.125 1.439a38.902 38.902 0 00-5.905 1.999c-5 2.152-9.375 5.105-13.125 8.854-3.749 3.751-6.702 8.126-8.854 13.125a38.973 38.973 0 00-2 5.906 1.485 1.485 0 01-1.438 1.124c-.68 0-1.272-.464-1.438-1.125a38.913 38.913 0 00-2-5.905c-2.151-5-5.103-9.375-8.854-13.125-3.75-3.749-8.125-6.702-13.125-8.854a38.973 38.973 0 00-5.905-2A1.485 1.485 0 010 32.448c0-.68.465-1.272 1.125-1.438a38.903 38.903 0 005.905-2c5-2.151 9.376-5.104 13.125-8.854 3.75-3.749 6.703-8.125 8.855-13.125a38.972 38.972 0 001.999-5.905A1.485 1.485 0 0132.447 0z" fill="url(#ai_hub_gemini_lg)"/></mask><g mask="url(#ai_hub_gemini_mask)"><g filter="url(#ai_hub_gf0_f_2001_67)"><path d="M-5.859 50.734c7.498 2.663 16.116-2.33 19.249-11.152 3.133-8.821-.406-18.131-7.904-20.794-7.498-2.663-16.116 2.33-19.25 11.151-3.132 8.822.407 18.132 7.905 20.795z" fill="#FFE432"/></g><g filter="url(#ai_hub_gf1_f_2001_67)"><path d="M27.433 21.649c10.3 0 18.651-8.535 18.651-19.062 0-10.528-8.35-19.062-18.651-19.062S8.78-7.94 8.78 2.587c0 10.527 8.35 19.062 18.652 19.062z" fill="#FC413D"/></g><g filter="url(#ai_hub_gf2_f_2001_67)"><path d="M20.184 82.608c10.753-.525 18.918-12.244 18.237-26.174-.68-13.93-9.95-24.797-20.703-24.271C6.965 32.689-1.2 44.407-.519 58.337c.681 13.93 9.95 24.797 20.703 24.271z" fill="#00B95C"/></g><g filter="url(#ai_hub_gf3_f_2001_67)"><path d="M20.184 82.608c10.753-.525 18.918-12.244 18.237-26.174-.68-13.93-9.95-24.797-20.703-24.271C6.965 32.689-1.2 44.407-.519 58.337c.681 13.93 9.95 24.797 20.703 24.271z" fill="#00B95C"/></g><g filter="url(#ai_hub_gf4_f_2001_67)"><path d="M30.954 74.181c9.014-5.485 11.427-17.976 5.389-27.9-6.038-9.925-18.241-13.524-27.256-8.04-9.015 5.486-11.428 17.977-5.39 27.902 6.04 9.924 18.242 13.523 27.257 8.038z" fill="#00B95C"/></g><g filter="url(#ai_hub_gf5_f_2001_67)"><path d="M67.391 42.993c10.132 0 18.346-7.91 18.346-17.666 0-9.757-8.214-17.667-18.346-17.667s-18.346 7.91-18.346 17.667c0 9.757 8.214 17.666 18.346 17.666z" fill="#3186FF"/></g><g filter="url(#ai_hub_gf6_f_2001_67)"><path d="M-13.065 40.944c9.33 7.094 22.959 4.869 30.442-4.972 7.483-9.84 5.987-23.569-3.343-30.663C4.704-1.786-8.924.439-16.408 10.28c-7.483 9.84-5.986 23.57 3.343 30.664z" fill="#FBBC04"/></g><g filter="url(#ai_hub_gf7_f_2001_67)"><path d="M34.74 51.43c11.135 7.656 25.896 5.524 32.968-4.764 7.073-10.287 3.779-24.832-7.357-32.488C49.215 6.52 34.455 8.654 27.382 18.94c-7.072 10.288-3.779 24.833 7.357 32.49z" fill="#3186FF"/></g><g filter="url(#ai_hub_gf8_f_2001_67)"><path d="M54.984-2.336c2.833 3.852-.808 11.34-8.131 16.727-7.324 5.387-15.557 6.631-18.39 2.78-2.833-3.853.807-11.342 8.13-16.728 7.324-5.387 15.558-6.631 18.39-2.78z" fill="#749BFF"/></g><g filter="url(#ai_hub_gf9_f_2001_67)"><path d="M31.727 16.104C43.053 5.598 46.94-8.626 40.41-15.666c-6.53-7.04-21.006-4.232-32.332 6.274s-15.214 24.73-8.683 31.77c6.53 7.04 21.006 4.232 32.332-6.274z" fill="#FC413D"/></g><g filter="url(#ai_hub_gf10_f_2001_67)"><path d="M8.51 53.838c6.732 4.818 14.46 5.55 17.262 1.636 2.802-3.915-.384-10.994-7.116-15.812-6.731-4.818-14.46-5.55-17.261-1.636-2.802 3.915.383 10.994 7.115 15.812z" fill="#FFEE48"/></g></g><defs><filter id="ai_hub_gf0_f_2001_67" x="-19.824" y="13.152" width="39.274" height="43.217" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="2.46" result="effect1_foregroundBlur_2001_67"/></filter><filter id="ai_hub_gf1_f_2001_67" x="-15.001" y="-40.257" width="84.868" height="85.688" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="11.891" result="effect1_foregroundBlur_2001_67"/></filter><filter id="ai_hub_gf2_f_2001_67" x="-20.776" y="11.927" width="79.454" height="90.916" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="10.109" result="effect1_foregroundBlur_2001_67"/></filter><filter id="ai_hub_gf3_f_2001_67" x="-20.776" y="11.927" width="79.454" height="90.916" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="10.109" result="effect1_foregroundBlur_2001_67"/></filter><filter id="ai_hub_gf4_f_2001_67" x="-19.845" y="15.459" width="79.731" height="81.505" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="10.109" result="effect1_foregroundBlur_2001_67"/></filter><filter id="ai_hub_gf5_f_2001_67" x="29.832" y="-11.552" width="75.117" height="73.758" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="9.606" result="effect1_foregroundBlur_2001_67"/></filter><filter id="ai_hub_gf6_f_2001_67" x="-38.583" y="-16.253" width="78.135" height="78.758" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="8.706" result="effect1_foregroundBlur_2001_67"/></filter><filter id="ai_hub_gf7_f_2001_67" x="8.107" y="-5.966" width="78.877" height="77.539" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="7.775" result="effect1_foregroundBlur_2001_67"/></filter><filter id="ai_hub_gf8_f_2001_67" x="13.587" y="-18.488" width="56.272" height="51.81" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="6.957" result="effect1_foregroundBlur_2001_67"/></filter><filter id="ai_hub_gf9_f_2001_67" x="-15.526" y="-31.297" width="70.856" height="69.306" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="5.876" result="effect1_foregroundBlur_2001_67"/></filter><filter id="ai_hub_gf10_f_2001_67" x="-14.168" y="20.964" width="55.501" height="51.571" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur stdDeviation="7.273" result="effect1_foregroundBlur_2001_67"/></filter><linearGradient id="ai_hub_gemini_lg" x1="18.447" y1="43.42" x2="52.153" y2="15.004" gradientUnits="userSpaceOnUse"><stop stop-color="#4893FC"/><stop offset=".27" stop-color="#4893FC"/><stop offset=".777" stop-color="#969DFF"/><stop offset="1" stop-color="#BD99FE"/></linearGradient></defs></svg>`;
-  const modelName = element("span", "ai-hub-model-name", t("aiHub.modelName") || "Gemini 4 Argon");
-  const modelChevron = document.createElement("span");
-  modelChevron.className = "ai-hub-model-chevron";
-  modelChevron.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
-
-  modelSelector.append(modelSpark, modelName, modelChevron);
-
-  const previewBadge = element("span", "ai-hub-preview-badge", t("aiHub.previewBadge") || (isEn ? "Playground Preview" : "Playground Önizləmə"));
-
-  barHeader.append(modelSelector, previewBadge);
-
-  // Textarea Wrap (disabled)
-  const textareaWrap = element("div", "ai-hub-textarea-wrap");
-  const textarea = document.createElement("textarea");
-  textarea.className = "ai-hub-disabled-input";
-  textarea.placeholder = t("aiHub.inputPlaceholder") || (isEn
-    ? "Helmer SI Hub playground is coming soon... You will be able to select models and prompt freely with higher limits."
-    : "Helmer SI Hub playground-u tezliklə aktiv olacaq... Modelləri seçib yüksək limitlərlə sərbəst prompt yaza biləcəksiniz."
-  );
-  textarea.disabled = true;
-  textarea.readOnly = true;
-  textarea.setAttribute("tabindex", "-1");
-  textarea.setAttribute("aria-disabled", "true");
-  textareaWrap.appendChild(textarea);
-
-  // Footer inside input bar
-  const barFooter = element("div", "ai-hub-input-bar-footer");
-
-  const chipsWrap = element("div", "ai-hub-chips-wrap");
-
-  const chip1 = element("div", "ai-hub-chip");
-  const chip1Icon = document.createElement("span");
-  chip1Icon.className = "ai-hub-chip-icon";
-  chip1Icon.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
-  const chip1Text = element("span", "ai-hub-chip-text", t("aiHub.chipLimits") || (isEn ? "Higher Limits" : "Yüksək Limitlər"));
-  chip1.append(chip1Icon, chip1Text);
-
-  const chip2 = element("div", "ai-hub-chip");
-  const chip2Icon = document.createElement("span");
-  chip2Icon.className = "ai-hub-chip-icon";
-  chip2Icon.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>`;
-  const chip2Text = element("span", "ai-hub-chip-text", t("aiHub.chipPlayground") || (isEn ? "Interactive Playground" : "İnteraktiv Playground"));
-  chip2.append(chip2Icon, chip2Text);
-
-  const chip3 = element("div", "ai-hub-chip");
-  const chip3Icon = document.createElement("span");
-  chip3Icon.className = "ai-hub-chip-icon";
-  chip3Icon.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`;
-  const chip3Text = element("span", "ai-hub-chip-text", t("aiHub.chipModels") || t("aiHub.chipGoogle") || (isEn ? "Diverse Models" : "Müxtəlif modellər"));
-  chip3.append(chip3Icon, chip3Text);
-
-  chipsWrap.append(chip1, chip2, chip3);
-
-  const sendBtn = document.createElement("button");
-  sendBtn.type = "button";
-  sendBtn.className = "ai-hub-disabled-send-btn";
-  sendBtn.disabled = true;
-  sendBtn.setAttribute("aria-disabled", "true");
-  sendBtn.setAttribute("aria-label", t("aiHub.sendTooltip") || (isEn ? "Coming soon" : "Tezliklə aktiv olacaq"));
-  sendBtn.setAttribute("title", t("aiHub.sendTooltip") || (isEn ? "Coming soon" : "Tezliklə aktiv olacaq"));
-  sendBtn.innerHTML = `
-    <span class="ai-hub-send-text">${escapeHtml(t("aiHub.promptAction") || (isEn ? "Prompt" : "Sorğu"))}</span>
-    <span class="ai-hub-send-icon-wrap" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="22" y1="2" x2="11" y2="13"/>
-        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-      </svg>
-    </span>
-  `;
-
-  barFooter.append(chipsWrap, sendBtn);
-  inputBar.append(barHeader, textareaWrap, barFooter);
-  inputBarContainer.appendChild(inputBar);
-
-  // Notice banner
-  const noticeBanner = element("div", "ai-hub-notice-banner");
-  const noticeIcon = document.createElement("span");
-  noticeIcon.className = "ai-hub-notice-icon";
-  noticeIcon.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/></svg>`;
-  const noticeText = element("span", "ai-hub-notice-text", t("aiHub.noticeBanner") || (isEn
-    ? "Helmer SI Hub is currently under active development and will be unlocked for all Helmer users soon."
-    : "Helmer SI Hub hazırda hazırlanır və yaxında bütün istifadəçilərin ixtiyarına veriləcək."
-  ));
-  noticeBanner.append(noticeIcon, noticeText);
-  inputBarContainer.appendChild(noticeBanner);
-
-  view.appendChild(inputBarContainer);
-
-  // Thesis Highlights Cards Grid
-  const grid = element("div", "ai-hub-cards-grid");
-
-  const CARDS = [
-    {
-      iconSvg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>`,
-      title: t("aiHub.cardPlaygroundTitle") || (isEn ? "Playground Environment" : "Playground Mühiti"),
-      desc: t("aiHub.cardPlaygroundDesc") || (isEn
-        ? "Helmer is getting a dedicated AI playground. A seamless space to experiment with prompts, test scenarios, and evaluate model completions directly."
-        : "Helmer-ə tam interaktiv playground mühiti gəlir. Modelləri sərbəst sınaqdan keçirmək, fərqli sorğular vermək və nəticələri anında müqayisə etmək mümkün olacaq."
-      )
-    },
-    {
-      iconSvg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
-      title: t("aiHub.cardModelsTitle") || (isEn ? "Access to Diverse Models" : "Müxtəlif Modellərə Çıxış"),
-      desc: t("aiHub.cardModelsDesc") || (isEn
-        ? "Users will soon gain unified access to multiple leading AI architectures and model tiers from one intuitive platform."
-        : "İstifadəçilər tək bir platformadan müxtəlif aparıcı süni intellekt modellərinə birbaşa çıxış əldə edəcək."
-      )
-    },
-    {
-      iconSvg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>`,
-      title: t("aiHub.cardGoogleTitle") || (isEn ? "Initially Google Models" : "İlkin Mərhələdə Google Modelləri"),
-      desc: t("aiHub.cardGoogleDesc") || (isEn
-        ? "In the initial launch, Google's flagship models will be prioritized, offering deep contextual understanding, reasoning speed, and multimodal excellence."
-        : "İlkin mərhələdə Google-un ən qabaqcıl modelləri istifadəyə veriləcək; dərin analitika, zəngin kontekst və sürətli cavablandırma təmin olunacaq."
-      )
-    },
-    {
-      iconSvg: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
-      title: t("aiHub.cardLimitsTitle") || (isEn ? "Higher Limits & High Velocity" : "Yüksək Limitlər"),
-      desc: t("aiHub.cardLimitsDesc") || (isEn
-        ? "Uninterrupted productivity with elevated, dependable rate limits designed for extensive testing, prototyping, and daily strategic tasks."
-        : "İşinizin və sınaqlarınızın fasiləsiz davam etməsi üçün yüksək və dayanıqlı resurs limitləri təqdim olunacaq."
-      )
-    }
-  ];
-
-  CARDS.forEach((cardData) => {
-    const card = element("div", "ai-hub-card");
-    const iconWrap = element("div", "ai-hub-card-icon");
-    iconWrap.innerHTML = cardData.iconSvg;
-    const cardTitle = element("h3", "ai-hub-card-title", cardData.title);
-    const cardDesc = element("p", "ai-hub-card-desc", cardData.desc);
-    card.append(iconWrap, cardTitle, cardDesc);
-    grid.appendChild(card);
-  });
-
-  view.appendChild(grid);
-
-  // FAQ Collapsible Card (minimalist, compact, collapsed by default)
-  const faqCard = document.createElement("details");
-  faqCard.className = "ai-hub-faq-card";
-
-  const faqSummary = document.createElement("summary");
-  faqSummary.className = "ai-hub-faq-summary";
-
-  const faqSummaryLeft = element("div", "ai-hub-faq-summary-left");
-  const faqIcon = document.createElement("span");
-  faqIcon.className = "ai-hub-faq-icon";
-  faqIcon.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-
-  const faqTitle = element("span", "ai-hub-faq-title", t("aiHub.faqTitle") || (isEn ? "Frequently Asked Questions" : "Tez-tez verilən suallar"));
-  const faqBadge = element("span", "ai-hub-faq-badge", t("aiHub.faqBadge") || (isEn ? "6 questions" : "6 sual"));
-  faqSummaryLeft.append(faqIcon, faqTitle, faqBadge);
-
-  const faqChevron = document.createElement("span");
-  faqChevron.className = "ai-hub-faq-chevron";
-  faqChevron.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
-
-  faqSummary.append(faqSummaryLeft, faqChevron);
-  faqCard.appendChild(faqSummary);
-
-  const faqBody = element("div", "ai-hub-faq-body");
-
-  const FAQ_ITEMS = [
-    {
-      q: t("aiHub.faqQ1") || (isEn ? "Will limits apply?" : "Limit tətbiq ediləcək?"),
-      a: t("aiHub.faqA1") || (isEn
-        ? "To be frank: yes, because advanced (especially flagship) models require substantial compute resources, but in the initial phase limits will be kept very generous, and moving forward we will consistently maintain a fair balance."
-        : "Dürüst olaq: bəli, çünki bu (xüsusilə flaqman modellər) ciddi xərc tələb edir, lakin ilkin mərhələdə ciddi şəkildə aşağı olacaq, sonradan isə balansı daim qoruyacağıq."
-      )
-    },
-    {
-      q: t("aiHub.faqQ2") || (isEn ? "Will multimodal models be available?" : "Multimodal modellər əlçatan olacaq?"),
-      a: t("aiHub.faqA2") || (isEn
-        ? "Yes, they will be, but the initial phase is focused exclusively on text and reasoning-based model integrations."
-        : "Bəli, olacaq, amma ilkin mərhələdə yalnız mətn əsaslı modellərin inteqrasiyası nəzərdə tutulub."
-      )
-    },
-    {
-      q: t("aiHub.faqQ3") || (isEn ? "When will Helmer SI Hub be released?" : "Helmer SI Hub nə vaxt istifadəyə veriləcək?"),
-      a: t("aiHub.faqA3") || (isEn
-        ? "Infrastructure and integration testing are currently underway. It will be rolled out gradually to all Helmer users in the coming weeks."
-        : "Hazırda infrastruktur və inteqrasiya testləri aparılır. Çox yaxın həftələrdə bütün Helmer istifadəçiləri üçün mərhələli şəkildə aktivləşdiriləcək."
-      )
-    },
-    {
-      q: t("aiHub.faqQ4") || (isEn ? "Which providers' models will be supported?" : "Hansı provayderlərin modelləri olacaq?"),
-      a: t("aiHub.faqA4") || (isEn
-        ? "Google's flagship models (Gemini family) will be featured first. Subsequent phases will introduce additional leading foundation models from other top providers."
-        : "İlk olaraq Google-un ən son flaqman modelləri (Gemini ailəsi) təqdim olunacaq. Növbəti mərhələlərdə digər qabaqcıl provayderlərin modellərinin də əlavə olunması planlaşdırılır."
-      )
-    },
-    {
-      q: t("aiHub.faqQ5") || (isEn ? "Will the playground require a separate subscription or fee?" : "Playground üçün ayrıca abunəlik və ya ödəniş tələb olunacaq?"),
-      a: t("aiHub.faqA5") || (isEn
-        ? "No, during the initial launch phase Helmer users will be able to access the playground directly from their existing accounts without extra charges."
-        : "Xeyr, ilkin buraxılış mərhələsində Helmer istifadəçiləri mövcud hesabları ilə Playground-dan birbaşa və əlavə ödənişsiz yararlana biləcəklər."
-      )
-    },
-    {
-      q: t("aiHub.faqQ6") || (isEn ? "Why SI instead of AI?" : "Niyə AI yox, SI?"),
-      a: t("aiHub.faqA6") || (isEn ? "Because we are here in pursuit of excellence! Don't think it's a manifesto 😉" : "Çünki mükəmməl olmaq uğrunda buradayıq! Elə bilmə ki, manifestdi 😉")
-    }
-  ];
-
-  FAQ_ITEMS.forEach((item) => {
-    const itemEl = element("div", "ai-hub-faq-item");
-    const qWrap = element("div", "ai-hub-faq-item-q-wrap");
-    const qDot = element("span", "ai-hub-faq-item-dot");
-    const qText = element("h4", "ai-hub-faq-item-question", item.q);
-    qWrap.append(qDot, qText);
-
-    const aWrap = element("div", "ai-hub-faq-item-answer");
-    const aText = element("p", "ai-hub-faq-item-answer-text", item.a);
-    aWrap.appendChild(aText);
-
-    if (item.note) {
-      const noteEl = element("p", "ai-hub-faq-item-note", item.note);
-      aWrap.appendChild(noteEl);
-    }
-
-    if (item.link) {
-      const linkWrap = element("p", "ai-hub-faq-item-link-wrap");
-      const aLink = document.createElement("a");
-      aLink.className = "ai-hub-faq-link";
-      aLink.href = item.link.url;
-      aLink.target = "_blank";
-      aLink.rel = "noopener noreferrer";
-      aLink.textContent = item.link.label || item.link.url;
-
-      const linkIcon = document.createElement("span");
-      linkIcon.className = "ai-hub-faq-link-icon";
-      linkIcon.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
-      aLink.appendChild(linkIcon);
-      linkWrap.appendChild(aLink);
-      aWrap.appendChild(linkWrap);
-    }
-
-    itemEl.append(qWrap, aWrap);
-    faqBody.appendChild(itemEl);
-  });
-
-  faqCard.appendChild(faqBody);
-  view.appendChild(faqCard);
-  workspace.appendChild(view);
-}
-
 const LEGAL_DOCS = new Proxy({}, {
   get(target, prop) {
     const lang = getLanguage();
@@ -17689,16 +17396,6 @@ railStrategiesButton.addEventListener("click", () => {
 });
 for (const id of ["upNav", "railUpButton"]) document.getElementById(id)?.addEventListener("click", () => {
   state.view = "up";
-  render();
-  closeSidebar();
-  workspace.focus();
-});
-for (const id of ["aiHubNav", "railAiHubButton"]) document.getElementById(id)?.addEventListener("click", () => {
-  if (state.view !== "aiHub") {
-    state.previousView = state.view;
-  }
-  state.view = "aiHub";
-  syncNav();
   render();
   closeSidebar();
   workspace.focus();

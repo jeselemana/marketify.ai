@@ -17,6 +17,7 @@ export const aiConfig = Object.freeze({
   askGeminiModel: "gemini-3.8-flash",
   geminiMaxOutputTokens: positiveInteger(process.env.GEMINI_MAX_OUTPUT_TOKENS, 65536),
   askMaxOutputTokens: positiveInteger(process.env.ASK_MAX_OUTPUT_TOKENS, 8192),
+  askSearchTimeoutMs: positiveInteger(process.env.ASK_SEARCH_TIMEOUT_MS, 18000),
   maxClarificationRounds: Number.parseInt(process.env.MAX_CLARIFICATION_ROUNDS || "2", 10),
   assessmentMaxOutputTokens: 6144,
   strategyMaxOutputTokens: 24576,

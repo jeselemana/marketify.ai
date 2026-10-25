@@ -1,3 +1,5 @@
+import { installBuildRoutingFixture } from "./helpers/build-routing-fixture.js";
+installBuildRoutingFixture();
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -44,11 +46,7 @@ function createSampleStrategy(title = "Initial Test Strategy") {
     ],
     assumptions: ["Stable market conditions"],
     nextSteps: ["1. Review campaign performance daily."],
-    orchestration: {
-      models: ["gemini-3.8-flash"],
-      searchGrounded: false,
-      sources: [],
-    },
+
   };
 }
 
@@ -113,7 +111,7 @@ test("SUITE 1.1: Concurrent rapid POST /refine requests with same idempotencyKey
     // Simulate non-trivial LLM latency to guarantee concurrent overlap
     await new Promise((resolve) => setTimeout(resolve, 80));
     return {
-      text: JSON.stringify(createSampleStrategy("Refined Concurrently")),
+      candidates: [{ finishReason: "STOP" }], text: JSON.stringify(createSampleStrategy("Refined Concurrently")),
       usageMetadata: { totalTokenCount: 150 },
     };
   };
@@ -201,7 +199,7 @@ test("SUITE 1.2: Multi-tenant isolation on POST /refine: Identical idempotencyKe
   geminiClient.models.generateContent = async () => {
     modelCallCount++;
     return {
-      text: JSON.stringify(createSampleStrategy(`Refined Tenant Call ${modelCallCount}`)),
+      candidates: [{ finishReason: "STOP" }], text: JSON.stringify(createSampleStrategy(`Refined Tenant Call ${modelCallCount}`)),
       usageMetadata: { totalTokenCount: 120 },
     };
   };
@@ -279,7 +277,7 @@ test("SUITE 2.1: Concurrent rapid POST /:id/refine requests execute model call o
     // Add latency to guarantee concurrent in-flight overlap
     await new Promise((resolve) => setTimeout(resolve, 80));
     return {
-      text: JSON.stringify(createSampleStrategy("Refined Strategy V2")),
+      candidates: [{ finishReason: "STOP" }], text: JSON.stringify(createSampleStrategy("Refined Strategy V2")),
       usageMetadata: { totalTokenCount: 180 },
     };
   };
@@ -425,7 +423,7 @@ test("SUITE 3.1: Client socket disconnect during POST /refine triggers AbortCont
     // Hang until aborted
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        resolve({ text: JSON.stringify(createSampleStrategy("Should not complete")) });
+        resolve({ candidates: [{ finishReason: "STOP" }], text: JSON.stringify(createSampleStrategy("Should not complete")) });
       }, 5000);
 
       signal?.addEventListener("abort", () => {
@@ -496,7 +494,7 @@ test("SUITE 3.1: Client socket disconnect during POST /refine triggers AbortCont
     // 3. activeRefinements cleanup: key must not be stuck
     // Subsequent request with the same key must be permitted to run
     geminiClient.models.generateContent = async () => ({
-      text: JSON.stringify(createSampleStrategy("Retry Succeeded")),
+      candidates: [{ finishReason: "STOP" }], text: JSON.stringify(createSampleStrategy("Retry Succeeded")),
       usageMetadata: { totalTokenCount: 100 },
     });
 
@@ -560,7 +558,7 @@ test("SUITE 3.2: Client socket disconnect during POST /:id/refine aborts model c
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        resolve({ text: JSON.stringify(createSampleStrategy("Aborted Strategy That Shouldn't Save")) });
+        resolve({ candidates: [{ finishReason: "STOP" }], text: JSON.stringify(createSampleStrategy("Aborted Strategy That Shouldn't Save")) });
       }, 5000);
 
       signal?.addEventListener("abort", () => {
@@ -640,7 +638,8 @@ test("SUITE 4.1: Real HTTP server under concurrent fetch() load deduplicates /re
   const OWNER_ID = `usr_http_${randomUUID()}`;
   app.use((req, _res, next) => {
     req.ownerId = OWNER_ID;
-    req.user = { id: OWNER_ID, settings: { language: "en" } };
+    req.user = { id: OWNER_ID, emailVerifiedAt: "now", settings: { language: "en" } };
+    req.auth = { user: req.user };
     next();
   });
 
@@ -658,7 +657,7 @@ test("SUITE 4.1: Real HTTP server under concurrent fetch() load deduplicates /re
     modelCalls++;
     await new Promise((r) => setTimeout(r, 100));
     return {
-      text: JSON.stringify(createSampleStrategy("HTTP Refined")),
+      candidates: [{ finishReason: "STOP" }], text: JSON.stringify(createSampleStrategy("HTTP Refined")),
       usageMetadata: { totalTokenCount: 140 },
     };
   };
@@ -678,7 +677,7 @@ test("SUITE 4.1: Real HTTP server under concurrent fetch() load deduplicates /re
       Array.from({ length: 8 }, () =>
         fetch(`${baseUrl}/refine`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Idempotency-Key": IDEMPOTENCY_KEY },
           body: JSON.stringify(payload),
         }),
       ),
@@ -686,10 +685,11 @@ test("SUITE 4.1: Real HTTP server under concurrent fetch() load deduplicates /re
 
     assert.equal(modelCalls, 1, "Model must be called exactly once across 8 real HTTP requests");
 
+    assert.equal(responses.filter(r => r.status === 200).length, 1);
     for (const r of responses) {
-      assert.equal(r.status, 200);
       const data = await r.json();
-      assert.equal(data?.strategy?.title, "HTTP Refined");
+      if (r.status === 200) assert.equal(data?.strategy?.title, "HTTP Refined");
+      else { assert.equal(r.status, 429); assert.equal(data.code, "EXECUTION_BUSY"); }
     }
   } finally {
     geminiClient.models.generateContent = originalGenerateContent;
@@ -704,12 +704,7 @@ test("SUITE 4.1: Real HTTP server under concurrent fetch() load deduplicates /re
 // ============================================================================
 
 test("SUITE 5.1: sanitizeGroundingMetadata strictly rejects adversarial protocols and malformed URLs", async () => {
-  // Dynamically extract the exact sanitizeGroundingMetadata function from server.js
-  const serverCode = await fs.readFile(path.join(process.cwd(), "server.js"), "utf8");
-  const match = serverCode.match(/function sanitizeGroundingMetadata\([\s\S]*?\n\}/);
-  assert.ok(match, "sanitizeGroundingMetadata must exist in server.js");
-  const { isLowQualityDomain } = await import('../src/services/ai/research-service.js');
-  const sanitizeGroundingMetadata = new Function('isLowQualityDomain', `${match[0]}; return sanitizeGroundingMetadata;`)(isLowQualityDomain);
+  const { sanitizeAskGroundingMetadata: sanitizeGroundingMetadata } = await import('../src/services/ai/ask-grounding.js');
 
   const adversarialInputs = [
     // XSS and script execution vectors
@@ -799,8 +794,8 @@ test("SUITE 5.1: sanitizeGroundingMetadata strictly rejects adversarial protocol
 
   // 3. Null/undefined/empty metadata handling
   assert.equal(sanitizeGroundingMetadata(null), null);
-  assert.equal(sanitizeGroundingMetadata(undefined), undefined);
-  assert.deepEqual(sanitizeGroundingMetadata({}), {});
+  assert.equal(sanitizeGroundingMetadata(undefined), null);
+  assert.deepEqual(sanitizeGroundingMetadata({}), { groundingChunks: [], webSearchQueries: [], searchSuggestions: [] });
 });
 
 test("SUITE 5.2: extractGroundingSources strictly admits only http/https and deduplicates URLs", () => {

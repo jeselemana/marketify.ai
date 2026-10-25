@@ -4,21 +4,21 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { t, TRANSLATIONS } from "../public/i18n.js";
 
-test("index.html: installAppNav is placed immediately after aiHubNav in sidebar navigation", async () => {
+test("index.html: installAppNav is placed immediately after upNav in sidebar navigation", async () => {
   const indexHtml = await fs.readFile(path.join(process.cwd(), "public/index.html"), "utf8");
 
   assert.ok(indexHtml.includes('id="installAppNav"'), "installAppNav element exists");
-  assert.ok(indexHtml.includes('id="aiHubNav"'), "aiHubNav element exists");
+  assert.ok(indexHtml.includes('id="upNav"'), "upNav element exists");
 
-  const aiHubIndex = indexHtml.indexOf('id="aiHubNav"');
+  const upIndex = indexHtml.indexOf('id="upNav"');
   const installIndex = indexHtml.indexOf('id="installAppNav"');
   const whatsNewIndex = indexHtml.indexOf('id="whatsNewNav"');
 
-  assert.ok(aiHubIndex !== -1, "aiHubNav found");
+  assert.ok(upIndex !== -1, "upNav found");
   assert.ok(installIndex !== -1, "installAppNav found");
   assert.ok(whatsNewIndex !== -1, "whatsNewNav found");
-  assert.ok(aiHubIndex < installIndex, "aiHubNav precedes installAppNav");
-  assert.ok(installIndex < whatsNewIndex, "installAppNav precedes whatsNewNav (directly under AI Hub)");
+  assert.ok(upIndex < installIndex, "upNav precedes installAppNav");
+  assert.ok(installIndex < whatsNewIndex, "installAppNav precedes whatsNewNav (after Helmer UP)");
   assert.ok(!indexHtml.includes('id="settingsNav"'), "settingsNav removed from primary navigation");
 
   assert.ok(indexHtml.includes("Tətbiqi yüklə"), "installAppNav contains Azerbaijani default text 'Tətbiqi yüklə'");
