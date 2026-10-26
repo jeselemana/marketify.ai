@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { hashOpaqueToken } from "../auth/password.js";
-import { GUEST_COOKIE, parseCookies, verifyGuestCookie } from "./session.js";
+import { GUEST_COOKIE, clearGuestCookie, parseCookies, verifyGuestCookie } from "./session.js";
 
-export { GUEST_COOKIE, parseCookies };
+export { GUEST_COOKIE, clearGuestCookie, parseCookies };
 export const SESSION_COOKIE = "helmer_session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
@@ -34,7 +34,7 @@ export function createIdentityMiddleware({ authStore, userRepository }) {
       const canPreloadStore = typeof userRepository?.readStore === "function";
       const [session, preloadedStore] = await Promise.all([
         authStore.getSession(sessionId),
-        canPreloadStore ? userRepository.readStore().catch(() => null) : Promise.resolve(null),
+        canPreloadStore ? userRepository.readStore({ force: true }).catch(() => null) : Promise.resolve(null),
       ]);
       if (!session) {
         clearSessionCookie(req, res);
@@ -43,7 +43,11 @@ export function createIdentityMiddleware({ authStore, userRepository }) {
       let user = Array.isArray(preloadedStore?.users)
         ? (preloadedStore.users.find((item) => item.id === session.userId) || null)
         : await userRepository.findById(session.userId);
-      if (!user && typeof userRepository.syncFromR2 === "function") {
+      const needsCloudRevalidation = Boolean(
+        !user ||
+        (userRepository?.cloud && (session.authVersion !== (user.authVersion || 1) || !user.emailVerifiedAt))
+      );
+      if (needsCloudRevalidation && typeof userRepository.syncFromR2 === "function") {
         await userRepository.syncFromR2(true).catch(() => {});
         user = await userRepository.findById(session.userId);
       }

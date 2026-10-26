@@ -65,6 +65,15 @@ export function verifyGuestCookie(cookieValue, secret = resolveGuestSecret()) {
   return null;
 }
 
+export function clearGuestCookie(req, res) {
+  const forwardedProtocol = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const secure = process.env.NODE_ENV === "production" || req.secure || forwardedProtocol === "https";
+  res.append(
+    "Set-Cookie",
+    `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure ? "; Secure" : ""}`,
+  );
+}
+
 export function guestSession(req, res, next) {
   const cookies = parseCookies(req.headers.cookie);
   const rawCookie = cookies[COOKIE_NAME];

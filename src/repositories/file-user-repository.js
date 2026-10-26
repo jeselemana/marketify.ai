@@ -52,11 +52,11 @@ export class FileUserRepository {
     return this.lockManager.runInLock(this.lockKey, operation);
   }
 
-  async syncFromR2() {
-    if (this.syncPromise) return this.syncPromise;
+  async syncFromR2(force = false) {
+    if (this.syncPromise && !force) return this.syncPromise;
     this.syncPromise = this.withLock(async () => {
       // R2 is authoritative, including an empty store or deleted cloud object.
-      const { store } = await this.readAuthoritativeStore();
+      const { store } = await this.readAuthoritativeStore({ force: Boolean(force) });
       await writeJsonAtomically(this.filePath, store);
       this.cache = store;
       this.lastR2Sync = Date.now();
@@ -68,10 +68,10 @@ export class FileUserRepository {
     finally { this.syncPromise = null; }
   }
 
-  async readAuthoritativeStore() {
+  async readAuthoritativeStore({ force = false } = {}) {
     if (this.cloud) {
       try {
-        const { record, etag, notFound } = await this.readCloud();
+        const { record, etag, notFound } = await this.readCloud({ force });
         if (record && !Array.isArray(record) && Array.isArray(record.users)) {
           const store = migrateAuthUserStore(record);
           this.cache = store;
@@ -110,11 +110,11 @@ export class FileUserRepository {
     }
   }
 
-  async readStore() {
-    let pending = this.cloud ? this.inFlightStoreRead : null;
+  async readStore({ force = false } = {}) {
+    let pending = (this.cloud && !force) ? this.inFlightStoreRead : null;
     if (!pending) {
-      pending = this.readAuthoritativeStore();
-      if (this.cloud) {
+      pending = this.readAuthoritativeStore({ force: Boolean(force) });
+      if (this.cloud && !force) {
         this.inFlightStoreRead = pending;
         const clear = () => { if (this.inFlightStoreRead === pending) this.inFlightStoreRead = null; };
         pending.then(clear, clear);
@@ -128,7 +128,7 @@ export class FileUserRepository {
 
   async writeStore(store) {
     return this.withLock(async () => {
-      const { etag } = await this.readAuthoritativeStore();
+      const { etag } = await this.readAuthoritativeStore({ force: true });
       if (!await this.commitStore(store, etag)) {
         const error = new Error("User storage concurrency conflict.");
         error.code = "STORAGE_BUSY";
@@ -171,7 +171,7 @@ export class FileUserRepository {
       const maxAttempts = isCloud ? 10 : 1;
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const { store, etag } = await this.readAuthoritativeStore();
+        const { store, etag } = await this.readAuthoritativeStore({ force: true });
         const storeCopy = JSON.parse(JSON.stringify(store));
 
         const mutatorOutput = await mutator(storeCopy);
@@ -216,6 +216,13 @@ export class FileUserRepository {
     if (!normalized) return null;
     const { users } = await this.readStore();
     return users.find((user) => normalizeEmail(user.email) === normalized) || null;
+  }
+
+  async findByGoogleSub(googleSub) {
+    const sub = String(googleSub || "").trim();
+    if (!sub) return null;
+    const { users } = await this.readStore();
+    return users.find((user) => user.googleSub && String(user.googleSub).trim() === sub) || null;
   }
 
   async findByIdentifier(identifier) {
@@ -269,6 +276,9 @@ export class FileUserRepository {
       if (store.users.some((user) => (normalizeEmail(user.email) === email || (user.pendingEmailExpiresAt > Date.now() && normalizeEmail(user.pendingEmail) === email)))) {
         throw new UserConflictError("email");
       }
+      if (payload.googleSub && store.users.some((user) => user.googleSub && String(user.googleSub).trim() === String(payload.googleSub).trim())) {
+        throw new UserConflictError("googleSub");
+      }
       const now = new Date().toISOString();
       const user = {
         id: `usr_${randomUUID()}`,
@@ -279,6 +289,10 @@ export class FileUserRepository {
         avatarUrl: payload.avatarUrl || null,
         emailVerifiedAt: payload.emailVerifiedAt || null,
         googleSub: payload.googleSub || null,
+        googleEmail: payload.googleEmail
+          ? normalizeEmail(payload.googleEmail)
+          : (payload.googleSub ? email : null),
+        emailCustomisedAt: payload.emailCustomisedAt || null,
         onboardingFocus: payload.onboardingFocus || null,
         onboardingRole: payload.onboardingRole || null,
         onboardingGoal: payload.onboardingGoal || null,
@@ -312,13 +326,13 @@ export class FileUserRepository {
     });
   }
 
-  update(id, changes, { allowSystemFields = false, expectedAuthVersion = null } = {}) {
+  update(id, changes, { allowSystemFields = false, preserveEmailVerification = false, expectedAuthVersion = null } = {}) {
     return this.mutateUsers(async (store) => {
       const index = store.users.findIndex((user) => user.id === id);
       if (index === -1) return { store, result: null };
 
       const publicFields = ['fullName', 'username', 'email', 'avatarUrl', 'settings', 'lastLoginAt', 'onboardingFocus', 'onboardingRole', 'onboardingGoal', 'onboardingCompletedAt', 'status', 'deletionRequestedAt', 'scheduledDeletionAt'];
-      const internalFields = ['emailVerifiedAt', 'googleSub', 'pendingEmail', 'pendingEmailExpiresAt', 'authVersion', 'privacyEpoch', 'mfa'];
+      const internalFields = ['emailVerifiedAt', 'googleSub', 'googleEmail', 'emailCustomisedAt', 'pendingEmail', 'pendingEmailExpiresAt', 'authVersion', 'privacyEpoch', 'mfa'];
       const fields = allowSystemFields ? [...publicFields, ...internalFields] : publicFields;
       const effectiveChanges = Object.fromEntries(fields.filter(key => changes[key] !== undefined).map(key => [key, changes[key]]));
       const current = store.users[index];
@@ -336,9 +350,23 @@ export class FileUserRepository {
       if (store.users.some((user, i) => i !== index && (normalizeEmail(user.email) === email || (user.pendingEmailExpiresAt > Date.now() && normalizeEmail(user.pendingEmail) === email)))) {
         throw new UserConflictError("email");
       }
+      if (effectiveChanges.googleSub && store.users.some((user, i) => i !== index && user.googleSub && String(user.googleSub).trim() === String(effectiveChanges.googleSub).trim())) {
+        throw new UserConflictError("googleSub");
+      }
 
       if (effectiveChanges.email && email !== normalizeEmail(current.email)) {
         effectiveChanges.authVersion = (current.authVersion || 1) + 1;
+        const isGoogleEmailSync = Boolean(
+          allowSystemFields &&
+          changes.googleEmail &&
+          normalizeEmail(changes.googleEmail) === email
+        );
+        if (!isGoogleEmailSync && changes.emailCustomisedAt === undefined) {
+          effectiveChanges.emailCustomisedAt = new Date().toISOString();
+          if (current.googleSub && !current.googleEmail && !effectiveChanges.googleEmail) {
+            effectiveChanges.googleEmail = normalizeEmail(current.email);
+          }
+        }
       }
       if (effectiveChanges.pendingEmail && store.users.some((user, i) => i !== index && (normalizeEmail(user.email) === normalizeEmail(effectiveChanges.pendingEmail) || (user.pendingEmailExpiresAt > Date.now() && normalizeEmail(user.pendingEmail) === normalizeEmail(effectiveChanges.pendingEmail))))) throw new UserConflictError('email');
       if (effectiveChanges.settings) {
@@ -352,11 +380,11 @@ export class FileUserRepository {
       }
       if ((effectiveChanges.status !== undefined && effectiveChanges.status !== current.status) ||
           (effectiveChanges.scheduledDeletionAt !== undefined && effectiveChanges.scheduledDeletionAt !== current.scheduledDeletionAt)) effectiveChanges.privacyEpoch = (current.privacyEpoch || 0) + 1;
-      // SEC-08: If email is changed, reset emailVerifiedAt to null
+      // SEC-08: If email is changed, reset emailVerifiedAt to null unless preserveEmailVerification is explicitly authorized
       let emailVerifiedAt = allowSystemFields && changes.emailVerifiedAt !== undefined
         ? changes.emailVerifiedAt
         : current.emailVerifiedAt;
-      if (effectiveChanges.email && email !== normalizeEmail(current.email)) {
+      if (effectiveChanges.email && email !== normalizeEmail(current.email) && !(allowSystemFields && preserveEmailVerification)) {
         emailVerifiedAt = null;
       }
 
@@ -382,7 +410,11 @@ export class FileUserRepository {
       if (purpose === 'email-change') {
         if (user.pendingEmail !== email || user.pendingEmailExpiresAt <= Date.now()) return { store, result: null };
         if (store.users.some(item => item.id !== id && normalizeEmail(item.email) === email)) throw new UserConflictError('email');
+        if (user.googleSub && !user.googleEmail) {
+          user.googleEmail = normalizeEmail(user.email);
+        }
         user.email = email;
+        user.emailCustomisedAt = new Date().toISOString();
         user.pendingEmail = null;
         user.pendingEmailExpiresAt = null;
         user.authVersion = authVersion + 1;

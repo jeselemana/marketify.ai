@@ -2168,9 +2168,11 @@ function buildProfileMenuItems() {
 function openUserProfileMenu(triggerEl) {
   if (!state.currentUser && !Number.isInteger(state.remainingGuestMessages) && !window._fetchingGuestQuota) {
     window._fetchingGuestQuota = true;
+    const quotaVersion = state.guestQuotaVersion;
     fetch("/api/auth/guest-status")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
+        if (quotaVersion !== state.guestQuotaVersion || state.currentUser) return;
         if (!data || !Number.isInteger(data.remaining)) return;
         state.remainingGuestMessages = data.remaining;
         if (Number.isInteger(data.buildRemaining)) {
@@ -2509,6 +2511,7 @@ const state = {
   retry: null,
   changeSummary: "",
   askChatId: null,
+  currentChatId: null,
   savedChats: [],
   plannerTasks: [],
   plannerFilter: "all",
@@ -2549,6 +2552,7 @@ const state = {
   strategyAskOpen: false,
   refinementOpen: false,
   currentUser: null,
+  identityEpoch: 0,
   remainingGuestMessages: null,
   remainingGuestBriefs: null,
   guestQuotaCheckedAt: 0,
@@ -6793,10 +6797,16 @@ function renderAskResearchMessageContent(content, message, messageIndex, isEn) {
   }
 }
 
+function isIdentityStale(epoch, expectedUserId) {
+  return epoch !== state.identityEpoch || (state.currentUser?.id || null) !== expectedUserId;
+}
+
 function connectToResearchJobStream(message) {
   if (!message || !message.jobId) return;
   if (activeResearchStreams.has(message.jobId)) return;
 
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   const controller = new AbortController();
   activeResearchStreams.set(message.jobId, controller);
 
@@ -6817,6 +6827,7 @@ function connectToResearchJobStream(message) {
       let eventLines = [];
 
       const dispatchResearchEvent = (lines) => {
+        if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
         if (!lines || !lines.length) return;
         const jsonStr = lines.join("\n").trim();
         if (!jsonStr || jsonStr.startsWith(":")) return;
@@ -6869,7 +6880,7 @@ function connectToResearchJobStream(message) {
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done || isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) break;
 
         rawBuffer += decoder.decode(value, { stream: true });
         const lines = rawBuffer.split(/\r?\n/);
@@ -6885,16 +6896,16 @@ function connectToResearchJobStream(message) {
         }
       }
 
-      if (eventLines.length > 0) {
+      if (eventLines.length > 0 && !isIdentityStale(epoch, expectedUserId) && !controller.signal.aborted) {
         dispatchResearchEvent(eventLines);
       }
     } catch (err) {
-      if (err.name !== "AbortError") {
+      if (err.name !== "AbortError" && !isIdentityStale(epoch, expectedUserId) && !controller.signal.aborted) {
         console.warn("[Deep Research] Stream disconnected, checking job status via polling:", err?.message || err);
         pollResearchJob(message);
       }
     } finally {
-      if (["completed", "failed", "cancelled", "interrupted"].includes(message.status)) {
+      if (["completed", "failed", "cancelled", "interrupted"].includes(message.status) || isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) {
         activeResearchStreams.delete(message.jobId);
       }
     }
@@ -6905,15 +6916,20 @@ async function pollResearchJob(message) {
   if (!message || !message.jobId) return;
   if (["completed", "failed", "cancelled", "interrupted"].includes(message.status)) return;
 
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   const maxAttempts = 60;
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise((r) => setTimeout(r, 3000));
+    if (isIdentityStale(epoch, expectedUserId)) return;
     if (["completed", "failed", "cancelled", "interrupted"].includes(message.status)) return;
 
     try {
       const res = await fetch(`/api/ask/research/jobs/${message.jobId}`);
+      if (isIdentityStale(epoch, expectedUserId)) return;
       if (!res.ok) continue;
       const data = await res.json();
+      if (isIdentityStale(epoch, expectedUserId)) return;
       if (data.job) {
         message.status = data.job.status || message.status;
         if (data.job.steps?.length) message.steps = data.job.steps;
@@ -7320,9 +7336,12 @@ async function thinkDeeperWithHigh(messageIndex) {
 
   let typewriter = null;
   let accumulatedFullText = "";
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
 
   currentAskAbortController?.abort();
-  currentAskAbortController = new AbortController();
+  const controller = new AbortController();
+  currentAskAbortController = controller;
   activeAskReader = null;
   activeAskTypewriter = null;
 
@@ -7347,13 +7366,16 @@ async function thinkDeeperWithHigh(messageIndex) {
       }),
     });
 
+    if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
+
     if (!response.ok && response.status === 409) {
       const errData = await response.clone().json().catch(() => ({}));
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
       if (errData.code === "REVISION_CONFLICT" && state.askChatId && errData.revision) {
         window.helmerSecurity?.revisions.set(state.askChatId, errData.revision);
         response = await fetch("/api/ask", {
           method: "POST",
-          signal: currentAskAbortController.signal,
+          signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
             "Accept": "text/event-stream",
@@ -7370,11 +7392,13 @@ async function thinkDeeperWithHigh(messageIndex) {
             stream: true,
           }),
         });
+        if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
       }
     }
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
       if (response.status === 409 && errData.code === "REVISION_CONFLICT" && state.askChatId && errData.revision) {
         window.helmerSecurity?.revisions.set(state.askChatId, errData.revision);
       }
@@ -7395,6 +7419,7 @@ async function thinkDeeperWithHigh(messageIndex) {
 
       typewriter = new LiveTypewriter(
         (text, isComplete) => {
+          if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
           assistantMsg.content = text;
           updateActiveAskMessageContent(assistantMsg, !isComplete);
         },
@@ -7405,6 +7430,7 @@ async function thinkDeeperWithHigh(messageIndex) {
       activeAskTypewriter = typewriter;
 
       await consumeAskEventStream(reader, async data => {
+        if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
 
         if (data.status) {
           assistantMsg.status = data.status;
@@ -7442,15 +7468,19 @@ async function thinkDeeperWithHigh(messageIndex) {
         }
       });
 
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
+
       if (typewriter) {
         typewriter.finish(accumulatedFullText);
         await typewriter.waitForCompletion();
       }
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
       if (accumulatedFullText) {
         assistantMsg.content = accumulatedFullText;
       }
     } else {
       const data = await response.json();
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
       assistantMsg.content = data.reply;
       assistantMsg.model = data.model || "gemini-3.8-flash";
       assistantMsg.interactionId = data.interactionId || assistantMsg.interactionId;
@@ -7463,7 +7493,7 @@ async function thinkDeeperWithHigh(messageIndex) {
       }
     }
   } catch (error) {
-    const isAborted = error?.name === "AbortError" || currentAskAbortController?.signal?.aborted;
+    const isAborted = error?.name === "AbortError" || currentAskAbortController?.signal?.aborted || controller.signal.aborted || isIdentityStale(epoch, expectedUserId);
     if (!isAborted) {
       const isGuestLimit = error.message?.includes("Qonaq mesaj limitiniz bitdi") || error.message?.includes("GUEST_DAILY_LIMIT");
       if (isGuestLimit) {
@@ -7477,17 +7507,21 @@ async function thinkDeeperWithHigh(messageIndex) {
   } finally {
     clearAskWaitStages(assistantMsg);
     typewriter?.flush();
-    activeAskReader = null;
-    activeAskTypewriter = null;
-    currentAskAbortController = null;
-    if (accumulatedFullText && (!assistantMsg.content || assistantMsg.content.length < accumulatedFullText.length)) {
-      assistantMsg.content = accumulatedFullText;
+    if (activeAskTypewriter === typewriter) activeAskTypewriter = null;
+    if (currentAskAbortController === controller) {
+      currentAskAbortController = null;
+      activeAskReader = null;
     }
-    assistantMsg.isStreaming = false;
-    state.askLoading = false;
-    const msgIdx = state.askMessages.indexOf(assistantMsg);
-    if (!finalizeStreamingAskMessageDom(assistantMsg, msgIdx >= 0 ? msgIdx : messageIndex)) {
-      render();
+    if (!isIdentityStale(epoch, expectedUserId)) {
+      if (accumulatedFullText && (!assistantMsg.content || assistantMsg.content.length < accumulatedFullText.length)) {
+        assistantMsg.content = accumulatedFullText;
+      }
+      assistantMsg.isStreaming = false;
+      state.askLoading = false;
+      const msgIdx = state.askMessages.indexOf(assistantMsg);
+      if (!finalizeStreamingAskMessageDom(assistantMsg, msgIdx >= 0 ? msgIdx : messageIndex)) {
+        render();
+      }
     }
   }
 }
@@ -7634,6 +7668,9 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     taskTitle: selectedTask?.text || "",
   });
 
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
+
   if (isDeepResearch) {
     const isEn = getLanguage() === "en";
     const assistantMsg = {
@@ -7658,9 +7695,14 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     trackEvent("ask_research_started", { promptLength: cleanResearchPrompt.length });
     render();
 
+    currentAskAbortController?.abort();
+    const researchInitController = new AbortController();
+    currentAskAbortController = researchInitController;
+
     try {
       const response = await fetch("/api/ask/research", {
         method: "POST",
+        signal: researchInitController.signal,
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
@@ -7674,12 +7716,15 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         }),
       });
 
+      if (isIdentityStale(epoch, expectedUserId) || researchInitController.signal.aborted) return;
+
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || (isEn ? "Failed to start research." : "Araşdırmanı başlatmaq mümkün olmadı."));
       }
 
       const data = await response.json();
+      if (isIdentityStale(epoch, expectedUserId) || researchInitController.signal.aborted) return;
       assistantMsg.jobId = data.jobId;
       if (data.chatId) {
         state.askChatId = data.chatId;
@@ -7690,13 +7735,17 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       render();
       connectToResearchJobStream(assistantMsg);
     } catch (err) {
+      if (err?.name === "AbortError" || isIdentityStale(epoch, expectedUserId) || researchInitController.signal.aborted) return;
       assistantMsg.status = "failed";
       assistantMsg.error = err.message;
       state.askError = err.message;
       render();
     } finally {
-      state.askLoading = false;
-      render();
+      if (currentAskAbortController === researchInitController) currentAskAbortController = null;
+      if (!isIdentityStale(epoch, expectedUserId)) {
+        state.askLoading = false;
+        render();
+      }
     }
     return;
   }
@@ -7727,7 +7776,8 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
   let finalEventReceived = false;
 
   currentAskAbortController?.abort();
-  currentAskAbortController = new AbortController();
+  const controller = new AbortController();
+  currentAskAbortController = controller;
   activeAskReader = null;
   activeAskTypewriter = null;
 
@@ -7748,20 +7798,27 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
     stream: true,
   });
   try {
-    let response = await askOperation.send(currentAskAbortController.signal);
+    let response = await askOperation.send(controller.signal);
+    if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
 
     if (!response.ok && (response.status === 409 || response.status === 429)) {
       const errData = await response.clone().json().catch(() => ({}));
-      if (response.status === 429 && errData.code === "EXECUTION_BUSY" && !currentAskAbortController.signal.aborted) {
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
+      if (response.status === 429 && errData.code === "EXECUTION_BUSY" && !controller.signal.aborted) {
         await new Promise((resolve) => setTimeout(resolve, 650));
-        if (!currentAskAbortController.signal.aborted) response = await askOperation.send(currentAskAbortController.signal);
+        if (!controller.signal.aborted && !isIdentityStale(epoch, expectedUserId)) {
+          response = await askOperation.send(controller.signal);
+        }
       }
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
       if (!response.ok && response.status === 409) {
         const conflictData = await response.clone().json().catch(() => ({}));
+        if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
         if (conflictData.code === "REVISION_CONFLICT" && state.askChatId && conflictData.revision) {
           window.helmerSecurity?.revisions.set(state.askChatId, conflictData.revision);
           askOperation = askOperation.withRevision(conflictData.revision);
-          response = await askOperation.send(currentAskAbortController.signal);
+          response = await askOperation.send(controller.signal);
+          if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
         }
       }
     }
@@ -7771,6 +7828,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         window.dispatchEvent(new CustomEvent("helmer:auth-required"));
       }
       const errData = await response.json().catch(() => ({}));
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
       if (response.status === 409 && errData.code === "REVISION_CONFLICT" && state.askChatId && errData.revision) {
         window.helmerSecurity?.revisions.set(state.askChatId, errData.revision);
       }
@@ -7796,6 +7854,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
 
       typewriter = new LiveTypewriter(
         (text, isComplete) => {
+          if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
           assistantMsg.content = text;
           updateActiveAskMessageContent(assistantMsg, !isComplete);
         },
@@ -7806,6 +7865,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       activeAskTypewriter = typewriter;
 
       await consumeAskEventStream(reader, async data => {
+        if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
         if (data.chatId) {
           state.askChatId = data.chatId;
           if (data.chatRevision) window.helmerSecurity?.revisions.set(data.chatId, data.chatRevision);
@@ -7855,17 +7915,21 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         }
       });
 
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
+
       if (!finalEventReceived) throw new Error(getLanguage() === "en" ? "The connection ended before the task completed. Please retry." : "Tapşırıq tamamlanmadan bağlantı kəsildi. Yenidən cəhd edin.");
 
       if (typewriter) {
         typewriter.finish(accumulatedFullText);
         await typewriter.waitForCompletion();
       }
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
       if (accumulatedFullText) {
         assistantMsg.content = accumulatedFullText;
       }
     } else {
       const data = await response.json();
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
       assistantMsg.artifacts = data.artifacts || [];
       assistantMsg.execution = data.execution;
       assistantMsg.content = data.reply;
@@ -7883,7 +7947,7 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
       }
     }
   } catch (error) {
-    const isAborted = error?.name === "AbortError" || currentAskAbortController?.signal?.aborted;
+    const isAborted = error?.name === "AbortError" || currentAskAbortController?.signal?.aborted || controller.signal.aborted || isIdentityStale(epoch, expectedUserId);
     if (!isAborted) {
       const isGuestLimit = error.message?.includes("Qonaq mesaj limitiniz bitdi") || error.message?.includes("GUEST_DAILY_LIMIT");
       if (isGuestLimit) {
@@ -7896,30 +7960,34 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
         state.askRetry = { message: contentText, file: fileToAttach, pluginIds, artifactId, messageIndex, operation: askOperation };
       }
     }
-    if (!assistantMsg.content && !accumulatedFullText) {
+    if (!isIdentityStale(epoch, expectedUserId) && !assistantMsg.content && !accumulatedFullText) {
       const idx = state.askMessages.indexOf(assistantMsg);
       if (idx !== -1) state.askMessages.splice(idx, 1);
     }
   } finally {
     clearAskWaitStages(assistantMsg);
     typewriter?.flush();
-    activeAskReader = null;
-    activeAskTypewriter = null;
-    currentAskAbortController = null;
-    if (accumulatedFullText && (!assistantMsg.content || assistantMsg.content.length < accumulatedFullText.length)) {
-      assistantMsg.content = accumulatedFullText;
+    if (activeAskTypewriter === typewriter) activeAskTypewriter = null;
+    if (currentAskAbortController === controller) {
+      currentAskAbortController = null;
+      activeAskReader = null;
     }
-    for (const msg of state.askMessages) {
-      if (msg && msg.file && (msg.file.data || msg.file.textContent)) {
-        delete msg.file.data;
-        delete msg.file.textContent;
+    if (!isIdentityStale(epoch, expectedUserId)) {
+      if (accumulatedFullText && (!assistantMsg.content || assistantMsg.content.length < accumulatedFullText.length)) {
+        assistantMsg.content = accumulatedFullText;
       }
-    }
-    assistantMsg.isStreaming = false;
-    state.askLoading = false;
-    const msgIdx = state.askMessages.indexOf(assistantMsg);
-    if (!finalizeStreamingAskMessageDom(assistantMsg, msgIdx >= 0 ? msgIdx : messageIndex + 1)) {
-      render();
+      for (const msg of state.askMessages) {
+        if (msg && msg.file && (msg.file.data || msg.file.textContent)) {
+          delete msg.file.data;
+          delete msg.file.textContent;
+        }
+      }
+      assistantMsg.isStreaming = false;
+      state.askLoading = false;
+      const msgIdx = state.askMessages.indexOf(assistantMsg);
+      if (!finalizeStreamingAskMessageDom(assistantMsg, msgIdx >= 0 ? msgIdx : messageIndex + 1)) {
+        render();
+      }
     }
   }
 }
@@ -8246,6 +8314,8 @@ function minimizeToBackground() {
 
 async function autoSaveBackgroundJob(job) {
   const isEn = getLanguage() === "en";
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   try {
     const data = await api("/api/strategy/save", {
       method: "POST",
@@ -8257,11 +8327,14 @@ async function autoSaveBackgroundJob(job) {
         versions: job.versions,
       }),
     });
+    if (isIdentityStale(epoch, expectedUserId)) return;
     job.savedId = data.strategy.id;
     removeBackgroundJob(job.id);
     await loadSavedStrategies();
+    if (isIdentityStale(epoch, expectedUserId)) return;
     showToast(isEn ? "Strategy generated and saved to archive ✓" : "Strategiya hazırlandı və arxivə saxlanıldı ✓");
   } catch (error) {
+    if (isIdentityStale(epoch, expectedUserId)) return;
     console.error("Auto-save background job failed:", error);
     persistBackgroundJobs();
   }
@@ -8272,6 +8345,8 @@ async function resumeBackgroundJobs() {
   if (!backgroundJobs.length) return;
   const isEn = getLanguage() === "en";
   const activeOwner = currentOwnerId();
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
 
   // Ensure saved strategies are loaded
   if (!state.savedStrategies || !state.savedStrategies.length) {
@@ -8279,9 +8354,11 @@ async function resumeBackgroundJobs() {
       await loadSavedStrategies();
     } catch { }
   }
+  if (isIdentityStale(epoch, expectedUserId)) return;
 
   const jobsToProcess = [...backgroundJobs];
   for (const job of jobsToProcess) {
+    if (isIdentityStale(epoch, expectedUserId)) return;
     if (job.ownerId && job.ownerId !== activeOwner) {
       removeBackgroundJob(job.id);
       continue;
@@ -8318,6 +8395,7 @@ async function resumeBackgroundJobs() {
           autoSave: autoSaveActive,
         }),
       });
+      if (isIdentityStale(epoch, expectedUserId)) return;
 
       // Check if user restored this job to foreground while in flight
       if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
@@ -8343,7 +8421,7 @@ async function resumeBackgroundJobs() {
         await autoSaveBackgroundJob(job);
       }
     } catch (err) {
-      if (err.name === "AbortError") continue;
+      if (err.name === "AbortError" || isIdentityStale(epoch, expectedUserId)) continue;
 
       // If temporary network disconnection, keep in generating status and retry on reconnect
       if (!navigator.onLine) {
@@ -8353,6 +8431,7 @@ async function resumeBackgroundJobs() {
       // Check if server already finished and saved it
       try {
         await loadSavedStrategies();
+        if (isIdentityStale(epoch, expectedUserId)) return;
         const savedNow = state.savedStrategies.find(
           (s) => (s.clientSaveId && s.clientSaveId === job.idempotencyKey) || (s.brief && s.brief === job.brief)
         );
@@ -8363,6 +8442,7 @@ async function resumeBackgroundJobs() {
         }
       } catch { }
 
+      if (isIdentityStale(epoch, expectedUserId)) return;
       if (state.clientSaveId === job.idempotencyKey && state.status === "generating") {
         setError(err, startGeneration, state.questions?.length ? "needs_clarification" : "draft");
         continue;
@@ -8840,17 +8920,20 @@ async function startAssessment() {
     openGuestRestrictionModal(isEn ? GUEST_BUILD_EXHAUSTED_MESSAGE_EN : GUEST_BUILD_EXHAUSTED_MESSAGE);
     return;
   }
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   if (state.round === 0 && state.answers.length === 0) trackEvent("strategy_started");
   clearError();
   currentAbortController?.abort();
-  currentAbortController = new AbortController();
+  const controller = new AbortController();
+  currentAbortController = controller;
   setStatus("analyzing");
   render();
   try {
     clearTimeout(buildEstimateTimer);
     const pendingEstimate = buildEstimateRequest;
     if (pendingEstimate) {
-      const signal = currentAbortController.signal;
+      const signal = controller.signal;
       const cancel = () => pendingEstimate.controller.abort();
       signal.addEventListener("abort", cancel, { once: true });
       try { await pendingEstimate.promise; } finally { signal.removeEventListener("abort", cancel); }
@@ -8858,7 +8941,7 @@ async function startAssessment() {
     }
     const data = await api("/api/strategy/assess", {
       method: "POST",
-      signal: currentAbortController.signal,
+      signal: controller.signal,
       body: JSON.stringify({
         brief: state.brief,
         answers: state.answers,
@@ -8866,7 +8949,8 @@ async function startAssessment() {
         language: getLanguage(),
       }),
     });
-    currentAbortController = null;
+    if (currentAbortController === controller) currentAbortController = null;
+    if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
     if (typeof data?.remainingGuestBriefs === "number") {
       state.remainingGuestBriefs = data.remainingGuestBriefs;
     }
@@ -8885,7 +8969,7 @@ async function startAssessment() {
     }
     await startGeneration();
   } catch (error) {
-    if (error.name === "AbortError" || currentAbortController?.signal?.aborted) {
+    if (error.name === "AbortError" || controller.signal.aborted || isIdentityStale(epoch, expectedUserId)) {
       return;
     }
     if (error.code === "GUEST_DAILY_LIMIT") {
@@ -9026,9 +9110,12 @@ function renderClarification() {
 }
 
 async function startGeneration() {
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   clearError();
   currentAbortController?.abort();
-  currentAbortController = new AbortController();
+  const controller = new AbortController();
+  currentAbortController = controller;
   const generationKey = state.clientSaveId;
   state.buildStreamingText = "";
   state.buildStreamingFinishReason = null;
@@ -9058,8 +9145,10 @@ async function startGeneration() {
           language: getLanguage(),
           autoSave: autoSaveActive,
         }),
-        signal: currentAbortController.signal,
+        signal: controller.signal,
       });
+
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -9078,13 +9167,14 @@ async function startGeneration() {
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done || isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) break;
 
           rawBuffer += decoder.decode(value, { stream: true });
           const lines = rawBuffer.split(/\r?\n/);
           rawBuffer = lines.pop() || "";
 
           for (const line of lines) {
+            if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) break;
             const trimmed = line.trim();
             if (!trimmed || !trimmed.startsWith("data:")) continue;
 
@@ -9125,6 +9215,7 @@ async function startGeneration() {
         }
       } else {
         const data = await response.json();
+        if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
         finalStrategy = data.strategy;
         if (data.savedId) savedId = data.savedId;
         if (data.savedStrategy) savedStrategy = data.savedStrategy;
@@ -9133,13 +9224,13 @@ async function startGeneration() {
         }
       }
     } catch (streamFetchErr) {
-      if (streamFetchErr.name === "AbortError" || currentAbortController?.signal?.aborted) throw streamFetchErr;
+      if (streamFetchErr.name === "AbortError" || controller.signal.aborted || isIdentityStale(epoch, expectedUserId)) throw streamFetchErr;
       if (streamFetchErr.code && streamFetchErr.code !== "AI_PROVIDER_ERROR") throw streamFetchErr;
 
       // Direct fallback to non-streaming generate endpoint
       const data = await api("/api/strategy/generate", {
         method: "POST",
-        signal: currentAbortController.signal,
+        signal: controller.signal,
         body: JSON.stringify({
           brief: state.brief,
           answers: state.answers,
@@ -9149,6 +9240,7 @@ async function startGeneration() {
           autoSave: autoSaveActive,
         }),
       });
+      if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
       finalStrategy = data.strategy;
       if (data.savedId) savedId = data.savedId;
       if (data.savedStrategy) savedStrategy = data.savedStrategy;
@@ -9157,11 +9249,13 @@ async function startGeneration() {
       }
     }
 
+    if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
+
     if (!finalStrategy) {
       throw new Error("Strategiya generasiyası tamamlanmadı.");
     }
 
-    currentAbortController = null;
+    if (currentAbortController === controller) currentAbortController = null;
 
     // Check if this generation was moved to background while awaiting
     const bgJob = backgroundJobs.find((j) => j.idempotencyKey === generationKey);
@@ -9218,6 +9312,7 @@ async function startGeneration() {
               acceptForLearning: true,
             }),
           });
+          if (isIdentityStale(epoch, expectedUserId)) return;
           state.savedId = saveData.strategy.id;
           state.updatedAt = saveData.strategy.updatedAt;
           state.versions = saveData.strategy.versions;
@@ -9226,6 +9321,7 @@ async function startGeneration() {
           showToast(isEn ? "Strategy generated and saved to archive ✓" : "Strategiya hazırlandı və arxivə saxlanıldı ✓");
           await loadSavedStrategies();
         } catch (saveErr) {
+          if (isIdentityStale(epoch, expectedUserId)) return;
           console.error("Auto-save fallback failed:", saveErr);
           setStatus("ready");
           render();
@@ -9239,7 +9335,7 @@ async function startGeneration() {
       showToast(isEn ? "Strategy is ready ✓" : "Strategiya hazırdır ✓");
     }
   } catch (error) {
-    if (error.name === "AbortError" || currentAbortController?.signal?.aborted) {
+    if (error.name === "AbortError" || controller.signal.aborted || isIdentityStale(epoch, expectedUserId)) {
       return;
     }
     if (error.code === "GUEST_DAILY_LIMIT") {
@@ -9648,11 +9744,14 @@ function openPlannerTaskSelectionModal({
       source: "brief",
     }));
 
+    const epoch = state.identityEpoch;
+    const expectedUserId = state.currentUser?.id || null;
     try {
       const res = await authRequest("/api/planner/batch", {
         method: "POST",
         body: JSON.stringify({ tasks: itemsToBatch }),
       });
+      if (isIdentityStale(epoch, expectedUserId)) return;
       state.plannerTasks = Array.isArray(res.tasks) ? res.tasks : state.plannerTasks;
       updatePlannerBadge();
       const count = res.added?.length ?? itemsToBatch.length;
@@ -9665,6 +9764,7 @@ function openPlannerTaskSelectionModal({
         onTasksAdded(selectedTasks);
       }
     } catch (err) {
+      if (isIdentityStale(epoch, expectedUserId)) return;
       showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
       confirmBtn.disabled = false;
       updateCounts();
@@ -9790,11 +9890,14 @@ function buildNextStepsSection(strategy, isEn, isRoadmap = false) {
         source: "brief",
       }));
 
+      const epoch = state.identityEpoch;
+      const expectedUserId = state.currentUser?.id || null;
       try {
         const res = await authRequest("/api/planner/batch", {
           method: "POST",
           body: JSON.stringify({ tasks: itemsToBatch }),
         });
+        if (isIdentityStale(epoch, expectedUserId)) return;
         state.plannerTasks = Array.isArray(res.tasks) ? res.tasks : state.plannerTasks;
         updatePlannerBadge();
         const count = res.added?.length ?? itemsToBatch.length;
@@ -9811,6 +9914,7 @@ function buildNextStepsSection(strategy, isEn, isRoadmap = false) {
           addAllManualButton.textContent = isEn ? "Add All As Is" : "Olduğu kimi əlavə et";
         }, 2500);
       } catch (err) {
+        if (isIdentityStale(epoch, expectedUserId)) return;
         showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
         addAllManualButton.disabled = false;
         addAllManualButton.textContent = isEn ? "Add All As Is" : "Olduğu kimi əlavə et";
@@ -9939,6 +10043,8 @@ function buildNextStepsSection(strategy, isEn, isRoadmap = false) {
         singleAddBtn.disabled = true;
         singleAddBtn.textContent = "…";
 
+        const epoch = state.identityEpoch;
+        const expectedUserId = state.currentUser?.id || null;
         try {
           const res = await authRequest("/api/planner", {
             method: "POST",
@@ -9953,6 +10059,7 @@ function buildNextStepsSection(strategy, isEn, isRoadmap = false) {
               source: "brief",
             }),
           });
+          if (isIdentityStale(epoch, expectedUserId)) return;
 
           if (res.task) {
             state.plannerTasks = [res.task, ...(state.plannerTasks || []).filter((t) => t.id !== res.task.id)];
@@ -9961,6 +10068,7 @@ function buildNextStepsSection(strategy, isEn, isRoadmap = false) {
             setAddedState();
           }
         } catch (err) {
+          if (isIdentityStale(epoch, expectedUserId)) return;
           showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
           setDefaultState();
         }
@@ -10585,6 +10693,8 @@ async function ensureStrategyAskContext() {
   }
   if (!state.strategy) return false;
 
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   try {
     const data = await api("/api/strategy/save", {
       method: "POST",
@@ -10596,6 +10706,7 @@ async function ensureStrategyAskContext() {
         versions: state.versions,
       }),
     });
+    if (isIdentityStale(epoch, expectedUserId)) return false;
     state.savedId = data.strategy.id;
     state.updatedAt = data.strategy.updatedAt;
     state.versions = data.strategy.versions;
@@ -10603,8 +10714,9 @@ async function ensureStrategyAskContext() {
     resetAskForStrategy(state.savedId);
     trackEvent("strategy_saved", { versionCount: state.versions.length, source: "strategy_ask" });
     await loadSavedStrategies();
-    return true;
+    return !isIdentityStale(epoch, expectedUserId);
   } catch (error) {
+    if (isIdentityStale(epoch, expectedUserId)) return false;
     state.askError = error.message || "Strategiyanı söhbət kontekstinə əlavə etmək mümkün olmadı.";
     render();
     return false;
@@ -11279,18 +11391,24 @@ function startRefinementPlaceholderTyping(input) {
 }
 
 async function requestRefinement(action, request) {
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   const previousStatus = state.savedId ? "saved" : "ready";
   clearError();
   state.changeSummary = "";
   state.refinementOpen = false;
   trackEvent("refinement_requested", { action, saved: Boolean(state.savedId) });
   if (action !== "custom") trackEvent("quick_action_used", { action });
+  currentAbortController?.abort();
+  const controller = new AbortController();
+  currentAbortController = controller;
   setStatus("refining");
   render();
   const path = state.savedId ? `/api/strategy/${state.savedId}/refine` : "/api/strategy/refine";
   try {
     const data = await api(path, {
       method: "POST",
+      signal: controller.signal,
       body: JSON.stringify({
         brief: state.brief,
         answers: state.answers,
@@ -11300,6 +11418,8 @@ async function requestRefinement(action, request) {
         language: getLanguage(),
       }),
     });
+    if (currentAbortController === controller) currentAbortController = null;
+    if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) return;
     const record = data.strategy;
     state.strategy = record.strategy || record;
     state.updatedAt = record.updatedAt || new Date().toISOString();
@@ -11323,12 +11443,17 @@ async function requestRefinement(action, request) {
     showToast(isEn ? "New strategy version is ready." : "Yeni strategiya versiyası hazırdır.");
     if (state.savedId) loadSavedStrategies();
   } catch (error) {
+    if (currentAbortController === controller) currentAbortController = null;
+    if (error?.name === "AbortError" || controller.signal.aborted || isIdentityStale(epoch, expectedUserId)) return;
     setError(error, () => requestRefinement(action, request), previousStatus);
   }
 }
 
 async function saveStrategy() {
   if (state.savedId || !state.strategy) return;
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
+  const isEn = getLanguage() === "en";
   try {
     const data = await api("/api/strategy/save", {
       method: "POST",
@@ -11341,6 +11466,7 @@ async function saveStrategy() {
         acceptForLearning: true,
       }),
     });
+    if (isIdentityStale(epoch, expectedUserId)) return;
     state.savedId = data.strategy.id;
     state.updatedAt = data.strategy.updatedAt;
     state.versions = data.strategy.versions;
@@ -11350,6 +11476,7 @@ async function saveStrategy() {
     showToast(isEn ? "Strategy saved to workspace." : "Strategiya workspace-ə əlavə edildi.");
     await loadSavedStrategies();
   } catch (error) {
+    if (isIdentityStale(epoch, expectedUserId)) return;
     showToast(error.message, "error");
   }
 }
@@ -11433,15 +11560,18 @@ async function loadSavedStrategies() {
     renderRecentList();
     return;
   }
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   try {
     const data = await api("/api/strategy");
-    state.savedStrategies = data.strategies;
+    if (epoch !== state.identityEpoch || (state.currentUser?.id || null) !== expectedUserId) return;
+    state.savedStrategies = data.strategies || [];
     if (strategyCount) {
       if (!state.currentUser) {
         strategyCount.style.display = "none";
       } else {
         strategyCount.style.display = "";
-        strategyCount.textContent = String(data.strategies.length);
+        strategyCount.textContent = String(state.savedStrategies.length);
       }
     }
     renderRecentList();
@@ -11449,13 +11579,17 @@ async function loadSavedStrategies() {
     const railPopover = document.querySelector("#railArchivePopover");
     if (railPopover && !railPopover.hidden) renderRailArchivePopover();
   } catch {
+    if (epoch !== state.identityEpoch || (state.currentUser?.id || null) !== expectedUserId) return;
     recentList.replaceChildren(element("p", "recent-empty", "Strategiyaları yükləmək mümkün olmadı."));
   }
 }
 
 async function loadSavedChats() {
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   try {
     const data = await api("/api/ask/chats");
+    if (epoch !== state.identityEpoch || (state.currentUser?.id || null) !== expectedUserId) return;
     state.savedChats = data.chats || [];
     state.savedChats.forEach((chat) => {
       if (chat?.id) window.helmerSecurity?.rememberChat(chat);
@@ -11468,13 +11602,17 @@ async function loadSavedChats() {
 
 async function openSavedChat(chatId) {
   const isEn = getLanguage() === "en";
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   try {
     const data = await api(`/api/ask/chats/${chatId}`);
+    if (epoch !== state.identityEpoch || (state.currentUser?.id || null) !== expectedUserId) return;
     if (!data.chat) return;
     rememberSavedAskChat(data.chat);
     state.mode = "ask";
     state.view = "home";
     state.askChatId = data.chat.id;
+    state.currentChatId = data.chat.id;
     state.askMessages = data.chat.messages || [];
     state.askPluginIds = [];
     state.askArtifactId = null;
@@ -11496,6 +11634,7 @@ async function openSavedChat(chatId) {
       }
     });
   } catch (error) {
+    if (epoch !== state.identityEpoch || (state.currentUser?.id || null) !== expectedUserId) return;
     showToast(isEn ? "Unable to load chat." : "Söhbəti yükləmək mümkün olmadı.", "error");
   }
 }
@@ -11503,14 +11642,18 @@ async function openSavedChat(chatId) {
 async function deleteSavedChat(event, chatId) {
   event.stopPropagation();
   const isEn = getLanguage() === "en";
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   try {
     await api(`/api/ask/chats/${chatId}`, { method: "DELETE" });
+    if (isIdentityStale(epoch, expectedUserId)) return;
     if (state.askChatId === chatId) {
       startNewChat();
     }
     await loadSavedChats();
     showToast(isEn ? "Chat deleted." : "Söhbət silindi.");
   } catch (error) {
+    if (isIdentityStale(epoch, expectedUserId)) return;
     showToast(isEn ? "Unable to delete chat." : "Söhbəti silmək mümkün olmadı.", "error");
   }
 }
@@ -11598,13 +11741,142 @@ function renderRecentList() {
   });
 }
 
+function clearUserScopedWorkspaceState() {
+  state.identityEpoch = (state.identityEpoch || 0) + 1;
+  if (currentAbortController) {
+    try { currentAbortController.abort(); } catch {}
+    currentAbortController = null;
+  }
+  if (typeof progressTimer !== "undefined" && progressTimer) {
+    clearInterval(progressTimer);
+    progressTimer = null;
+  }
+  if (typeof cancelBuildEstimate === "function") {
+    try { cancelBuildEstimate(); } catch {}
+  }
+  if (currentAskAbortController) {
+    try { currentAskAbortController.abort(); } catch {}
+    currentAskAbortController = null;
+  }
+  if (activeAskReader) {
+    try { activeAskReader.cancel().catch(() => {}); } catch {}
+    activeAskReader = null;
+  }
+  if (activeAskTypewriter) {
+    try { activeAskTypewriter.flush(); } catch {}
+    activeAskTypewriter = null;
+  }
+  if (typeof activeResearchStreams !== "undefined" && activeResearchStreams.size > 0) {
+    for (const controller of activeResearchStreams.values()) {
+      try { controller.abort(); } catch {}
+    }
+    activeResearchStreams.clear();
+  }
+  try {
+    document.querySelector(".loading-ask-modal-overlay")?._closeAskModal?.();
+    document.querySelector(".analysis-history-overlay")?.remove();
+  } catch {}
+
+  // Clear Build state
+  state.status = "draft";
+  state.brief = "";
+  state.buildPreparationEstimate = null;
+  state.buildEstimateBrief = "";
+  state.buildEstimateUnavailable = false;
+  state.questions = [];
+  state.clarificationIndex = 0;
+  state.clarificationDrafts = {};
+  state.answers = [];
+  state.assumptions = [];
+  state.understanding = "";
+  state.round = 0;
+  state.strategy = null;
+  state.versions = [];
+  state.buildStreamingText = "";
+  state.buildStreamingFinishReason = null;
+  state.savedId = null;
+  state.clientSaveId = crypto.randomUUID();
+  state.savedStrategies = [];
+  state.updatedAt = null;
+  state.error = null;
+  state.retry = null;
+  state.changeSummary = "";
+  state.strategyAskOpen = false;
+  state.refinementOpen = false;
+
+  // Clear Ask state
+  state.askChatId = null;
+  state.currentChatId = null;
+  state.savedChats = [];
+  state.askMessages = [];
+  state.askDraft = "";
+  state.askPluginIds = [];
+  state.askArtifactId = null;
+  state.askArtifactName = "";
+  state.askRetry = null;
+  state.askLoading = false;
+  state.askError = "";
+  state.askPendingFile = null;
+  state.askStrategyId = "";
+  state.askTaskId = "";
+  state.askPromptHintStrategyId = "";
+
+  // Clear Planner, usage stats, security revisions, and guest quota state
+  state.plannerTasks = [];
+  state.plannerFilter = "all";
+  state.plannerCollapsedGroups = new Set(["Ümumi"]);
+  if (state.plannerSelectedTaskIds?.clear) {
+    state.plannerSelectedTaskIds.clear();
+  } else {
+    state.plannerSelectedTaskIds = new Set();
+  }
+  state.isPrioritizingPlanner = false;
+  state.usageStats = null;
+  state.remainingGuestMessages = null;
+  state.remainingGuestBriefs = null;
+  state.guestQuotaCheckedAt = 0;
+  state.guestQuotaVersion += 1;
+  window.helmerSecurity?.revisions?.clear?.();
+  backgroundJobs = [];
+
+  try {
+    sessionStorage.removeItem("helmer_active_ask_chat");
+    sessionStorage.removeItem("helmer_planner_visit_notif_shown");
+  } catch {}
+
+  if (strategyCount) strategyCount.style.display = "none";
+  if (typeof updatePlannerBadge === "function") updatePlannerBadge();
+  if (typeof renderRecentList === "function") renderRecentList();
+}
+
+window.addEventListener("helmer:logout", () => {
+  state.currentUser = null;
+  clearUserScopedWorkspaceState();
+  render();
+});
+
+window.addEventListener("helmer:auth-required", () => {
+  if (state.currentUser) {
+    state.currentUser = null;
+    clearUserScopedWorkspaceState();
+  }
+});
+
+window.addEventListener("helmer:user-changed", (event) => {
+  const nextUser = event?.detail?.user || null;
+  if ((state.currentUser?.id || null) !== (nextUser?.id || null)) {
+    updateWorkspaceIdentity(nextUser);
+  }
+});
+
 function updateWorkspaceIdentity(user) {
-  if (state.currentUser?.id !== user?.id) {
-    state.remainingGuestMessages = null;
-    state.guestQuotaCheckedAt = 0;
-    state.guestQuotaVersion += 1;
+  const prevId = state.currentUser?.id || null;
+  const nextId = user?.id || null;
+  if (prevId !== nextId) {
+    clearUserScopedWorkspaceState();
   }
   state.currentUser = user;
+  backgroundJobs = loadBackgroundJobs();
   const isEn = getLanguage() === "en";
   const supportTooltip = document.querySelector(".support-chat-tooltip-text");
   if (supportTooltip) {
@@ -12033,11 +12305,28 @@ function renderSettings() {
         save.disabled = true;
         save.textContent = isEn ? "Saving…" : "Saxlanılır…";
         try {
+          const payload = Object.fromEntries(new FormData(form));
+          const emailChanged = String(payload.email || "").trim().toLowerCase() !== String(state.currentUser?.email || "").trim().toLowerCase();
+          if (emailChanged && window.helmerSecurity?.reauthenticate) {
+            const proof = await window.helmerSecurity.reauthenticate();
+            Object.assign(payload, proof);
+          }
           const data = await authRequest("/api/auth/account", {
             method: "PATCH",
-            body: JSON.stringify(Object.fromEntries(new FormData(form))),
+            body: JSON.stringify(payload),
           });
           updateWorkspaceIdentity(data.user);
+          if (data.user?.pendingEmail) {
+            settingsMessage(
+              form,
+              isEn
+                ? `Verification code sent to ${data.user.pendingEmail}. Confirm below to complete the email change.`
+                : `${data.user.pendingEmail} ünvanına təsdiq kodu göndərildi. Dəyişikliyi tamamlamaq üçün kodu aşağıda daxil edin.`,
+              "success"
+            );
+            renderSettings();
+            return;
+          }
           settingsMessage(form, isEn ? "Account information updated." : "Hesab məlumatları yeniləndi.", "success");
         } catch (error) {
           settingsMessage(form, error.message);
@@ -12047,6 +12336,77 @@ function renderSettings() {
         }
       });
       profileBody.appendChild(form);
+
+      if (state.currentUser.pendingEmail) {
+        const pendingBox = element("div", "pending-email-verification-box");
+        pendingBox.style.cssText = "margin-top:16px;padding:14px 16px;border-radius:12px;border:1px solid var(--border-subtle,#e2e8f0);background:var(--bg-subtle,rgba(79,110,232,0.06));";
+        const pendingTitle = element(
+          "strong",
+          "",
+          isEn
+            ? `Verify new email: ${state.currentUser.pendingEmail}`
+            : `Yeni e-poçtu təsdiqlə: ${state.currentUser.pendingEmail}`
+        );
+        const pendingHint = element(
+          "p",
+          "",
+          isEn
+            ? "Enter the 6-digit verification code sent to your new email address."
+            : "Yeni e-poçt ünvanınıza göndərilən 6 rəqəmli təsdiq kodunu daxil edin."
+        );
+        pendingHint.style.cssText = "margin:4px 0 10px;font-size:13px;color:var(--text-secondary,#64748b);";
+        const verifyForm = element("form", "settings-form pending-email-verify-form");
+        const codeField = settingsField(isEn ? "6-Digit Code" : "6 rəqəmli kod", "code", "", "text", "one-time-code");
+        const codeInput = codeField.querySelector("input");
+        if (codeInput) {
+          codeInput.maxLength = 6;
+          codeInput.inputMode = "numeric";
+          codeInput.pattern = "[0-9]{6}";
+          codeInput.placeholder = "123456";
+        }
+        const actionsRow = element("div", "pending-email-actions");
+        actionsRow.style.cssText = "display:flex;gap:10px;align-items:center;margin-top:8px;";
+        const confirmBtn = button(isEn ? "Confirm Email" : "E-poçtu təsdiqlə", "primary-button");
+        confirmBtn.type = "submit";
+        const resendBtn = button(isEn ? "Resend code" : "Kodu yenidən göndər", "secondary-button", async () => {
+          resendBtn.disabled = true;
+          try {
+            await authRequest("/api/auth/email-verification/resend", {
+              method: "POST",
+              body: JSON.stringify({ email: state.currentUser.pendingEmail }),
+            });
+            settingsMessage(verifyForm, isEn ? "Verification code resent." : "Təsdiq kodu yenidən göndərildi.", "success");
+          } catch (err) {
+            settingsMessage(verifyForm, err.message);
+          } finally {
+            resendBtn.disabled = false;
+          }
+        });
+        resendBtn.type = "button";
+        actionsRow.append(confirmBtn, resendBtn);
+        verifyForm.append(codeField, actionsRow);
+        verifyForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          confirmBtn.disabled = true;
+          try {
+            const res = await authRequest("/api/auth/email-verification/confirm", {
+              method: "POST",
+              body: JSON.stringify({
+                email: state.currentUser.pendingEmail,
+                code: String(verifyForm.code?.value || "").trim(),
+              }),
+            });
+            updateWorkspaceIdentity(res.user);
+            showToast(isEn ? "Email address updated and verified." : "E-poçt ünvanı təsdiqləndi və yeniləndi.", "success");
+            renderSettings();
+          } catch (err) {
+            settingsMessage(verifyForm, err.message);
+            confirmBtn.disabled = false;
+          }
+        });
+        pendingBox.append(pendingTitle, pendingHint, verifyForm);
+        profileBody.appendChild(pendingBox);
+      }
     } else {
       const guestCard = element("div", "guest-sync-banner");
       const guestLeft = element("div", "guest-sync-left");
@@ -13026,7 +13386,26 @@ function renderSettings() {
         element("strong", "", t("settings.security.signOutTitle")),
         element("p", "", t("settings.security.signOutDesc"))
       );
-      signOut.append(copy, button(t("settings.security.signOutBtn"), "danger-button", logout));
+      const signOutActions = element("div", "settings-signout-actions");
+      signOutActions.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;align-items:center;";
+      const logoutOtherBtn = button(
+        isEn ? "Sign out other devices" : "Digər cihazlardan çıxış",
+        "secondary-button",
+        async () => {
+          logoutOtherBtn.disabled = true;
+          try {
+            await authRequest("/api/auth/logout-all", { method: "POST", body: "{}" });
+            showToast(isEn ? "Signed out of all other devices." : "Digər bütün cihazlardakı sessiyalar bağlandı.", "success");
+          } catch (err) {
+            showToast(err.message || (isEn ? "Could not sign out other devices." : "Xəta baş verdi."), "error");
+          } finally {
+            logoutOtherBtn.disabled = false;
+          }
+        }
+      );
+      logoutOtherBtn.type = "button";
+      signOutActions.append(logoutOtherBtn, button(t("settings.security.signOutBtn"), "danger-button", logout));
+      signOut.append(copy, signOutActions);
 
       // Danger Zone: Account Deletion (14-day grace period)
       const isPendingDeletion = state.currentUser?.status === "pending_deletion" || Boolean(state.currentUser?.scheduledDeletionAt);
@@ -13264,17 +13643,21 @@ function createStrategyRowContextMenu(record) {
       initialValue: record.title,
       confirmText: isEn ? "Save" : "Yadda saxla",
       onConfirm: async (newTitle) => {
+        const epoch = state.identityEpoch;
+        const expectedUserId = state.currentUser?.id || null;
         try {
           await api(`/api/strategy/${record.id}`, {
             method: "PATCH",
             body: JSON.stringify({ title: newTitle }),
           });
+          if (isIdentityStale(epoch, expectedUserId)) return;
           if (state.savedId === record.id && state.strategy) {
             state.strategy.title = newTitle;
           }
           await loadSavedStrategies();
           showToast(isEn ? "Strategy renamed ✓" : "Strategiyanın adı dəyişdirildi ✓");
         } catch (error) {
+          if (isIdentityStale(epoch, expectedUserId)) return;
           showToast(error.message || (isEn ? "Unable to rename strategy." : "Adı dəyişmək mümkün olmadı."), "error");
         }
       },
@@ -13285,11 +13668,15 @@ function createStrategyRowContextMenu(record) {
   const duplicateItem = button("", "archive-menu-item", async (e) => {
     e.stopPropagation();
     menu.hidden = true;
+    const epoch = state.identityEpoch;
+    const expectedUserId = state.currentUser?.id || null;
     try {
       await api(`/api/strategy/${record.id}/duplicate`, { method: "POST" });
+      if (isIdentityStale(epoch, expectedUserId)) return;
       await loadSavedStrategies();
       showToast(isEn ? "Strategy duplicated ✓" : "Strategiyanın dublikatı yaradıldı ✓");
     } catch (error) {
+      if (isIdentityStale(epoch, expectedUserId)) return;
       showToast(error.message || (isEn ? "Unable to duplicate strategy." : "Dublikat yaratmaq mümkün olmadı."), "error");
     }
   });
@@ -13315,8 +13702,11 @@ function createStrategyRowContextMenu(record) {
       confirmText: isEn ? "Delete" : "Sil",
       isDestructive: true,
       onConfirm: async () => {
+        const epoch = state.identityEpoch;
+        const expectedUserId = state.currentUser?.id || null;
         try {
           await api(`/api/strategy/${record.id}`, { method: "DELETE" });
+          if (isIdentityStale(epoch, expectedUserId)) return;
           if (state.savedId === record.id) {
             resetStrategy();
           }
@@ -14054,8 +14444,11 @@ function renderStrategyList() {
 }
 
 async function openSavedStrategy(id) {
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   try {
     const data = await api(`/api/strategy/${id}`);
+    if (epoch !== state.identityEpoch || (state.currentUser?.id || null) !== expectedUserId) return;
     const record = data.strategy;
     state.mode = "build";
     Object.assign(state, {
@@ -14081,6 +14474,7 @@ async function openSavedStrategy(id) {
     render();
     closeSidebar();
   } catch (error) {
+    if (epoch !== state.identityEpoch || (state.currentUser?.id || null) !== expectedUserId) return;
     showToast(error.message, "error");
   }
 }
@@ -14091,8 +14485,11 @@ async function loadPlannerTasks() {
     updatePlannerBadge();
     return;
   }
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   try {
     const data = await authRequest("/api/planner");
+    if (epoch !== state.identityEpoch || (state.currentUser?.id || null) !== expectedUserId) return;
     state.plannerTasks = Array.isArray(data.tasks) ? data.tasks : [];
     updatePlannerBadge();
     checkAndShowPlannerVisitNotification();
@@ -14615,6 +15012,8 @@ async function prioritizePlannerTasksWithLuna({ forceRefresh = false } = {}) {
 
   if (state.isPrioritizingPlanner) return state.plannerTasks;
   state.isPrioritizingPlanner = true;
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
 
   try {
     showToast(
@@ -14635,6 +15034,8 @@ async function prioritizePlannerTasksWithLuna({ forceRefresh = false } = {}) {
       }),
     });
 
+    if (isIdentityStale(epoch, expectedUserId)) return state.plannerTasks;
+
     if (res && Array.isArray(res.tasks)) {
       state.plannerTasks = res.tasks;
       updatePlannerBadge();
@@ -14648,6 +15049,7 @@ async function prioritizePlannerTasksWithLuna({ forceRefresh = false } = {}) {
     }
     return state.plannerTasks;
   } catch (err) {
+    if (isIdentityStale(epoch, expectedUserId)) return state.plannerTasks;
     console.error("Planner prioritization failed:", err);
     showToast(
       err.message || (isEn ? "Failed to prioritize tasks" : "Prioritetləri ayırmaq mümkün olmadı"),
@@ -14655,7 +15057,9 @@ async function prioritizePlannerTasksWithLuna({ forceRefresh = false } = {}) {
     );
     return state.plannerTasks;
   } finally {
-    state.isPrioritizingPlanner = false;
+    if (!isIdentityStale(epoch, expectedUserId)) {
+      state.isPrioritizingPlanner = false;
+    }
   }
 }
 
@@ -14800,6 +15204,8 @@ function renderPlannerView() {
     const text = taskInput.value.trim();
     if (!text) return;
     submitBtn.disabled = true;
+    const epoch = state.identityEpoch;
+    const expectedUserId = state.currentUser?.id || null;
     try {
       const res = await authRequest("/api/planner", {
         method: "POST",
@@ -14810,6 +15216,7 @@ function renderPlannerView() {
           priority: state.plannerFilter === "priority" ? "high" : "normal",
         }),
       });
+      if (isIdentityStale(epoch, expectedUserId)) return;
       if (res.task) {
         state.plannerTasks.unshift(res.task);
         updatePlannerBadge();
@@ -14818,6 +15225,7 @@ function renderPlannerView() {
         showToast(isEn ? "Task added ✓" : "Tapşırıq əlavə edildi ✓", "success");
       }
     } catch (err) {
+      if (isIdentityStale(epoch, expectedUserId)) return;
       showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
     } finally {
       submitBtn.disabled = false;
@@ -15546,15 +15954,19 @@ function renderPlannerView() {
 /* ===== USAGE LIMITS VIEW & STATS ===== */
 
 async function loadUsageStats() {
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   if (state.currentUser) {
     try {
       const tzOffset = new Date().getTimezoneOffset();
       const data = await authRequest(`/api/usage/stats?tzOffset=${tzOffset}`);
+      if (epoch !== state.identityEpoch || (state.currentUser?.id || null) !== expectedUserId) return null;
       if (data && data.statsByPeriod) {
         state.usageStats = data;
         return data;
       }
     } catch (err) {
+      if (epoch !== state.identityEpoch || (state.currentUser?.id || null) !== expectedUserId) return null;
       console.warn("Could not fetch remote usage stats, computing locally:", err);
     }
   }
@@ -17839,7 +18251,11 @@ window.addEventListener("storage", (event) => {
 });
 
 // Render the workspace immediately while authentication and saved data load in the background.
-if (!new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/verify-email"]).has(window.location.pathname)) {
+if (!new Set(["/login", "/signin", "/signup", "/register", "/forgot-password", "/reset-password", "/verify-email"]).has(window.location.pathname)) {
+  if (window.location.pathname === "/profile" || window.location.pathname === "/settings") {
+    state.view = "settings";
+    state.settingsTab = "account";
+  }
   render();
 }
 
@@ -17862,7 +18278,14 @@ initializeAuthentication(async (user) => {
   const params = new URLSearchParams(window.location.search);
   const requestedMode = params.get("mode");
   if (["ask", "build"].includes(requestedMode)) setMode(requestedMode);
-  if (["limits", "up"].includes(params.get("view"))) state.view = params.get("view");
+  const requestedView = params.get("view");
+  if (["limits", "up", "settings"].includes(requestedView)) {
+    state.view = requestedView;
+  } else if (requestedView === "profile" || window.location.pathname === "/profile" || window.location.pathname === "/settings") {
+    state.view = "settings";
+    const requestedTab = params.get("tab");
+    state.settingsTab = ["account", "experience", "security", "legal"].includes(requestedTab) ? requestedTab : "account";
+  }
   render();
   await Promise.allSettled([loadSavedStrategies(), loadSavedChats(), loadPlannerTasks(), loadUsageStats()]);
   const lastActiveChatId = (() => {

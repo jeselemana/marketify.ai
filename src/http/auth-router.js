@@ -1,7 +1,7 @@
 import { OAuth2Client } from "google-auth-library";
 import express from "express";
 import { z } from "zod";
-import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   EmptyBodySchema,
   AccountUpdateSchema,
@@ -11,6 +11,8 @@ import {
   EmailVerificationRequestSchema,
   ForgotPasswordSchema,
   GoogleAuthSchema,
+  GoogleOAuthAuthorizeSchema,
+  GoogleOAuthCallbackSchema,
   ImportMemoryPayloadSchema,
   LoginSchema,
   OnboardingSchema,
@@ -24,15 +26,66 @@ import {
 import { hashOpaqueToken, hashPassword, verifyPassword } from "../auth/password.js";
 import {
   SESSION_TTL_SECONDS,
+  clearGuestCookie,
   clearSessionCookie,
   createSessionToken,
+  parseCookies,
   setSessionCookie,
 } from "./auth-middleware.js";
 
 const RESET_TTL_SECONDS = 20 * 60;
 const EMAIL_VERIFICATION_TTL_SECONDS = 10 * 60;
 const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
+const OAUTH_STATE_TTL_SECONDS = 5 * 60;
+export const OAUTH_STATE_COOKIE = "helmer_oauth_state";
 const DUMMY_PASSWORD_HASH = "$argon2id$v=19$m=19456,p=1,t=2$vcP17Lqj+FV8BaSbIBHvAg$SvwldQJW4f14U7Cv2tgeeuVIFT0LfFBIUNxAGWfNPLU";
+const AUTH_LOOP_PATHS = new Set(["/login", "/signin", "/signup", "/register", "/forgot-password", "/reset-password", "/verify-email"]);
+
+export function generateCodeVerifier() {
+  return randomBytes(32).toString("base64url");
+}
+
+export function computeCodeChallenge(codeVerifier) {
+  return createHash("sha256").update(String(codeVerifier)).digest("base64url");
+}
+
+export function verifyPkceChallenge(codeVerifier, expectedChallenge) {
+  if (typeof codeVerifier !== "string" || typeof expectedChallenge !== "string") return false;
+  if (codeVerifier.length < 43 || codeVerifier.length > 128) return false;
+  if (!/^[A-Za-z0-9._~-]+$/.test(codeVerifier)) return false;
+  const computed = Buffer.from(computeCodeChallenge(codeVerifier), "utf8");
+  const expected = Buffer.from(expectedChallenge, "utf8");
+  if (computed.length !== expected.length) return false;
+  return timingSafeEqual(computed, expected);
+}
+
+export function sanitizeReturnTo(value) {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
+    return "/workspace";
+  }
+  try {
+    const parsed = new URL(value, "http://localhost");
+    if (parsed.origin !== "http://localhost" || AUTH_LOOP_PATHS.has(parsed.pathname) || parsed.pathname.startsWith("/api/")) {
+      return "/workspace";
+    }
+    return parsed.pathname === "/" ? "/workspace" : `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return "/workspace";
+  }
+}
+
+function isSecureRequest(req) {
+  const forwarded = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  return process.env.NODE_ENV === "production" || req.secure || forwarded === "https";
+}
+
+function setOAuthStateCookie(req, res, token) {
+  res.append("Set-Cookie", `${OAUTH_STATE_COOKIE}=${encodeURIComponent(token)}; Path=/api/auth/google; HttpOnly; SameSite=Lax; Max-Age=${OAUTH_STATE_TTL_SECONDS}${isSecureRequest(req) ? "; Secure" : ""}`);
+}
+
+function clearOAuthStateCookie(req, res) {
+  res.append("Set-Cookie", `${OAUTH_STATE_COOKIE}=; Path=/api/auth/google; HttpOnly; SameSite=Lax; Max-Age=0${isSecureRequest(req) ? "; Secure" : ""}`);
+}
 function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
@@ -110,6 +163,9 @@ function limit(authStore, scope, count, seconds, identity, { perAccount = false 
 }
 
 async function startSession(req, res, authStore, user) {
+  if (req.auth?.sessionId) {
+    await authStore.deleteSession(req.auth.sessionId).catch(() => {});
+  }
   const rawToken = createSessionToken();
   const sessionId = hashOpaqueToken(rawToken);
   await authStore.createSession(sessionId, user.id, SESSION_TTL_SECONDS, { authVersion: user.authVersion || 1 });
@@ -117,12 +173,16 @@ async function startSession(req, res, authStore, user) {
   return sessionId;
 }
 
-export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, aiLearningRepository, upRepository, appUrl, telemetryService }) {
+export function createAuthRouter({ userRepository, authStore, emailService, strategyRepository, chatRepository, plannerRepository, aiLearningRepository, upRepository, appUrl, telemetryService, googleClient: customGoogleClient = null }) {
   const telemetryRepository = telemetryService?.repository;
   // server.js loads dotenv after ESM imports have been evaluated. Resolve this
   // value when the router is created so the configured client ID is available.
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
-  const googleClient = new OAuth2Client(googleClientId);
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const googlePkceConfigured = Boolean(googleClientId && (googleClientSecret || customGoogleClient));
+  const canonicalAppUrl = String(appUrl || process.env.APP_URL || "http://localhost:8080").replace(/\/$/, "");
+  const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI || `${canonicalAppUrl}/api/auth/google/callback`;
+  const googleClient = customGoogleClient || new OAuth2Client(googleClientId, googleClientSecret, googleRedirectUri);
   const router = express.Router();
 
   async function verificationUser(email) {
@@ -140,7 +200,11 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   router.post('/google/nonce', limit(authStore, 'google-nonce', 20, 300), asyncRoute(async (req, res) => {
     parseBody(EmptyBodySchema, req.body || {});
     const nonce = randomBytes(32).toString('base64url');
-    await authStore.createResetToken(hashOpaqueToken(nonce), 'google', 300, { purpose: 'google-nonce', sessionId: req.auth?.sessionId || req.ownerId });
+    await authStore.createResetToken(hashOpaqueToken(nonce), 'google', 300, {
+      purpose: 'google-nonce',
+      sessionId: req.auth?.sessionId || req.ownerId,
+      guestOwnerId: req.guestOwnerId || req.ownerId || null,
+    });
     res.set('Cache-Control', 'no-store');
     res.json({ nonce });
   }));
@@ -155,7 +219,14 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
         try {
           const ticket = await googleClient.verifyIdToken({ idToken: payload.credential, audience: googleClientId });
           const profile = ticket.getPayload();
-          accepted = profile?.nonce === payload.nonce && profile.email_verified && (req.user.googleSub ? profile.sub === req.user.googleSub : normalizeEmail(profile.email) === req.user.email);
+          const validIssuer = !profile?.iss || profile.iss === 'https://accounts.google.com' || profile.iss === 'accounts.google.com';
+          accepted = Boolean(
+            profile?.nonce === payload.nonce &&
+            profile.email_verified === true &&
+            validIssuer &&
+            req.user.googleSub &&
+            profile.sub === req.user.googleSub
+          );
         } catch { accepted = false; }
       }
     }
@@ -191,6 +262,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   }
 
   async function claimGuestData(req, userId) {
+    if (req.auth?.user && req.auth.user.id !== userId) return;
     if (req.guestOwnerId && strategyRepository?.claimOwner) await strategyRepository.claimOwner(req.guestOwnerId, userId);
     if (req.guestOwnerId && chatRepository?.claimOwner) await chatRepository.claimOwner(req.guestOwnerId, userId);
     if (req.guestOwnerId && plannerRepository?.claimOwner) await plannerRepository.claimOwner(req.guestOwnerId, userId);
@@ -208,6 +280,9 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   router.get("/config", (req, res) => {
     return res.json({
       googleClientId: googleClientId || "",
+      googleOAuthEnabled: Boolean(googleClientId),
+      googlePkceEnabled: googlePkceConfigured,
+      googleCallbackPath: "/api/auth/google/callback",
     });
   });
 
@@ -218,6 +293,415 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     const existing = await userRepository.findByUsername(parsed.data);
     return res.json({ available: !existing, valid: true });
   }));
+
+  async function provisionGoogleUser(req, res, profile) {
+    if (!profile?.sub || !profile?.email || profile.email_verified !== true) {
+      return {
+        status: 401,
+        error: "Google hesabı təsdiqlənmədi.",
+        code: "INVALID_GOOGLE_ACCOUNT",
+      };
+    }
+    if (profile.iss && profile.iss !== "https://accounts.google.com" && profile.iss !== "accounts.google.com") {
+      return {
+        status: 401,
+        error: "Google token mənbəyi etibarsızdır.",
+        code: "INVALID_GOOGLE_ISSUER",
+      };
+    }
+    if (profile.aud && googleClientId) {
+      const audMatches = Array.isArray(profile.aud)
+        ? profile.aud.includes(googleClientId)
+        : profile.aud === googleClientId;
+      if (!audMatches) {
+        return {
+          status: 401,
+          error: "Google token auditoriyası etibarsızdır.",
+          code: "INVALID_GOOGLE_AUDIENCE",
+        };
+      }
+    }
+    if (profile.exp !== undefined && Number(profile.exp) * 1000 <= Date.now() - 30000) {
+      return {
+        status: 401,
+        error: "Google giriş məlumatının vaxtı bitib.",
+        code: "INVALID_GOOGLE_TOKEN",
+      };
+    }
+
+    const email = normalizeEmail(profile.email);
+    const googleSub = String(profile.sub).trim();
+
+    // Per Google OIDC best practices, identify existing users primarily by immutable `sub`.
+    let user = typeof userRepository.findByGoogleSub === "function"
+      ? await userRepository.findByGoogleSub(googleSub)
+      : null;
+
+    let restoredFromPendingDeletion = false;
+    if (user) {
+      if (user.scheduledDeletionAt) {
+        const scheduledTime = new Date(user.scheduledDeletionAt).getTime();
+        if (!isNaN(scheduledTime) && scheduledTime <= Date.now()) {
+          await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, telemetryRepository, authStore }).catch(() => {});
+          return {
+            status: 401,
+            error: "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
+            code: "ACCOUNT_EXPIRED_DELETED",
+          };
+        }
+        await userRepository.cancelDeletion(user.id);
+        restoredFromPendingDeletion = true;
+      }
+
+      const previousGoogleEmail = user.googleEmail ? normalizeEmail(user.googleEmail) : null;
+      const currentEmail = normalizeEmail(user.email);
+      const hasCustomHelmerEmail = Boolean(
+        user.emailCustomisedAt ||
+        (previousGoogleEmail && currentEmail !== previousGoogleEmail)
+      );
+
+      const updateFields = {
+        emailVerifiedAt: user.emailVerifiedAt || new Date().toISOString(),
+        avatarUrl: user.avatarUrl || profile.picture || null,
+        googleSub,
+        googleEmail: email,
+        lastLoginAt: new Date().toISOString(),
+        status: "active",
+        deletionRequestedAt: null,
+        scheduledDeletionAt: null,
+      };
+
+      // If the user's Google email changed and the user has not set a custom Helmer email,
+      // preserve the existing Helmer profile and update the email if it does not conflict.
+      if (!hasCustomHelmerEmail && email !== currentEmail) {
+        const emailOwner = await verificationUser(email);
+        if (!emailOwner || emailOwner.id === user.id) {
+          updateFields.email = email;
+        }
+      }
+
+      user = await userRepository.update(user.id, updateFields, {
+        allowSystemFields: true,
+        preserveEmailVerification: true,
+      });
+    } else {
+      const emailOwner = await verificationUser(email);
+      if (emailOwner) {
+        if (emailOwner.googleSub && String(emailOwner.googleSub).trim() !== googleSub) {
+          return {
+            status: 401,
+            error: "Bu e-poçt başqa Google hesabına bağlıdır.",
+            code: "GOOGLE_ACCOUNT_MISMATCH",
+          };
+        }
+        // Prohibit unsafe automatic account merging based solely on email similarity.
+        // Only link Google `sub` if the caller is already authenticated as that verified account owner.
+        const isAuthenticatedOwner = Boolean(
+          req.auth?.user?.id === emailOwner.id &&
+          req.auth.user.emailVerifiedAt &&
+          !emailOwner.googleSub &&
+          normalizeEmail(emailOwner.email) === email
+        );
+        if (!isAuthenticatedOwner) {
+          return {
+            status: 409,
+            error: "Bu e-poçt ünvanı ilə artıq hesab mövcuddur. Təhlükəsizlik üçün əvvəlcə şifrə ilə daxil olun.",
+            code: "GOOGLE_ACCOUNT_LINK_REQUIRED",
+          };
+        }
+
+        if (emailOwner.scheduledDeletionAt) {
+          const scheduledTime = new Date(emailOwner.scheduledDeletionAt).getTime();
+          if (!isNaN(scheduledTime) && scheduledTime <= Date.now()) {
+            await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, telemetryRepository, authStore }).catch(() => {});
+            return {
+              status: 401,
+              error: "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
+              code: "ACCOUNT_EXPIRED_DELETED",
+            };
+          }
+          await userRepository.cancelDeletion(emailOwner.id);
+          restoredFromPendingDeletion = true;
+        }
+
+        user = await userRepository.update(emailOwner.id, {
+          emailVerifiedAt: emailOwner.emailVerifiedAt || new Date().toISOString(),
+          avatarUrl: emailOwner.avatarUrl || profile.picture || null,
+          googleSub,
+          googleEmail: email,
+          lastLoginAt: new Date().toISOString(),
+          status: "active",
+          deletionRequestedAt: null,
+          scheduledDeletionAt: null,
+        }, { allowSystemFields: true });
+      } else {
+        const baseRaw = email.split("@")[0] || profile.name || "user";
+        const username = await userRepository.findUniqueUsername(baseRaw);
+        const randomPassword = randomBytes(48).toString("base64url");
+        const passwordHash = await hashPassword(randomPassword);
+
+        user = await userRepository.create({
+          fullName: String(profile.name || email.split("@")[0]).trim(),
+          username,
+          email,
+          passwordHash,
+          emailVerifiedAt: new Date().toISOString(),
+          avatarUrl: profile.picture || null,
+          googleSub,
+          googleEmail: email,
+        });
+      }
+    }
+
+    await startSession(req, res, authStore, user);
+    await claimGuestData(req, user.id);
+
+    if (telemetryService) {
+      telemetryService.trackAuth({
+        ownerId: user.id,
+        sessionId: req.guestOwnerId,
+        action: "login",
+        provider: "google",
+        ip: req.ip || req.socket?.remoteAddress,
+        status: "success",
+      }).catch(() => {});
+    }
+
+    return {
+      status: 200,
+      user: publicUser(user),
+      restoredFromPendingDeletion,
+    };
+  }
+
+  async function handleGoogleAuthorize(req, res) {
+    const rawInput = req.method === "POST"
+      ? (req.body || {})
+      : {
+          ...(req.query?.returnTo ? { returnTo: String(req.query.returnTo) } : {}),
+          ...(req.query?.codeChallenge ? { codeChallenge: String(req.query.codeChallenge) } : {}),
+          ...(req.query?.codeChallengeMethod ? { codeChallengeMethod: String(req.query.codeChallengeMethod) } : {}),
+        };
+    const payload = parseBody(GoogleOAuthAuthorizeSchema, rawInput);
+    const returnTo = sanitizeReturnTo(payload.returnTo);
+
+    if (!googlePkceConfigured) {
+      if (req.method === "GET" && req.query?.format !== "json") {
+        return res.redirect(302, `/login?error=${encodeURIComponent("GOOGLE_AUTH_NOT_CONFIGURED")}&returnTo=${encodeURIComponent(returnTo)}`);
+      }
+      return res.status(503).json({
+        error: "Google girişi serverdə konfiqurasiya edilməyib.",
+        code: "GOOGLE_AUTH_NOT_CONFIGURED",
+      });
+    }
+
+    const state = randomBytes(32).toString("base64url");
+    const nonce = randomBytes(32).toString("base64url");
+    const oauthBinding = randomBytes(32).toString("base64url");
+    const clientProvidedChallenge = Boolean(payload.codeChallenge);
+    const codeVerifier = clientProvidedChallenge ? null : generateCodeVerifier();
+    const codeChallenge = clientProvidedChallenge ? payload.codeChallenge : computeCodeChallenge(codeVerifier);
+
+    await authStore.createResetToken(hashOpaqueToken(state), "google-oauth", OAUTH_STATE_TTL_SECONDS, {
+      purpose: "google-oauth-pkce",
+      codeVerifier,
+      codeChallenge,
+      codeChallengeMethod: "S256",
+      nonce,
+      bindingHash: hashOpaqueToken(oauthBinding),
+      sessionId: req.auth?.sessionId || req.ownerId || null,
+      returnTo,
+    });
+
+    setOAuthStateCookie(req, res, oauthBinding);
+    res.set("Cache-Control", "no-store");
+
+    const authorizationUrl = googleClient.generateAuthUrl({
+      access_type: "online",
+      response_type: "code",
+      scope: ["openid", "email", "profile"],
+      redirect_uri: googleRedirectUri,
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+      nonce,
+      prompt: "select_account",
+    });
+
+    if (req.method === "POST" || req.query?.format === "json") {
+      return res.json({
+        authorizationUrl,
+        state,
+        codeChallenge,
+        codeChallengeMethod: "S256",
+      });
+    }
+    return res.redirect(302, authorizationUrl);
+  }
+
+  router.get("/google/authorize", limit(authStore, "google-authorize", 20, 300), asyncRoute(handleGoogleAuthorize));
+  router.post("/google/authorize", limit(authStore, "google-authorize", 20, 300), asyncRoute(handleGoogleAuthorize));
+
+  async function handleGoogleCallback(req, res) {
+    const isBrowserRedirect = req.method === "GET" && req.query?.format !== "json";
+    const cookies = parseCookies(req.headers.cookie);
+    const rawBindingCookie = cookies[OAUTH_STATE_COOKIE] || "";
+    clearOAuthStateCookie(req, res);
+    res.set("Cache-Control", "no-store");
+
+    if (req.method === "GET" && req.query?.error) {
+      if (isBrowserRedirect) {
+        return res.redirect(302, `/login?error=${encodeURIComponent("GOOGLE_OAUTH_CANCELLED")}`);
+      }
+      return res.status(400).json({
+        error: "Google girişi ləğv edildi və ya rədd olundu.",
+        code: "GOOGLE_OAUTH_CANCELLED",
+      });
+    }
+
+    if (!googlePkceConfigured) {
+      if (isBrowserRedirect) {
+        return res.redirect(302, `/login?error=${encodeURIComponent("GOOGLE_AUTH_NOT_CONFIGURED")}`);
+      }
+      return res.status(503).json({
+        error: "Google girişi serverdə konfiqurasiya edilməyib.",
+        code: "GOOGLE_AUTH_NOT_CONFIGURED",
+      });
+    }
+
+    const rawPayload = req.method === "POST"
+      ? (req.body || {})
+      : {
+          code: typeof req.query?.code === "string" ? req.query.code : "",
+          state: typeof req.query?.state === "string" ? req.query.state : "",
+          ...(typeof req.query?.codeVerifier === "string" ? { codeVerifier: req.query.codeVerifier } : {}),
+        };
+    const payload = parseBody(GoogleOAuthCallbackSchema, rawPayload);
+
+    const record = await authStore.consumeResetToken(hashOpaqueToken(payload.state));
+    if (!record || record.purpose !== "google-oauth-pkce") {
+      if (isBrowserRedirect) {
+        return res.redirect(302, `/login?error=${encodeURIComponent("INVALID_GOOGLE_STATE")}`);
+      }
+      return res.status(401).json({
+        error: "Google təhlükəsizlik təsdiqi (state) etibarsızdır və ya vaxtı bitib.",
+        code: "INVALID_GOOGLE_STATE",
+      });
+    }
+
+    let bindingValid = false;
+    if (rawBindingCookie && record.bindingHash) {
+      const actualHash = Buffer.from(hashOpaqueToken(rawBindingCookie), "utf8");
+      const expectedHash = Buffer.from(String(record.bindingHash), "utf8");
+      if (actualHash.length === expectedHash.length && timingSafeEqual(actualHash, expectedHash)) {
+        bindingValid = true;
+      }
+    }
+    if (!bindingValid && record.sessionId && record.sessionId === (req.auth?.sessionId || req.ownerId)) {
+      bindingValid = true;
+    }
+    if (!bindingValid) {
+      if (isBrowserRedirect) {
+        return res.redirect(302, `/login?error=${encodeURIComponent("INVALID_GOOGLE_STATE")}`);
+      }
+      return res.status(401).json({
+        error: "Google giriş sessiyası cari brauzerlə uyğun gəlmir.",
+        code: "INVALID_GOOGLE_STATE",
+      });
+    }
+
+    const verifier = payload.codeVerifier || record.codeVerifier;
+    if (!verifier || !verifyPkceChallenge(verifier, record.codeChallenge)) {
+      if (isBrowserRedirect) {
+        return res.redirect(302, `/login?error=${encodeURIComponent("INVALID_GOOGLE_PKCE")}`);
+      }
+      return res.status(401).json({
+        error: "Google PKCE doğrulaması uğursuz oldu.",
+        code: "INVALID_GOOGLE_PKCE",
+      });
+    }
+
+    let idToken;
+    try {
+      const tokenResponse = await googleClient.getToken({
+        code: payload.code,
+        codeVerifier: verifier,
+        redirect_uri: googleRedirectUri,
+      });
+      idToken = tokenResponse?.tokens?.id_token;
+    } catch (exchangeError) {
+      console.warn("Google OAuth token exchange failed:", exchangeError?.message || exchangeError);
+      if (isBrowserRedirect) {
+        return res.redirect(302, `/login?error=${encodeURIComponent("INVALID_GOOGLE_CODE")}`);
+      }
+      return res.status(401).json({
+        error: "Google avtorizasiya kodu etibarsızdır və ya vaxtı bitib.",
+        code: "INVALID_GOOGLE_CODE",
+      });
+    }
+
+    if (!idToken) {
+      if (isBrowserRedirect) {
+        return res.redirect(302, `/login?error=${encodeURIComponent("INVALID_GOOGLE_TOKEN")}`);
+      }
+      return res.status(401).json({
+        error: "Google ID token alınmadı.",
+        code: "INVALID_GOOGLE_TOKEN",
+      });
+    }
+
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: googleClientId,
+      });
+    } catch (verifyError) {
+      console.warn("Google OAuth ID token verification failed:", verifyError?.message || verifyError);
+      if (isBrowserRedirect) {
+        return res.redirect(302, `/login?error=${encodeURIComponent("INVALID_GOOGLE_TOKEN")}`);
+      }
+      return res.status(401).json({
+        error: "Google giriş məlumatı etibarsızdır və ya vaxtı bitib.",
+        code: "INVALID_GOOGLE_TOKEN",
+      });
+    }
+
+    const profile = ticket?.getPayload();
+    if (record.nonce && profile?.nonce !== record.nonce) {
+      if (isBrowserRedirect) {
+        return res.redirect(302, `/login?error=${encodeURIComponent("INVALID_GOOGLE_NONCE")}`);
+      }
+      return res.status(401).json({
+        error: "Google təsdiqi (nonce) uyğun gəlmir.",
+        code: "INVALID_GOOGLE_NONCE",
+      });
+    }
+
+    const outcome = await provisionGoogleUser(req, res, profile);
+    if (outcome.status !== 200) {
+      if (isBrowserRedirect) {
+        return res.redirect(302, `/login?error=${encodeURIComponent(outcome.code || "GOOGLE_AUTH_FAILED")}`);
+      }
+      return res.status(outcome.status).json({
+        error: outcome.error,
+        code: outcome.code,
+      });
+    }
+
+    const returnTo = sanitizeReturnTo(record.returnTo);
+    if (isBrowserRedirect) {
+      return res.redirect(302, returnTo);
+    }
+    return res.json({
+      user: outcome.user,
+      restoredFromPendingDeletion: outcome.restoredFromPendingDeletion,
+      returnTo,
+    });
+  }
+
+  router.get("/google/callback", limit(authStore, "google-callback", 20, 15 * 60), asyncRoute(handleGoogleCallback));
+  router.post("/google/callback", limit(authStore, "google-callback", 20, 15 * 60), asyncRoute(handleGoogleCallback));
 
   router.post(
   "/google",
@@ -249,90 +733,25 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
 
     const profile = ticket?.getPayload();
     const nonce = await authStore.consumeResetToken(hashOpaqueToken(payload.nonce));
-    if (!nonce || nonce.purpose !== 'google-nonce' || nonce.sessionId !== (req.auth?.sessionId || req.ownerId) || profile?.nonce !== payload.nonce) return res.status(401).json({ code: 'INVALID_GOOGLE_NONCE', error: 'Google təsdiqi yenilənməlidir.' });
+    const currentSessionOrOwner = req.auth?.sessionId || req.ownerId;
+    const currentGuestOwner = req.guestOwnerId || req.ownerId;
+    const nonceSessionMatches = Boolean(
+      nonce &&
+      (nonce.sessionId === currentSessionOrOwner || (nonce.guestOwnerId && nonce.guestOwnerId === currentGuestOwner))
+    );
+    if (!nonce || nonce.purpose !== 'google-nonce' || !nonceSessionMatches || profile?.nonce !== payload.nonce) return res.status(401).json({ code: 'INVALID_GOOGLE_NONCE', error: 'Google təsdiqi yenilənməlidir.' });
 
-    if (!profile?.sub || !profile?.email || !profile.email_verified) {
-      return res.status(401).json({
-        error: "Google hesabı təsdiqlənmədi.",
-        code: "INVALID_GOOGLE_ACCOUNT",
+    const outcome = await provisionGoogleUser(req, res, profile);
+    if (outcome.status !== 200) {
+      return res.status(outcome.status).json({
+        error: outcome.error,
+        code: outcome.code,
       });
-    }
-
-    const email = normalizeEmail(profile.email);
-    let user = await userRepository.findByEmail(email);
-
-    let restoredFromPendingDeletion = false;
-    if (!user) {
-      const baseRaw = email.split("@")[0] || profile.name || "user";
-      const username = await userRepository.findUniqueUsername(baseRaw);
-      const randomPassword = randomBytes(48).toString("base64url");
-      const passwordHash = await hashPassword(randomPassword);
-
-      user = await userRepository.create({
-        fullName: String(profile.name || email.split("@")[0]).trim(),
-        username,
-        email,
-        passwordHash,
-        emailVerifiedAt: new Date().toISOString(),
-        avatarUrl: profile.picture || null,
-        googleSub: profile.sub,
-      });
-    } else {
-      if (user.googleSub && user.googleSub !== profile.sub) {
-        return res.status(401).json({
-          error: "Bu e-poçt başqa Google hesabına bağlıdır.",
-          code: "GOOGLE_ACCOUNT_MISMATCH",
-        });
-      }
-      if (user.scheduledDeletionAt) {
-        const scheduledTime = new Date(user.scheduledDeletionAt).getTime();
-        if (!isNaN(scheduledTime) && scheduledTime <= Date.now()) {
-          await userRepository.purgeExpiredAccounts({ strategyRepository, chatRepository, plannerRepository, upRepository, aiLearningRepository, telemetryRepository, authStore }).catch(() => {});
-          return res.status(401).json({
-            error: "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
-            code: "ACCOUNT_EXPIRED_DELETED",
-          });
-        }
-        await userRepository.cancelDeletion(user.id);
-        restoredFromPendingDeletion = true;
-      }
-      if (!user.emailVerifiedAt) {
-        // An unverified credentials account may have been pre-registered by
-        // someone who does not own this inbox. Google has just proven ownership,
-        // so revoke the password and sessions created before that proof.
-        await userRepository.updatePassword(user.id, await hashPassword(randomBytes(48).toString("base64url")));
-        await authStore.invalidateUserSessions(user.id);
-      }
-      user = await userRepository.update(user.id, {
-        emailVerifiedAt:
-          user.emailVerifiedAt || new Date().toISOString(),
-        avatarUrl:
-          user.avatarUrl || profile.picture || null,
-        googleSub: profile.sub,
-        lastLoginAt: new Date().toISOString(),
-        status: "active",
-        deletionRequestedAt: null,
-        scheduledDeletionAt: null,
-      }, { allowSystemFields: true });
-    }
-
-    await startSession(req, res, authStore, user);
-    await claimGuestData(req, user.id);
-
-    if (telemetryService) {
-      telemetryService.trackAuth({
-        ownerId: user.id,
-        sessionId: req.guestOwnerId,
-        action: "login",
-        provider: "google",
-        ip: req.ip || req.socket?.remoteAddress,
-        status: "success",
-      }).catch(() => {});
     }
 
     return res.json({
-      user: publicUser(user),
-      restoredFromPendingDeletion,
+      user: outcome.user,
+      restoredFromPendingDeletion: outcome.restoredFromPendingDeletion,
     });
   }),
 );
@@ -423,7 +842,9 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     if (!verifiedUser) return res.status(400).json({ error: "Kod etibarsızdır.", code: "INVALID_EMAIL_VERIFICATION_CODE" });
     await authStore.invalidateUserSessions(user.id);
     await startSession(req, res, authStore, verifiedUser);
-    await claimGuestData(req, verifiedUser.id);
+    if (purpose === "signup") {
+      await claimGuestData(req, verifiedUser.id);
+    }
     return res.json({ user: publicUser(verifiedUser) });
   }));
 
@@ -506,7 +927,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     });
   }));
 
-  router.get("/me", (req, res) => {
+  router.get(["/me", "/profile"], (req, res) => {
     if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
     return res.json({ user: publicUser(req.user) });
   });
@@ -526,6 +947,17 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
     clearSessionCookie(req, res);
     return res.status(204).end();
   }));
+
+  router.post(
+    "/logout-all",
+    limit(authStore, "logout-all", 10, 15 * 60, (req) => req.user?.id),
+    asyncRoute(async (req, res) => {
+      parseBody(EmptyBodySchema, req.body || {});
+      if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });
+      await authStore.invalidateUserSessions(req.user.id, req.auth?.sessionId || null);
+      return res.json({ ok: true });
+    }),
+  );
 
   router.post(
     "/account/delete-request",
@@ -568,7 +1000,7 @@ export function createAuthRouter({ userRepository, authStore, emailService, stra
   );
 
   router.patch(
-    "/account",
+    ["/account", "/profile"],
     limit(authStore, "account-update", 20, 15 * 60, (req) => req.user?.id),
     asyncRoute(async (req, res) => {
       if (!req.user) return res.status(401).json({ error: "Sessiya aktiv deyil.", code: "AUTH_REQUIRED" });

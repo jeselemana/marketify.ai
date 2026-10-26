@@ -57,9 +57,9 @@ export class FileAuthStore {
     finally { this.syncPromise = null; }
   }
 
-  async read() {
+  async read(force = false) {
     if (this.cloud) {
-      const { record, notFound } = await this.readCloud();
+      const { record, notFound } = await this.readCloud({ force: Boolean(force) });
       if (!notFound && record !== null && (!record || typeof record !== "object" || Array.isArray(record))) {
         throw storageCorruption("Invalid cloud auth storage.");
       }
@@ -87,7 +87,7 @@ export class FileAuthStore {
   async write(store) {
     return this.withLock(async () => {
       if (this.cloud) {
-        const { etag } = await this.readCloud();
+        const { etag } = await this.readCloud({ force: true });
         if (!await this.writeCloud(store, etag)) {
           const error = new Error("Auth storage concurrency conflict.");
           error.code = "STORAGE_BUSY";
@@ -110,7 +110,7 @@ export class FileAuthStore {
         let etag = null;
 
         if (isCloud) {
-          const res = await this.readCloud();
+          const res = await this.readCloud({ force: true });
           if (res.record) {
             store = { ...emptyStore(), ...res.record };
             etag = res.etag;
@@ -167,10 +167,9 @@ export class FileAuthStore {
   }
 
   async getSession(id) {
-    // read() is always authoritative (fresh cloud object or local file), so a
-    // miss needs no re-sync. Re-syncing here used to take the lock and rewrite
-    // the store for every request carrying a forged session cookie.
-    const store = await this.read();
+    // read(true) forces conditional ETag revalidation against cloud storage so
+    // session revocations across multi-replica Cloud Run instances take effect immediately.
+    const store = await this.read(true);
     const session = store.sessions[id];
     return session && session.expiresAt > Date.now() ? session : null;
   }

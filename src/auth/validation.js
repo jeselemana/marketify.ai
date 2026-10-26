@@ -63,6 +63,18 @@ export const GoogleAuthSchema = z.object({
   nonce: z.string().min(32).max(128),
 }).strict();
 
+export const GoogleOAuthAuthorizeSchema = z.object({
+  returnTo: z.string().trim().max(512).optional(),
+  codeChallenge: z.string().trim().min(43).max(128).regex(/^[A-Za-z0-9_-]+$/, "PKCE code_challenge formatı yanlışdır.").optional(),
+  codeChallengeMethod: z.literal("S256").optional(),
+}).strict();
+
+export const GoogleOAuthCallbackSchema = z.object({
+  code: z.string().trim().min(1, "Google təsdiq kodu göndərilməyib.").max(2048),
+  state: z.string().trim().min(32, "Google state parametri yanlışdır.").max(128),
+  codeVerifier: z.string().trim().min(43).max(128).regex(/^[A-Za-z0-9._~-]+$/, "PKCE code_verifier formatı yanlışdır.").optional(),
+}).strict();
+
 export const ChangePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Cari şifrəni daxil et.").max(128),
   newPassword: PasswordSchema,

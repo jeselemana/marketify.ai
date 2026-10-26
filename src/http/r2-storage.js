@@ -223,15 +223,15 @@ function setR2EtagCache(fullKey, entry) {
   _r2EtagCache.set(fullKey, { ...entry, verifiedAt: Date.now() });
 }
 
-async function readConditionalJsonFromR2(fullKey, errorLabel) {
+async function readConditionalJsonFromR2(fullKey, errorLabel, { force = false } = {}) {
   if (!isR2Configured()) return { record: null, etag: null, isCloud: false, notFound: true, tombstone: false };
   const s3 = getS3Client();
   if (!s3) return { record: null, etag: null, isCloud: false, notFound: true, tombstone: false };
 
-  const freshCached = _r2EtagCache.get(fullKey);
+  const freshCached = !force ? _r2EtagCache.get(fullKey) : null;
   if (freshCached && freshCached.verifiedAt && (Date.now() - freshCached.verifiedAt < R2_REVALIDATE_TTL_MS)) {
     return {
-      record: freshCached.record,
+      record: freshCached.record ? structuredClone(freshCached.record) : freshCached.record,
       etag: freshCached.etag,
       notFound: false,
       isCloud: true,
@@ -239,7 +239,7 @@ async function readConditionalJsonFromR2(fullKey, errorLabel) {
     };
   }
 
-  let pending = _r2InFlightReads.get(fullKey);
+  let pending = !force ? _r2InFlightReads.get(fullKey) : null;
   if (!pending) {
     pending = (async () => {
       const cached = _r2EtagCache.get(fullKey);
@@ -259,7 +259,7 @@ async function readConditionalJsonFromR2(fullKey, errorLabel) {
         const isTombstone = Boolean(parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed._tombstone);
         const etag = response.ETag || null;
         if (etag) {
-          setR2EtagCache(fullKey, { record: parsed, etag, tombstone: isTombstone });
+          setR2EtagCache(fullKey, { record: structuredClone(parsed), etag, tombstone: isTombstone });
         } else {
           _r2EtagCache.delete(fullKey);
         }
@@ -293,12 +293,15 @@ async function readConditionalJsonFromR2(fullKey, errorLabel) {
   }
 
   const res = await pending;
-  return { ...res };
+  return {
+    ...res,
+    record: res.record ? structuredClone(res.record) : res.record,
+  };
 }
 
 // Cloudflare R2-dən Users JSON faylı oxumaq (OCC ETag ilə)
-export async function readUserObject() {
-  return readConditionalJsonFromR2("data/users.json", "readUserObject");
+export async function readUserObject(options = {}) {
+  return readConditionalJsonFromR2("data/users.json", "readUserObject", options);
 }
 
 // Cloudflare R2-yə Users JSON faylı yazmaq (OCC ETag CAS ilə)
@@ -335,8 +338,8 @@ export async function writeUserObject(record, etag = null) {
 }
 
 // Cloudflare R2-dən AuthStore JSON faylı oxumaq (OCC ETag ilə)
-export async function readAuthStoreObject() {
-  return readConditionalJsonFromR2("data/auth-store.json", "readAuthStoreObject");
+export async function readAuthStoreObject(options = {}) {
+  return readConditionalJsonFromR2("data/auth-store.json", "readAuthStoreObject", options);
 }
 
 // Cloudflare R2-yə AuthStore JSON faylı yazmaq (OCC ETag CAS ilə)

@@ -1,9 +1,13 @@
 // UP is an interactive strategic decision and business test surface.
 export function createUpView({ request: transport, getUser, getLanguage, onLogin }) {
   const pendingIdempotencyKeys = new Map();
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('helmer:logout', () => pendingIdempotencyKeys.clear());
+    window.addEventListener('helmer:user-changed', () => pendingIdempotencyKeys.clear());
+  }
   const request = async (path, options = {}) => {
     const isChallengeMutation = options.method === 'POST' && /^\/api\/up\/challenges(?:\/|$)/.test(path);
-    const opSignature = isChallengeMutation ? `${path}:${options.body || ''}` : null;
+    const opSignature = isChallengeMutation ? `${getUser()?.id || 'guest'}:${path}:${options.body || ''}` : null;
     const explicitKey = options.headers?.['Idempotency-Key'];
     const idempotencyKey = isChallengeMutation
       ? (explicitKey || pendingIdempotencyKeys.get(opSignature) || crypto.randomUUID())
@@ -121,8 +125,10 @@ export function createUpView({ request: transport, getUser, getLanguage, onLogin
     }
 
     async function load(opened = false) {
-      data = await request(opened ? '/api/up/opened' : '/api/up', opened ? { method: 'POST', body: '{}' } : {});
-      if (valid()) draw();
+      const next = await request(opened ? '/api/up/opened' : '/api/up', opened ? { method: 'POST', body: '{}' } : {});
+      if (!valid()) return;
+      data = next;
+      draw();
     }
 
     function preferencesForm(firstTime) {
@@ -174,7 +180,9 @@ export function createUpView({ request: transport, getUser, getLanguage, onLogin
         if (!interests.length) { error = copy('Choose at least one skill.', 'Ən azı bir sahə seç.'); draw(); return; }
         const payload = { dailyGoal: Number(inputs.dailyGoal.value), weeklyGoal: Number(inputs.weeklyGoal.value), interests, ...(firstTime ? { timezone: zone.value.trim() } : {}) };
         run(async () => {
-          data = await request(firstTime ? '/api/up/onboarding' : '/api/up/preferences', { method: firstTime ? 'POST' : 'PATCH', body: JSON.stringify(payload) });
+          const next = await request(firstTime ? '/api/up/onboarding' : '/api/up/preferences', { method: firstTime ? 'POST' : 'PATCH', body: JSON.stringify(payload) });
+          if (!valid()) return;
+          data = next;
           settings = false;
         }, copy('Saving goals…', 'Hədəflər saxlanılır…'));
       });
@@ -219,7 +227,9 @@ export function createUpView({ request: transport, getUser, getLanguage, onLogin
         }
         run(async () => {
           try {
-            challenge = data.activeChallenge || await request('/api/up/challenges', { method: 'POST', body: JSON.stringify({ language: getLanguage() }) });
+            const nextChallenge = data.activeChallenge || await request('/api/up/challenges', { method: 'POST', body: JSON.stringify({ language: getLanguage() }) });
+            if (!valid()) return;
+            challenge = nextChallenge;
             selectedOption = challenge?.answer || '';
           } finally {
             isGenerating = false;
@@ -383,11 +393,15 @@ export function createUpView({ request: transport, getUser, getLanguage, onLogin
         const confirmBtn = button(copy('Confirm Decision', 'Qərarı Təsdiq Et'), () => {
           if (!selectedOption) return;
           run(async () => {
-            challenge = await request(`/api/up/challenges/${c.id}/submit`, {
+            const nextChallenge = await request(`/api/up/challenges/${c.id}/submit`, {
               method: 'POST',
               body: JSON.stringify({ selectedOption, language: getLanguage() }),
             });
-            data = await request('/api/up');
+            if (!valid()) return;
+            challenge = nextChallenge;
+            const nextData = await request('/api/up');
+            if (!valid()) return;
+            data = nextData;
           }, copy('Evaluating strategic decision…', 'Strateji qərar təsdiqlənir…'));
         });
         confirmBtn.classList.add('up-confirm-btn');
@@ -450,7 +464,9 @@ export function createUpView({ request: transport, getUser, getLanguage, onLogin
           draw();
           run(async () => {
             try {
-              challenge = data.activeChallenge || await request('/api/up/challenges', { method: 'POST', body: JSON.stringify({ language: getLanguage() }) });
+              const nextChallenge = data.activeChallenge || await request('/api/up/challenges', { method: 'POST', body: JSON.stringify({ language: getLanguage() }) });
+              if (!valid()) return;
+              challenge = nextChallenge;
               selectedOption = challenge?.answer || '';
             } finally {
               isGenerating = false;

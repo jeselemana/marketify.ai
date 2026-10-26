@@ -20,7 +20,9 @@ async function loadAuthConfig() {
 
 const AUTH_PATHS = new Set([
   "/login",
+  "/signin",
   "/signup",
+  "/register",
   "/forgot-password",
   "/reset-password",
   "/verify-email",
@@ -382,6 +384,7 @@ function guestAccessButton(label = null) {
 }
 
 async function completeAuthentication(user) {
+  window.dispatchEvent(new CustomEvent("helmer:user-changed", { detail: { user } }));
   if (user?.settings?.language) {
     setLanguage(user.settings.language, true);
   }
@@ -395,6 +398,24 @@ async function completeAuthentication(user) {
   }
   route(pendingReturnPath, true);
   await authenticatedCallback?.(user);
+}
+
+async function refreshGoogleIdentityNonce() {
+  if (!runtimeGoogleClientId || !window.google?.accounts?.id) return;
+  try {
+    currentGoogleNonce = (await request("/api/auth/google/nonce", { method: "POST", body: JSON.stringify({}) })).nonce;
+    window.google.accounts.id.initialize({
+      client_id: runtimeGoogleClientId,
+      nonce: currentGoogleNonce,
+      callback: handleGoogleCredential,
+      ux_mode: "popup",
+    });
+    initializedGoogleClientId = runtimeGoogleClientId;
+    const target = document.querySelector(".google-auth-button");
+    if (target) {
+      window.google.accounts.id.renderButton(target, googleButtonOptions());
+    }
+  } catch {}
 }
 
 async function handleGoogleCredential(response) {
@@ -415,6 +436,7 @@ async function handleGoogleCredential(response) {
     console.error("Google login error:", error);
     const form = authRoot.querySelector(".auth-form");
     if (form) setFormError(form, error.message);
+    await refreshGoogleIdentityNonce();
   }
 }
 
@@ -435,6 +457,26 @@ window.addEventListener("helmer:theme-change", () => {
     try { window.google.accounts.id.renderButton(target, googleButtonOptions()); } catch {}
   }
 });
+
+function resolveOAuthErrorMessage(errorCode) {
+  if (!errorCode) return "";
+  const isEn = getLanguage() === "en";
+  const messages = {
+    GOOGLE_AUTH_NOT_CONFIGURED: isEn ? "Google Sign-In is not configured on the server." : "Google girişi serverdə konfiqurasiya edilməyib.",
+    GOOGLE_OAUTH_CANCELLED: isEn ? "Google sign-in was cancelled." : "Google girişi ləğv edildi.",
+    INVALID_GOOGLE_STATE: isEn ? "Google security state expired. Please try again." : "Google təhlükəsizlik təsdiqi (state) vaxtı bitib. Yenidən yoxla.",
+    INVALID_GOOGLE_PKCE: isEn ? "Google PKCE verification failed. Please try again." : "Google PKCE doğrulaması uğursuz oldu. Yenidən yoxla.",
+    INVALID_GOOGLE_CODE: isEn ? "Google authorization code expired. Please try again." : "Google avtorizasiya kodu etibarsızdır və ya vaxtı bitib.",
+    INVALID_GOOGLE_TOKEN: isEn ? "Google ID token is invalid or expired." : "Google giriş məlumatı etibarsızdır və ya vaxtı bitib.",
+    INVALID_GOOGLE_NONCE: isEn ? "Google verification nonce mismatch. Please try again." : "Google təsdiqi yenilənməlidir.",
+    GOOGLE_ACCOUNT_MISMATCH: isEn ? "This email is linked to another Google account." : "Bu e-poçt başqa Google hesabına bağlıdır.",
+    GOOGLE_ACCOUNT_LINK_REQUIRED: isEn ? "An account with this email already exists. Please sign in with your password first." : "Bu e-poçt ünvanı ilə artıq hesab mövcuddur. Təhlükəsizlik üçün əvvəlcə şifrə ilə daxil olun.",
+    INVALID_GOOGLE_AUDIENCE: isEn ? "Google token audience mismatch." : "Google token auditoriyası etibarsızdır.",
+    INVALID_GOOGLE_ISSUER: isEn ? "Google token issuer mismatch." : "Google token mənbəyi etibarsızdır.",
+    ACCOUNT_EXPIRED_DELETED: isEn ? "This account was permanently deleted after the 14-day grace period." : "Hesabınız 14 günlük gözləmə müddəti bitdiyinə görə tamamilə silinib.",
+  };
+  return messages[errorCode] || (isEn ? "Google sign-in could not be completed." : "Google ilə giriş tamamlana bilmədi.");
+}
 
 function googleSignInButton() {
   const wrapper = document.createElement("div");
@@ -568,6 +610,10 @@ function renderLogin() {
   });
 
   content.appendChild(form);
+  const oauthError = new URLSearchParams(location.search).get("error");
+  if (oauthError) {
+    setFormError(form, resolveOAuthErrorMessage(oauthError));
+  }
 
   setTimeout(() => form.identifier.focus(), 0);
 }
@@ -863,6 +909,9 @@ function renderReset() {
 function renderOnboarding(user) {
   const isEn = getLanguage() === "en";
   document.title = `${isEn ? "Personalization" : "Fərdiləşdirmə"} — Helmer Workspace`;
+  appShell.hidden = true;
+  authRoot.hidden = false;
+  document.body.classList.remove("auth-loading");
   document.body.classList.add("auth-active");
 
   const firstName = (user?.fullName || "").trim().split(/\s+/)[0] || (isEn ? "Leader" : "Lider");
@@ -1103,6 +1152,9 @@ function renderOnboarding(user) {
 function renderWorkspaceOverview(user) {
   const isEn = getLanguage() === "en";
   document.title = `${t("auth.overview.title") || (isEn ? "Welcome to Helmer Workspace" : "Helmer Workspace-ə xoş gəldiniz")} — Helmer Workspace`;
+  appShell.hidden = true;
+  authRoot.hidden = false;
+  document.body.classList.remove("auth-loading");
   document.body.classList.add("auth-active");
 
   const content = shell(
@@ -1200,11 +1252,14 @@ function renderRoute() {
   authRoot.hidden = false;
   document.body.classList.remove("auth-loading");
   document.body.classList.add("auth-active");
-  if (path === "/signup") return renderSignup();
+  if (path === "/signup" || path === "/register") {
+    if (path === "/register") route(`/signup${location.search}`, true);
+    return renderSignup();
+  }
   if (path === "/forgot-password") return renderForgot();
   if (path === "/reset-password") return renderReset();
   if (path === "/verify-email") return renderEmailVerification();
-  if (path !== "/login") route("/login", true);
+  if (path !== "/login") route(`/login${location.search}`, true);
   return renderLogin();
 }
 
@@ -1253,6 +1308,12 @@ export async function initializeAuthentication(onAuthenticated) {
 
 export async function logout() {
   try { localStorage.removeItem("helmer_bg_jobs"); } catch {}
+  try {
+    sessionStorage.removeItem("helmer_active_ask_chat");
+    sessionStorage.removeItem("helmer_planner_visit_notif_shown");
+  } catch {}
+  try { window.google?.accounts?.id?.disableAutoSelect?.(); } catch {}
+  window.dispatchEvent(new CustomEvent("helmer:logout"));
   await request("/api/auth/logout", { method: "POST", body: "{}" }).catch(() => {});
   route("/login", true);
   renderRoute();
