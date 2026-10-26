@@ -101,7 +101,7 @@ These directives are MANDATORY and NON-NEGOTIABLE across all coding, refactoring
 
 ### 9. Sessions, Rate Limiting & Production Secrets
 - **Guest Sessions**: Guest sessions must be HMAC-signed (`signGuestId`). Any unsigned or forged guest cookie must be rejected and re-issued.
-- **Production Secrets Zero-Fallback**: When `NODE_ENV === "production"`, missing `SESSION_SECRET`, `AUTH_SECRET`, or `REDIS_URL` must immediately throw a fatal error on startup (`validateSecurityConfig`). Never silently fall back to default development keys or in-memory rate-limit/concurrency fallbacks in production.
+- **Production Secrets Zero-Fallback**: When `NODE_ENV === "production"`, missing `SESSION_SECRET`, `AUTH_SECRET` (or `REDIS_URL` when `REQUIRE_REDIS === "true"`) must immediately throw a fatal error on startup (`validateSecurityConfig`). Never silently fall back to default development keys.
 - **IP Rate Limiting**: Identify rate limits strictly via trusted reverse-proxy IP headers (`req.ip || req.socket.remoteAddress`), never through spoofable raw client headers alone. Enforce strict limits on auth, password resets, and AI generation endpoints.
 
 ---
