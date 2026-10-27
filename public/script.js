@@ -2514,7 +2514,7 @@ const state = {
   currentChatId: null,
   savedChats: [],
   plannerTasks: [],
-  plannerFilter: "all",
+  plannerFilter: "active",
   plannerCollapsedGroups: new Set(["Ümumi"]),
   plannerSelectedTaskIds: new Set(),
   isPrioritizingPlanner: false,
@@ -11823,7 +11823,7 @@ function clearUserScopedWorkspaceState() {
 
   // Clear Planner, usage stats, security revisions, and guest quota state
   state.plannerTasks = [];
-  state.plannerFilter = "all";
+  state.plannerFilter = "active";
   state.plannerCollapsedGroups = new Set(["Ümumi"]);
   if (state.plannerSelectedTaskIds?.clear) {
     state.plannerSelectedTaskIds.clear();
@@ -15074,9 +15074,9 @@ function renderPlannerView() {
   const headerRow = element("header", "planner-header-row");
   const headerText = element("div", "planner-header-text");
   headerText.append(
-    element("span", "section-kicker", "WORKSPACE"),
+    element("span", "section-kicker", isEn ? "Workspace" : "İş sahəsi"),
     element("h1", "", t("planner.title")),
-    element("p", "", t("planner.subtitle"))
+    element("p", "", isEn ? "Turn strategic intent into your next move." : "Strategiyanı konkret icra addımlarına çevir.")
   );
 
   const headerActions = element("div", "planner-header-actions");
@@ -15120,12 +15120,24 @@ function renderPlannerView() {
     return;
   }
 
-  // Persistent task composer
+  const overview = element("div", "planner-overview");
+  overview.setAttribute("aria-label", isEn ? "Execution overview" : "İcra göstəriciləri");
+
+  const capture = element("section", "planner-capture");
+  capture.setAttribute("aria-labelledby", "planner-capture-title");
+  const captureTitle = element("h2", "planner-capture-title");
+  captureTitle.id = "planner-capture-title";
+  const captureContext = element("p", "planner-capture-context");
+  capture.append(captureTitle, overview, captureContext);
+  view.appendChild(capture);
+
+  // Inline capture keeps planning and execution in the same workspace.
   const composer = element("form", "planner-composer-card");
   const taskInput = element("input", "planner-composer-input");
   taskInput.type = "text";
-  taskInput.placeholder = t("planner.inputPlaceholder");
+  taskInput.placeholder = isEn ? "Ask Helmer to add anything" : "Helmer-dən istədiyini əlavə etməsini istə";
   taskInput.required = true;
+  taskInput.setAttribute("aria-label", isEn ? "New task" : "Yeni tapşırıq");
 
   const composerBottom = element("div", "planner-composer-bottom");
 
@@ -15153,6 +15165,7 @@ function renderPlannerView() {
   const selectLabel = element("span", "planner-select-label", plannerGroupOptions[0]);
   const groupSelect = document.createElement("select");
   groupSelect.className = "planner-select-native";
+  groupSelect.setAttribute("aria-label", isEn ? "Task timeframe" : "Tapşırığın zaman aralığı");
   plannerGroupOptions.forEach((opt) => {
     const option = document.createElement("option");
     option.value = opt;
@@ -15228,15 +15241,20 @@ function renderPlannerView() {
       if (isIdentityStale(epoch, expectedUserId)) return;
       showToast(err.message || (isEn ? "An error occurred" : "Xəta baş verdi"), "error");
     } finally {
-      submitBtn.disabled = false;
+      if (!isIdentityStale(epoch, expectedUserId)) submitBtn.disabled = false;
     }
   });
-  view.appendChild(composer);
+  capture.appendChild(composer);
 
   // Lightweight search and filter toolbar
   const toolbar = element("div", "planner-toolbar");
   const searchBar = element("div", "planner-search-bar");
-  searchBar.innerHTML = `
+  searchBar.hidden = true;
+  const searchToggle = button("", "planner-search-toggle");
+  searchToggle.setAttribute("aria-label", isEn ? "Search tasks" : "Tapşırıqlarda axtar");
+  searchToggle.setAttribute("aria-expanded", "false");
+  searchToggle.setAttribute("aria-controls", "planner-search-input");
+  searchToggle.innerHTML = `
     <svg class="planner-search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="11" cy="11" r="8"/>
       <line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -15244,16 +15262,57 @@ function renderPlannerView() {
   `;
   const searchInput = element("input", "planner-search-input");
   searchInput.type = "search";
+  searchInput.id = "planner-search-input";
+  searchInput.hidden = true;
   searchInput.placeholder = isEn ? "Search tasks…" : "Tapşırıqlarda axtar…";
   searchInput.setAttribute("aria-label", isEn ? "Search tasks" : "Tapşırıqlarda axtar");
-  searchBar.appendChild(searchInput);
+  searchBar.append(searchToggle.querySelector("svg").cloneNode(true), searchInput);
+  headerActions.append(searchToggle, searchBar);
+  const setSearchOpen = (open) => {
+    searchBar.hidden = !open;
+    searchBar.classList.toggle("is-open", open);
+    searchToggle.setAttribute("aria-expanded", String(open));
+    searchToggle.replaceChildren();
+    if (open) {
+      const closeIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      closeIcon.setAttribute("viewBox", "0 0 24 24");
+      closeIcon.setAttribute("width", "18");
+      closeIcon.setAttribute("height", "18");
+      closeIcon.setAttribute("fill", "none");
+      closeIcon.setAttribute("stroke", "currentColor");
+      closeIcon.setAttribute("stroke-width", "1.8");
+      closeIcon.setAttribute("stroke-linecap", "round");
+      closeIcon.setAttribute("aria-hidden", "true");
+      const cross = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      cross.setAttribute("d", "M6 6l12 12M18 6 6 18");
+      closeIcon.appendChild(cross);
+      searchToggle.appendChild(closeIcon);
+    } else {
+      searchToggle.appendChild(searchBar.querySelector("svg").cloneNode(true));
+    }
+    searchToggle.setAttribute("aria-label", open ? (isEn ? "Close search" : "Axtarışı bağla") : (isEn ? "Search tasks" : "Tapşırıqlarda axtar"));
+    searchInput.hidden = !open;
+    if (open) searchInput.focus({ preventScroll: true });
+    else {
+      searchInput.value = "";
+      drawPlannerList();
+      searchToggle.focus({ preventScroll: true });
+    }
+  };
+  searchToggle.addEventListener("click", () => setSearchOpen(searchInput.hidden));
+  searchBar.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !searchInput.hidden) {
+      event.preventDefault();
+      setSearchOpen(false);
+    }
+  });
   const filterRow = element("div", "planner-filter-row");
   const filterPills = element("div", "planner-filter-pills");
   const filterOptions = [
-    { key: "all", label: t("common.all") || (isEn ? "All" : "Hamısı") },
     { key: "active", label: isEn ? "Active" : "Aktiv" },
     { key: "completed", label: isEn ? "Completed" : "Tamamlanmış" },
-    { key: "priority", label: t("planner.filterPriority") || (isEn ? "Priority" : "Prioritet"), isNew: true },
+    { key: "priority", label: t("planner.filterPriority") || (isEn ? "Priority" : "Prioritet") },
+    { key: "archive", label: isEn ? "Archive" : "Arxiv" },
   ];
   filterOptions.forEach((opt) => {
     const btn = element(
@@ -15263,13 +15322,16 @@ function renderPlannerView() {
     btn.type = "button";
     const labelSpan = element("span", "planner-filter-pill-label", opt.label);
     btn.appendChild(labelSpan);
-    if (opt.isNew) {
-      const newBadge = element("span", "planner-pill-new-badge", "New");
-      btn.appendChild(newBadge);
-    }
+    btn.setAttribute("aria-pressed", String(state.plannerFilter === opt.key));
     btn.addEventListener("click", async () => {
+      const epoch = state.identityEpoch;
+      const expectedUserId = state.currentUser?.id || null;
       state.plannerFilter = opt.key;
-      [...filterPills.children].forEach((b) => b.classList.remove("is-active"));
+      [...filterPills.children].forEach((b) => {
+        b.classList.remove("is-active");
+        b.setAttribute("aria-pressed", "false");
+      });
+      btn.setAttribute("aria-pressed", "true");
       btn.classList.add("is-active");
 
       if (opt.key === "priority") {
@@ -15278,12 +15340,13 @@ function renderPlannerView() {
           await prioritizePlannerTasksWithLuna();
         }
       }
+      if (isIdentityStale(epoch, expectedUserId)) return;
       drawPlannerList();
     });
     filterPills.appendChild(btn);
   });
   filterRow.appendChild(filterPills);
-  toolbar.append(searchBar, filterRow);
+  toolbar.appendChild(filterRow);
   view.appendChild(toolbar);
 
   const listContainer = element("div", "planner-tasks-container");
@@ -15316,6 +15379,63 @@ function renderPlannerView() {
   view.appendChild(floatingBar);
 
   const drawPlannerList = () => {
+    overview.replaceChildren();
+    const allTasks = state.plannerTasks;
+    const doneCount = allTasks.filter((task) => task.completed).length;
+    const priorityCount = allTasks.filter((task) => !task.completed && (task.isPriority || task.priority === "high")).length;
+    // Use the full owner-scoped task collection, never the current filter/search.
+    const activeCount = allTasks.length - doneCount;
+    const firstName = getUserFirstName();
+    const greeting = firstName ? `${firstName}, ` : "";
+    if (priorityCount > 0) {
+      captureTitle.textContent = isEn
+        ? `${greeting}${firstName ? "what" : "What"} are we focusing on today?`
+        : `${greeting}${firstName ? "bu" : "Bu"} gün nəyə fokuslanırıq?`;
+      captureContext.textContent = isEn
+        ? `${priorityCount} high-priority step${priorityCount === 1 ? "" : "s"} to focus on. Make room for the next move.`
+        : `${priorityCount} yüksək prioritetli addım diqqətini gözləyir. Növbəti addımını planlaşdır.`;
+    } else if (activeCount > 0) {
+      captureTitle.textContent = isEn
+        ? `${greeting}${firstName ? "what’s" : "What’s"} on your plan today?`
+        : `${greeting}${firstName ? "bu" : "Bu"} gün planında nə var?`;
+      captureContext.textContent = isEn
+        ? `${activeCount} active step${activeCount === 1 ? "" : "s"} in your plan. Give your next idea a clear action.`
+        : `Planında ${activeCount} aktiv addım var. Növbəti ideyanı konkret tapşırığa çevir.`;
+    } else if (doneCount > 0) {
+      captureTitle.textContent = isEn
+        ? `${greeting}${firstName ? "what’s" : "What’s"} your next goal?`
+        : `${greeting}${firstName ? "növbəti" : "Növbəti"} hədəfin nədir?`;
+      captureContext.textContent = isEn
+        ? `All ${doneCount} step${doneCount === 1 ? " is" : "s are"} complete. Plan the first step toward your next goal.`
+        : `${doneCount} addımın hamısı tamamlanıb. Yeni hədəfin üçün ilk addımı planlaşdır.`;
+    } else {
+      captureTitle.textContent = isEn
+        ? `${greeting}${firstName ? "ready" : "Ready"} to bring a new idea to life?`
+        : `${greeting}${firstName ? "yeni" : "Yeni"} bir ideyanı həyata keçirməyə hazırsan?`;
+      captureContext.textContent = isEn
+        ? "Every strategy starts with one concrete step. Add yours below."
+        : "Hər strategiya bir konkret addımla başlayır. İlk tapşırığını əlavə et.";
+    }
+    const percent = allTasks.length ? Math.round(doneCount / allTasks.length * 100) : 0;
+    const progressPanel = element("div", "planner-progress-panel");
+    const progressHeading = element("div", "planner-progress-heading");
+    progressHeading.append(element("span", "planner-eyebrow", isEn ? "EXECUTION PULSE" : "İCRA RİTMİ"), element("strong", "planner-progress-percent", `${percent}%`));
+    const progress = element("div", "planner-progress-track");
+    progress.setAttribute("role", "progressbar");
+    progress.setAttribute("aria-label", isEn ? "Task completion" : "Tapşırıqların tamamlanması");
+    progress.setAttribute("aria-valuemin", "0");
+    progress.setAttribute("aria-valuemax", "100");
+    progress.setAttribute("aria-valuenow", String(percent));
+    const fill = element("span", "planner-progress-fill");
+    fill.style.width = `${percent}%`;
+    progress.appendChild(fill);
+    progressPanel.append(progressHeading, progress, element("span", "planner-progress-caption", isEn ? `${doneCount} of ${allTasks.length} steps completed` : `${allTasks.length} addımdan ${doneCount}-i tamamlanıb`));
+    overview.appendChild(progressPanel);
+    [[allTasks.length - doneCount, isEn ? "Active" : "Aktiv"], [priorityCount, isEn ? "Priority" : "Prioritet"], [doneCount, isEn ? "Completed" : "Tamamlanıb"]].forEach(([count, label]) => {
+      const metric = element("div", "planner-metric");
+      metric.append(element("strong", "planner-metric-value", String(count)), element("span", "planner-metric-label", label));
+      overview.appendChild(metric);
+    });
     const query = searchInput.value.trim().toLocaleLowerCase(isEn ? "en" : "az");
     let tasks = state.plannerTasks;
 
@@ -15334,7 +15454,7 @@ function renderPlannerView() {
     listContainer.replaceChildren();
 
     // If in Priority filter, render top AI Banner
-    if (state.plannerFilter === "priority") {
+    if (state.plannerFilter === "priority" && tasks.length) {
       const banner = element("div", "planner-priority-ai-banner");
       const bannerLeft = element("div", "planner-priority-banner-left");
       const bannerTitle = element("h3", "planner-priority-banner-title", t("planner.priorityBannerTitle") || (isEn ? "Priorities classified by AI" : "AI ilə ayrılmış prioritetlər"));
@@ -15344,7 +15464,10 @@ function renderPlannerView() {
       const reprioritizeBtn = button("", "planner-reprioritize-btn", async () => {
         reprioritizeBtn.disabled = true;
         reprioritizeBtn.classList.add("is-loading");
+        const epoch = state.identityEpoch;
+        const expectedUserId = state.currentUser?.id || null;
         await prioritizePlannerTasksWithLuna({ forceRefresh: true });
+        if (isIdentityStale(epoch, expectedUserId)) return;
         drawPlannerList();
       });
       reprioritizeBtn.type = "button";
@@ -15370,7 +15493,10 @@ function renderPlannerView() {
         );
         const prioritizeNowBtn = button("", "planner-priority-action-btn", async () => {
           prioritizeNowBtn.disabled = true;
+          const epoch = state.identityEpoch;
+          const expectedUserId = state.currentUser?.id || null;
           await prioritizePlannerTasksWithLuna({ forceRefresh: true });
+          if (isIdentityStale(epoch, expectedUserId)) return;
           drawPlannerList();
         });
         prioritizeNowBtn.type = "button";
@@ -15394,6 +15520,7 @@ function renderPlannerView() {
 
     // Group by groupLabel
     const groupOrder = isEn ? [
+      "Overdue",
       "Today",
       "Next 48 hours",
       "Next 72 hours",
@@ -15403,7 +15530,9 @@ function renderPlannerView() {
       "Next 30 days",
       "Next 60 days",
       "General",
+      "Completed",
     ] : [
+      "Gecikmiş",
       "Bu gün",
       "Növbəti 48 saat",
       "Növbəti 72 saat",
@@ -15413,10 +15542,12 @@ function renderPlannerView() {
       "Növbəti 30 gün",
       "Növbəti 60 gün",
       "Ümumi",
+      "Tamamlanmış",
     ];
     const localizePlannerGroup = (label) => {
       if (!label) return isEn ? "General" : "Ümumi";
       const raw = String(label).trim().toLowerCase();
+      if (raw === "overdue" || raw === "gecikmiş") return isEn ? "Overdue" : "Gecikmiş";
       if (raw === "bu gün" || raw === "today") return isEn ? "Today" : "Bu gün";
       if (raw === "növbəti 48 saat" || raw === "next 48 hours") return isEn ? "Next 48 hours" : "Növbəti 48 saat";
       if (raw === "növbəti 72 saat" || raw === "next 72 hours") return isEn ? "Next 72 hours" : "Növbəti 72 saat";
@@ -15425,17 +15556,50 @@ function renderPlannerView() {
       if (raw === "növbəti 14 gün" || raw === "next 14 days") return isEn ? "Next 14 days" : "Növbəti 14 gün";
       if (raw === "növbəti 30 gün" || raw === "next 30 days") return isEn ? "Next 30 days" : "Növbəti 30 gün";
       if (raw === "növbəti 60 gün" || raw === "next 60 days") return isEn ? "Next 60 days" : "Növbəti 60 gün";
-      if (raw === "ümumi" || raw === "general") return isEn ? "General" : "Ümumi";
+      if (raw === "ümumi" || raw === "general" || raw === "general tasks") return isEn ? "General" : "Ümumi";
       return label;
     };
-    const groups = {};
+    // Relative planning windows are anchored to creation, never to each page visit.
+    // General/custom windows and missing/invalid timestamps have no inferred deadline.
+    const isTaskOverdue = (task) => {
+      if (task.completed) return false;
+      const label = localizePlannerGroup(task.groupLabel || task.timeframe);
+      if (label === "Overdue" || label === "Gecikmiş") return true;
+      const created = new Date(task.createdAt);
+      if (!task.createdAt || !Number.isFinite(created.getTime())) return false;
+      if (label === "Today" || label === "Bu gün") {
+        created.setHours(23, 59, 59, 999);
+      } else if (label === "This week" || label === "Bu həftə") {
+        created.setDate(created.getDate() + (7 - created.getDay()) % 7);
+        created.setHours(23, 59, 59, 999);
+      } else {
+        const raw = String(task.groupLabel || task.timeframe || "").trim().toLowerCase();
+        const hours = /^(?:next|növbəti) (48|72) (?:hours|saat)$/.exec(raw);
+        const days = /^(?:next|növbəti) (7|14|30|60) (?:days|gün)$/.exec(raw);
+        if (hours) created.setTime(created.getTime() + Number(hours[1]) * 60 * 60 * 1000);
+        else if (days) created.setDate(created.getDate() + Number(days[1]));
+        else return false;
+      }
+      return Date.now() > created.getTime();
+    };
+    const completedName = isEn ? "Completed" : "Tamamlanmış";
+    const overdueName = isEn ? "Overdue" : "Gecikmiş";
+    const spotlightName = isEn ? "Priority Spotlight" : "Prioritet fokus";
+    const groups = Object.create(null);
     tasks.forEach((task) => {
-      const g = localizePlannerGroup(task.groupLabel);
+      const g = task.completed ? completedName
+        : (task.isPriority || task.priority === "high") ? spotlightName
+        : isTaskOverdue(task) ? overdueName : localizePlannerGroup(task.groupLabel || task.timeframe);
       if (!groups[g]) groups[g] = [];
       groups[g].push(task);
     });
 
     const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+      if (a === spotlightName) return -1;
+      if (b === spotlightName) return 1;
+      const aActive = groups[a].some((task) => !task.completed);
+      const bActive = groups[b].some((task) => !task.completed);
+      if (aActive !== bActive) return aActive ? -1 : 1;
       const ia = groupOrder.indexOf(a);
       const ib = groupOrder.indexOf(b);
       return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
@@ -15475,7 +15639,8 @@ function renderPlannerView() {
       const groupTasks = groups[groupName];
       if (!groupTasks.length) return;
 
-      const groupEl = element("div", "planner-group");
+      const isSpotlight = groupName === spotlightName;
+      const groupEl = element("section", `planner-group${isSpotlight ? " planner-spotlight" : ""}`);
       const isCollapsible = groupName === "Ümumi" || groupName === "General";
       const isCollapsed = isCollapsible && state.plannerCollapsedGroups.has(groupName);
 
@@ -15487,8 +15652,10 @@ function renderPlannerView() {
         : element("div", "planner-group-title");
 
       groupTitle.append(
-        element("h3", "planner-group-name", groupName.toUpperCase()),
-        element("span", "planner-group-badge", `${activeCount} ${isEn ? "Active" : "aktiv"}`)
+        element("h3", "planner-group-name", groupName),
+        element("span", "planner-group-badge", groupName === completedName
+          ? `${groupTasks.length} ${isEn ? "completed" : "tamamlanıb"}`
+          : `${activeCount} ${isEn ? "Active" : "aktiv"}`)
       );
 
       if (isCollapsible) {
@@ -15556,6 +15723,9 @@ function renderPlannerView() {
       groupActions.append(groupRoadmapBtn, selectAllBtn);
       groupHeader.appendChild(groupActions);
       groupEl.appendChild(groupHeader);
+      if (isSpotlight) {
+        groupEl.appendChild(element("p", "planner-spotlight-caption", isEn ? "The moves that matter most. Start here." : "Ən yüksək təsirə malik addımlar. Buradan başla."));
+      }
 
       const updateThisGroup = () => {
         const activeTasks = groupTasks.filter((t) => !t.completed);
@@ -15592,6 +15762,8 @@ function renderPlannerView() {
       taskList.hidden = isCollapsed;
 
       groupTasks.forEach((task) => {
+        const epoch = state.identityEpoch;
+        const expectedUserId = state.currentUser?.id || null;
         const isSelected = !task.completed && state.plannerSelectedTaskIds.has(task.id);
         const card = element("div", `planner-task-card${task.completed ? " is-done" : ""}${isSelected ? " is-selected" : ""}`);
         allRenderedTaskCards.push({ task, card });
@@ -15605,6 +15777,7 @@ function renderPlannerView() {
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.checked = Boolean(task.completed);
+        checkbox.setAttribute("aria-label", task.text);
         const customBox = element("span", "planner-custom-checkbox");
         checkWrap.append(checkbox, customBox);
 
@@ -15698,6 +15871,7 @@ function renderPlannerView() {
                 method: "PATCH",
                 body: JSON.stringify({ isPriority: nextVal, priority: nextVal ? "high" : "normal" }),
               });
+              if (isIdentityStale(epoch, expectedUserId)) return;
               task.isPriority = nextVal;
               task.priority = nextVal ? "high" : "normal";
               drawPlannerList();
@@ -15708,6 +15882,7 @@ function renderPlannerView() {
                 "info"
               );
             } catch (err) {
+              if (isIdentityStale(epoch, expectedUserId)) return;
               showToast(err.message || (isEn ? "Failed to update" : "Yeniləmək mümkün olmadı"), "error");
             }
           });
@@ -15728,6 +15903,7 @@ function renderPlannerView() {
             card.style.opacity = "0.4";
             try {
               const res = await authRequest(`/api/planner/${task.id}`, { method: "DELETE" });
+              if (isIdentityStale(epoch, expectedUserId)) return;
               if (res && res.ok === false) {
                 throw new Error(isEn ? "Task not found or could not be deleted" : "Tapşırıq tapılmadı və ya silinmədi");
               }
@@ -15737,6 +15913,7 @@ function renderPlannerView() {
               drawPlannerList();
               showToast(isEn ? "Task deleted ✓" : "Tapşırıq silindi ✓", "info");
             } catch (err) {
+              if (isIdentityStale(epoch, expectedUserId)) return;
               card.style.opacity = "1";
               showToast(err.message || (isEn ? "Unable to delete" : "Silmək mümkün olmadı"), "error");
             }
@@ -15762,7 +15939,22 @@ function renderPlannerView() {
         menuWrap.appendChild(menuBtn);
 
         cardActions.append(executeBtn, menuWrap);
-        cardMain.append(checkWrap, textEl, cardActions);
+        const taskCopy = element("div", "planner-task-copy");
+        const metadata = element("div", "planner-task-meta");
+        const status = element("span", "planner-task-status", task.completed ? (isEn ? "Completed" : "Tamamlanıb") : isTaskOverdue(task) ? overdueName : task.status === "in_progress" ? (isEn ? "In progress" : "İcradadır") : (isEn ? "Ready" : "İcraya hazır"));
+        metadata.append(status, element("span", "planner-task-timeframe", localizePlannerGroup(task.groupLabel)));
+        if (task.createdAt) {
+          const added = element("time", "planner-task-date", formatDate(task.createdAt));
+          added.dateTime = task.createdAt;
+          added.title = isEn ? "Date added" : "Əlavə edilmə tarixi";
+          metadata.appendChild(added);
+        }
+        if (task.strategyTitle) metadata.appendChild(element("span", "planner-task-source", task.strategyTitle));
+        taskCopy.append(textEl, metadata);
+        // Move the badge out of the title flow; every card retains one set of controls.
+        const priorityBadge = cardMain.querySelector(".planner-card-priority-badge");
+        if (priorityBadge) metadata.appendChild(priorityBadge);
+        cardMain.replaceChildren(checkWrap, taskCopy, cardActions);
 
         // Feedback prompt for completed brief tasks (Rule: only for tasks from brief, not user-added)
         const isBriefTask = Boolean(task.strategyId || task.strategyTitle || task.source === "brief" || task.source === "strategy");
@@ -15797,6 +15989,7 @@ function renderPlannerView() {
                   method: "PATCH",
                   body: JSON.stringify({ feedback: nextFeedback }),
                 });
+                if (isIdentityStale(epoch, expectedUserId)) return;
                 showToast(
                   nextFeedback
                     ? (t("planner.taskFeedbackRecorded") || (isEn ? "Feedback recorded ✓" : "Rəyiniz qeydə alındı ✓"))
@@ -15804,6 +15997,7 @@ function renderPlannerView() {
                   "info"
                 );
               } catch (err) {
+              if (isIdentityStale(epoch, expectedUserId)) return;
                 task.feedback = prevFeedback;
                 likeBtn.classList.toggle("is-active", prevFeedback === "like");
                 dislikeBtn.classList.toggle("is-active", prevFeedback === "dislike");
@@ -15831,6 +16025,7 @@ function renderPlannerView() {
                   method: "PATCH",
                   body: JSON.stringify({ feedback: nextFeedback }),
                 });
+                if (isIdentityStale(epoch, expectedUserId)) return;
                 showToast(
                   nextFeedback
                     ? (t("planner.taskFeedbackRecorded") || (isEn ? "Feedback recorded ✓" : "Rəyiniz qeydə alındı ✓"))
@@ -15838,6 +16033,7 @@ function renderPlannerView() {
                   "info"
                 );
               } catch (err) {
+              if (isIdentityStale(epoch, expectedUserId)) return;
                 task.feedback = prevFeedback;
                 dislikeBtn.classList.toggle("is-active", prevFeedback === "dislike");
                 likeBtn.classList.toggle("is-active", prevFeedback === "like");
@@ -15855,6 +16051,17 @@ function renderPlannerView() {
         }
 
         // Click card to toggle selection (completed tasks cannot be selected)
+        if (!task.completed) {
+          card.tabIndex = 0;
+          card.setAttribute("role", "group");
+          card.setAttribute("aria-label", `${isEn ? "Select task" : "Tapşırığı seç"}: ${task.text}`);
+          card.addEventListener("keydown", (e) => {
+            if (e.target === card && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              card.click();
+            }
+          });
+        }
         card.addEventListener("click", (e) => {
           if (
             e.target.closest(".planner-check-wrap") ||
@@ -15898,7 +16105,10 @@ function renderPlannerView() {
               method: "PATCH",
               body: JSON.stringify({ completed: task.completed }),
             });
+            if (isIdentityStale(epoch, expectedUserId)) return;
+            drawPlannerList();
           } catch (err) {
+            if (isIdentityStale(epoch, expectedUserId)) return;
             checkbox.checked = !task.completed;
             task.completed = checkbox.checked;
             if (task.completed) {

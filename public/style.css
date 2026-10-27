@@ -18431,12 +18431,13 @@ html.dark .planner-feedback-btn.is-dislike.is-active svg {
   opacity: 1;
 }
 
-/* Hide search bar and composer when tasks are selected */
+/* Keep inline capture/search geometry stable during bulk selection. */
 .planner-view.has-selection .planner-search-bar,
 .planner-search-bar.is-hidden-by-selection,
 .planner-view.has-selection .planner-composer-card,
 .planner-composer-card.is-hidden-by-selection {
-  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* Floating Bottom Dock for Selected Planner Tasks */
@@ -23983,8 +23984,6 @@ html.dark .strategy-toc a.is-active {
 }
 
 /* Planner: Completed tasks with line-through text-slate-500 */
-[data-theme="dark"] .planner-task-card.is-done .planner-task-text,
-html.dark .planner-task-card.is-done .planner-task-text,
 [data-theme="dark"] .checklist-item:has(input:checked) .checklist-item-text,
 html.dark .checklist-item:has(input:checked) .checklist-item-text {
   text-decoration: line-through;

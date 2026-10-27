@@ -122,11 +122,9 @@ test("planner frontend: Execute button, category Select All, Roadmap generation,
   assert.ok(scriptContent.includes("executeBtn.hidden = task.completed"), "script.js hides execute button on completed tasks");
   assert.ok(scriptContent.includes('groupEl.classList.toggle("has-bulk-selection", allSelected)'), "script.js toggles has-bulk-selection on group");
 
-  // 5. Priority filter pill with "New" badge and gpt-6-luna model attribution
+  // 5. Accessible priority filter and provider-name hygiene
   assert.ok(scriptContent.includes('key: "priority"'), "script.js includes priority filter pill");
-  assert.ok(scriptContent.includes("isNew: true"), "priority option has isNew flag");
-  assert.ok(scriptContent.includes("planner-pill-new-badge"), "script.js creates planner-pill-new-badge");
-  assert.ok(scriptContent.includes('"New"'), "script.js renders New badge text");
+  assert.ok(scriptContent.includes('btn.setAttribute("aria-pressed", String(state.plannerFilter === opt.key))'), "filters expose their selected state");
   assert.ok(scriptContent.includes("prioritizePlannerTasksWithLuna"), "script.js defines prioritizePlannerTasksWithLuna");
   assert.ok(!scriptContent.includes("gpt-6-luna"), "script.js does not display raw gpt-6-luna model name in UI");
   assert.ok(!scriptContent.includes("planner-ai-model-tag"), "script.js does not render AI chip in priority");
