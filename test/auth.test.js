@@ -866,7 +866,9 @@ test("Regression 1: Account A -> Logout -> Account B ensures complete frontend a
     backgroundJobs: [{ id: "job_a", ownerId: "usr_a", status: "generating" }],
     strategyCount: { style: { display: "" }, textContent: "4" },
     recentList: { replaceChildren: () => {} },
-    document: { querySelector: () => null },
+    document: { querySelector: () => null, querySelectorAll: () => [{ remove() { sandbox.buildActionsRemoved = true; } }] },
+    stopBuildCountdown() { sandbox.countdownStopped = true; },
+    stopBuildIntelligence() { sandbox.intelligenceStopped = true; },
     window: {
       helmerSecurity: {
         revisions: revisionsMap,
@@ -986,6 +988,8 @@ test("Regression 1: Account A -> Logout -> Account B ensures complete frontend a
     throw new Error(`Unexpected authRequest call: ${url}`);
   };
 
+  let searchHistoryClosed = false;
+  sandbox.closeSearchModal = () => { searchHistoryClosed = true; };
   sandbox.api = (url, opts) => PendingApiHandler(url, opts);
   sandbox.authRequest = (url, opts) => PendingAuthRequestHandler(url, opts);
 
@@ -1008,8 +1012,13 @@ test("Regression 1: Account A -> Logout -> Account B ensures complete frontend a
   sandbox.state.currentUser = null;
   sandbox.clearUserScopedWorkspaceState();
 
+  assert.equal(searchHistoryClosed, true, "Account changes must close the previous user's search history");
   assert.equal(abortedBuild, true, "Previous Build controller must be aborted when refinement starts");
   assert.equal(refineControllerAborted, true, "In-flight Refinement controller must be aborted on logout");
+  assert.equal(sandbox.countdownStopped, true);
+  assert.equal(sandbox.intelligenceStopped, true);
+  assert.equal(sandbox.buildActionsRemoved, true);
+  assert.equal(sandbox.state.buildStartedAt, null);
   assert.equal(abortedAsk, true, "In-flight Ask controller must be aborted on logout");
   assert.equal(sandbox.state.brief, "");
   assert.equal(sandbox.state.questions.length, 0);

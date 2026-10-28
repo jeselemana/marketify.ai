@@ -47,6 +47,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --region "${REGION}" \
   --allow-unauthenticated \
   --port 8080 \
+  --timeout 3600 \
   --memory 1Gi \
   --cpu 1 \
   --min-instances 0 \

@@ -15,9 +15,9 @@ describe("Removal of F1 details from Build and Ask", () => {
     assert.doesNotMatch(scriptContent, /maksimum sürətlə/);
     assert.doesNotMatch(scriptContent, /rekord dövrə/);
 
-    // Standard strategic titles must be preserved
-    assert.match(scriptContent, /Analyzing your brief/);
-    assert.match(scriptContent, /Building your execution roadmap/);
+    // Intelligence headings remain grounded in the real Build workflow
+    assert.match(scriptContent, /Understanding your ambition/);
+    assert.match(scriptContent, /Your strategy is taking shape/);
   });
 
   it("2. F1 wheel/tire spinner loader is removed from script.js and style.css", () => {

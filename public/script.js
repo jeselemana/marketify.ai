@@ -221,12 +221,14 @@ function closeSearchModal() {
   document.body.style.overflow = "";
 }
 
-function openSearchModal() {
+function openSearchModal({ allChats = false } = {}) {
   closeSearchModal();
   closeSidebar();
 
   const isEn = getLanguage() === "en";
   const isAsk = state.mode === "ask";
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
   searchModalOverlay = element("div", "sidebar-search-overlay");
   searchModalOverlay.setAttribute("role", "dialog");
   searchModalOverlay.setAttribute("aria-modal", "true");
@@ -237,6 +239,7 @@ function openSearchModal() {
       : (isEn ? "Search strategies" : "Strategiyalarda axtar")
   );
 
+  const openedOverlay = searchModalOverlay;
   const card = element("div", "sidebar-search-card");
   const handle = element("div", "sidebar-search-handle");
   card.appendChild(handle);
@@ -333,7 +336,7 @@ function openSearchModal() {
     });
 
     if (isAsk) {
-      if (!q) {
+      if (allChats || !q) {
         results.push(...chatMatches);
       } else {
         results.push(...chatMatches, ...strategyMatches);
@@ -354,7 +357,8 @@ function openSearchModal() {
       return;
     }
 
-    results.slice(0, 20).forEach((res) => {
+    const visibleResults = allChats && isAsk ? results : results.slice(0, 20);
+    visibleResults.forEach((res) => {
       const item = button("", "sidebar-search-item", res.action);
       item.type = "button";
       const info = element("div", "sidebar-search-item-info");
@@ -382,13 +386,13 @@ function openSearchModal() {
   // Ensure chats or strategies are loaded fresh
   if (isAsk && !state.savedChats?.length) {
     loadSavedChats().then(() => {
-      if (searchModalOverlay && document.body.contains(searchModalOverlay)) {
+      if (!isIdentityStale(epoch, expectedUserId) && searchModalOverlay === openedOverlay && document.body.contains(openedOverlay)) {
         renderSearchResults(input.value);
       }
     });
   } else if (!isAsk && !state.savedStrategies?.length) {
     loadSavedStrategies().then(() => {
-      if (searchModalOverlay && document.body.contains(searchModalOverlay)) {
+      if (!isIdentityStale(epoch, expectedUserId) && searchModalOverlay === openedOverlay && document.body.contains(openedOverlay)) {
         renderSearchResults(input.value);
       }
     });
@@ -1568,6 +1572,8 @@ function closeMobileModelSheet() {
     overlay.replaceChildren();
   };
 
+  buildModeButton?.classList.remove("is-open");
+  buildModeButton?.setAttribute("aria-expanded", "false");
   const askBtn = document.querySelector("#askModeButton");
   if (askBtn) {
     askBtn.classList.remove("is-open");
@@ -1788,7 +1794,67 @@ function createAskModelSelector(isEn) {
   return menu;
 }
 
-function openMobileModelSheet() {
+// Build Auto uses the existing strategy pipeline; Faster is not yet selectable.
+function createBuildModelSelector(isEn) {
+  const menu = element("details", "ask-model-selector-menu build-model-selector-menu");
+  const trigger = element("summary", "ask-model-selector-trigger");
+  trigger.setAttribute("aria-label", isEn ? "Build model selection" : "Build model seçimi");
+  trigger.setAttribute("role", "button");
+  const chevron = element("span", "ask-model-chevron-icon");
+  chevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+  trigger.append(element("span", "ask-model-name", "Auto"), chevron);
+  const popover = element("div", "ask-model-selector-popover");
+  const makeOption = (name, description, iconPath) => {
+    const option = element("button", "ask-model-option");
+    option.type = "button";
+    const leading = element("div", "ask-model-option-leading");
+    const badge = element("div", "ask-model-option-badge");
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    for (const [key, value] of Object.entries({ viewBox: "0 0 24 24", width: "16", height: "16", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" })) svg.setAttribute(key, value);
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", iconPath);
+    svg.append(path);
+    badge.append(svg);
+    const info = element("div", "ask-model-option-info");
+    info.append(element("strong", "", name), element("small", "", description));
+    leading.append(badge, info);
+    option.append(leading);
+    return option;
+  };
+  const auto = makeOption("Auto", isEn ? "Smarter routing" : "Daha ağıllı yönləndirmə", "m12 3-3 6-6 3 6 3 3 6 3-6 6-3-6-3Z");
+  auto.classList.add("is-active");
+  auto.setAttribute("aria-pressed", "true");
+  const check = element("span", "ask-model-check");
+  check.textContent = "✓";
+  auto.append(check);
+  auto.addEventListener("click", () => { menu.open = false; trigger.focus(); });
+  const faster = makeOption("Faster", isEn ? "Workhorse · Coming soon" : "İşçi model · Tezliklə", "m13 2-9 12h7l-1 8 10-12h-7Z");
+  faster.disabled = true;
+  popover.append(auto, element("div", "ask-model-popover-divider"), faster);
+  menu.append(trigger, popover);
+  trigger.addEventListener("click", (event) => {
+    if (window.innerWidth <= 767) {
+      event.preventDefault();
+      openMobileModelSheet("build");
+    }
+  });
+  // Scope dismissal listeners to this component's lifetime.
+  menu.addEventListener("toggle", () => {
+    if (!menu.open) return;
+    const controller = new AbortController();
+    const close = () => { menu.open = false; controller.abort(); };
+    document.addEventListener("pointerdown", (event) => {
+      if (!menu.isConnected || !menu.contains(event.target)) close();
+    }, { signal: controller.signal });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") { close(); trigger.focus(); }
+    }, { signal: controller.signal });
+    menu.addEventListener("toggle", () => { controller.abort(); }, { once: true, signal: controller.signal });
+  });
+  return menu;
+}
+
+function openMobileModelSheet(mode = "ask") {
   const overlay = document.querySelector("#mobileModelSheetOverlay");
   if (!overlay) return;
   const isEn = getLanguage() === "en";
@@ -1800,7 +1866,7 @@ function openMobileModelSheet() {
   overlay.classList.remove("is-closing");
   document.body.style.overflow = "hidden";
 
-  const askBtn = document.querySelector("#askModeButton");
+  const askBtn = document.querySelector(mode === "build" ? "#buildModeButton" : "#askModeButton");
   if (askBtn) {
     askBtn.classList.add("is-open");
     askBtn.setAttribute("aria-expanded", "true");
@@ -1831,6 +1897,25 @@ function openMobileModelSheet() {
   // Body
   const body = element("div", "mobile-sheet-body");
   const options = element("div", "mobile-model-options");
+
+  if (mode === "build") {
+    const selector = createBuildModelSelector(isEn);
+    for (const option of selector.querySelectorAll(".ask-model-option")) {
+      option.classList.replace("ask-model-option", "mobile-model-option-card");
+      option.querySelector(".ask-model-option-leading")?.classList.replace("ask-model-option-leading", "mobile-model-card-leading");
+      option.querySelector(".ask-model-option-badge")?.classList.replace("ask-model-option-badge", "mobile-model-card-icon");
+      option.querySelector(".ask-model-option-info")?.classList.replace("ask-model-option-info", "mobile-model-card-copy");
+      option.querySelector(".ask-model-check")?.classList.replace("ask-model-check", "mobile-model-card-check");
+      if (!option.disabled) option.addEventListener("click", closeMobileModelSheet);
+      options.append(option);
+    }
+    body.append(options);
+    sheet.append(dragArea, header, body);
+    overlay.append(sheet);
+    attachSwipeDownToClose(sheet, closeMobileModelSheet);
+    requestAnimationFrame(() => overlay.classList.add("is-open"));
+    return;
+  }
 
   const isAutoDefault = !state.askThinkingEnabled;
 
@@ -2723,6 +2808,7 @@ function button(label, className, onClick) {
 }
 
 function setStatus(status) {
+  if (["analyzing", "generating"].includes(status) && !["analyzing", "generating"].includes(state.status)) state.buildStartedAt = Date.now();
   state.status = status;
   document.body.dataset.status = status;
 }
@@ -2962,9 +3048,15 @@ function errorBanner() {
 
 function openSidebar() {
   document.querySelectorAll("details.ask-context-menu").forEach((el) => { el.open = false; });
+  document.querySelector("#appShell").classList.remove("navigation-hidden");
+  document.querySelector("#navigationRestore").hidden = true;
+  sidebar.inert = false;
+  document.querySelector(".navigation-rail").inert = true;
   sidebar.classList.add("is-open");
+  document.querySelector(".app-main").inert = window.matchMedia("(max-width: 820px)").matches;
   document.body.classList.add("sidebar-open");
-  mobileOverlay.hidden = false;
+  mobileOverlay.hidden = !window.matchMedia("(max-width: 820px)").matches;
+  requestAnimationFrame(() => { if (sidebar.classList.contains("is-open")) sidebarClose.focus(); });
   mobileMenuButton?.setAttribute("aria-expanded", "true");
   document.querySelector("#mobileChatMenuButton")?.setAttribute("aria-expanded", "true");
   railMenuButton.setAttribute("aria-expanded", "true");
@@ -2973,7 +3065,11 @@ function openSidebar() {
 }
 
 function closeSidebar() {
+  const restoreFocus = sidebar.contains(document.activeElement);
+  sidebar.inert = true;
+  document.querySelector(".navigation-rail").inert = false;
   sidebar.classList.remove("is-open");
+  document.querySelector(".app-main").inert = false;
   document.body.classList.remove("sidebar-open");
   mobileOverlay.hidden = true;
   mobileMenuButton?.setAttribute("aria-expanded", "false");
@@ -2981,6 +3077,7 @@ function closeSidebar() {
   railMenuButton.setAttribute("aria-expanded", "false");
   const mobileMenuSpan = mobileMenuButton?.querySelector("span");
   if (mobileMenuSpan) mobileMenuSpan.textContent = "☰";
+  if (restoreFocus) (window.matchMedia("(max-width: 820px)").matches ? mobileMenuButton : railMenuButton)?.focus();
 }
 
 function syncLanguageControls() {
@@ -2988,6 +3085,15 @@ function syncLanguageControls() {
   if (skipLink) skipLink.textContent = t("nav.skipToMain");
 
   const isEn = getLanguage() === "en";
+  for (const [id, az, en] of [
+    ["navigationHide", "Naviqasiyanı gizlət", "Hide navigation"],
+    ["navigationRestore", "Naviqasiyanı göstər", "Show navigation"],
+    ["railWhatsNewButton", "Yeniliklər", "What's new"],
+  ]) {
+    const control = document.getElementById(id);
+    control?.setAttribute("aria-label", isEn ? en : az);
+    if (control?.hasAttribute("data-tooltip")) control.setAttribute("data-tooltip", isEn ? en : az);
+  }
   const mobileMenuBtn = document.querySelector("#mobileMenuButton");
   if (mobileMenuBtn) {
     mobileMenuBtn.setAttribute("aria-label", t("nav.openMenu") || (isEn ? "Open menu" : "Menyunu aç"));
@@ -3175,7 +3281,8 @@ function syncNav() {
 
   const labelEl = document.querySelector("#sidebarLabelText") || sidebarLabel;
   if (labelEl) {
-    labelEl.textContent = isBuild ? t("nav.recentWork") : t("nav.chatHistory");
+    labelEl.textContent = t("nav.recentWork");
+    document.querySelector("#recentViewAll").textContent = getLanguage() === "en" ? "View all ↗" : "Hamısına bax ↗";
   }
 
   const shortcutsBtn = document.querySelector("#keyboardShortcutsBtn");
@@ -3463,13 +3570,15 @@ function resetStrategy() {
 }
 
 function render() {
+  stopBuildCountdown();
+  stopBuildIntelligence();
   clearInterval(progressTimer);
   clearInterval(loadingAskPlaceholderTimer);
   clearTimeout(refinementPlaceholderTimer);
   if (state.mode !== "build" || state.view !== "home") cancelBuildEstimate();
   syncMode();
   syncNav();
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay").forEach((btn) => btn.remove());
+  document.querySelectorAll(".build-menu-actions, .loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay").forEach((btn) => btn.remove());
   workspace.replaceChildren();
   workspace.className = "workspace";
 
@@ -4423,6 +4532,24 @@ function updateBuildEstimate(value, brief = state.brief.trim()) {
   refreshBuildEstimateCards();
 }
 
+let buildCountdownTimer = null;
+function stopBuildCountdown() {
+  clearInterval(buildCountdownTimer);
+  buildCountdownTimer = null;
+}
+function startBuildCountdown() {
+  stopBuildCountdown();
+  const epoch = state.identityEpoch;
+  const userId = state.currentUser?.id || null;
+  buildCountdownTimer = setInterval(() => {
+    if (isIdentityStale(epoch, userId) || !["analyzing", "generating"].includes(state.status) || !document.querySelector(".intelligence-view")) {
+      stopBuildCountdown();
+      return;
+    }
+    refreshBuildEstimateCards();
+  }, 1000);
+}
+
 function createBuildEstimateCard() {
   const card = element("div", "build-estimate-card");
   card.dataset.buildEstimate = "true";
@@ -4448,6 +4575,46 @@ function refreshBuildEstimateCards() {
       : state.buildEstimateUnavailable ? (isEn ? "Currently unavailable" : "Hazırda əlçatan deyil")
       : (isEn ? "Estimating…" : "Hesablanır…");
     card.title = isEn ? "An estimate, not a time limit. Preparation may take longer." : "Təxmini müddətdir, vaxt limiti deyil. Hazırlanma daha uzun çəkə bilər.";
+    if (card.closest(".intelligence-view") && validBuildEstimate(estimate)) {
+      const started = state.buildStartedAt || (state.buildStartedAt = Date.now());
+      const seconds = Math.max(0, Math.ceil((started + (estimate.minMinutes + estimate.maxMinutes) * 30000 - Date.now()) / 1000));
+      card.querySelector(".build-estimate-label").textContent = isEn ? "Estimated time remaining:" : "Təxmini qalan vaxt:";
+      card.querySelector(".build-estimate-range").textContent = seconds ? `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}` : (isEn ? "Taking longer than expected" : "Gözləniləndən uzun çəkir");
+      let info = card.querySelector(".build-countdown-info");
+      if (!info) {
+        const clock = card.querySelector(".build-estimate-clock");
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.setAttribute("fill", "none");
+        svg.setAttribute("stroke", "currentColor");
+        svg.setAttribute("stroke-width", "1.7");
+        svg.setAttribute("stroke-linecap", "round");
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", "M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0");
+        svg.append(path);
+        clock.replaceChildren(svg);
+        info = element("div", "build-countdown-info");
+        const toggle = element("button", "", "ⓘ");
+        toggle.type = "button";
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.addEventListener("click", () => {
+          const open = info.classList.toggle("is-open");
+          toggle.setAttribute("aria-expanded", String(open));
+        });
+        info.addEventListener("keydown", event => {
+          if (event.key === "Escape") {
+            info.classList.remove("is-open");
+            toggle.setAttribute("aria-expanded", "false");
+            toggle.blur();
+          }
+        });
+        toggle.setAttribute("aria-label", isEn ? "About this estimate" : "Vaxt təxmini haqqında");
+        info.append(toggle, element("span", "build-countdown-tooltip"));
+        card.append(info);
+      }
+      info.querySelector(".build-countdown-tooltip").textContent = `${estimate.minMinutes}–${estimate.maxMinutes} ${isEn ? "minutes. This duration is an estimate. Actual preparation may take less or more time." : "dəqiqə. Bu müddət təxminidir. Faktiki hazırlanma vaxtı daha qısa və ya uzun ola bilər."}`;
+    }
+
   });
 }
 
@@ -4506,6 +4673,18 @@ function renderIntake() {
   const composerArea = element("div", "ask-composer-area");
   composerArea.classList.add("build-estimate-composer");
   const estimateCard = createBuildEstimateCard();
+  const estimateIcon = estimateCard.querySelector(".build-estimate-clock");
+  const timerSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  timerSvg.setAttribute("viewBox", "0 0 24 24");
+  timerSvg.setAttribute("fill", "none");
+  timerSvg.setAttribute("stroke", "currentColor");
+  timerSvg.setAttribute("stroke-width", "1.6");
+  timerSvg.setAttribute("stroke-linecap", "round");
+  timerSvg.setAttribute("stroke-linejoin", "round");
+  const timerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  timerPath.setAttribute("d", "M9 2h6M12 2v3M18 6l1.5-1.5M12 9v4l2 1M20 13a8 8 0 1 1-16 0 8 8 0 0 1 16 0");
+  timerSvg.append(timerPath);
+  estimateIcon.replaceChildren(timerSvg);
   const form = element("form", "ask-composer");
   const label = element("label", "sr-only", isEn ? "Strategy brief" : "Strategiya brifi");
   label.htmlFor = "briefInput";
@@ -4529,7 +4708,7 @@ function renderIntake() {
   submit.appendChild(createAskSendIcon());
 
   const composerActions = element("div", "ask-composer-actions");
-  composerActions.append(submit);
+  composerActions.append(createBuildModelSelector(isEn), submit);
 
   const contextMenu = document.createElement("details");
   contextMenu.className = "ask-context-menu";
@@ -7994,107 +8173,266 @@ async function submitAskMessage(message, attachedFile = null, { preserveWhitespa
 
 
 
+let buildIntelligenceCleanup = null;
+
+function stopBuildIntelligence() {
+  buildIntelligenceCleanup?.();
+  buildIntelligenceCleanup = null;
+}
+
+// Decorative only: motion never advances the Build workflow or implies progress.
+function animateBuildIntelligence(canvas) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return () => {};
+  const epoch = state.identityEpoch;
+  const expectedUserId = state.currentUser?.id || null;
+  const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let frame = 0, disposed = false, time = 0, previous = 0;
+  let width = 0, height = 0, ratio = 0;
+  let yaw = 0, pitch = 0, velocityX = 0, velocityY = 0;
+  let hoverX = 0, hoverY = 0, leanX = 0, leanY = 0;
+  let pointer = null;
+  const clamp = (value, limit) => Math.max(-limit, Math.min(limit, value));
+  function position(event) {
+    const rect = canvas.getBoundingClientRect();
+    const radius = Math.min(rect.width * 0.255, rect.height * 0.35);
+    const x = event.clientX - rect.left - rect.width / 2;
+    const y = event.clientY - rect.top - rect.height / 2;
+    return { x, y, inside: x*x + y*y <= radius*radius*1.2 };
+  }
+  function wake() {
+    if (!disposed && !frame) frame = requestAnimationFrame(draw);
+  }
+  function pointerDown(event) {
+    if (disposed || pointer || event.isPrimary === false || event.button !== 0 || !position(event).inside) return;
+    pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, at: event.timeStamp };
+    velocityX = velocityY = 0;
+    canvas.setPointerCapture?.(event.pointerId);
+    canvas.classList.add("is-dragging");
+    wake();
+  }
+  function pointerMove(event) {
+    if (disposed) return;
+    if (pointer) {
+      if (pointer.id !== event.pointerId) return;
+      const dt = Math.max(8, event.timeStamp - pointer.at) / 1000;
+      const dx = clamp((event.clientX - pointer.x) * 0.006, 0.3);
+      const dy = clamp((event.clientY - pointer.y) * 0.006, 0.3);
+      yaw += dx; pitch += dy;
+      velocityX = velocityX * 0.4 + clamp(dx / dt, 2.5) * 0.6;
+      velocityY = velocityY * 0.4 + clamp(dy / dt, 2.5) * 0.6;
+      pointer.x = event.clientX; pointer.y = event.clientY; pointer.at = event.timeStamp;
+    } else if (event.pointerType !== "touch") {
+      const point = position(event);
+      hoverX = point.inside ? clamp(point.x / 650, 0.18) : 0;
+      hoverY = point.inside ? clamp(point.y / 650, 0.18) : 0;
+      canvas.classList.toggle("is-hovered", point.inside);
+    }
+    wake();
+  }
+  function pointerEnd(event) {
+    if (!pointer || (event && event.pointerId !== pointer.id)) return;
+    const id = pointer.id;
+    // A held-still release or browser scroll cancellation must not fling the core.
+    if (!event || event.type !== "pointerup" || event.timeStamp - pointer.at > 100 || motion.matches) velocityX = velocityY = 0;
+    pointer = null;
+    if (canvas.hasPointerCapture?.(id)) canvas.releasePointerCapture(id);
+    canvas.classList.remove("is-dragging");
+    wake();
+  }
+  function pointerLeave() {
+    hoverX = hoverY = 0;
+    canvas.classList.remove("is-hovered");
+    wake();
+  }
+  const pointerEvents = { pointerdown: pointerDown, pointermove: pointerMove, pointerup: pointerEnd, pointercancel: pointerEnd, lostpointercapture: pointerEnd, pointerleave: pointerLeave };
+  for (const [name, handler] of Object.entries(pointerEvents)) canvas.addEventListener(name, handler);
+  const compact = () => canvas.clientWidth < 480 || (navigator.hardwareConcurrency || 8) <= 4;
+  const particles = Array.from({ length: 1100 }, (_, i) => {
+    const y = 1 - 2 * (i + 0.5) / 1100;
+    const angle = i * Math.PI * (3 - Math.sqrt(5));
+    const ring = Math.sqrt(1 - y * y);
+    return { x: Math.cos(angle) * ring, y, z: Math.sin(angle) * ring, layer: i % 5 === 0 ? 0.78 : 1 };
+  });
+  function dispose() {
+    if (disposed) return;
+    disposed = true;
+    pointerEnd();
+    for (const [name, handler] of Object.entries(pointerEvents)) canvas.removeEventListener(name, handler);
+    canvas.classList.remove("is-hovered", "is-dragging");
+    cancelAnimationFrame(frame);
+    resize.disconnect();
+    removal.disconnect();
+    motion.removeEventListener("change", restart);
+    document.removeEventListener("visibilitychange", restart);
+    window.removeEventListener("resize", restart);
+  }
+  function draw(now) {
+    frame = 0;
+    if (disposed) return;
+    if (!canvas.isConnected || isIdentityStale(epoch, expectedUserId)) { dispose(); return; }
+    if (document.hidden) return;
+    const reduced = motion.matches;
+    const dt = previous ? Math.min(now - previous, 50) / 1000 : 0;
+    if (!reduced) {
+      time += dt;
+      if (!pointer) {
+        const damping = Math.exp(-2.4 * dt);
+        yaw += (0.11 + Math.sin(time * 0.19) * 0.025) * dt + velocityX * (1 - damping) / 2.4;
+        pitch += velocityY * (1 - damping) / 2.4;
+        velocityX *= damping; velocityY *= damping;
+      }
+      const easing = 1 - Math.exp(-5 * dt);
+      leanX += (hoverX - leanX) * easing;
+      leanY += (hoverY - leanY) * easing;
+    } else {
+      velocityX = velocityY = leanX = leanY = 0;
+    }
+    previous = now;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (width !== w || height !== h || ratio !== dpr) {
+      width = w; height = h; ratio = dpr;
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    ctx.clearRect(0, 0, w, h);
+    const radius = Math.min(w * 0.255, h * 0.35) * (1 + Math.sin(time * 0.7) * 0.025);
+    const cx = w / 2, cy = h / 2;
+    const glow = ctx.createRadialGradient(cx, cy, radius * 0.25, cx, cy, radius * 1.65);
+    glow.addColorStop(0, "rgba(62,132,245,0.13)");
+    glow.addColorStop(0.6, "rgba(62,132,245,0.065)");
+    glow.addColorStop(1, "rgba(62,132,245,0)");
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
+    // Bezier streams are an abstract visual metaphor, not research events.
+    const streams = compact() ? 4 : 8;
+    for (let i = 0; i < streams; i++) {
+      const angle = i * Math.PI * 2 / streams + 0.2 + Math.sin(time * 0.17 + i) * 0.035;
+      const sx = cx + Math.cos(angle) * w * 0.48;
+      const sy = cy + Math.sin(angle) * h * 0.44;
+      const ex = cx + Math.cos(angle + 0.5) * radius * 0.85;
+      const ey = cy + Math.sin(angle + 0.5) * radius * 0.85;
+      const mx = cx + Math.cos(angle - 0.35) * radius * 1.65;
+      const my = cy + Math.sin(angle - 0.35) * radius * 1.65;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(mx, my, ex, ey);
+      ctx.strokeStyle = "rgba(98,155,240,0.15)"; ctx.lineWidth = 0.75; ctx.stroke();
+      let t = (time * 0.12 + i / streams) % 1;
+      if (i % 3 === 0) t = 1 - t;
+      // A short fading trail gives each impulse direction without a bright flare.
+      for (let tail = 4; tail >= 0; tail--) {
+        const u = t + (i % 3 === 0 ? 1 : -1) * tail * 0.012;
+        if (u < 0 || u > 1) continue;
+        const x = (1-u)**2*sx + 2*(1-u)*u*mx + u*u*ex;
+        const y = (1-u)**2*sy + 2*(1-u)*u*my + u*u*ey;
+        ctx.beginPath(); ctx.arc(x, y, tail === 0 ? 1.55 : 0.9, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(145,193,255,${Math.sin(u*Math.PI)*0.8/(tail+1)})`; ctx.fill();
+      }
+    }
+    const rotation = yaw + leanX;
+    const tilt = pitch + leanY + Math.sin(time * 0.23) * 0.06;
+    const cos = Math.cos(rotation), sin = Math.sin(rotation);
+    const tiltCos = Math.cos(tilt), tiltSin = Math.sin(tilt);
+    const stride = compact() ? 3 : 1;
+    for (let i = 0; i < particles.length; i += stride) {
+      const p = particles[i];
+      const x = p.x*cos + p.z*sin, rotatedZ = p.z*cos - p.x*sin;
+      const y = p.y*tiltCos - rotatedZ*tiltSin;
+      const z = p.y*tiltSin + rotatedZ*tiltCos;
+      const depth = (z + 1) / 2;
+      const ripple = 1 + Math.sin(p.y*7 + time*1.1) * 0.018;
+      const scale = radius * p.layer * ripple * (0.86 + depth*0.18);
+      ctx.beginPath(); ctx.arc(cx+x*scale, cy+y*scale, 0.4+depth*1.15, 0, Math.PI*2);
+      const light = Math.max(0, -x * 0.3 - y * 0.35 + z * 0.55);
+      const pulse = 0.94 + Math.sin(p.y * 5 - time * 0.9) * 0.06;
+      ctx.fillStyle = `rgba(${Math.round(95+depth*75+light*25)},${Math.round(155+depth*55+light*15)},255,${(0.1+depth*0.7+light*0.12)*pulse})`;
+      ctx.fill();
+    }
+    if (!reduced) frame = requestAnimationFrame(draw);
+  }
+  function restart() {
+    if (disposed) return;
+    pointerEnd();
+    cancelAnimationFrame(frame); previous = 0;
+    frame = requestAnimationFrame(draw);
+  }
+  const resize = new ResizeObserver(restart);
+  resize.observe(canvas);
+  const removal = new MutationObserver(() => { if (!canvas.isConnected) dispose(); });
+  removal.observe(workspace, { childList: true });
+  motion.addEventListener("change", restart);
+  document.addEventListener("visibilitychange", restart);
+  window.addEventListener("resize", restart);
+  restart();
+  return dispose;
+}
+
+function syncBuildMenuActions(railActions) {
+  document.querySelectorAll(".build-menu-actions").forEach(section => section.remove());
+  const navigation = document.querySelector(".sidebar .primary-nav");
+  if (!navigation) return;
+  const isEn = getLanguage() === "en";
+  const section = element("section", "build-menu-actions");
+  section.setAttribute("aria-label", isEn ? "Build actions" : "Build əməliyyatları");
+  section.append(element("div", "sidebar-label", isEn ? "CURRENT BUILD" : "CARİ BUILD"));
+  for (const action of railActions.querySelectorAll("button")) {
+    const item = element("button", "nav-item");
+    item.type = "button";
+    const icon = action.querySelector("svg");
+    if (icon) {
+      const menuIcon = icon.cloneNode(true);
+      menuIcon.classList.add("nav-svg");
+      item.append(menuIcon);
+    }
+    item.append(element("span", "", action.querySelector("span")?.textContent || action.getAttribute("aria-label")));
+    item.addEventListener("click", () => {
+      // Delegate to the visible rail action so confirmation and execution stay shared.
+      if (!action.isConnected) return;
+      closeSidebar();
+      action.click();
+    });
+    section.append(item);
+  }
+  navigation.before(section);
+}
+
 function renderLoading() {
   const isEn = getLanguage() === "en";
   workspace.classList.add("workspace-centered");
   const isAssessment = state.status === "analyzing";
-  const phases = isAssessment
-    ? (isEn ? [
-      ["Structuring brief", "Synthesizing business goals, target market, and core constraints into a unified context."],
-      ["Auditing strategic gaps", "Evaluating if critical inputs or market details require clarification."],
-      ["Determining next step", "Deciding whether to build directly or request quick targeted clarification."],
-    ] : [
-      ["Brif strukturlaşdırılır", "Biznes məqsədini, bazarı və əsas məhdudiyyətləri vahid kontekstdə toplayıram."],
-      ["Kritik boşluqlar yoxlanılır", "Yalnız strategiyanın keyfiyyətini dəyişəcək məlumatların çatışıb-çatışmadığını yoxlayıram."],
-      ["Növbəti addım seçilir", "Mövcud məlumatla davam etmək və ya qısa dəqiqləşdirmə istəmək qərarı hazırlanır."],
-    ])
-    : (isEn ? [
-      ["Structuring brief", "Unifying audience, goals, timelines, and budget into an actionable framework."],
-      ["Setting strategic priorities", "Sequencing high-leverage decisions and critical growth dependencies."],
-      ["Architecting strategy", "Aligning value proposition, target segments, and channel mix."],
-      ["Building execution roadmap", "Transforming strategic goals into a phased 30-60-90 day milestone plan."],
-      ["Finalizing KPIs & mitigations", "Defining measurable success metrics, contingencies, and next steps."],
-    ] : [
-      ["Brif strukturlaşdırılır", "Auditoriya, məqsəd, vaxt və büdcə bir strateji çərçivədə birləşdirilir."],
-      ["Prioritetlər müəyyən edilir", "Ən yüksək təsir yaradacaq qərarlar və asılılıqlar sıralanır."],
-      ["Strategiya qurulur", "Mövqelənmə, kanallar və təklif vahid istiqamətdə əlaqələndirilir."],
-      ["İcra planı hazırlanır", "Strateji qərarlar ardıcıl və icra edilə bilən mərhələlərə çevrilir."],
-      ["Ölçü və risklər yoxlanılır", "KPI-lar, risklər və növbəti addımlar strategiya ilə uyğunlaşdırılır."],
-    ]);
-  let currentPhase = 0;
-  const view = element("section", `loading-view ${isAssessment ? "is-assessment" : "is-generation"}`);
-  view.setAttribute("aria-live", "polite");
+  const view = element("section", `loading-view intelligence-view ${isAssessment ? "is-assessment" : "is-generation"}`);
   const statusLine = element("div", "loading-status-line");
-  statusLine.append(
-    element("span", "loading-live-dot"),
-    element("span", "loading-eyebrow", isAssessment ? (isEn ? "BRIEF ANALYSIS" : "BRİF ANALİZİ") : (isEn ? "GENERATING STRATEGY" : "STRATEGİYA HAZIRLANIR")),
-  );
-  const title = element(
-    "h1",
-    "loading-title",
-    isAssessment ? (isEn ? "Analyzing your brief" : "Brifdən növbəti qərara") : (isEn ? "Building your execution roadmap" : "Brifdən icra planına"),
-  );
-  const intro = element(
-    "p",
-    "loading-intro",
-    isAssessment
-      ? (isEn ? "Synthesizing your input to tailor strategic recommendations." : "Məlumatları yoxlayıb ən doğru növbəti addımı müəyyənləşdiririk.")
-      : (isEn ? "Generating strategic priorities, channel mix, KPIs, and execution milestones." : "Helmer daxil etdiyin konteksti strukturlaşdırılmış strategiyaya çevirir."),
-  );
-
-  const activity = element("div", "loading-activity");
-  const activityTop = element("div", "loading-activity-top");
-  const activityLabel = element("span", "loading-activity-label", isEn ? "Currently" : "Hazırda");
-  const activityCount = element("span", "loading-activity-count", `01 / ${String(phases.length).padStart(2, "0")}`);
-  activityTop.append(activityLabel, activityCount);
-
-  const activityBody = element("div", "loading-activity-body");
-  const activityIcon = element("div", "loading-activity-icon");
-  activityIcon.setAttribute("aria-hidden", "true");
-  activityIcon.innerHTML = `
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-    </svg>
-  `;
-  const activityText = element("div", "loading-activity-text");
-  const activityTitleRow = element("div", "loading-activity-title-row");
-  const activityTitle = element("strong", "loading-activity-title", phases[0][0]);
-  const processingDots = element("span", "loading-processing-dots");
-  processingDots.innerHTML = `<span></span><span></span><span></span>`;
-  activityTitleRow.append(activityTitle, processingDots);
-  const copy = element("p", "loading-copy", phases[0][1]);
-  activityText.append(activityTitleRow, copy);
-  activityBody.append(activityIcon, activityText);
-  activity.append(activityTop, activityBody);
-
-  const timelineWrap = element("div", "loading-timeline-wrap");
-  const progress = element("ol", "generation-steps");
-  phases.forEach(([phase], index) => {
-    const step = element("li", index === 0 ? "is-current" : "is-upcoming");
-    const rail = element("div", "generation-step-rail");
-    const meta = element("div", "generation-step-meta");
-    const mark = element("span", "generation-step-mark", index === 0 ? "01" : String(index + 1).padStart(2, "0"));
-    const label = element("span", "generation-step-label", phase);
-    meta.append(mark, label);
-    step.append(rail, meta);
-    progress.appendChild(step);
+  statusLine.append(element("span", "loading-live-dot"), element("span", "loading-eyebrow", "BUILD / INTELLIGENCE"));
+  const heading = element("div", "intelligence-heading");
+  heading.setAttribute("aria-live", "polite");
+  const title = element("h1", "loading-title", isAssessment
+    ? (isEn ? "Understanding your ambition" : "İdeyanı anlamaqdan başlayırıq")
+    : (isEn ? "Your strategy is taking shape" : "Strategiyanız formalaşır"));
+  const intro = element("p", "loading-intro", isAssessment
+    ? (isEn ? "Your brief sets the direction. We’re evaluating the context and the next step." : "Brifiniz istiqaməti müəyyən edir. Konteksti və növbəti addımı qiymətləndiririk.")
+    : (isEn ? "Turning your brief into a structured strategy and an actionable plan." : "Brifinizi strukturlaşdırılmış strategiyaya və icra planına çeviririk."));
+  heading.append(title, intro);
+  const core = element("div", "intelligence-core");
+  core.setAttribute("aria-hidden", "true");
+  const canvas = element("canvas", "intelligence-canvas");
+  core.append(canvas);
+  const activity = element("div", "intelligence-status");
+  activity.setAttribute("role", "status");
+  activity.append(element("span", "intelligence-status-dot"), element("span", "", isAssessment
+    ? (isEn ? "Brief analysis in progress" : "Brif analizi davam edir")
+    : (isEn ? "Strategy generation in progress" : "Strategiya hazırlanır")));
+  const progress = element("ol", "intelligence-workflow");
+  const labels = isEn ? ["Brief analysis", "Strategy", "Ready"] : ["Brif analizi", "Strategiya", "Hazır"];
+  labels.forEach((label, index) => {
+    const current = isAssessment ? 0 : 1;
+    const step = element("li", index < current ? "is-complete" : index === current ? "is-current" : "is-upcoming");
+    if (index === current) step.setAttribute("aria-current", "step");
+    step.append(element("span", "intelligence-rail"), element("span", "", label));
+    progress.append(step);
   });
-  timelineWrap.appendChild(progress);
-
-  const reassurance = element("p", "loading-reassurance");
-  const sparkIcon = element("span", "loading-reassurance-icon", "✦");
-  const reassuranceText = element(
-    "span",
-    "",
-    isAssessment
-      ? (isEn ? "If any critical context is missing, we will ask only essential questions." : "Vacib detal çatışmasa, yalnız zəruri sualları verəcəyik.")
-      : (isEn ? "You will be redirected straight to your strategic workspace once ready." : "Məzmun hazır olduqda birbaşa strategiya iş sahəsinə keçəcəksən."),
-  );
-  reassurance.append(sparkIcon, reassuranceText);
-
-  // Desktop actions live outside the workspace so they remain accessible while
-  // the loading view is vertically centered. Mobile uses the card actions below.
-  const topActions = element("div", "loading-top-actions loading-desktop-actions");
+  // One shared action group for desktop and mobile; existing handlers own execution.
+  const topActions = element("div", "loading-top-actions build-rail-actions");
+  topActions.setAttribute("role", "group");
+  topActions.setAttribute("aria-label", isEn ? "Build actions" : "Build əməliyyatları");
   topActions.id = "loadingTopActions";
 
   if (!isAssessment) {
@@ -8148,89 +8486,22 @@ function renderLoading() {
     ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
   `;
   desktopHistoryBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
-  topActions.append(desktopCancelBtn, desktopHistoryBtn);
+  if (isAssessment) topActions.append(desktopCancelBtn, desktopHistoryBtn);
 
-  // Card Actions
-  const cardActions = element("div", "loading-card-actions");
-
-  if (!isAssessment) {
-    const bgBtn = element("button", "loading-back-btn-mobile");
-    bgBtn.type = "button";
-    bgBtn.setAttribute("aria-label", isEn ? "Continue in background" : "İşi arxa planda davam etdir");
-    bgBtn.title = isEn ? "Continue in background" : "İşi arxa planda davam etdir";
-    bgBtn.innerHTML = `
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-        <polyline points="15 3 21 3 21 9"></polyline>
-        <line x1="10" y1="14" x2="21" y2="3"></line>
-      </svg>
-      <span>${isEn ? "Continue in background" : "İşi arxa planda davam etdir"}</span>
-    `;
-    bgBtn.addEventListener("click", () => {
-      const confirmed = window.confirm(
-        isEn
-          ? "Your strategy is being generated in the background and will be automatically saved to your Archive. Return to Home?"
-          : "Əsas səhifəyə qayıdırsınız. Bu strategiyanın hazırlanmasını arxa planda davam etdirmək istəyirsiniz? Nəticə hazır olduqda Arxiv bölməsində saxlanılacaq."
-      );
-      if (confirmed) {
-        minimizeToBackground();
-      }
-    });
-    cardActions.appendChild(bgBtn);
-  }
-
-  const secondaryRow = element("div", "loading-card-actions-secondary");
-
-  const cancelBtn = element("button", "loading-cancel-btn-mobile");
-  cancelBtn.type = "button";
-  cancelBtn.innerHTML = `
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <rect x="9" y="9" width="6" height="6" fill="currentColor" rx="1"/>
-    </svg>
-    <span>${isEn ? "Stop" : "Dayandır"}</span>
-  `;
-  cancelBtn.addEventListener("click", () => {
-    const confirmed = window.confirm(isEn ? "Are you sure you want to stop the analysis?" : "Brif analizini dayandırmaq istədiyinizdən əminsiniz?");
-    if (confirmed) {
-      cancelCurrentAnalysis();
-    }
-  });
-
-  const historyBtn = element("button", "loading-history-btn-mobile");
-  historyBtn.type = "button";
-  historyBtn.innerHTML = `
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="9"/>
-      <polyline points="12 7 12 12 15 15"/>
-    </svg>
-    <span>${isEn ? "History" : "Tarixçə"}</span>
-    ${state.answers && state.answers.length > 0 ? `<span class="loading-history-badge">${state.answers.length}</span>` : ""}
-  `;
-  historyBtn.addEventListener("click", () => showAnalysisHistoryModal(isAssessment));
-
-  secondaryRow.append(cancelBtn, historyBtn);
-  cardActions.appendChild(secondaryRow);
-
-  view.append(statusLine, title, intro, createBuildEstimateCard(), activity, timelineWrap, reassurance, cardActions);
+  view.append(statusLine, heading, core, activity, progress, createBuildEstimateCard());
   workspace.appendChild(view);
   refreshBuildEstimateCards();
-  document.body.appendChild(topActions);
+  for (const action of topActions.querySelectorAll("button")) {
+    action.className = "rail-button build-rail-action";
+    action.dataset.tooltip = action.title;
+    action.querySelector("svg")?.setAttribute("aria-hidden", "true");
+  }
+  const railNav = document.querySelector(".navigation-rail .rail-nav");
+  (railNav || document.body).appendChild(topActions);
+  syncBuildMenuActions(topActions);
+  buildIntelligenceCleanup = animateBuildIntelligence(canvas);
+  startBuildCountdown();
 
-  progressTimer = setInterval(() => {
-    currentPhase = Math.min(currentPhase + 1, phases.length - 1);
-    activityTitle.textContent = phases[currentPhase][0];
-    copy.textContent = phases[currentPhase][1];
-    activityCount.textContent = `${String(currentPhase + 1).padStart(2, "0")} / ${String(phases.length).padStart(2, "0")}`;
-    [...progress.children].forEach((step, index) => {
-      step.className = index < currentPhase ? "is-complete" : index === currentPhase ? "is-current" : "is-upcoming";
-      const mark = step.querySelector(".generation-step-mark");
-      if (mark) {
-        mark.textContent = index < currentPhase ? "✓" : String(index + 1).padStart(2, "0");
-      }
-    });
-    if (currentPhase === phases.length - 1) clearInterval(progressTimer);
-  }, 1500);
 }
 
 function cancelCurrentAnalysis() {
@@ -8241,7 +8512,7 @@ function cancelCurrentAnalysis() {
     currentAbortController.abort();
     currentAbortController = null;
   }
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-modal-overlay").forEach((el) => el.remove());
+  document.querySelectorAll(".build-menu-actions, .loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-modal-overlay").forEach((el) => el.remove());
   state.status = "draft";
   showToast(isEn ? "Brief analysis canceled." : "Brif analizi dayandırıldı.", "default");
   render();
@@ -8284,7 +8555,7 @@ function minimizeToBackground() {
   // Reset state to home without aborting
   clearInterval(progressTimer);
   clearInterval(loadingAskPlaceholderTimer);
-  document.querySelectorAll(".loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay").forEach((el) => el.remove());
+  document.querySelectorAll(".build-menu-actions, .loading-top-actions, #loadingTopActions, .loading-history-button, #analysisHistoryBtn, .loading-ask-floating-wrap, #loadingAskFloatingWrap, .loading-ask-modal-overlay").forEach((el) => el.remove());
   Object.assign(state, {
     view: "home",
     status: "draft",
@@ -9167,11 +9438,11 @@ async function startGeneration() {
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done || isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) break;
+          if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) break;
 
-          rawBuffer += decoder.decode(value, { stream: true });
+          rawBuffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
           const lines = rawBuffer.split(/\r?\n/);
-          rawBuffer = lines.pop() || "";
+          rawBuffer = done ? "" : (lines.pop() || "");
 
           for (const line of lines) {
             if (isIdentityStale(epoch, expectedUserId) || controller.signal.aborted) break;
@@ -9212,6 +9483,16 @@ async function startGeneration() {
               if (pErr.code || (pErr.message && !pErr.message.includes("JSON"))) throw pErr;
             }
           }
+          if (done) break;
+        }
+        if (!isIdentityStale(epoch, expectedUserId) && !controller.signal.aborted && !finalStrategy) {
+          // A proxy can close an HTTP 200 stream before the terminal result.
+          // Do not start another model execution while the original may still hold its lease.
+          const interrupted = new Error(getLanguage() === "en"
+            ? "The connection ended before the strategy was ready. Please try again."
+            : "Strategiya hazır olmadan bağlantı kəsildi. Yenidən cəhd edin.");
+          interrupted.code = "BUILD_STREAM_INCOMPLETE";
+          throw interrupted;
         }
       } else {
         const data = await response.json();
@@ -11673,7 +11954,7 @@ function renderRecentList() {
       return;
     }
 
-    state.savedChats.forEach((chat) => {
+    state.savedChats.slice(0, 4).forEach((chat) => {
       const item = button("", "recent-item", () => openSavedChat(chat.id));
       item.classList.toggle("is-active", state.askChatId === chat.id);
 
@@ -11729,7 +12010,7 @@ function renderRecentList() {
     recentList.appendChild(item);
   });
 
-  state.savedStrategies.slice(0, 6).forEach((record) => {
+  state.savedStrategies.slice(0, Math.max(0, 4 - backgroundJobs.filter((j) => j.status === "generating").length)).forEach((record) => {
     const item = button("", "recent-item", () => openSavedStrategy(record.id));
     item.classList.toggle("is-active", state.savedId === record.id);
 
@@ -11743,6 +12024,11 @@ function renderRecentList() {
 
 function clearUserScopedWorkspaceState() {
   state.identityEpoch = (state.identityEpoch || 0) + 1;
+  closeSearchModal();
+  if (typeof stopBuildCountdown === "function") stopBuildCountdown();
+  if (typeof stopBuildIntelligence === "function") stopBuildIntelligence();
+  document.querySelectorAll(".build-menu-actions, .build-rail-actions").forEach(node => node.remove());
+  state.buildStartedAt = null;
   if (currentAbortController) {
     try { currentAbortController.abort(); } catch {}
     currentAbortController = null;
@@ -18165,7 +18451,15 @@ mobileNotifSheetOverlay?.addEventListener("click", (event) => {
 guideModalOverlay?.addEventListener("click", (event) => {
   if (event.target === guideModalOverlay) closeGuideModal();
 });
-buildModeButton?.addEventListener("click", () => setMode("build"));
+buildModeButton?.addEventListener("click", () => {
+  if (state.mode !== "build") setMode("build");
+  else openMobileModelSheet("build");
+});
+buildModeButton?.querySelector(".mobile-mode-chevron")?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  if (state.mode !== "build") setMode("build");
+  openMobileModelSheet("build");
+});
 askModeButton?.addEventListener("click", () => {
   if (state.mode !== "ask") {
     setMode("ask");
@@ -18249,6 +18543,7 @@ function handleKeyboardShortcut(event) {
       return;
     }
     const hadOverlay = Boolean(
+      sidebar.classList.contains("is-open") ||
       (mobileOverlay && !mobileOverlay.hidden) ||
       document.querySelector("#legalModalOverlay:not([hidden])") ||
       document.querySelector("#keyboardShortcutsOverlay:not([hidden])") ||
@@ -18516,3 +18811,37 @@ initializeAuthentication(async (user) => {
   setupRailArchiveHover();
   showV35ReleaseToast();
 });
+
+// The existing rail is the compact workspace navigation; never show two panels.
+sidebar.inert = !sidebar.classList.contains("is-open");
+function openRecentWorkArchive() {
+  if (state.mode === "ask") {
+    openSearchModal({ allChats: true });
+    return;
+  }
+  strategiesNav.click();
+}
+document.querySelector("#recentViewAll").addEventListener("click", openRecentWorkArchive);
+document.querySelector("#navigationHide").addEventListener("click", () => {
+  closeSidebar();
+  document.querySelector(".navigation-rail").inert = true;
+  document.querySelector("#appShell").classList.add("navigation-hidden");
+  document.querySelector("#navigationRestore").hidden = false;
+  document.querySelector("#navigationRestore").focus();
+});
+document.querySelector("#navigationRestore").addEventListener("click", () => {
+  document.querySelector(".navigation-rail").inert = false;
+  document.querySelector("#appShell").classList.remove("navigation-hidden");
+  document.querySelector("#navigationRestore").hidden = true;
+  railMenuButton.focus();
+});
+window.matchMedia("(max-width: 820px)").addEventListener("change", () => closeSidebar());
+sidebar.addEventListener("keydown", (event) => {
+  if (event.key !== "Tab" || !window.matchMedia("(max-width: 820px)").matches) return;
+  const controls = [...sidebar.querySelectorAll("button:not(:disabled), a[href]")].filter(node => node.getClientRects().length);
+  const first = controls[0], last = controls.at(-1);
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+});
+
+document.querySelector("#railWhatsNewButton").addEventListener("click", () => whatsNewNav.click());

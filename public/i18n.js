@@ -1077,7 +1077,7 @@ export const TRANSLATIONS = {
       searchPlaceholder: "Search...",
       newStrategy: "New Strategy",
       newChat: "New Chat",
-      recentWork: "Recent Strategies",
+      recentWork: "Recent Work",
       chatHistory: "Chat History",
       recentWorkEmptyTitle: "No strategies yet",
       recentWorkEmptySubtitle: "Your saved strategies and roadmaps will appear here.",

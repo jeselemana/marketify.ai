@@ -50,6 +50,7 @@
 <script src="/script.js?v=9.9" type="module"></script>
     <link rel="stylesheet" href="/theme.css?v=1.1" />
     <link rel="stylesheet" href="/planner.css?v=2.7" />
+  <link rel="stylesheet" href="/navigation.css?v=4.0" />
   </head>
   <body>
     <a class="skip-link" href="#workspace">Əsas hissəyə keç</a>
@@ -57,10 +58,12 @@
     <main class="auth-root" id="authRoot" aria-live="polite" hidden></main>
 
     <div class="app-shell" id="appShell">
+      <button class="navigation-restore" id="navigationRestore" type="button" aria-label="Naviqasiyanı göstər" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <nav class="navigation-rail" aria-label="Sürətli naviqasiya">
         <button class="rail-button rail-menu" id="railMenuButton" type="button" aria-label="Workspace menyusunu aç" aria-expanded="false" data-tooltip="Menyu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
         </button>
+        <button class="rail-button" id="navigationHide" type="button" aria-label="Naviqasiyanı gizlət" data-tooltip="Naviqasiyanı gizlət"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 7-5 5 5 5"/></svg></button>
         <div class="rail-nav">
           <button class="rail-button rail-mode-toggle" id="railModeToggleButton" type="button" aria-label="Ask rejiminə keç (İkiqat klik: Ask default et)" data-tooltip="Rejim: Build (Ask-a keç) • İkiqat klik: Ask default et">
             <span class="rail-toggle-track" aria-hidden="true">
@@ -95,6 +98,10 @@
               <path d="M19.967 17.484A4 4 0 0 1 18 18"/>
             </svg>
           </button>
+          <button class="rail-button" id="railWhatsNewButton" type="button" aria-label="Yeniliklər" data-tooltip="Yeniliklər"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+              <path d="M5 3v4M3 5h4M19 17v4M17 19h4"/>
+            </svg></button>
           <button class="rail-button" id="railInstallAppButton" type="button" aria-label="Tətbiqi yüklə" data-tooltip="Tətbiqi yüklə">
             <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -146,6 +153,7 @@
           </div>
         </div>
 
+        <div class="sidebar-content">
         <div class="sidebar-mode-switch" role="tablist" aria-label="İş rejimi">
           <button class="sidebar-mode-option is-active" id="sidebarBuildModeButton" type="button" role="tab" aria-selected="true">
             <span>Build</span>
@@ -233,9 +241,12 @@
             <span class="sidebar-label-text" id="sidebarLabelText">Son işlər</span>
             <svg class="recent-collapse-chevron" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
+          <button class="recent-view-all" id="recentViewAll" type="button">Hamısına bax ↗</button>
           <div class="recent-list" id="recentList">
             <div class="recent-empty"><strong>Strategiyalar burada görünəcək.</strong><span>Yadda saxladığın işlər bu bölmədə qalır.</span></div>
           </div>
+        </div>
+
         </div>
 
         <button class="sidebar-footer" id="accountButton" type="button">
@@ -276,7 +287,10 @@
               <span aria-hidden="true">☰</span>
             </button>
             <div class="mobile-mode-switch" id="mobileModeSwitch" role="tablist" aria-label="İş rejimi">
-              <button class="mobile-mode-option is-active" id="buildModeButton" type="button" role="tab" aria-selected="true">Build</button>
+              <button class="mobile-mode-option is-active" id="buildModeButton" type="button" role="tab" aria-selected="true">
+                <span class="mobile-mode-text">Build</span>
+                <svg class="mobile-mode-chevron" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
               <button class="mobile-mode-option" id="askModeButton" type="button" role="tab" aria-selected="false">
                 <span class="mobile-mode-text">Ask</span>
                 <svg class="mobile-mode-chevron" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
